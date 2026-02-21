@@ -172,6 +172,7 @@ List<CardModel> getValidJokerOptions({
   final List<CardModel> validOptions = [];
   final targetRank = discardTop.effectiveRank;
   final targetSuit = discardTop.effectiveSuit;
+  final isTurnStart = state.actionsThisTurn == 0;
 
   for (final suit in Suit.values) {
     for (final rank in Rank.values) {
@@ -180,20 +181,6 @@ List<CardModel> getValidJokerOptions({
       
       bool isValidMatch = false;
 
-      // 1. Same rank, different suit (already filtered exact dupe)
-      if (rank == targetRank) {
-        isValidMatch = true;
-      }
-      
-      // 2. Adjacent rank, same suit
-      if (suit == targetSuit) {
-        final diff = (rank.numericValue - targetRank.numericValue).abs();
-        final isAceTwo = (rank == Rank.two && targetRank == Rank.ace) || (rank == Rank.ace && targetRank == Rank.two);
-        if (diff == 1 || isAceTwo) {
-           isValidMatch = true;
-        }
-      }
-      
       // 3. Penalty Rules
       if (state.activePenaltyCount > 0) {
          // During an active penalty, standard adjacent/rank matching doesn't apply.
@@ -205,8 +192,25 @@ List<CardModel> getValidJokerOptions({
          
          isValidMatch = isTwo || isBlackJack || isRedJack;
       } else {
-         // If there is NO active penalty, we only keep the validMatch we already calculated 
-         // (same rank or adjacent same suit).
+         if (isTurnStart) {
+           // 1. TURN-START (first play after opponent ends):
+           // Joker can mimic any card of the same suit OR any card of the same rank.
+           if (suit == targetSuit || rank == targetRank) {
+             isValidMatch = true;
+           }
+         } else {
+           // 2. MID-TURN CONTINUANCE:
+           // Joker can mimic adjacent rank of same suit OR same rank.
+           if (rank == targetRank) {
+             isValidMatch = true;
+           } else if (suit == targetSuit) {
+             final diff = (rank.numericValue - targetRank.numericValue).abs();
+             final isAceTwo = (rank == Rank.two && targetRank == Rank.ace) || (rank == Rank.ace && targetRank == Rank.two);
+             if (diff == 1 || isAceTwo) {
+                isValidMatch = true;
+             }
+           }
+         }
       }
       
       if (isValidMatch) {
