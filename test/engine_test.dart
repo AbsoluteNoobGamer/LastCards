@@ -620,6 +620,42 @@ void main() {
       expect(labels, containsAll(['J♦', 'J♥', 'J♠', '2♥', '2♦', '2♠', '2♣']));
     });
 
+    test('jokerExecution_normalDiscard', () {
+      // Scenario 1: Played card is not a pick up card (e.g., 10♣)
+      final state = buildState(discardTop: c(Rank.ten, Suit.clubs));
+      
+      // I have a joker, select 9♣ (valid option)
+      final joker = c(Rank.joker, Suit.spades).copyWith(
+        jokerDeclaredRank: Rank.nine,
+        jokerDeclaredSuit: Suit.clubs,
+      );
+
+      final newState = applyPlay(state: state, playerId: 'p1', cards: [joker]);
+
+      expect(newState.discardTopCard!.effectiveRank, Rank.nine);
+      expect(newState.discardTopCard!.effectiveSuit, Suit.clubs);
+      expect(newState.activePenaltyCount, 0, reason: 'No penalty should apply');
+    });
+
+    test('jokerExecution_penaltyStacking', () {
+      // Scenario 2: Current played card is a pick up card (e.g., J♣)
+      var state = buildState(discardTop: c(Rank.jack, Suit.clubs)).copyWith(
+        activePenaltyCount: 5,
+      );
+
+      // I have a joker, select J♠ (another pickup card)
+      final joker = c(Rank.joker, Suit.hearts).copyWith(
+        jokerDeclaredRank: Rank.jack,
+        jokerDeclaredSuit: Suit.spades,
+      );
+
+      final newState = applyPlay(state: state, playerId: 'p1', cards: [joker]);
+
+      expect(newState.discardTopCard!.effectiveRank, Rank.jack);
+      expect(newState.discardTopCard!.effectiveSuit, Suit.spades);
+      expect(newState.activePenaltyCount, 10, reason: 'Black Jack should stack +5 penalty, making it 10');
+    });
+
     test('penaltyResolutionOrder', () {
       // Draw penalties -> Skips -> Direction -> Suit lock. Apply effects natively handles.
       expect(true, isTrue); 

@@ -107,9 +107,9 @@ class CardModel with _$CardModel {
 extension CardModelX on CardModel {
   bool get isJoker => rank == Rank.joker;
   bool get isBlackJack =>
-      rank == Rank.jack && (suit == Suit.spades || suit == Suit.clubs);
+      effectiveRank == Rank.jack && (effectiveSuit == Suit.spades || effectiveSuit == Suit.clubs);
   bool get isRedJack =>
-      rank == Rank.jack && (suit == Suit.hearts || suit == Suit.diamonds);
+      effectiveRank == Rank.jack && (effectiveSuit == Suit.hearts || effectiveSuit == Suit.diamonds);
   bool get isSpecial => switch (rank) {
         Rank.two ||
         Rank.jack ||
