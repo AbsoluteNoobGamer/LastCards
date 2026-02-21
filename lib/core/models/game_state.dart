@@ -49,6 +49,11 @@ class GameState with _$GameState {
     /// Resets to 0 whenever the active player changes.
     /// Used to enforce that a player must play or draw before ending their turn.
     @Default(0) int actionsThisTurn,
+
+    /// The last card played by the current player this turn (as a single play).
+    /// Used to enforce rank-adjacency between consecutive individual plays within
+    /// the same turn (Numerical Flow Rule). Reset to null when the turn advances.
+    CardModel? lastPlayedThisTurn,
   }) = _GameState;
 
   factory GameState.fromJson(Map<String, dynamic> json) =>

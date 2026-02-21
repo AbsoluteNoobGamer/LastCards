@@ -183,6 +183,7 @@ void main() {
     });
 
     test('gappedSequenceInvalid', () {
+      // 6♣ → 8♣ skips 7♣ — a gap of 2 is not a valid consecutive sequence.
       final state = buildState(discardTop: c(Rank.five, Suit.clubs));
       final err = validatePlay(
         cards: [c(Rank.six, Suit.clubs), c(Rank.eight, Suit.clubs)],
@@ -190,6 +191,72 @@ void main() {
         state: state
       );
       expect(err, isNotNull);
+    });
+
+    test('largeSuitGapMultiCardRejected', () {
+      // Regression: user reported being able to play 3♥ followed by 9♥ in one go,
+      // which violates the Numerical Flow Rule (sequences must be strictly consecutive).
+      // Playing [3♥, 9♥] together as a multi-card play must be rejected because
+      // the ranks are not consecutive (gap of 6 between 3 and 9).
+      final state = buildState(discardTop: c(Rank.two, Suit.hearts));
+      final err = validatePlay(
+        cards: [c(Rank.three, Suit.hearts), c(Rank.nine, Suit.hearts)],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNotNull,
+          reason: '3♥→9♥ is not a consecutive sequence — must be rejected');
+    });
+
+    test('sameSuitSeparateTurnsValid', () {
+      // Clarification: the sequential-order rule applies to MULTI-CARD plays within a
+      // single turn. On SEPARATE turns, only the basic matching rule applies:
+      // any card of the same suit (regardless of numeric distance) is a valid play.
+      // So 3♥ on turn 1, then 9♥ on turn 2 is LEGAL — each turn the suit matches.
+      final state = buildState(discardTop: c(Rank.three, Suit.hearts));
+      final err = validatePlay(
+        cards: [c(Rank.nine, Suit.hearts)],  // single-card, new turn
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNull,
+          reason: 'Same suit on a separate turn is always legal — no rank-adjacency constraint between turns');
+    });
+
+    test('sameTurnGapRejected', () {
+      // Regression: user reported being able to play 3♣ then 6♣ as two individual
+      // plays on the same turn. This violates the Numerical Flow Rule — within a
+      // single turn, each subsequent single-card play must be rank-adjacent (±1)
+      // to the previous card played this turn.
+      var state = buildState(discardTop: c(Rank.two, Suit.clubs));
+      // First play: 3♣ — valid (suit match on fresh turn).
+      state = applyPlay(state: state, playerId: 'p1', cards: [c(Rank.three, Suit.clubs)]);
+      expect(state.actionsThisTurn, 1);
+      expect(state.lastPlayedThisTurn?.rank, Rank.three);
+
+      // Second play: 6♣ — invalid (gap of 3, not adjacent to 3♣).
+      final err = validatePlay(
+        cards: [c(Rank.six, Suit.clubs)],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNotNull,
+          reason: '6♣ after 3♣ on the same turn should be rejected — not consecutive');
+    });
+
+    test('sameTurnConsecutiveAllowed', () {
+      // After playing 3♣, the next single-card play of 4♣ must be valid
+      // since 4 is adjacent (+1) to 3 and the suit matches.
+      var state = buildState(discardTop: c(Rank.two, Suit.clubs));
+      state = applyPlay(state: state, playerId: 'p1', cards: [c(Rank.three, Suit.clubs)]);
+
+      final err = validatePlay(
+        cards: [c(Rank.four, Suit.clubs)],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNull,
+          reason: '4♣ after 3♣ on the same turn is valid — consecutive same-suit');
     });
 
     test('sequenceToValueChain', () {
@@ -248,6 +315,26 @@ void main() {
     test('cannotCoverQueenDraws', () {
       // Concept: if you don't have the suit, you must draw. Verified via AI logic which draws if no valid play.
       expect(true, isTrue); 
+    });
+
+    test('queenCoverBypassesAdjacentRule', () {
+      // Regression: when a Queen is played, the queenSuitLock is active.
+      // The same-turn adjacency rule (±1 rank) must NOT apply during a Queen cover —
+      // any card of the locked suit is valid regardless of rank distance.
+      // e.g. Q♦ played → covering with 7♦ must be allowed even though 7 is not adjacent to Q(12).
+      var state = buildState(discardTop: c(Rank.three, Suit.diamonds));
+      state = applyPlay(state: state, playerId: 'p1', cards: [c(Rank.queen, Suit.diamonds)]);
+      expect(state.queenSuitLock, Suit.diamonds, reason: 'Queen lock active');
+      expect(state.actionsThisTurn, 1, reason: 'actionsThisTurn is 1 after Queen play');
+
+      // 7♦ is not adjacent to Q(12) — but queen lock is active, so adjacency rule must be bypassed.
+      final err = validatePlay(
+        cards: [c(Rank.seven, Suit.diamonds)],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNull,
+          reason: '7♦ must be a valid Queen cover — adjacency rule does not apply under queenSuitLock');
     });
 
     test('queenCoverResumesNormal', () {
@@ -325,6 +412,32 @@ void main() {
       
       state = applyPlay(state: state, playerId: 'p1', cards: [bj]);
       expect(state.activePenaltyCount, 7);
+    });
+
+    test('blackJackCanStackOnTwoChain_validation', () {
+      // Scenario: player plays 2♥ (pick up 2). activePenaltyCount = 2.
+      // Player then holds J♠ (Black Jack = pick up 5).
+      // Per guidelines: "Black Jack may be stacked onto an active 2-chain."
+      // Therefore validatePlay([J♠]) must return null (legal play).
+      //
+      // THIS TEST IS EXPECTED TO FAIL — the engine currently blocks Black Jacks
+      // during an active penalty because the penalty branch only allows 2s or Red Jacks.
+      var state = buildState(discardTop: c(Rank.three, Suit.hearts));
+      state = applyPlay(state: state, playerId: 'p1', cards: [c(Rank.two, Suit.hearts)]);
+      expect(state.activePenaltyCount, 2, reason: '2♥ sets penalty to 2');
+
+      final blackJack = c(Rank.jack, Suit.spades);
+      expect(blackJack.isBlackJack, isTrue);
+
+      final err = validatePlay(
+        cards: [blackJack],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+
+      // This expect will FAIL with the current engine — it returns an error instead of null.
+      expect(err, isNull,
+          reason: 'Black Jack must be allowed to stack onto an active 2-chain (guidelines: "Can also stack onto an active 2-chain")');
     });
 
     test('redJackCancelsAll', () {

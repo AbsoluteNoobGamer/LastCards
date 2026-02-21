@@ -13,6 +13,11 @@ import 'player_model.dart';
 ///   • Numerical sequence: all cards same suit, strictly consecutive
 ///     ascending OR descending by numericValue.
 ///
+/// Same-turn sequential rule:
+///   • If a card has already been played this turn (actionsThisTurn > 0),
+///     a single-card follow-up must be rank-adjacent (±1) to the last played
+///     card AND share the same suit (Numerical Flow continuation).
+///
 /// The leading card (lowest for ascending, highest for descending) must satisfy
 /// the normal suit/rank match against the discard top.
 String? validatePlay({
@@ -27,27 +32,34 @@ String? validatePlay({
 
   // ── Penalty Override Rule ──────────────────────────────────────────────
   if (state.activePenaltyCount > 0) {
-    // If there's an active penalty, you can ONLY play cards that interact with it.
-    // 1. You can play a 2 (to stack the penalty further). 2s must still match suit/rank 
-    //    unless it's the exact same rank (2 on 2). Since 2 is on top, any 2 matches the rank 2.
-    // 2. You can play a Red Jack to cancel it entirely. Red Jack ignores suit/rank.
-    
-    // For multi-card plays during a penalty, all cards must be 2s, or all must be Red Jacks 
-    // (though a single Red Jack is enough).
+    // When a penalty is active, only specific cards may be played:
+    // 1. A 2 — stacks the penalty further (+2).
+    // 2. A Black Jack (♠/♣) — stacks onto an active 2-chain (+5). Per guidelines:
+    //    "Black Jack may be stacked onto an active 2-chain."
+    // 3. A Red Jack (♥/♦) — cancels the entire penalty (resets to 0).
     final allTwos = cards.every((c) => c.effectiveRank == Rank.two);
+    final allBlackJacks = cards.every((c) => c.isBlackJack);
     final allRedJacks = cards.every((c) => c.effectiveRank == Rank.jack && !c.isBlackJack);
 
-    if (!allTwos && !allRedJacks) {
-      return 'Active penalty! You must play a 2 to stack, or a Red Jack to cancel.';
+    if (!allTwos && !allBlackJacks && !allRedJacks) {
+      return 'Active penalty! You must play a 2 or Black Jack to stack, or a Red Jack to cancel.';
     }
 
     if (allRedJacks) {
-      // Red Jack is a special override, always valid against a penalty regardless of top card.
+      // Red Jack cancels — always valid regardless of top card.
       return null;
     }
-    
-    // If all 2s, we still fall through to ensure the first 2 is valid on the discard,
-    // which it naturally will be if the top card is a 2.
+
+    if (allBlackJacks) {
+      // Black Jack stacks onto 2-chain — always valid regardless of top card.
+      return null;
+    }
+
+    if (allTwos) {
+      // Any 2 is valid during an active penalty — it stacks regardless of the
+      // top card's suit or rank (the penalty chain supersedes normal matching).
+      return null;
+    }
   }
 
   final ranks = cards.map((c) => c.effectiveRank).toSet();
@@ -78,6 +90,41 @@ String? validatePlay({
 
     // Leading card (lowest value) validates against the discard.
     return _validateSingle(sorted.first, discardTop, state);
+  }
+
+  // ── Same-turn sequential adjacency (Numerical Flow Rule) ──────────────
+  // If the player has already played a card this turn, a single follow-up card
+  // must be rank-adjacent (±1) to the last card played this turn AND share the
+  // same suit. Special cards (Ace, Joker) bypass this via early returns above.
+  // Exception: when queenSuitLock is active (covering a Queen) or when an
+  // active penalty is in play, this rule does not apply — those states have
+  // their own distinct validation rules that already ran above.
+  if (state.actionsThisTurn > 0 &&
+      state.lastPlayedThisTurn != null &&
+      state.queenSuitLock == null &&
+      state.activePenaltyCount == 0) {
+    final prev = state.lastPlayedThisTurn!;
+    final next = cards.first;
+    // Only enforce adjacency for non-special cards continuing a same-suit flow.
+    final isSpecialOverride = next.effectiveRank == Rank.ace ||
+        next.effectiveRank == Rank.queen ||
+        next.isJoker;
+    if (!isSpecialOverride) {
+      final sameSuit = next.effectiveSuit == prev.effectiveSuit;
+      final rankDiff = (next.effectiveRank.numericValue -
+              prev.effectiveRank.numericValue)
+          .abs();
+      // Valid follow-ups after a card has been played this turn:
+      //   1. Same-suit, adjacent rank (±1): continuing the numerical sequence.
+      //   2. Same-rank, any suit (value chain): e.g. sequence ends at 5♠ → 5♥.
+      final isConsecutiveSameSuit = sameSuit && rankDiff == 1;
+      final isValueChain = next.effectiveRank == prev.effectiveRank;
+      if (!isConsecutiveSameSuit && !isValueChain) {
+        return 'After playing ${prev.shortLabel}, the next card must be '
+            'the ${prev.effectiveSuit.displayName} ranked one above or below '
+            '(${prev.effectiveRank.displayLabel}), or match its value.';
+      }
+    }
   }
 
   // All cards same rank — validate the first against the discard.
@@ -153,8 +200,12 @@ GameState applyPlay({
     gs = _applySpecialEffect(gs, card, declaredSuit: declaredSuit);
   }
 
-  // Count this as a valid action for the current player.
-  gs = gs.copyWith(actionsThisTurn: gs.actionsThisTurn + 1);
+  // Count this as a valid action for the current player, and record the last
+  // card played this turn for same-turn sequential adjacency enforcement.
+  gs = gs.copyWith(
+    actionsThisTurn: gs.actionsThisTurn + 1,
+    lastPlayedThisTurn: cards.last,
+  );
 
   return gs;
 }
@@ -293,7 +344,7 @@ String nextPlayerId({
       );
       final next = nextPlayerId(state: newState);
       return (
-        state: newState.copyWith(currentPlayerId: next, actionsThisTurn: 0),
+        state: newState.copyWith(currentPlayerId: next, actionsThisTurn: 0, lastPlayedThisTurn: null),
         description: '$aiName draws $count (penalty)',
       );
     }
@@ -375,7 +426,7 @@ String nextPlayerId({
     final skipTurn = bestCard.effectiveRank == Rank.eight;
     final next = nextPlayerId(state: afterPlay, skipExtra: skipTurn);
     return (
-      state: afterPlay.copyWith(currentPlayerId: next, actionsThisTurn: 0),
+      state: afterPlay.copyWith(currentPlayerId: next, actionsThisTurn: 0, lastPlayedThisTurn: null),
       description: descriptions.join('\n'),
     );
   }
@@ -389,7 +440,7 @@ String nextPlayerId({
   );
   final next = nextPlayerId(state: afterDraw);
   return (
-    state: afterDraw.copyWith(currentPlayerId: next, actionsThisTurn: 0),
+    state: afterDraw.copyWith(currentPlayerId: next, actionsThisTurn: 0, lastPlayedThisTurn: null),
     description: '$aiName draws a card',
   );
 }

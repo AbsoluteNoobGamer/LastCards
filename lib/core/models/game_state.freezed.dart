@@ -55,6 +55,11 @@ mixin _$GameState {
   /// Used to enforce that a player must play or draw before ending their turn.
   int get actionsThisTurn => throw _privateConstructorUsedError;
 
+  /// The last card played by the current player this turn (as a single play).
+  /// Used to enforce rank-adjacency between consecutive individual plays within
+  /// the same turn (Numerical Flow Rule). Reset to null when the turn advances.
+  CardModel? get lastPlayedThisTurn => throw _privateConstructorUsedError;
+
   /// Serializes this GameState to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
 
@@ -84,10 +89,12 @@ abstract class $GameStateCopyWith<$Res> {
       Suit? queenSuitLock,
       String? winnerId,
       int lastUpdatedAt,
-      int actionsThisTurn});
+      int actionsThisTurn,
+      CardModel? lastPlayedThisTurn});
 
   $CardModelCopyWith<$Res>? get discardTopCard;
   $CardModelCopyWith<$Res>? get discardSecondCard;
+  $CardModelCopyWith<$Res>? get lastPlayedThisTurn;
 }
 
 /// @nodoc
@@ -119,6 +126,7 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
     Object? winnerId = freezed,
     Object? lastUpdatedAt = null,
     Object? actionsThisTurn = null,
+    Object? lastPlayedThisTurn = freezed,
   }) {
     return _then(_value.copyWith(
       sessionId: null == sessionId
@@ -177,6 +185,10 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
           ? _value.actionsThisTurn
           : actionsThisTurn // ignore: cast_nullable_to_non_nullable
               as int,
+      lastPlayedThisTurn: freezed == lastPlayedThisTurn
+          ? _value.lastPlayedThisTurn
+          : lastPlayedThisTurn // ignore: cast_nullable_to_non_nullable
+              as CardModel?,
     ) as $Val);
   }
 
@@ -207,6 +219,20 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
       return _then(_value.copyWith(discardSecondCard: value) as $Val);
     });
   }
+
+  /// Create a copy of GameState
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $CardModelCopyWith<$Res>? get lastPlayedThisTurn {
+    if (_value.lastPlayedThisTurn == null) {
+      return null;
+    }
+
+    return $CardModelCopyWith<$Res>(_value.lastPlayedThisTurn!, (value) {
+      return _then(_value.copyWith(lastPlayedThisTurn: value) as $Val);
+    });
+  }
 }
 
 /// @nodoc
@@ -231,12 +257,15 @@ abstract class _$$GameStateImplCopyWith<$Res>
       Suit? queenSuitLock,
       String? winnerId,
       int lastUpdatedAt,
-      int actionsThisTurn});
+      int actionsThisTurn,
+      CardModel? lastPlayedThisTurn});
 
   @override
   $CardModelCopyWith<$Res>? get discardTopCard;
   @override
   $CardModelCopyWith<$Res>? get discardSecondCard;
+  @override
+  $CardModelCopyWith<$Res>? get lastPlayedThisTurn;
 }
 
 /// @nodoc
@@ -266,6 +295,7 @@ class __$$GameStateImplCopyWithImpl<$Res>
     Object? winnerId = freezed,
     Object? lastUpdatedAt = null,
     Object? actionsThisTurn = null,
+    Object? lastPlayedThisTurn = freezed,
   }) {
     return _then(_$GameStateImpl(
       sessionId: null == sessionId
@@ -324,6 +354,10 @@ class __$$GameStateImplCopyWithImpl<$Res>
           ? _value.actionsThisTurn
           : actionsThisTurn // ignore: cast_nullable_to_non_nullable
               as int,
+      lastPlayedThisTurn: freezed == lastPlayedThisTurn
+          ? _value.lastPlayedThisTurn
+          : lastPlayedThisTurn // ignore: cast_nullable_to_non_nullable
+              as CardModel?,
     ));
   }
 }
@@ -345,7 +379,8 @@ class _$GameStateImpl implements _GameState {
       this.queenSuitLock,
       this.winnerId,
       this.lastUpdatedAt = 0,
-      this.actionsThisTurn = 0})
+      this.actionsThisTurn = 0,
+      this.lastPlayedThisTurn})
       : _players = players;
 
   factory _$GameStateImpl.fromJson(Map<String, dynamic> json) =>
@@ -410,9 +445,15 @@ class _$GameStateImpl implements _GameState {
   @JsonKey()
   final int actionsThisTurn;
 
+  /// The last card played by the current player this turn (as a single play).
+  /// Used to enforce rank-adjacency between consecutive individual plays within
+  /// the same turn (Numerical Flow Rule). Reset to null when the turn advances.
+  @override
+  final CardModel? lastPlayedThisTurn;
+
   @override
   String toString() {
-    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardSecondCard: $discardSecondCard, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, suitLock: $suitLock, queenSuitLock: $queenSuitLock, winnerId: $winnerId, lastUpdatedAt: $lastUpdatedAt, actionsThisTurn: $actionsThisTurn)';
+    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardSecondCard: $discardSecondCard, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, suitLock: $suitLock, queenSuitLock: $queenSuitLock, winnerId: $winnerId, lastUpdatedAt: $lastUpdatedAt, actionsThisTurn: $actionsThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn)';
   }
 
   @override
@@ -445,7 +486,9 @@ class _$GameStateImpl implements _GameState {
             (identical(other.lastUpdatedAt, lastUpdatedAt) ||
                 other.lastUpdatedAt == lastUpdatedAt) &&
             (identical(other.actionsThisTurn, actionsThisTurn) ||
-                other.actionsThisTurn == actionsThisTurn));
+                other.actionsThisTurn == actionsThisTurn) &&
+            (identical(other.lastPlayedThisTurn, lastPlayedThisTurn) ||
+                other.lastPlayedThisTurn == lastPlayedThisTurn));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -465,7 +508,8 @@ class _$GameStateImpl implements _GameState {
       queenSuitLock,
       winnerId,
       lastUpdatedAt,
-      actionsThisTurn);
+      actionsThisTurn,
+      lastPlayedThisTurn);
 
   /// Create a copy of GameState
   /// with the given fields replaced by the non-null parameter values.
@@ -498,7 +542,8 @@ abstract class _GameState implements GameState {
       final Suit? queenSuitLock,
       final String? winnerId,
       final int lastUpdatedAt,
-      final int actionsThisTurn}) = _$GameStateImpl;
+      final int actionsThisTurn,
+      final CardModel? lastPlayedThisTurn}) = _$GameStateImpl;
 
   factory _GameState.fromJson(Map<String, dynamic> json) =
       _$GameStateImpl.fromJson;
@@ -551,6 +596,12 @@ abstract class _GameState implements GameState {
   /// Used to enforce that a player must play or draw before ending their turn.
   @override
   int get actionsThisTurn;
+
+  /// The last card played by the current player this turn (as a single play).
+  /// Used to enforce rank-adjacency between consecutive individual plays within
+  /// the same turn (Numerical Flow Rule). Reset to null when the turn advances.
+  @override
+  CardModel? get lastPlayedThisTurn;
 
   /// Create a copy of GameState
   /// with the given fields replaced by the non-null parameter values.

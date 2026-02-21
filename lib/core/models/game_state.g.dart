@@ -29,6 +29,10 @@ _$GameStateImpl _$$GameStateImplFromJson(Map<String, dynamic> json) =>
       winnerId: json['winnerId'] as String?,
       lastUpdatedAt: (json['lastUpdatedAt'] as num?)?.toInt() ?? 0,
       actionsThisTurn: (json['actionsThisTurn'] as num?)?.toInt() ?? 0,
+      lastPlayedThisTurn: json['lastPlayedThisTurn'] == null
+          ? null
+          : CardModel.fromJson(
+              json['lastPlayedThisTurn'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$$GameStateImplToJson(_$GameStateImpl instance) =>
@@ -47,6 +51,7 @@ Map<String, dynamic> _$$GameStateImplToJson(_$GameStateImpl instance) =>
       'winnerId': instance.winnerId,
       'lastUpdatedAt': instance.lastUpdatedAt,
       'actionsThisTurn': instance.actionsThisTurn,
+      'lastPlayedThisTurn': instance.lastPlayedThisTurn,
     };
 
 const _$GamePhaseEnumMap = {
