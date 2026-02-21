@@ -275,7 +275,7 @@ void main() {
     test('wraparoundSequenceInvalid', () {
       final state = buildState(discardTop: c(Rank.king, Suit.spades));
       final err = validatePlay(
-        cards: [c(Rank.ace, Suit.spades), c(Rank.two, Suit.spades)],
+        cards: [c(Rank.king, Suit.spades), c(Rank.ace, Suit.spades), c(Rank.two, Suit.spades)],
         discardTop: state.discardTopCard!,
         state: state
       );
@@ -468,10 +468,106 @@ void main() {
       expect(next, equals('p1')); // With 1 player it wraps strictly back to them. But tested properly in multi-player setup.
     });
 
-    test('aceSuitChange', () {
+    test('kingSkipTwoPlayerRule', () {
+      var state = buildState(discardTop: c(Rank.five, Suit.spades));
+      
+      // Add a second player
+      final p2 = PlayerModel(
+        id: 'p2',
+        displayName: 'P2',
+        tablePosition: TablePosition.top,
+        hand: [],
+        cardCount: 0,
+        isConnected: true,
+        isActiveTurn: false,
+        isSkipped: false,
+      );
+      state = state.copyWith(players: [...state.players, p2]);
+
+      // Play a King
+      state = applyPlay(state: state, playerId: 'p1', cards: [c(Rank.king, Suit.spades)]);
+      
+      // The direction should be reversed
+      expect(state.direction, PlayDirection.counterClockwise);
+      
+      // Because it's a 2-player game, nextPlayerId should return 'p1' (acts as skip)
+      final next = nextPlayerId(state: state);
+      expect(next, 'p1');
+    });
+
+    test('aceWildFirstCard', () {
       var state = buildState(discardTop: c(Rank.three, Suit.clubs));
       state = applyPlay(state: state, playerId: 'p1', cards: [c(Rank.ace, Suit.hearts)], declaredSuit: Suit.diamonds);
-      expect(state.suitLock, Suit.diamonds);
+      expect(state.suitLock, Suit.diamonds, reason: 'First card Ace sets suit lock');
+    });
+
+    test('aceMidSequenceNotWild', () {
+      var state = buildState(discardTop: c(Rank.three, Suit.hearts));
+      // playing sequence 4♥ -> 3♥ -> 2♥ -> A♥
+      state = applyPlay(state: state, playerId: 'p1', cards: [
+        c(Rank.four, Suit.hearts),
+        c(Rank.three, Suit.hearts),
+        c(Rank.two, Suit.hearts),
+        c(Rank.ace, Suit.hearts)
+      ], declaredSuit: Suit.diamonds);
+      expect(state.suitLock, isNull, reason: 'Mid-sequence Ace cannot declare a suit');
+    });
+
+    test('aceInvalidMidTurnWild', () {
+      var state = buildState(discardTop: c(Rank.five, Suit.spades));
+      // First play: 2♠ (valid)
+      state = applyPlay(state: state, playerId: 'p1', cards: [c(Rank.two, Suit.spades)]);
+      expect(state.actionsThisTurn, 1);
+      
+      // Second play: A♥ (Invalid because not rank-adjacent to 2♠ and not matching suit)
+      final err = validatePlay(cards: [c(Rank.ace, Suit.hearts)], discardTop: state.discardTopCard!, state: state);
+      expect(err, isNotNull, reason: 'Mid-turn Ace is not wild, must follow adjacency');
+    });
+
+    test('sequenceCancelsPenalty_midTurn', () {
+      var state = buildState(discardTop: c(Rank.three, Suit.hearts));
+      // play 3♥ -> 2♥ -> A♥ sequence
+      state = applyPlay(state: state, playerId: 'p1', cards: [
+        c(Rank.three, Suit.hearts),
+        c(Rank.two, Suit.hearts),
+        c(Rank.ace, Suit.hearts)
+      ]);
+      expect(state.activePenaltyCount, 0, reason: 'Sequence finishing on non-penalty card cancels penalty');
+    });
+
+    test('sequenceCancelsPenalty_jackToTen', () {
+      var state = buildState(discardTop: c(Rank.queen, Suit.spades));
+      // play Black Jack -> 10♠ sequence
+      state = applyPlay(state: state, playerId: 'p1', cards: [
+        c(Rank.jack, Suit.spades), // +5 penalty
+        c(Rank.ten, Suit.spades)
+      ]);
+      expect(state.activePenaltyCount, 0, reason: 'Sequence continuation cancels Black Jack penalty');
+    });
+
+    test('sequenceCancelsPenalty_valueChainToNumericalFlow', () {
+      // User scenario: Discard 3♥. Player plays 3♠ -> 3♦ -> 2♦ -> A♦ individually in same turn.
+      var state = buildState(discardTop: c(Rank.three, Suit.hearts));
+      
+      // Play 1: 3♠ (value chain)
+      state = applyPlay(state: state, playerId: 'p1', cards: [c(Rank.three, Suit.spades)]);
+      expect(state.actionsThisTurn, 1);
+      
+      // Play 2: 3♦ (value chain)
+      state = applyPlay(state: state, playerId: 'p1', cards: [c(Rank.three, Suit.diamonds)]);
+      expect(state.actionsThisTurn, 2);
+      
+      // Play 3: 2♦ (numerical sequence extension, adds penalty)
+      state = applyPlay(state: state, playerId: 'p1', cards: [c(Rank.two, Suit.diamonds)]);
+      expect(state.actionsThisTurn, 3);
+      expect(state.activePenaltyCount, 2);
+      
+      // Play 4: A♦ (numerical sequence extension, should cancel penalty)
+      final err = validatePlay(cards: [c(Rank.ace, Suit.diamonds)], discardTop: state.discardTopCard!, state: state);
+      expect(err, isNull, reason: 'Should allow A♦ to be played to continue sequence and cancel penalty');
+      
+      state = applyPlay(state: state, playerId: 'p1', cards: [c(Rank.ace, Suit.diamonds)]);
+      expect(state.activePenaltyCount, 0);
     });
 
     test('queenSuitLockSelfCover', () {

@@ -159,6 +159,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       _demoState = _demoState.copyWith(
         currentPlayerId: nextId,
         actionsThisTurn: 0,
+        lastPlayedThisTurn: null,
       );
     });
 
@@ -284,7 +285,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   // ── Demo: play cards ───────────────────────────────────────────────
 
-  void _demoPlayCards(String playerId) {
+  Future<void> _demoPlayCards(String playerId) async {
     if (_selectedCardIds.isEmpty || _aiThinking) return;
     if (_demoState.currentPlayerId != playerId) return;
 
@@ -302,6 +303,52 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (err != null) {
       _showError(err);
       setState(() => _selectedCardIds.clear());
+      return;
+    }
+
+    // Only ask for a suit if the Ace is acting as a wild card.
+    // An Ace is a wild card ONLY if it's the very first card played this turn.
+    final isWildAce = _demoState.actionsThisTurn == 0 && played.first.effectiveRank == Rank.ace;
+    if (isWildAce && mounted) {
+      final chosenSuit = await showModalBottomSheet<Suit>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (_) => const _AceSuitPickerSheet(),
+      );
+      if (!mounted) return;
+      // If dismissed without picking, cancel the play.
+      if (chosenSuit == null) {
+        setState(() => _selectedCardIds.clear());
+        return;
+      }
+
+      // Apply play with the declared suit.
+      var newState = applyPlay(
+        state: _demoState,
+        playerId: playerId,
+        cards: played,
+        declaredSuit: chosenSuit,
+      );
+
+      final label = played.map((c) => c.shortLabel).join(' + ');
+      _addLog('You played $label');
+      _addLog('  ↳ Suit changed to ${chosenSuit.displayName}!');
+
+      _totalDiscarded += played.length;
+      _discardPile.addAll(played);
+
+      setState(() {
+        _demoState = newState;
+        _selectedCardIds.clear();
+      });
+
+      _reshuffleIfNeeded();
+      if (_checkWin(playerId, newState)) return;
+
+      // Wild Aces always end the turn immediately
+      _addLog('  ↳ Wild Ace played! Turn ends.');
+      _endTurn();
+      
       return;
     }
 
@@ -335,7 +382,18 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _reshuffleIfNeeded();
     if (_checkWin(playerId, newState)) return;
     
-    // We DO NOT auto-advance the human player anymore.
+    // Auto-advance if this play guarantees we get another turn immediately and 
+    // there are no unresolved obligations (like covering a Queen).
+    // This happens when playing a Skip (8) or a King in a 2-player game.
+    final nextId = nextPlayerId(
+      state: newState, 
+      skipExtra: played.any((c) => c.effectiveRank == Rank.eight)
+    );
+    
+    if (nextId == playerId && newState.queenSuitLock == null) {
+      _addLog('  ↳ Extra turn granted!');
+      _endTurn();
+    }
   }
 
   // ── Demo: draw card ────────────────────────────────────────────────
@@ -504,7 +562,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         Rank.jack  => c.isBlackJack ? '  ↳ Player 2 draws 5!' : '  ↳ Penalty cancelled!',
         Rank.king  => '  ↳ Direction reversed!',
         Rank.queen => '  ↳ Suit locked: ${c.effectiveSuit.displayName}',
-        Rank.ace   => '  ↳ Suit change declared',
+        Rank.ace   => '  ↳ Suit changed to ${c.effectiveSuit.displayName}!',
         Rank.eight => '  ↳ Player 2 is skipped!',
         _          => null,
       };
@@ -1269,3 +1327,161 @@ class _WinDialog extends StatelessWidget {
   }
 }
 
+// ── Ace suit picker ─────────────────────────────────────────────────────────
+
+/// Bottom sheet that lets the player choose which suit to lock after playing an Ace.
+class _AceSuitPickerSheet extends StatelessWidget {
+  const _AceSuitPickerSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F2016),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.goldDark.withValues(alpha: 0.6),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.6),
+            blurRadius: 24,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle bar
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: AppColors.goldDark.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // Ace icon + title
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('A', style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+                color: AppColors.goldPrimary,
+              )),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Ace Played!',
+                    style: TextStyle(
+                      color: AppColors.goldPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  Text(
+                    'Choose the new active suit',
+                    style: TextStyle(
+                      color: AppColors.goldDark.withValues(alpha: 0.75),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // Suit buttons
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _SuitPickButton(
+                symbol: '♠', label: 'Spades', suit: Suit.spades, isRed: false),
+              _SuitPickButton(
+                symbol: '♣', label: 'Clubs', suit: Suit.clubs, isRed: false),
+              _SuitPickButton(
+                symbol: '♥', label: 'Hearts', suit: Suit.hearts, isRed: true),
+              _SuitPickButton(
+                symbol: '♦', label: 'Diamonds', suit: Suit.diamonds, isRed: true),
+            ],
+          ),
+
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _SuitPickButton extends StatelessWidget {
+  const _SuitPickButton({
+    required this.symbol,
+    required this.label,
+    required this.suit,
+    required this.isRed,
+  });
+
+  final String symbol;
+  final String label;
+  final Suit suit;
+  final bool isRed;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isRed ? AppColors.suitRed : AppColors.suitBlack;
+    final borderColor = isRed
+        ? AppColors.suitRed.withValues(alpha: 0.6)
+        : AppColors.goldDark.withValues(alpha: 0.5);
+
+    return GestureDetector(
+      onTap: () => Navigator.of(context).pop(suit),
+      child: Container(
+        width: 68,
+        height: 84,
+        decoration: BoxDecoration(
+          color: AppColors.cardFace,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderColor, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.15),
+              blurRadius: 8,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              symbol,
+              style: TextStyle(fontSize: 32, color: color),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w700,
+                color: color.withValues(alpha: 0.85),
+                letterSpacing: 0.3,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
