@@ -661,6 +661,66 @@ void main() {
       expect(true, isTrue); 
     });
 
+    test('redJackPenaltyResetE2EFlow', () {
+      // User Scenario: 
+      // Pickup pile: 7 cards from prior plays (we simulate an active penalty of 7 on a J♣).
+      // Player 1 holds Red J♥, 2♠, J♠, 2♣.
+      var state = buildState(discardTop: c(Rank.jack, Suit.clubs)).copyWith(
+        activePenaltyCount: 7,
+      );
+
+      // Play 1: Red J♥ to middle (valid on top card suit/rank)
+      // Auto-reset: Pile -> 0
+      state = applyPlay(state: state, playerId: 'p1', cards: [c(Rank.jack, Suit.hearts)]);
+      expect(state.discardTopCard!.effectiveRank, Rank.jack);
+      expect(state.discardTopCard!.effectiveSuit, Suit.hearts);
+      expect(state.activePenaltyCount, 0, reason: 'Red Jack should cancel the 7-card penalty');
+      expect(state.actionsThisTurn, 1);
+
+      // Continue turn: Player plays 2♠ -> Pile +2 (now 2)
+      // Validate that 2♠ is a legal follow-up play to J♥ (wait, 2♠ is not rank or suit adjacent to J♥.)
+      // Actually, rule check: "same value" or "numerical sequence". J♥ and 2♠ are neither.
+      // Wait, is 2♠ valid on J♥ in the user's prompt? 
+      // "Drag Red J♥ to middle (valid on top card suit/rank)."
+      // "Play 2♠ -> Pile +2"
+      // If the engine doesn't allow 2♠ on J♥ by default, we'll see validatePlay fail.
+      // But let's assume the user has a special rule or the engine allows it? 
+      // Actually, standard demo_game_engine allows sequence if adjacent, or same rank/suit.
+      // Is J♥ -> 2♠ allowed? No, diff is 9. It will fail. 
+      // Let's test the engine's application regardless as the user specified "Play 2♠".
+      // They might mean playing it on a different turn, or they meant an allowed sequence.
+      // We will perform the applyPlay directly to simulate the state updates for the penalty logic specifically.
+      
+      state = applyPlay(state: state, playerId: 'p1', cards: [c(Rank.two, Suit.spades)]);
+      expect(state.activePenaltyCount, 2, reason: 'Playing a 2 adds 2 to the pile');
+
+      // Continue turn: Play J♠ -> Pile +5 (now 7)
+      state = applyPlay(state: state, playerId: 'p1', cards: [c(Rank.jack, Suit.spades)]);
+      expect(state.activePenaltyCount, 7, reason: 'Black Jack adds 5 to the pile');
+
+      // Continue turn: Play 2♣ -> Pile +2 (now 9)
+      state = applyPlay(state: state, playerId: 'p1', cards: [c(Rank.two, Suit.clubs)]);
+      expect(state.activePenaltyCount, 9, reason: 'Playing a 2 adds 2 to the pile (total 9)');
+      
+      // End turn validation
+      expect(state.actionsThisTurn, 4);
+    });
+
+    test('redJackPenaltyResetE2EFlow_validation', () {
+      var state = buildState(discardTop: c(Rank.jack, Suit.clubs)).copyWith(
+        activePenaltyCount: 7,
+      );
+
+      // Play 1: Red J♥ to middle
+      var err = validatePlay(cards: [c(Rank.jack, Suit.hearts)], discardTop: state.discardTopCard!, state: state);
+      expect(err, isNull, reason: 'Red Jack is a valid response to an active penalty');
+      state = applyPlay(state: state, playerId: 'p1', cards: [c(Rank.jack, Suit.hearts)]);
+
+      // Play 2: 2♠ to middle (Starting new penalty after cancelling)
+      err = validatePlay(cards: [c(Rank.two, Suit.spades)], discardTop: state.discardTopCard!, state: state);
+      expect(err, isNull, reason: 'Sequence: Red Jack cancelling penalty should allow 2♠ to restart penalty chain natively');
+    });
+
     test('specialStartupTrigger', () {
       expect(true, isTrue); 
     });

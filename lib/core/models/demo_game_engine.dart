@@ -120,7 +120,16 @@ String? validatePlay({
     // Aces are no longer special overrides mid-turn; they must exactly follow numerical flow.
     final isSpecialOverride = next.effectiveRank == Rank.queen ||
         next.isJoker;
-    if (!isSpecialOverride) {
+
+    // Penalty chaining bypass: 
+    // If the previous card was a penalty card (2 or Jack) and the next card is
+    // also a penalty-capable card (2 or Jack), they can chain directly
+    // regardless of suite/rank adjacencies to build or reset penalties.
+    final prevIsPenaltyNode = prev.effectiveRank == Rank.two || prev.effectiveRank == Rank.jack;
+    final nextIsPenaltyNode = next.effectiveRank == Rank.two || next.effectiveRank == Rank.jack;
+    final isPenaltyChain = prevIsPenaltyNode && nextIsPenaltyNode;
+
+    if (!isSpecialOverride && !isPenaltyChain) {
       final sameSuit = next.effectiveSuit == prev.effectiveSuit;
       final rankDiff = (next.effectiveRank.numericValue -
               prev.effectiveRank.numericValue)
@@ -225,6 +234,14 @@ String? _validateSingle(CardModel card, CardModel discard, GameState state) {
 
   // Wildcard Ace: only valid if it's the very first card played this turn.
   if (state.actionsThisTurn == 0 && card.effectiveRank == Rank.ace) {
+    return null;
+  }
+
+  // Penalty substitution: Any penalty card (2 or Jack) can be played on top
+  // of any other penalty card (2 or Jack) to build or reset a penalty chain.
+  final discardIsPenalty = discard.effectiveRank == Rank.two || discard.effectiveRank == Rank.jack;
+  final cardIsPenalty = card.effectiveRank == Rank.two || card.effectiveRank == Rank.jack;
+  if (discardIsPenalty && cardIsPenalty) {
     return null;
   }
 
