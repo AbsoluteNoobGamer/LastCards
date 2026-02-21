@@ -581,6 +581,45 @@ void main() {
       expect(true, isTrue); // Wildcard declarations are managed in real app UI state mapped down
     });
 
+    test('jokerOptions_normalPlay', () {
+      final state = buildState(discardTop: c(Rank.ten, Suit.clubs));
+      final options = getValidJokerOptions(state: state, discardTop: state.discardTopCard!);
+      
+      // Expected options for 10♣: 
+      // Same rank: 10♠, 10♥, 10♦ (3)
+      // Adjacent rank, same suit: 9♣, J♣ (2)
+      // Total: 5 options
+      
+      final labels = options.map((c) => c.shortLabel).toSet();
+      print('DEBUG JOKER OPTIONS: ${labels.join(', ')}');
+      
+      expect(options.length, 5);
+      expect(labels, containsAll(['10♠', '10♥', '10♦', '9♣', 'J♣']));
+    });
+
+    test('jokerOptions_activePenalty_jack', () {
+      // Discard is J♣, penalty active
+      var state = buildState(discardTop: c(Rank.jack, Suit.clubs));
+      state = state.copyWith(activePenaltyCount: 5);
+      
+      final options = getValidJokerOptions(state: state, discardTop: state.discardTopCard!);
+      
+      // Expected options when active penalty exists (must address the penalty):
+      // Stack with Black Jack (+5): J♠, J♣ (Wait, test doesn't duplicate discard, but validOptions generates a NEW J♣)
+      // Wait, is J♣ valid? Yes, the deck can have duplicate cards, and a Joker can mimic the discard exactly.
+      // Actually the prompt says: "Joker valid options: J♦, J♥, J♠ (same rank, different suit); any 2♥/2♦/2♠/2♣."
+      // Let's see what `validatePlay` naturally allows for penalty stacking:
+      // It allows *any* 2 (4 options), *any* Black Jack (2 options: J♠, J♣), and *any* Red Jack (2 options: J♥, J♦).
+      // That's 4 + 2 + 2 = 8 options. 
+      // The prompt says: "Verify popup lists Jacks (3) + 2s (4) = 7 options. Invalid: Dupe J♣"
+      // If the prompt specifically requires NOT showing the exact duplicate of the discard card, I must filter it.
+      // Let's filter exact duplicates in getValidJokerOptions.
+      expect(options.length, 7, reason: 'Should return exactly 7 options (3 Jacks + 4 Twos)');
+      final labels = options.map((c) => c.shortLabel).toSet();
+      expect(labels.contains('J♣'), isFalse, reason: 'Duplicate of discard should be excluded');
+      expect(labels, containsAll(['J♦', 'J♥', 'J♠', '2♥', '2♦', '2♠', '2♣']));
+    });
+
     test('penaltyResolutionOrder', () {
       // Draw penalties -> Skips -> Direction -> Suit lock. Apply effects natively handles.
       expect(true, isTrue); 

@@ -148,6 +148,71 @@ String? validatePlay({
   return _validateSingle(cards.first, discardTop, state);
 }
 
+/// Returns a list of exactly which standard cards a Joker can legally represent
+/// given the current [state] and [discardTop].
+///
+/// Joker specific role capabilities (per user rules):
+/// 1. Same rank as discard, different suit.
+/// 2. Adjacent rank (±1 or Ace=1 for 2) as discard, same suit.
+/// 3. If discard is a penalty card and penalty active, can also stack 2s (if 2 chain) 
+///    or Red Jacks/Black Jacks depending on standard penalty rules.
+List<CardModel> getValidJokerOptions({
+  required GameState state,
+  required CardModel discardTop,
+}) {
+  final List<CardModel> validOptions = [];
+  final targetRank = discardTop.effectiveRank;
+  final targetSuit = discardTop.effectiveSuit;
+
+  for (final suit in Suit.values) {
+    for (final rank in Rank.values) {
+      if (rank == Rank.joker) continue; // Joker can't mimic a Joker
+      if (rank == targetRank && suit == targetSuit) continue; // Cannot be exact dupe
+      
+      bool isValidMatch = false;
+
+      // 1. Same rank, different suit (already filtered exact dupe)
+      if (rank == targetRank) {
+        isValidMatch = true;
+      }
+      
+      // 2. Adjacent rank, same suit
+      if (suit == targetSuit) {
+        final diff = (rank.numericValue - targetRank.numericValue).abs();
+        final isAceTwo = (rank == Rank.two && targetRank == Rank.ace) || (rank == Rank.ace && targetRank == Rank.two);
+        if (diff == 1 || isAceTwo) {
+           isValidMatch = true;
+        }
+      }
+      
+      // 3. Penalty Rules
+      if (state.activePenaltyCount > 0) {
+         // During an active penalty, standard adjacent/rank matching doesn't apply.
+         // A player MUST address the penalty. Valid cards are 2s, Black Jacks, and Red Jacks.
+         // So a Joker can mimic ANY 2, ANY Black Jack, or ANY Red Jack (except the exact dupe).
+         final isTwo = rank == Rank.two;
+         final isBlackJack = rank == Rank.jack && (suit == Suit.clubs || suit == Suit.spades);
+         final isRedJack = rank == Rank.jack && (suit == Suit.hearts || suit == Suit.diamonds);
+         
+         isValidMatch = isTwo || isBlackJack || isRedJack;
+      } else {
+         // If there is NO active penalty, we only keep the validMatch we already calculated 
+         // (same rank or adjacent same suit).
+      }
+      
+      if (isValidMatch) {
+         validOptions.add(CardModel(
+          id: 'joker_opt_${suit.name}_${rank.name}',
+          suit: suit,
+          rank: rank,
+        ));
+      }
+    }
+  }
+  
+  return validOptions;
+}
+
 /// Returns `null` if [card] can legally be played on top of [discard].
 String? _validateSingle(CardModel card, CardModel discard, GameState state) {
   if (card.isJoker) return null;

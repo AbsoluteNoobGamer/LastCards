@@ -19,6 +19,7 @@ import '../widgets/draw_pile_widget.dart';
 import '../widgets/hud_overlay_widget.dart';
 import '../widgets/player_hand_widget.dart';
 import '../widgets/player_zone_widget.dart';
+import '../widgets/card_widget.dart';
 
 /// The main game table screen.
 ///
@@ -349,6 +350,64 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       _addLog('  ↳ Wild Ace played! Turn ends.');
       _endTurn();
       
+      return;
+    }
+
+    // Intercept Joker plays
+    if (played.length == 1 && played.first.isJoker && mounted) {
+      final validOptions = getValidJokerOptions(
+        state: _demoState,
+        discardTop: _demoState.discardTopCard!,
+      );
+
+      if (validOptions.isEmpty) {
+        _showError('No valid moves available for the Joker right now.');
+        setState(() => _selectedCardIds.clear());
+        return;
+      }
+
+      final chosenCard = await showModalBottomSheet<CardModel>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (_) => _JokerSelectionSheet(options: validOptions),
+      );
+
+      if (!mounted) return;
+      if (chosenCard == null) {
+        setState(() => _selectedCardIds.clear());
+        return;
+      }
+
+      final identityStr = chosenCard.shortLabel;
+      
+      // Override the Joker's identity locally before passing to engine
+      // (The engine doesn't currently accept `jokerDeclaredSuit` and a rank natively 
+      // through `applyPlay` parameters like it does for Ace's `declaredSuit`, 
+      // so we modify the CardModel copy here to emulate the UI choice).
+      final assignedJoker = played.first.copyWith(
+        jokerDeclaredRank: chosenCard.rank,
+        jokerDeclaredSuit: chosenCard.suit,
+      );
+
+      var newState = applyPlay(state: _demoState, playerId: playerId, cards: [assignedJoker]);
+
+      _addLog('You played a Joker (chosen as $identityStr)');
+      _noteSpecialEffect([assignedJoker]);
+
+      _totalDiscarded += 1;
+      _discardPile.add(assignedJoker);
+
+      setState(() {
+        _demoState = newState;
+        _selectedCardIds.clear();
+      });
+
+      _reshuffleIfNeeded();
+      if (_checkWin(playerId, newState)) return;
+
+      _addLog('  ↳ Joker played! Turn ends.');
+      _endTurn();
       return;
     }
 
@@ -1481,6 +1540,107 @@ class _SuitPickButton extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Joker specific role picker ───────────────────────────────────────────────
+
+/// Bottom sheet that lets the player choose exactly which card the Joker will represent.
+class _JokerSelectionSheet extends StatelessWidget {
+  const _JokerSelectionSheet({required this.options});
+  
+  final List<CardModel> options;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F2016),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.goldDark.withValues(alpha: 0.6),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.6),
+            blurRadius: 24,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: AppColors.goldDark.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('🃏', style: TextStyle(
+                fontSize: 28,
+              )),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Joker Played!',
+                    style: TextStyle(
+                      color: AppColors.goldPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  Text(
+                    'Choose the exact card the Joker will become',
+                    style: TextStyle(
+                      color: AppColors.goldDark.withValues(alpha: 0.75),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // Build a wrapping grid of PlayingCard visuals
+          Wrap(
+            spacing: 12,
+            runSpacing: 16,
+            alignment: WrapAlignment.center,
+            children: options.map((card) {
+              return GestureDetector(
+                onTap: () => Navigator.of(context).pop(card),
+                child: SizedBox(
+                   width: 50,
+                   // Wrap PlayingCard in a container to add a slight border on hover/tap
+                   child: CardWidget(
+                     card: card,
+                     isSelected: false, 
+                   ),
+                ),
+              );
+            }).toList(),
+          ),
+
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }
