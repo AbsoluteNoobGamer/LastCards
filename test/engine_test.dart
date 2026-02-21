@@ -581,20 +581,56 @@ void main() {
       expect(true, isTrue); // Wildcard declarations are managed in real app UI state mapped down
     });
 
-    test('jokerOptions_normalPlay', () {
-      final state = buildState(discardTop: c(Rank.ten, Suit.clubs));
+    test('jokerOptions_turnStart_generalized_jack', () {
+      final state = buildState(discardTop: c(Rank.jack, Suit.diamonds));
       final options = getValidJokerOptions(state: state, discardTop: state.discardTopCard!);
       
-      // Expected options for 10♣: 
-      // Same rank: 10♠, 10♥, 10♦ (3)
-      // Adjacent rank, same suit: 9♣, J♣ (2)
+      final labels = options.map((c) => c.shortLabel).toSet();
+      expect(options.length, 15);
+      expect(labels.contains('J♦'), isFalse, reason: 'Duplicate is excluded');
+    });
+
+    test('jokerOptions_midTurn_generalized_jack', () {
+      var state = buildState(discardTop: c(Rank.jack, Suit.diamonds));
+      state = state.copyWith(actionsThisTurn: 1); // Simulate playing a card already
+      
+      final options = getValidJokerOptions(state: state, discardTop: state.discardTopCard!);
+      
+      final labels = options.map((c) => c.shortLabel).toSet();
+      expect(options.length, 5);
+      expect(labels, containsAll(['10♦', 'Q♦', 'J♠', 'J♥', 'J♣']));
+    });
+
+    test('jokerOptions_turnStart_generalized_eight', () {
+      final state = buildState(discardTop: c(Rank.eight, Suit.clubs));
+      final options = getValidJokerOptions(state: state, discardTop: state.discardTopCard!);
+      
+      // Expected options for 8♣ at TURN START:
+      // Same suit: all ♣ except 8♣ (12)
+      // Same rank: 8♠, 8♥, 8♦ (3)
+      // Total: 15 options
+      
+      final labels = options.map((c) => c.shortLabel).toSet();
+      expect(options.length, 15);
+      expect(labels.contains('8♣'), isFalse, reason: 'Duplicate is excluded');
+      expect(labels, containsAll(['A♣', '2♣', '7♣', '9♣', 'K♣']));
+      expect(labels, containsAll(['8♠', '8♥', '8♦']));
+    });
+
+    test('jokerOptions_midTurn_generalized_eight', () {
+      var state = buildState(discardTop: c(Rank.eight, Suit.clubs));
+      state = state.copyWith(actionsThisTurn: 1); // Simulate playing a card already
+      
+      final options = getValidJokerOptions(state: state, discardTop: state.discardTopCard!);
+      
+      // Expected options for 8♣ MID-TURN: 
+      // Same rank: 8♠, 8♥, 8♦ (3)
+      // Adjacent rank, same suit: 7♣, 9♣ (2)
       // Total: 5 options
       
       final labels = options.map((c) => c.shortLabel).toSet();
-      print('DEBUG JOKER OPTIONS: ${labels.join(', ')}');
-      
       expect(options.length, 5);
-      expect(labels, containsAll(['10♠', '10♥', '10♦', '9♣', 'J♣']));
+      expect(labels, containsAll(['7♣', '9♣', '8♠', '8♥', '8♦']));
     });
 
     test('jokerOptions_activePenalty_jack', () {
