@@ -406,8 +406,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       _reshuffleIfNeeded();
       if (_checkWin(playerId, newState)) return;
 
-      _addLog('  ↳ Joker played! Turn ends.');
-      _endTurn();
+      // Allow the player to continue their turn (stack more cards if they want).
       return;
     }
 
