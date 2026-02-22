@@ -31,8 +31,8 @@ class _StatusBarWidgetState extends State<StatusBarWidget> {
     final bool isCw = widget.direction == PlayDirection.clockwise;
     final String dirIcon = isCw ? '↻' : '↺';
     final String dirText = isCw ? 'Clockwise' : 'Counter-Clockwise';
-    final String orderPreview = widget.upcomingPlayerNames.isNotEmpty 
-        ? ' (${widget.upcomingPlayerNames.join('→')})' 
+    final String orderPreview = widget.upcomingPlayerNames.isNotEmpty
+        ? ' (${widget.upcomingPlayerNames.join('→')})'
         : '';
 
     final bool isTimerLow = widget.secondsLeft <= 5;
@@ -40,10 +40,13 @@ class _StatusBarWidgetState extends State<StatusBarWidget> {
     return Container(
       // 15% screen height roughly translates to dynamic height, but fixed is safer for status bar
       constraints: const BoxConstraints(minHeight: 70, maxHeight: 90),
-      padding: const EdgeInsets.symmetric(horizontal: AppDimensions.lg, vertical: AppDimensions.sm),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppDimensions.lg, vertical: AppDimensions.sm),
       decoration: BoxDecoration(
         color: AppColors.surfacePanel.withValues(alpha: 0.95),
-        border: Border(bottom: BorderSide(color: AppColors.goldDark.withValues(alpha: 0.6), width: 2)),
+        border: Border(
+            bottom: BorderSide(
+                color: AppColors.goldDark.withValues(alpha: 0.6), width: 2)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.6),
@@ -106,9 +109,9 @@ class _StatusBarWidgetState extends State<StatusBarWidget> {
                     color: isTimerLow ? AppColors.redSoft : AppColors.goldLight,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    shadows: isTimerLow ? [
-                      Shadow(color: AppColors.redSoft, blurRadius: 8)
-                    ] : null,
+                    shadows: isTimerLow
+                        ? [Shadow(color: AppColors.redSoft, blurRadius: 8)]
+                        : null,
                   ),
                 ),
                 const SizedBox(width: AppDimensions.md),
@@ -118,31 +121,40 @@ class _StatusBarWidgetState extends State<StatusBarWidget> {
                   child: Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: widget.canEndTurn 
-                          ? [AppColors.goldLight, AppColors.goldDark]
-                          : [AppColors.surfacePanel, AppColors.surfacePanel],
+                        colors: widget.canEndTurn
+                            ? [AppColors.goldLight, AppColors.goldDark]
+                            : [AppColors.surfacePanel, AppColors.surfacePanel],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                       ),
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusButton),
-                      boxShadow: widget.canEndTurn ? [
-                        BoxShadow(
-                          color: AppColors.goldPrimary.withValues(alpha: 0.4),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        )
-                      ] : null,
+                      borderRadius:
+                          BorderRadius.circular(AppDimensions.radiusButton),
+                      boxShadow: widget.canEndTurn
+                          ? [
+                              BoxShadow(
+                                color: AppColors.goldPrimary
+                                    .withValues(alpha: 0.4),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              )
+                            ]
+                          : null,
                     ),
                     child: ElevatedButton(
                       onPressed: widget.canEndTurn ? widget.onEndTurn : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
                         shadowColor: Colors.transparent,
-                        foregroundColor: widget.canEndTurn ? AppColors.feltDeep : AppColors.textSecondary,
+                        foregroundColor: widget.canEndTurn
+                            ? AppColors.feltDeep
+                            : AppColors.textSecondary,
                         disabledForegroundColor: AppColors.textSecondary,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 12),
                       ),
-                      child: const Text('End Turn', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                      child: const Text('End Turn',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w900, fontSize: 16)),
                     ),
                   ),
                 ),

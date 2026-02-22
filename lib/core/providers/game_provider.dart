@@ -8,7 +8,6 @@ import '../models/game_state.dart';
 import '../network/game_event_handler.dart';
 import 'connection_provider.dart';
 
-
 // ── Game State Notifier ───────────────────────────────────────────────────────
 
 class GameNotifier extends StateNotifier<GameState?> {
@@ -69,9 +68,8 @@ class GameNotifier extends StateNotifier<GameState?> {
   void playCards(List<String> cardIds, {String? declaredSuit}) {
     _eventHandler.sendPlayCards(PlayCardsAction(
       cardIds: cardIds,
-      declaredSuit: declaredSuit != null
-          ? Suit.values.byName(declaredSuit)
-          : null,
+      declaredSuit:
+          declaredSuit != null ? Suit.values.byName(declaredSuit) : null,
     ));
   }
 

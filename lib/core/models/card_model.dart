@@ -107,9 +107,11 @@ class CardModel with _$CardModel {
 extension CardModelX on CardModel {
   bool get isJoker => rank == Rank.joker;
   bool get isBlackJack =>
-      effectiveRank == Rank.jack && (effectiveSuit == Suit.spades || effectiveSuit == Suit.clubs);
+      effectiveRank == Rank.jack &&
+      (effectiveSuit == Suit.spades || effectiveSuit == Suit.clubs);
   bool get isRedJack =>
-      effectiveRank == Rank.jack && (effectiveSuit == Suit.hearts || effectiveSuit == Suit.diamonds);
+      effectiveRank == Rank.jack &&
+      (effectiveSuit == Suit.hearts || effectiveSuit == Suit.diamonds);
   bool get isSpecial => switch (rank) {
         Rank.two ||
         Rank.jack ||
@@ -129,8 +131,7 @@ extension CardModelX on CardModel {
   Rank get effectiveRank => isJoker ? (jokerDeclaredRank ?? rank) : rank;
 
   /// Card face color from the design spec.
-  Color get suitColor =>
-      suit.isRed ? AppColors.suitRed : AppColors.suitBlack;
+  Color get suitColor => suit.isRed ? AppColors.suitRed : AppColors.suitBlack;
 
   String get shortLabel => '${rank.displayLabel}${suit.symbol}';
 }

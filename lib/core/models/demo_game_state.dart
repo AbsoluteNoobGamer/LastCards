@@ -15,13 +15,24 @@ import '../models/player_model.dart';
 /// no turns.
 abstract final class DemoGameState {
   static const localId = 'player-local';
-  static const aiId    = 'player-2';
+  static const aiId = 'player-2';
 
   // ── Full 54-card deck builder ────────────────────────────────────────────────
 
   static const _ranks = [
-    Rank.two, Rank.three, Rank.four, Rank.five, Rank.six, Rank.seven,
-    Rank.eight, Rank.nine, Rank.ten, Rank.jack, Rank.queen, Rank.king, Rank.ace,
+    Rank.two,
+    Rank.three,
+    Rank.four,
+    Rank.five,
+    Rank.six,
+    Rank.seven,
+    Rank.eight,
+    Rank.nine,
+    Rank.ten,
+    Rank.jack,
+    Rank.queen,
+    Rank.king,
+    Rank.ace,
   ];
   static const _suits = [Suit.spades, Suit.hearts, Suit.clubs, Suit.diamonds];
 
@@ -40,8 +51,10 @@ abstract final class DemoGameState {
       }
     }
     // Two Jokers
-    deck.add(const CardModel(id: 'joker_r', rank: Rank.joker, suit: Suit.hearts));
-    deck.add(const CardModel(id: 'joker_b', rank: Rank.joker, suit: Suit.spades));
+    deck.add(
+        const CardModel(id: 'joker_r', rank: Rank.joker, suit: Suit.hearts));
+    deck.add(
+        const CardModel(id: 'joker_b', rank: Rank.joker, suit: Suit.spades));
 
     // Fisher-Yates shuffle
     for (int i = deck.length - 1; i > 0; i--) {
@@ -56,12 +69,14 @@ abstract final class DemoGameState {
 
   /// Builds the initial [GameState] and the remaining [drawPile] from a single
   /// fresh shuffled deck, dealing 7 cards to each of [totalPlayers] (2 to 4).
-  static (GameState gameState, List<CardModel> drawPile) buildWithDeck({int totalPlayers = 2}) {
-    assert(totalPlayers >= 2 && totalPlayers <= 4, 'totalPlayers must be between 2 and 4');
+  static (GameState gameState, List<CardModel> drawPile) buildWithDeck(
+      {int totalPlayers = 2}) {
+    assert(totalPlayers >= 2 && totalPlayers <= 4,
+        'totalPlayers must be between 2 and 4');
     final deck = buildShuffledDeck();
 
     int deckIndex = 0;
-    
+
     // Helper to draw exactly count cards safely
     List<CardModel> draw(int count) {
       final drawn = deck.sublist(deckIndex, deckIndex + count);
@@ -109,7 +124,7 @@ abstract final class DemoGameState {
 
     final discardTop = draw(1).first;
     final drawPile = deck.sublist(deckIndex);
-    
+
     final state = GameState(
       sessionId: 'demo-session',
       phase: GamePhase.playing,

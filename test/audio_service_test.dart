@@ -8,13 +8,15 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
-    
+
     // Mock the audioplayers MethodChannels heavily used during init/play
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
       const MethodChannel('xyz.luan/audioplayers.global'),
       (MethodCall methodCall) async => 1,
     );
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
       const MethodChannel('xyz.luan/audioplayers'),
       (MethodCall methodCall) async => 1,
     );
@@ -30,7 +32,7 @@ void main() {
   test('AudioService toggles mute state and notifies listeners', () async {
     final service = AudioService();
     await Future.delayed(const Duration(milliseconds: 50));
-    
+
     // Check initial state
     expect(service.isMuted, false);
 
@@ -41,7 +43,7 @@ void main() {
 
     // Toggle mute
     await service.toggleMute();
-    
+
     // Check new state
     expect(service.isMuted, true);
     expect(notified, true);

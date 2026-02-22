@@ -88,7 +88,8 @@ class WebSocketClient {
   // ── Send ───────────────────────────────────────────────────────────────────
 
   void send(String jsonPayload) {
-    if (_stateNotifier.value != WsConnectionState.connected || _channel == null) {
+    if (_stateNotifier.value != WsConnectionState.connected ||
+        _channel == null) {
       debugPrint('[WS] Cannot send — not connected');
       return;
     }

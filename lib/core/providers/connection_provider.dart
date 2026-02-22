@@ -38,7 +38,6 @@ final connectionStateProvider = StreamProvider<WsConnectionState>((ref) {
   return controller.stream;
 });
 
-
 // ── Event handler ─────────────────────────────────────────────────────────────
 
 final gameEventHandlerProvider = Provider<GameEventHandler>((ref) {

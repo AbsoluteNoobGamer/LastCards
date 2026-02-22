@@ -65,8 +65,7 @@ class _CardFlipWidgetState extends State<CardFlipWidget>
       vsync: this,
       duration: CardAnimations.flipDuration,
     );
-    _animation =
-        Tween<double>(begin: 0, end: 1).animate(
+    _animation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _controller, curve: CardAnimations.flipCurve),
     );
 

@@ -204,9 +204,7 @@ class _KingReverseArrowState extends State<KingReverseArrow>
     return AnimatedBuilder(
       animation: _rotAnim,
       builder: (_, __) => Transform.rotate(
-        angle: widget.clockwise
-            ? _rotAnim.value
-            : -_rotAnim.value,
+        angle: widget.clockwise ? _rotAnim.value : -_rotAnim.value,
         child: Icon(
           Icons.rotate_right_rounded,
           color: AppColors.goldPrimary,
@@ -219,7 +217,7 @@ class _KingReverseArrowState extends State<KingReverseArrow>
 
 // ── Joker spotlight + declaration UI ─────────────────────────────────────────
 
-/// Wraps the Joker card with a dramatic spotlight cone and  
+/// Wraps the Joker card with a dramatic spotlight cone and
 /// fades-in the declaration overlay.
 class JokerSpotlightEffect extends StatefulWidget {
   const JokerSpotlightEffect({
@@ -317,7 +315,8 @@ class _JokerDeclarationPanel extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Declare Suit', style: Theme.of(context).textTheme.headlineMedium),
+          Text('Declare Suit',
+              style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 12),
           Row(
             mainAxisSize: MainAxisSize.min,

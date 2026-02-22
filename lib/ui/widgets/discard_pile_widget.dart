@@ -67,7 +67,8 @@ class _DiscardPileWidgetState extends State<DiscardPileWidget> {
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOutCubic,
-                transform: Matrix4.translationValues(targetOffset.dx, targetOffset.dy, 0),
+                transform: Matrix4.translationValues(
+                    targetOffset.dx, targetOffset.dy, 0),
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
                   transitionBuilder: (child, animation) => SlideTransition(
@@ -82,7 +83,9 @@ class _DiscardPileWidgetState extends State<DiscardPileWidget> {
                   ),
                   child: Container(
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusCard * (widget.cardWidth / AppDimensions.cardWidthMedium)),
+                      borderRadius: BorderRadius.circular(AppDimensions
+                              .radiusCard *
+                          (widget.cardWidth / AppDimensions.cardWidthMedium)),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.8),
@@ -98,7 +101,9 @@ class _DiscardPileWidgetState extends State<DiscardPileWidget> {
                           ),
                       ],
                       border: Border.all(
-                        color: _isHovering ? AppColors.goldPrimary : AppColors.goldDark,
+                        color: _isHovering
+                            ? AppColors.goldPrimary
+                            : AppColors.goldDark,
                         width: 3,
                       ),
                     ),
@@ -137,7 +142,8 @@ class _EmptyPileLabel extends StatelessWidget {
           color: AppColors.goldDark.withValues(alpha: 0.5),
           width: 1.5,
         ),
-        borderRadius: BorderRadius.circular(AppDimensions.radiusCard * (width / AppDimensions.cardWidthMedium)),
+        borderRadius: BorderRadius.circular(
+            AppDimensions.radiusCard * (width / AppDimensions.cardWidthMedium)),
         color: AppColors.feltMid.withValues(alpha: 0.4),
       ),
       child: Center(

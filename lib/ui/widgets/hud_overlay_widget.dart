@@ -194,7 +194,8 @@ class _ConnectionDot extends StatelessWidget {
   Color get _color => switch (state) {
         WsConnectionState.connected => const Color(0xFF27AE60),
         WsConnectionState.connecting ||
-        WsConnectionState.reconnecting => AppColors.goldPrimary,
+        WsConnectionState.reconnecting =>
+          AppColors.goldPrimary,
         WsConnectionState.disconnected => AppColors.redSoft,
       };
 

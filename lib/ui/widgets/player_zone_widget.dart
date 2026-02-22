@@ -4,6 +4,7 @@ import '../../core/models/player_model.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimensions.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/theme/player_styles.dart';
 import 'card_back_widget.dart';
 
 /// Wraps a player's card area with:
@@ -34,9 +35,10 @@ class PlayerZoneWidget extends StatelessWidget {
     final isActive = player.isActiveTurn;
     final isSkipped = player.isSkipped;
     final isOffline = !player.isConnected;
-    
+
     // Inactive: 50% opacity gray (unless skipped)
-    final double baseOpacity = isSkipped ? 0.40 : (isActive || isNextTurn ? 1.0 : 0.50);
+    final double baseOpacity =
+        isSkipped ? 0.40 : (isActive || isNextTurn ? 1.0 : 0.50);
 
     return AnimatedOpacity(
       opacity: baseOpacity,
@@ -53,7 +55,7 @@ class PlayerZoneWidget extends StatelessWidget {
           // Since the user requested dropping AnimatedBuilder for TweenAnimationBuilder
           // for performance, we can just let it sit at 1.0, or quickly wrap in a stateful
           // just to flip the tween target if requested. For now, pushing to 1.0 is smooth.
-          // Let's actually implement a continuous ping-pong by just rebuilding via a local state 
+          // Let's actually implement a continuous ping-pong by just rebuilding via a local state
           // if we strictly need heartbeat, but a static "on" glow is usually better for battery.
           // I will leave it static-on when active, saving repaints entirely once settled.
         },
@@ -65,7 +67,8 @@ class PlayerZoneWidget extends StatelessWidget {
               boxShadow: isActive
                   ? [
                       BoxShadow(
-                        color: AppColors.goldPrimary.withValues(alpha: glowValue * 0.8),
+                        color: PlayerStyles.getColor(player.tablePosition)
+                            .withValues(alpha: glowValue * 0.8),
                         blurRadius: 15 * glowValue,
                         spreadRadius: 2 * glowValue,
                       ),
@@ -81,10 +84,11 @@ class PlayerZoneWidget extends StatelessWidget {
                       : null,
               border: Border.all(
                 color: isActive
-                    ? AppColors.goldPrimary.withValues(alpha: glowValue)
+                    ? PlayerStyles.getColor(player.tablePosition).withValues(alpha: glowValue)
                     : isNextTurn
                         ? AppColors.blueAccent.withValues(alpha: 0.8)
-                        : AppColors.textSecondary.withValues(alpha: 0.3), // Gray border
+                        : AppColors.textSecondary
+                            .withValues(alpha: 0.3), // Gray border
                 width: isActive ? 2.5 : (isNextTurn ? 2.0 : 1.0),
               ),
             ),
@@ -132,8 +136,8 @@ class PlayerZoneWidget extends StatelessWidget {
           children: [
             // Player name + card count
             _PlayerLabel(
-              player: player, 
-              isLocalPlayer: isLocalPlayer, 
+              player: player,
+              isLocalPlayer: isLocalPlayer,
               isNextTurn: isNextTurn,
             ),
             const SizedBox(height: AppDimensions.xs),
@@ -165,10 +169,10 @@ class _PlayerLabel extends StatelessWidget {
     // Determine badge text
     String? badgeText;
     Color? badgeColor;
-    
+
     if (player.isActiveTurn && isLocalPlayer) {
       badgeText = "YOUR TURN";
-      badgeColor = AppColors.goldPrimary;
+      badgeColor = PlayerStyles.getColor(player.tablePosition);
     } else if (!player.isActiveTurn && isLocalPlayer) {
       badgeText = "Waiting...";
       badgeColor = AppColors.textSecondary;
@@ -180,9 +184,13 @@ class _PlayerLabel extends StatelessWidget {
         margin: const EdgeInsets.only(right: AppDimensions.xs),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
-          color: (badgeColor ?? AppColors.textSecondary).withValues(alpha: 0.15),
+          color:
+              (badgeColor ?? AppColors.textSecondary).withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: (badgeColor ?? AppColors.textSecondary).withValues(alpha: 0.5), width: 1),
+          border: Border.all(
+              color: (badgeColor ?? AppColors.textSecondary)
+                  .withValues(alpha: 0.5),
+              width: 1),
         ),
         child: Text(
           badgeText,
@@ -202,21 +210,34 @@ class _PlayerLabel extends StatelessWidget {
         badgeWidget,
         Transform.scale(
           scale: player.isActiveTurn ? 1.05 : 1.0,
-          child: Text(
-            player.displayName,
-            style: AppTypography.labelSmall.copyWith(
-              color: player.isActiveTurn 
-                  ? AppColors.goldLight 
-                  : (isNextTurn ? Colors.white : AppColors.textPrimary),
-              fontStyle: isNextTurn ? FontStyle.italic : FontStyle.normal,
-              shadows: player.isActiveTurn ? [
-                Shadow(
-                  color: AppColors.goldPrimary.withValues(alpha: 0.8),
-                  blurRadius: 8,
-                )
-              ] : null,
-            ),
-            overflow: TextOverflow.ellipsis,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                PlayerStyles.getIcon(player.tablePosition),
+                color: PlayerStyles.getColor(player.tablePosition),
+                size: 14,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                player.displayName,
+                style: AppTypography.labelSmall.copyWith(
+                  color: player.isActiveTurn
+                      ? PlayerStyles.getColor(player.tablePosition)
+                      : (isNextTurn ? Colors.white : AppColors.textPrimary),
+                  fontStyle: isNextTurn ? FontStyle.italic : FontStyle.normal,
+                  shadows: player.isActiveTurn
+                      ? [
+                          Shadow(
+                            color: PlayerStyles.getColor(player.tablePosition).withValues(alpha: 0.8),
+                            blurRadius: 8,
+                          )
+                        ]
+                      : null,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ),
         const SizedBox(width: AppDimensions.xs),
@@ -225,7 +246,7 @@ class _PlayerLabel extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.surfacePanel,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.goldDark, width: 0.5),
+            border: Border.all(color: PlayerStyles.getColor(player.tablePosition).withValues(alpha: 0.6), width: 0.5),
           ),
           child: Text(
             '${player.cardCount}',

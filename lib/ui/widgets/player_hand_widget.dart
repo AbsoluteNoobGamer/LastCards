@@ -49,11 +49,18 @@ class PlayerHandWidget extends StatelessWidget {
                   // The Hero widget allows this card to fly smoothly to the discard pile when played
                   child: Hero(
                     tag: 'card-${cards[i].id}',
-                    flightShuttleBuilder: (flightContext, animation, flightDirection, fromHeroContext, toHeroContext) {
+                    flightShuttleBuilder: (flightContext, animation,
+                        flightDirection, fromHeroContext, toHeroContext) {
                       // Add a bounce during flight
                       final bounce = TweenSequence([
-                        TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.1).chain(CurveTween(curve: Curves.easeOut)), weight: 50),
-                        TweenSequenceItem(tween: Tween(begin: 1.1, end: 1.0).chain(CurveTween(curve: Curves.easeIn)), weight: 50),
+                        TweenSequenceItem(
+                            tween: Tween(begin: 1.0, end: 1.1)
+                                .chain(CurveTween(curve: Curves.easeOut)),
+                            weight: 50),
+                        TweenSequenceItem(
+                            tween: Tween(begin: 1.1, end: 1.0)
+                                .chain(CurveTween(curve: Curves.easeIn)),
+                            weight: 50),
                       ]).animate(animation);
 
                       return ScaleTransition(
@@ -66,9 +73,8 @@ class PlayerHandWidget extends StatelessWidget {
                       width: cardWidth,
                       faceUp: true,
                       isSelected: selectedCardIds.contains(cards[i].id),
-                      onTap: enabled
-                          ? () => onCardTap?.call(cards[i].id)
-                          : null,
+                      onTap:
+                          enabled ? () => onCardTap?.call(cards[i].id) : null,
                     ),
                   ),
                 ),
