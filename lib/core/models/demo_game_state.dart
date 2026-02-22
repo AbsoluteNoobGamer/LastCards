@@ -55,21 +55,23 @@ abstract final class DemoGameState {
   }
 
   /// Builds the initial [GameState] and the remaining [drawPile] from a single
-  /// fresh shuffled deck.
-  ///
-  /// Cards 0-6  → local player hand
-  /// Cards 7-13 → AI hand
-  /// Card  14   → starting discard
-  /// Cards 15+  → draw pile (39 cards)
-  static (GameState gameState, List<CardModel> drawPile) buildWithDeck() {
+  /// fresh shuffled deck, dealing 7 cards to each of [totalPlayers] (2 to 4).
+  static (GameState gameState, List<CardModel> drawPile) buildWithDeck({int totalPlayers = 2}) {
+    assert(totalPlayers >= 2 && totalPlayers <= 4, 'totalPlayers must be between 2 and 4');
     final deck = buildShuffledDeck();
 
-    final localHand  = deck.sublist(0, 7);
-    final aiHand     = deck.sublist(7, 14);
-    final discardTop = deck[14];
-    final drawPile   = deck.sublist(15); // 39 cards
+    int deckIndex = 0;
+    
+    // Helper to draw exactly count cards safely
+    List<CardModel> draw(int count) {
+      final drawn = deck.sublist(deckIndex, deckIndex + count);
+      deckIndex += count;
+      return drawn;
+    }
 
-    final players = [
+    // 1. Deal local human
+    final localHand = draw(7);
+    final players = <PlayerModel>[
       PlayerModel(
         id: localId,
         displayName: 'You',
@@ -80,18 +82,34 @@ abstract final class DemoGameState {
         isActiveTurn: true,
         isSkipped: false,
       ),
-      PlayerModel(
-        id: aiId,
-        displayName: 'Player 2',
-        tablePosition: TablePosition.top,
+    ];
+
+    // 2. Deal AIs
+    final aiPositions = switch (totalPlayers) {
+      2 => [TablePosition.top],
+      3 => [TablePosition.left, TablePosition.right],
+      4 => [TablePosition.left, TablePosition.top, TablePosition.right],
+      _ => [TablePosition.top],
+    };
+
+    for (int i = 0; i < totalPlayers - 1; i++) {
+      final aiHand = draw(7);
+      players.add(PlayerModel(
+        // Dynamic zero-indexed based suffix for IDs, e.g. player-2, player-3, player-4
+        id: 'player-${i + 2}',
+        displayName: 'Player ${i + 2}',
+        tablePosition: aiPositions[i],
         hand: aiHand,
         cardCount: aiHand.length,
         isConnected: true,
         isActiveTurn: false,
         isSkipped: false,
-      ),
-    ];
+      ));
+    }
 
+    final discardTop = draw(1).first;
+    final drawPile = deck.sublist(deckIndex);
+    
     final state = GameState(
       sessionId: 'demo-session',
       phase: GamePhase.playing,

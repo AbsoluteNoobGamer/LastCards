@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'card_model.dart';
 import 'game_state.dart';
+import 'move_log_entry.dart';
 import 'player_model.dart';
 
 // ── Play validation ────────────────────────────────────────────────────────────
@@ -445,7 +446,7 @@ String nextPlayerId({
 ///
 /// The AI also ends its turn automatically after one play/draw (no "End Turn"
 /// concept — only the human player has that control).
-({GameState state, String description}) aiTakeTurn({
+({GameState state, List<MoveLogEntry> log}) aiTakeTurn({
   required GameState state,
   required String aiPlayerId,
   required List<CardModel> Function(int n) cardFactory,
@@ -478,7 +479,7 @@ String nextPlayerId({
       final next = nextPlayerId(state: newState);
       return (
         state: newState.copyWith(currentPlayerId: next, actionsThisTurn: 0, lastPlayedThisTurn: null),
-        description: '$aiName draws $count (penalty)',
+        log: [MoveLogEntry(player: aiName, isDraw: true, drawCount: count, drawReason: '(penalty)')],
       );
     }
     // If we have a counterCard, fall through and let the normal play logic handle it
@@ -511,10 +512,13 @@ String nextPlayerId({
       declaredSuit: declaredSuit,
     );
 
-    final label = declaredSuit != null
-        ? '${bestCard.shortLabel} → declares ${declaredSuit.displayName}'
-        : bestCard.shortLabel;
-    final descriptions = <String>['$aiName plays $label'];
+    final logs = <MoveLogEntry>[
+       MoveLogEntry(player: aiName, cards: [bestCard], isSpecial: _isSpecial(bestCard)),
+    ];
+
+    if (declaredSuit != null) {
+      logs.add(MoveLogEntry(isGameEvent: true, eventText: '↻ Declares ${declaredSuit.displayName}'));
+    }
 
     // ── Queen cover: AI must immediately cover before ending turn ──────
     // Keep trying to cover as long as queenSuitLock is active.
@@ -540,7 +544,7 @@ String nextPlayerId({
           playerId: aiPlayerId,
           cards: [coverCard],
         );
-        descriptions.add('  ↳ covers with ${coverCard.shortLabel}');
+        logs.add(MoveLogEntry(player: aiName, cards: [coverCard], isSpecial: _isSpecial(coverCard)));
       } else {
         // Cannot cover — draw 1 card penalty and abort.
         afterPlay = applyDraw(
@@ -549,7 +553,7 @@ String nextPlayerId({
           count: 1,
           cardFactory: cardFactory,
         );
-        descriptions.add('  ↳ no cover — draws 1 (Queen penalty)');
+        logs.add(MoveLogEntry(player: aiName, isDraw: true, drawCount: 1, drawReason: '(Queen penalty)'));
         // Clear queenSuitLock since the draw resolves the obligation.
         afterPlay = afterPlay.copyWith(queenSuitLock: null);
         break;
@@ -560,7 +564,7 @@ String nextPlayerId({
     final next = nextPlayerId(state: afterPlay, skipExtra: skipTurn);
     return (
       state: afterPlay.copyWith(currentPlayerId: next, actionsThisTurn: 0, lastPlayedThisTurn: null),
-      description: descriptions.join('\n'),
+      log: logs,
     );
   }
 
@@ -574,7 +578,7 @@ String nextPlayerId({
   final next = nextPlayerId(state: afterDraw);
   return (
     state: afterDraw.copyWith(currentPlayerId: next, actionsThisTurn: 0, lastPlayedThisTurn: null),
-    description: '$aiName draws a card',
+    log: [MoveLogEntry(player: aiName, isDraw: true, drawCount: 1)],
   );
 }
 
