@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stack_and_flow/core/models/card_model.dart';
 import 'package:stack_and_flow/core/models/move_log_entry.dart';
-import 'package:stack_and_flow/ui/widgets/integrated_game_log.dart';
+import 'package:stack_and_flow/features/gameplay/presentation/widgets/integrated_game_log.dart';
 import 'package:stack_and_flow/core/models/player_model.dart';
 import 'package:stack_and_flow/core/theme/player_styles.dart';
 
