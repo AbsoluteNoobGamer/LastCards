@@ -161,13 +161,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _addLog('You ended your turn.');
     setState(() => _selectedCardIds.clear());
 
-    final skipExtra = _demoState.discardTopCard?.effectiveRank == Rank.eight;
-    final nextId = nextPlayerId(state: _demoState, skipExtra: skipExtra);
+    final nextId = nextPlayerId(state: _demoState);
     setState(() {
       _demoState = _demoState.copyWith(
         currentPlayerId: nextId,
         actionsThisTurn: 0,
         lastPlayedThisTurn: null,
+        activeSkipCount: 0,
       );
     });
 
@@ -475,15 +475,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     // Apply play + special effects
     var newState = applyPlay(state: _demoState, playerId: playerId, cards: played);
 
-    // Turn advance (8 = skip) - NO LONGER AUTO-ADVANCING FOR HUMAN
-    final skip = played.any((c) => c.effectiveRank == Rank.eight);
-    if (skip && playerId != DemoGameState.aiId) {
-        // Technically skip is applied by advancing the turn twice, but since we manually 
-        // end turn, we just log it and maybe the engine handles it or we flag it.
-        // For now, nextPlayerId handles skip logic based on state history, but we aren't advancing.
-        // Actually, we should probably still let the human play multiple cards. 
-        // Skip effect only applies when turn actually ends.
-        _addLog('  ↳ Player 2\'s turn skipped! (Applies on End Turn)');
+    final skipCounts = _demoState.activeSkipCount;
+    if (skipCounts > 0 && playerId != DemoGameState.aiId) {
+        _addLog('  ↳ ${skipCounts == 1 ? "1 player" : "$skipCounts players"} skipped! (Applies on End Turn)');
     }
 
     // Log + track discards
@@ -508,10 +502,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     // Auto-advance if this play guarantees we get another turn immediately and 
     // there are no unresolved obligations (like covering a Queen).
     // This happens when playing a Skip (8) or a King in a 2-player game.
-    final nextId = nextPlayerId(
-      state: newState, 
-      skipExtra: played.any((c) => c.effectiveRank == Rank.eight)
-    );
+    final nextId = nextPlayerId(state: newState);
     
     if (nextId == playerId && newState.queenSuitLock == null) {
       _addLog('  ↳ Extra turn granted!');
@@ -544,7 +535,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       ));
       // Penalty draw: turn advances automatically.
       final nextId = nextPlayerId(state: newState);
-      newState = newState.copyWith(currentPlayerId: nextId, actionsThisTurn: 0);
+      newState = newState.copyWith(currentPlayerId: nextId, actionsThisTurn: 0, activeSkipCount: 0);
       setState(() {
         _demoState = newState;
         _selectedCardIds.clear();
@@ -560,7 +551,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         drawReason: '(no moves)',
       ));
       final nextId = nextPlayerId(state: newState);
-      newState = newState.copyWith(currentPlayerId: nextId, actionsThisTurn: 0);
+      newState = newState.copyWith(currentPlayerId: nextId, actionsThisTurn: 0, activeSkipCount: 0);
       setState(() {
         _demoState = newState;
         _selectedCardIds.clear();
@@ -710,7 +701,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         Rank.king  => '  ↳ Direction reversed!',
         Rank.queen => '  ↳ Suit locked: ${c.effectiveSuit.displayName}',
         Rank.ace   => '  ↳ Suit changed to ${c.effectiveSuit.displayName}!',
-        Rank.eight => '  ↳ Player 2 is skipped!',
+        Rank.eight => c == played.first ? '  ↳ Skipped!' : null, // Prevent spamming log if multi 8s, handled by aggregate log above
         _          => null,
       };
       if (note != null) _addLog(note);

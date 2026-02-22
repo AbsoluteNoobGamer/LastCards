@@ -364,7 +364,9 @@ GameState _applySpecialEffect(
       }
       return gs;
 
-    case Rank.eight: // skip — handled by caller advancing turn twice
+    case Rank.eight:
+      return gs.copyWith(activeSkipCount: gs.activeSkipCount + 1);
+
     case Rank.joker:
     default:
       return gs;
@@ -413,7 +415,6 @@ GameState applyDraw({
 /// Returns the next player's ID, honouring direction and optional skip.
 String nextPlayerId({
   required GameState state,
-  bool skipExtra = false,
 }) {
   final players = state.players;
   final currentIndex =
@@ -429,10 +430,10 @@ String nextPlayerId({
   }
 
   final step = state.direction == PlayDirection.clockwise ? 1 : -1;
-  int next = (currentIndex + step) % players.length;
-  if (next < 0) next += players.length;
-
-  if (skipExtra) {
+  int next = currentIndex;
+  final advances = 1 + state.activeSkipCount;
+  
+  for (int i = 0; i < advances; i++) {
     next = (next + step) % players.length;
     if (next < 0) next += players.length;
   }
@@ -478,7 +479,7 @@ String nextPlayerId({
       );
       final next = nextPlayerId(state: newState);
       return (
-        state: newState.copyWith(currentPlayerId: next, actionsThisTurn: 0, lastPlayedThisTurn: null),
+        state: newState.copyWith(currentPlayerId: next, actionsThisTurn: 0, lastPlayedThisTurn: null, activeSkipCount: 0),
         log: [MoveLogEntry(player: aiName, isDraw: true, drawCount: count, drawReason: '(penalty)')],
       );
     }
@@ -560,10 +561,9 @@ String nextPlayerId({
       }
     }
 
-    final skipTurn = bestCard.effectiveRank == Rank.eight;
-    final next = nextPlayerId(state: afterPlay, skipExtra: skipTurn);
+    final next = nextPlayerId(state: afterPlay);
     return (
-      state: afterPlay.copyWith(currentPlayerId: next, actionsThisTurn: 0, lastPlayedThisTurn: null),
+      state: afterPlay.copyWith(currentPlayerId: next, actionsThisTurn: 0, lastPlayedThisTurn: null, activeSkipCount: 0),
       log: logs,
     );
   }
@@ -577,7 +577,7 @@ String nextPlayerId({
   );
   final next = nextPlayerId(state: afterDraw);
   return (
-    state: afterDraw.copyWith(currentPlayerId: next, actionsThisTurn: 0, lastPlayedThisTurn: null),
+    state: afterDraw.copyWith(currentPlayerId: next, actionsThisTurn: 0, lastPlayedThisTurn: null, activeSkipCount: 0),
     log: [MoveLogEntry(player: aiName, isDraw: true, drawCount: 1)],
   );
 }
