@@ -18,7 +18,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version-file: pubspec.yaml   # reads the exact version you set above
+          flutter-version-file: pubspec.yaml
 
       - name: Install dependencies
         run: flutter pub get
