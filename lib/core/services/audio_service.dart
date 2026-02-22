@@ -62,7 +62,7 @@ class AudioService extends ChangeNotifier {
 
   Future<void> playClick() async {
     if (_isMuted) return;
-    await _sfxPlayer?.play(AssetSource('audio/click.wav'));
+    await _sfxPlayer?.play(AssetSource('audio/swoosh.wav'));
   }
 
   Future<void> playDrag() async {

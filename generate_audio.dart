@@ -8,13 +8,16 @@ void main() {
   // Soft pop for click (short duration, low volume, sine)
   writeWav('assets/audio/click.wav', 0.05, 400, 'pop', 0.1);
   
+  // Swoosh for card play (fast decay, noise + sweep down)
+  writeWav('assets/audio/swoosh.wav', 0.15, 600, 'swoosh', 0.25);
+  
   // Soft, lower pop for drag (very short, lower pitch)
   writeWav('assets/audio/drag.wav', 0.08, 200, 'pop', 0.08);
   
   // Instrumental BGM (8 second loop of a soft electric piano arpeggio)
   writeBgmWav('assets/audio/bgm.wav', 8.0, 0.06);
   
-  print('Audio files updated with instrumental BGM.');
+  print('Audio files updated with swoosh and BGM.');
 }
 
 void writeWav(String path, double durationSecs, double freq, String type, double maxVol) {
@@ -52,9 +55,16 @@ void writeWav(String path, double durationSecs, double freq, String type, double
       // Fast exponential decay for a soft "pop" or "blip"
       final env = exp(-t * 30);
       sample = sin(2 * pi * freq * t) * env;
+    } else if (type == 'swoosh') {
+      // Envelope for sharp attack, smooth decay
+      final env = t < 0.05 ? (t / 0.05) : exp(-(t - 0.05) * 15);
+      final noise = (Random().nextDouble() * 2 - 1) * 0.4;
+      // Fast frequency sweep down
+      final sweep = sin(2 * pi * (freq - (400 * t)) * t);
+      sample = (sweep + noise) * env;
     }
     
-    sample *= maxVol; 
+    sample *= maxVol;
     
     final val = (sample * 32767).toInt().clamp(-32768, 32767);
     builder.add(_int16ToBytes(val));
