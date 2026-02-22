@@ -134,8 +134,8 @@ class _MoveLogItem extends StatelessWidget {
     }
 
     final pName = entry.player ?? 'Unknown';
-    final pColor = entry.playerPosition != null 
-        ? PlayerStyles.getColor(entry.playerPosition!) 
+    final pColor = entry.playerPosition != null
+        ? PlayerStyles.getColor(entry.playerPosition!)
         : Colors.white70;
 
     if (entry.isDraw) {
@@ -158,7 +158,8 @@ class _MoveLogItem extends StatelessWidget {
             style: AppTypography.bodyText.copyWith(
                 fontSize: 12, fontWeight: FontWeight.bold, color: pColor)),
         TextSpan(
-            text: 'drew ${entry.drawCount} card${entry.drawCount > 1 ? 's' : ''}$reason',
+            text:
+                'drew ${entry.drawCount} card${entry.drawCount > 1 ? 's' : ''}$reason',
             style: AppTypography.bodyText
                 .copyWith(fontSize: 12, color: Colors.white54, height: 1.3)),
       ]));
@@ -193,12 +194,14 @@ class _MoveLogItem extends StatelessWidget {
           text: _formatCardName(card),
           style: AppTypography.bodyText
               .copyWith(fontSize: 12, color: Colors.white70)));
-      
+
       if (card.rank == Rank.joker) {
         spans.add(TextSpan(
             text: ' → ${_formatEffectiveCard(card)}',
             style: AppTypography.bodyText.copyWith(
-                fontSize: 12, color: AppColors.goldLight.withValues(alpha: 0.8), fontStyle: FontStyle.italic)));
+                fontSize: 12,
+                color: AppColors.goldLight.withValues(alpha: 0.8),
+                fontStyle: FontStyle.italic)));
       }
     } else if (entry.cards.length > 1) {
       final card = entry.cards.first;

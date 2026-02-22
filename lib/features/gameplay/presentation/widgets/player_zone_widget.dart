@@ -84,7 +84,8 @@ class PlayerZoneWidget extends StatelessWidget {
                       : null,
               border: Border.all(
                 color: isActive
-                    ? PlayerStyles.getColor(player.tablePosition).withValues(alpha: glowValue)
+                    ? PlayerStyles.getColor(player.tablePosition)
+                        .withValues(alpha: glowValue)
                     : isNextTurn
                         ? AppColors.blueAccent.withValues(alpha: 0.8)
                         : AppColors.textSecondary
@@ -229,7 +230,8 @@ class _PlayerLabel extends StatelessWidget {
                   shadows: player.isActiveTurn
                       ? [
                           Shadow(
-                            color: PlayerStyles.getColor(player.tablePosition).withValues(alpha: 0.8),
+                            color: PlayerStyles.getColor(player.tablePosition)
+                                .withValues(alpha: 0.8),
                             blurRadius: 8,
                           )
                         ]
@@ -246,7 +248,10 @@ class _PlayerLabel extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.surfacePanel,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: PlayerStyles.getColor(player.tablePosition).withValues(alpha: 0.6), width: 0.5),
+            border: Border.all(
+                color: PlayerStyles.getColor(player.tablePosition)
+                    .withValues(alpha: 0.6),
+                width: 0.5),
           ),
           child: Text(
             '${player.cardCount}',

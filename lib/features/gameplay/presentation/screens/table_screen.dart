@@ -216,7 +216,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final isOfflineMode = liveState == null;
     final gameState = liveState ?? _offlineState;
     final isMyTurn = isOfflineMode
-        ? (_offlineState.currentPlayerId == OfflineGameState.localId && !_aiThinking)
+        ? (_offlineState.currentPlayerId == OfflineGameState.localId &&
+            !_aiThinking)
         : ref.watch(isLocalTurnProvider);
     final penaltyCount = isOfflineMode
         ? _offlineState.activePenaltyCount
