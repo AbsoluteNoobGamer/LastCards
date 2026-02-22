@@ -26,8 +26,8 @@ class _AISelectorModalState extends State<AISelectorModal> {
           const Text(
             '┌─ Choose Game Size ─┐',
             style: TextStyle(
-              color: Colors.amber, 
-              fontSize: 18, 
+              color: Colors.amber,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
               letterSpacing: 2.0,
             ),
@@ -45,7 +45,7 @@ class _AISelectorModalState extends State<AISelectorModal> {
             ],
           ),
           const SizedBox(height: 24),
-          
+
           // Selection Row
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -73,7 +73,9 @@ class _AISelectorModalState extends State<AISelectorModal> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text('👤 ', style: TextStyle(fontSize: 20)),
-                    Text('1 Human', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                    Text('1 Human',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w600)),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -81,23 +83,25 @@ class _AISelectorModalState extends State<AISelectorModal> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text('🤖 ', style: TextStyle(fontSize: 20)),
-                    Text(
-                      '${_selectedPlayers - 1} AI', 
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)
-                    ),
+                    Text('${_selectedPlayers - 1} AI',
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w600)),
                     if (_selectedPlayers == 4)
                       const Text(
                         ' ← MAXIMUM',
-                        style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14),
+                        style: TextStyle(
+                            color: Colors.amber,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14),
                       ),
                   ],
                 ),
               ],
             ),
           ),
-          
+
           const Spacer(),
-          
+
           // Start Game Button
           SizedBox(
             width: double.infinity,
@@ -139,13 +143,14 @@ class _AISelectorModalState extends State<AISelectorModal> {
               ),
             ),
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Back text
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Back', style: TextStyle(color: Colors.white54, fontSize: 16)),
+            child: const Text('Back',
+                style: TextStyle(color: Colors.white54, fontSize: 16)),
           ),
         ],
       ),
@@ -162,22 +167,27 @@ class _AISelectorModalState extends State<AISelectorModal> {
         curve: Curves.easeOutCubic,
         width: 60,
         height: 60,
-        transform: isSelected ? (Matrix4.identity()..scale(1.1)) : Matrix4.identity(),
+        transform:
+            isSelected ? (Matrix4.identity()..scale(1.1)) : Matrix4.identity(),
         transformAlignment: Alignment.center,
         decoration: BoxDecoration(
-          color: isSelected ? Colors.amber.withValues(alpha: 0.15) : Colors.transparent,
+          color: isSelected
+              ? Colors.amber.withValues(alpha: 0.15)
+              : Colors.transparent,
           border: Border.all(
             color: isSelected ? Colors.amber : Colors.white24,
             width: isSelected ? 2.5 : 1,
           ),
           borderRadius: BorderRadius.circular(12),
-          boxShadow: isSelected ? [
-            BoxShadow(
-              color: Colors.amber.withValues(alpha: 0.4),
-              blurRadius: 15,
-              spreadRadius: 2,
-            )
-          ] : [],
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.amber.withValues(alpha: 0.4),
+                    blurRadius: 15,
+                    spreadRadius: 2,
+                  )
+                ]
+              : [],
         ),
         child: Stack(
           alignment: Alignment.center,
@@ -194,10 +204,10 @@ class _AISelectorModalState extends State<AISelectorModal> {
               Positioned(
                 bottom: 4,
                 child: Container(
-                  width: 6, 
-                  height: 6, 
+                  width: 6,
+                  height: 6,
                   decoration: const BoxDecoration(
-                    color: Colors.amber, 
+                    color: Colors.amber,
                     shape: BoxShape.circle,
                   ),
                 ),

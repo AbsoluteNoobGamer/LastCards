@@ -5,7 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/services/audio_service.dart';
 
 // Create a simple provider to manage SharedPreferences settings globally
-final settingsProvider = StateNotifierProvider<SettingsNotifier, SettingsState>((ref) {
+final settingsProvider =
+    StateNotifierProvider<SettingsNotifier, SettingsState>((ref) {
   return SettingsNotifier();
 });
 
@@ -131,13 +132,13 @@ class SettingsModal extends ConsumerWidget {
                   ),
                 ),
               ),
-              
+
               const Text(
                 'Settings',
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 24),
-              
+
               // Sliders
               _SliderRow(
                 label: 'Sound Effects',
@@ -162,9 +163,9 @@ class SettingsModal extends ConsumerWidget {
                 onChanged: notifier.updateAnimSpeed,
                 valueLabel: '${settings.animationSpeed}x',
               ),
-              
+
               const Divider(height: 40, color: Colors.grey),
-              
+
               // Toggles
               SwitchListTile(
                 title: const Text('Mute All Audio'),
@@ -226,8 +227,9 @@ class _SliderRow extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(label, style: const TextStyle(fontSize: 16)),
-            Text(valueLabel ?? '${value.toInt()}%', 
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.amber)),
+            Text(valueLabel ?? '${value.toInt()}%',
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, color: Colors.amber)),
           ],
         ),
         Slider(

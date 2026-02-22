@@ -38,19 +38,21 @@ String? validatePlay({
       final firstCard = cards.first;
       final isTwo = firstCard.effectiveRank == Rank.two;
       final isBlackJack = firstCard.isBlackJack;
-      final isRedJack = firstCard.effectiveRank == Rank.jack && !firstCard.isBlackJack;
+      final isRedJack =
+          firstCard.effectiveRank == Rank.jack && !firstCard.isBlackJack;
 
       if (!isTwo && !isBlackJack && !isRedJack) {
         return 'Active penalty! Your first card must be a 2 or Black Jack to stack, or a Red Jack to cancel.';
       }
     }
 
-    // Whether it's the first play or mid-turn, if the play consists ONLY of valid 
-    // penalty-addressing cards, it bypasses standard normal suit/rank matching 
+    // Whether it's the first play or mid-turn, if the play consists ONLY of valid
+    // penalty-addressing cards, it bypasses standard normal suit/rank matching
     // against the discard pile and numerical flow rules entirely.
     final allTwos = cards.every((c) => c.effectiveRank == Rank.two);
     final allBlackJacks = cards.every((c) => c.isBlackJack);
-    final allRedJacks = cards.every((c) => c.effectiveRank == Rank.jack && !c.isBlackJack);
+    final allRedJacks =
+        cards.every((c) => c.effectiveRank == Rank.jack && !c.isBlackJack);
 
     if (allTwos || allBlackJacks || allRedJacks) {
       return null;
@@ -66,12 +68,13 @@ String? validatePlay({
       return 'Multi-card plays must share the same rank, or form a same-suit sequence.';
     }
 
-    var sorted = [...cards]
-      ..sort((a, b) => a.effectiveRank.numericValue.compareTo(b.effectiveRank.numericValue));
+    var sorted = [...cards]..sort((a, b) =>
+        a.effectiveRank.numericValue.compareTo(b.effectiveRank.numericValue));
 
     bool isConsecutive = true;
     for (int i = 1; i < sorted.length; i++) {
-      final diff = sorted[i].effectiveRank.numericValue - sorted[i - 1].effectiveRank.numericValue;
+      final diff = sorted[i].effectiveRank.numericValue -
+          sorted[i - 1].effectiveRank.numericValue;
       if (diff != 1) {
         isConsecutive = false;
         break;
@@ -80,17 +83,22 @@ String? validatePlay({
 
     // Try treating Ace as low (value 1) if high-Ace consecutive check failed.
     if (!isConsecutive && cards.any((c) => c.effectiveRank == Rank.ace)) {
-      sorted = [...cards]
-        ..sort((a, b) {
-          final aVal = a.effectiveRank == Rank.ace ? 1 : a.effectiveRank.numericValue;
-          final bVal = b.effectiveRank == Rank.ace ? 1 : b.effectiveRank.numericValue;
+      sorted = [...cards]..sort((a, b) {
+          final aVal =
+              a.effectiveRank == Rank.ace ? 1 : a.effectiveRank.numericValue;
+          final bVal =
+              b.effectiveRank == Rank.ace ? 1 : b.effectiveRank.numericValue;
           return aVal.compareTo(bVal);
         });
 
       isConsecutive = true;
       for (int i = 1; i < sorted.length; i++) {
-        final aVal = sorted[i - 1].effectiveRank == Rank.ace ? 1 : sorted[i - 1].effectiveRank.numericValue;
-        final bVal = sorted[i].effectiveRank == Rank.ace ? 1 : sorted[i].effectiveRank.numericValue;
+        final aVal = sorted[i - 1].effectiveRank == Rank.ace
+            ? 1
+            : sorted[i - 1].effectiveRank.numericValue;
+        final bVal = sorted[i].effectiveRank == Rank.ace
+            ? 1
+            : sorted[i].effectiveRank.numericValue;
         if (bVal - aVal != 1) {
           isConsecutive = false;
           break;
@@ -110,7 +118,7 @@ String? validatePlay({
   // If the player has already played a card this turn, a single follow-up card
   // must be rank-adjacent (±1) to the last card played this turn AND share the
   // same suit. Special cards (Joker, Queen) bypass this via early returns above.
-  // Exception: when queenSuitLock is active (covering a Queen), this rule does 
+  // Exception: when queenSuitLock is active (covering a Queen), this rule does
   // not apply — that state has its own distinct validation rules.
   if (state.actionsThisTurn > 0 &&
       state.lastPlayedThisTurn != null &&
@@ -119,27 +127,30 @@ String? validatePlay({
     final next = cards.first;
     // Only enforce adjacency for non-special cards continuing a same-suit flow.
     // Aces are no longer special overrides mid-turn; they must exactly follow numerical flow.
-    final isSpecialOverride = next.effectiveRank == Rank.queen ||
-        next.isJoker;
+    final isSpecialOverride = next.effectiveRank == Rank.queen || next.isJoker;
 
-    // Penalty chaining bypass: 
+    // Penalty chaining bypass:
     // If the previous card was a penalty card (2 or Jack) and the next card is
     // also a penalty-capable card (2 or Jack), they can chain directly
     // regardless of suite/rank adjacencies to build or reset penalties.
-    final prevIsPenaltyNode = prev.effectiveRank == Rank.two || prev.effectiveRank == Rank.jack;
-    final nextIsPenaltyNode = next.effectiveRank == Rank.two || next.effectiveRank == Rank.jack;
+    final prevIsPenaltyNode =
+        prev.effectiveRank == Rank.two || prev.effectiveRank == Rank.jack;
+    final nextIsPenaltyNode =
+        next.effectiveRank == Rank.two || next.effectiveRank == Rank.jack;
     final isPenaltyChain = prevIsPenaltyNode && nextIsPenaltyNode;
 
     if (!isSpecialOverride && !isPenaltyChain) {
       final sameSuit = next.effectiveSuit == prev.effectiveSuit;
-      final rankDiff = (next.effectiveRank.numericValue -
-              prev.effectiveRank.numericValue)
-          .abs();
-      
-      final isTwoAndAce = (prev.effectiveRank == Rank.two && next.effectiveRank == Rank.ace) ||
-                          (prev.effectiveRank == Rank.ace && next.effectiveRank == Rank.two);
+      final rankDiff =
+          (next.effectiveRank.numericValue - prev.effectiveRank.numericValue)
+              .abs();
 
-      print('DEBUG FLOW: prev=${prev.shortLabel} next=${next.shortLabel} sameSuit=$sameSuit rankDiff=$rankDiff isTwoAndAce=$isTwoAndAce');
+      final isTwoAndAce = (prev.effectiveRank == Rank.two &&
+              next.effectiveRank == Rank.ace) ||
+          (prev.effectiveRank == Rank.ace && next.effectiveRank == Rank.two);
+
+      print(
+          'DEBUG FLOW: prev=${prev.shortLabel} next=${next.shortLabel} sameSuit=$sameSuit rankDiff=$rankDiff isTwoAndAce=$isTwoAndAce');
 
       // Valid follow-ups after a card has been played this turn:
       //   1. Same-suit, adjacent rank (±1 or Ace-2): continuing the numerical sequence.
@@ -164,7 +175,7 @@ String? validatePlay({
 /// Joker specific role capabilities (per user rules):
 /// 1. Same rank as discard, different suit.
 /// 2. Adjacent rank (±1 or Ace=1 for 2) as discard, same suit.
-/// 3. If discard is a penalty card and penalty active, can also stack 2s (if 2 chain) 
+/// 3. If discard is a penalty card and penalty active, can also stack 2s (if 2 chain)
 ///    or Red Jacks/Black Jacks depending on standard penalty rules.
 List<CardModel> getValidJokerOptions({
   required GameState state,
@@ -178,44 +189,48 @@ List<CardModel> getValidJokerOptions({
   for (final suit in Suit.values) {
     for (final rank in Rank.values) {
       if (rank == Rank.joker) continue; // Joker can't mimic a Joker
-      if (rank == targetRank && suit == targetSuit) continue; // Cannot be exact dupe
-      
+      if (rank == targetRank && suit == targetSuit)
+        continue; // Cannot be exact dupe
+
       bool isValidMatch = false;
 
       // 3. Penalty Rules
       if (state.activePenaltyCount > 0) {
-         // During an active penalty, standard adjacent/rank matching doesn't apply.
-         // A player MUST address the penalty. Valid cards are 2s, Black Jacks, and Red Jacks.
-         // So a Joker can mimic ANY 2, ANY Black Jack, or ANY Red Jack (except the exact dupe).
-         final isTwo = rank == Rank.two;
-         final isBlackJack = rank == Rank.jack && (suit == Suit.clubs || suit == Suit.spades);
-         final isRedJack = rank == Rank.jack && (suit == Suit.hearts || suit == Suit.diamonds);
-         
-         isValidMatch = isTwo || isBlackJack || isRedJack;
+        // During an active penalty, standard adjacent/rank matching doesn't apply.
+        // A player MUST address the penalty. Valid cards are 2s, Black Jacks, and Red Jacks.
+        // So a Joker can mimic ANY 2, ANY Black Jack, or ANY Red Jack (except the exact dupe).
+        final isTwo = rank == Rank.two;
+        final isBlackJack =
+            rank == Rank.jack && (suit == Suit.clubs || suit == Suit.spades);
+        final isRedJack =
+            rank == Rank.jack && (suit == Suit.hearts || suit == Suit.diamonds);
+
+        isValidMatch = isTwo || isBlackJack || isRedJack;
       } else {
-         if (isTurnStart) {
-           // 1. TURN-START (first play after opponent ends):
-           // Joker can mimic any card of the same suit OR any card of the same rank.
-           if (suit == targetSuit || rank == targetRank) {
-             isValidMatch = true;
-           }
-         } else {
-           // 2. MID-TURN CONTINUANCE:
-           // Joker can mimic adjacent rank of same suit OR same rank.
-           if (rank == targetRank) {
-             isValidMatch = true;
-           } else if (suit == targetSuit) {
-             final diff = (rank.numericValue - targetRank.numericValue).abs();
-             final isAceTwo = (rank == Rank.two && targetRank == Rank.ace) || (rank == Rank.ace && targetRank == Rank.two);
-             if (diff == 1 || isAceTwo) {
-                isValidMatch = true;
-             }
-           }
-         }
+        if (isTurnStart) {
+          // 1. TURN-START (first play after opponent ends):
+          // Joker can mimic any card of the same suit OR any card of the same rank.
+          if (suit == targetSuit || rank == targetRank) {
+            isValidMatch = true;
+          }
+        } else {
+          // 2. MID-TURN CONTINUANCE:
+          // Joker can mimic adjacent rank of same suit OR same rank.
+          if (rank == targetRank) {
+            isValidMatch = true;
+          } else if (suit == targetSuit) {
+            final diff = (rank.numericValue - targetRank.numericValue).abs();
+            final isAceTwo = (rank == Rank.two && targetRank == Rank.ace) ||
+                (rank == Rank.ace && targetRank == Rank.two);
+            if (diff == 1 || isAceTwo) {
+              isValidMatch = true;
+            }
+          }
+        }
       }
-      
+
       if (isValidMatch) {
-         validOptions.add(CardModel(
+        validOptions.add(CardModel(
           id: 'joker_opt_${suit.name}_${rank.name}',
           suit: suit,
           rank: rank,
@@ -223,17 +238,19 @@ List<CardModel> getValidJokerOptions({
       }
     }
   }
-  
+
   return validOptions;
 }
 
 /// Returns `null` if [card] can legally be played on top of [discard].
 String? _validateSingle(CardModel card, CardModel discard, GameState state) {
   if (card.isJoker) return null;
-  
+
   // Red Jack acts as a wildcard specifically when cancelling penalties.
   // If there's an active penalty, a Red Jack is always valid.
-  if (state.activePenaltyCount > 0 && card.effectiveRank == Rank.jack && !card.isBlackJack) {
+  if (state.activePenaltyCount > 0 &&
+      card.effectiveRank == Rank.jack &&
+      !card.isBlackJack) {
     return null;
   }
 
@@ -244,8 +261,10 @@ String? _validateSingle(CardModel card, CardModel discard, GameState state) {
 
   // Penalty substitution: Any penalty card (2 or Jack) can be played on top
   // of any other penalty card (2 or Jack) to build or reset a penalty chain.
-  final discardIsPenalty = discard.effectiveRank == Rank.two || discard.effectiveRank == Rank.jack;
-  final cardIsPenalty = card.effectiveRank == Rank.two || card.effectiveRank == Rank.jack;
+  final discardIsPenalty =
+      discard.effectiveRank == Rank.two || discard.effectiveRank == Rank.jack;
+  final cardIsPenalty =
+      card.effectiveRank == Rank.two || card.effectiveRank == Rank.jack;
   if (discardIsPenalty && cardIsPenalty) {
     return null;
   }
@@ -253,7 +272,8 @@ String? _validateSingle(CardModel card, CardModel discard, GameState state) {
   // Queen suit-lock: must play the locked suit OR another Queen.
   if (state.queenSuitLock != null) {
     if (card.effectiveSuit == state.queenSuitLock) return null;
-    if (card.effectiveRank == Rank.queen) return null; // Q->Q chaining is explicitly allowed
+    if (card.effectiveRank == Rank.queen)
+      return null; // Q->Q chaining is explicitly allowed
     return 'Queen lock active — play a ${state.queenSuitLock!.displayName} card or another Queen.';
   }
 
@@ -305,20 +325,22 @@ GameState applyPlay({
 
   // A declaredSuit is only honored if the Ace was played as a Wild Card
   // (i.e., it's the very first card of the turn and the first card of this play).
-  final isWildAcePlay = state.actionsThisTurn == 0 && cards.first.effectiveRank == Rank.ace;
-  
+  final isWildAcePlay =
+      state.actionsThisTurn == 0 && cards.first.effectiveRank == Rank.ace;
+
   for (final card in cards) {
     final useDeclaredSuit = isWildAcePlay && card.id == cards.first.id;
-    gs = _applySpecialEffect(gs, card, declaredSuit: useDeclaredSuit ? declaredSuit : null);
+    gs = _applySpecialEffect(gs, card,
+        declaredSuit: useDeclaredSuit ? declaredSuit : null);
   }
 
   // Sequence Penalty Override: If the final card of the play is not a penalty
   // generating card (like a 2 or Black Jack), any accumulated penalty is canceled.
   // This rewards players for continuing a numerical sequence out of a penalty.
   final lastCard = cards.last;
-  final isPenaltyCard = lastCard.effectiveRank == Rank.two || 
+  final isPenaltyCard = lastCard.effectiveRank == Rank.two ||
       (lastCard.effectiveRank == Rank.jack && lastCard.isBlackJack);
-      
+
   if (!isPenaltyCard) {
     gs = gs.copyWith(activePenaltyCount: 0);
   }
@@ -417,8 +439,7 @@ String nextPlayerId({
   required GameState state,
 }) {
   final players = state.players;
-  final currentIndex =
-      players.indexWhere((p) => p.id == state.currentPlayerId);
+  final currentIndex = players.indexWhere((p) => p.id == state.currentPlayerId);
   if (currentIndex < 0) return state.currentPlayerId;
 
   // In a 2-player game, playing a King (Reverse) acts as a Skip.
@@ -432,7 +453,7 @@ String nextPlayerId({
   final step = state.direction == PlayDirection.clockwise ? 1 : -1;
   int next = currentIndex;
   final advances = 1 + state.activeSkipCount;
-  
+
   for (int i = 0; i < advances; i++) {
     next = (next + step) % players.length;
     if (next < 0) next += players.length;
@@ -460,9 +481,14 @@ String nextPlayerId({
     // Find a 2 or a Red Jack to counter the penalty
     CardModel? counterCard;
     for (final card in ai.hand) {
-      final isCounter = (card.effectiveRank == Rank.two) || 
-                        (card.effectiveRank == Rank.jack && !card.isBlackJack);
-      if (isCounter && validatePlay(cards: [card], discardTop: state.discardTopCard!, state: state) == null) {
+      final isCounter = (card.effectiveRank == Rank.two) ||
+          (card.effectiveRank == Rank.jack && !card.isBlackJack);
+      if (isCounter &&
+          validatePlay(
+                  cards: [card],
+                  discardTop: state.discardTopCard!,
+                  state: state) ==
+              null) {
         counterCard = card;
         break; // Found a counter
       }
@@ -479,8 +505,19 @@ String nextPlayerId({
       );
       final next = nextPlayerId(state: newState);
       return (
-        state: newState.copyWith(currentPlayerId: next, actionsThisTurn: 0, lastPlayedThisTurn: null, activeSkipCount: 0),
-        log: [MoveLogEntry(player: aiName, isDraw: true, drawCount: count, drawReason: '(penalty)')],
+        state: newState.copyWith(
+            currentPlayerId: next,
+            actionsThisTurn: 0,
+            lastPlayedThisTurn: null,
+            activeSkipCount: 0),
+        log: [
+          MoveLogEntry(
+              player: aiName,
+              playerPosition: ai.tablePosition,
+              isDraw: true,
+              drawCount: count,
+              drawReason: '(penalty)')
+        ],
       );
     }
     // If we have a counterCard, fall through and let the normal play logic handle it
@@ -502,8 +539,16 @@ String nextPlayerId({
 
   if (bestCard != null) {
     Suit? declaredSuit;
-    if (bestCard.effectiveRank == Rank.ace) {
+    if (bestCard!.effectiveRank == Rank.ace) {
       declaredSuit = Suit.spades; // AI always declares spades
+    } else if (bestCard!.isJoker) {
+      final options = getValidJokerOptions(state: state, discardTop: state.discardTopCard!);
+      if (options.isNotEmpty) {
+        bestCard = bestCard!.copyWith(
+          jokerDeclaredRank: options.first.rank,
+          jokerDeclaredSuit: options.first.suit,
+        );
+      }
     }
 
     var afterPlay = applyPlay(
@@ -514,11 +559,17 @@ String nextPlayerId({
     );
 
     final logs = <MoveLogEntry>[
-       MoveLogEntry(player: aiName, cards: [bestCard], isSpecial: _isSpecial(bestCard)),
+      MoveLogEntry(
+          player: aiName, 
+          playerPosition: ai.tablePosition,
+          cards: [bestCard], 
+          isSpecial: _isSpecial(bestCard)),
     ];
 
     if (declaredSuit != null) {
-      logs.add(MoveLogEntry(isGameEvent: true, eventText: '↻ Declares ${declaredSuit.displayName}'));
+      logs.add(MoveLogEntry(
+          isGameEvent: true,
+          eventText: '↻ Declares ${declaredSuit.displayName}'));
     }
 
     // ── Queen cover: AI must immediately cover before ending turn ──────
@@ -533,19 +584,34 @@ String nextPlayerId({
               cards: [card],
               discardTop: afterPlay.discardTopCard!,
               state: afterPlay,
-            ) == null) {
+            ) ==
+            null) {
           coverCard = card;
           break;
         }
       }
 
       if (coverCard != null) {
+        if (coverCard.isJoker) {
+          final options = getValidJokerOptions(state: afterPlay, discardTop: afterPlay.discardTopCard!);
+          if (options.isNotEmpty) {
+            coverCard = coverCard.copyWith(
+              jokerDeclaredRank: options.first.rank,
+              jokerDeclaredSuit: options.first.suit,
+            );
+          }
+        }
+
         afterPlay = applyPlay(
           state: afterPlay,
           playerId: aiPlayerId,
           cards: [coverCard],
         );
-        logs.add(MoveLogEntry(player: aiName, cards: [coverCard], isSpecial: _isSpecial(coverCard)));
+        logs.add(MoveLogEntry(
+            player: aiName,
+            playerPosition: ai.tablePosition,
+            cards: [coverCard],
+            isSpecial: _isSpecial(coverCard)));
       } else {
         // Cannot cover — draw 1 card penalty and abort.
         afterPlay = applyDraw(
@@ -554,7 +620,12 @@ String nextPlayerId({
           count: 1,
           cardFactory: cardFactory,
         );
-        logs.add(MoveLogEntry(player: aiName, isDraw: true, drawCount: 1, drawReason: '(Queen penalty)'));
+        logs.add(MoveLogEntry(
+            player: aiName,
+            playerPosition: ai.tablePosition,
+            isDraw: true,
+            drawCount: 1,
+            drawReason: '(Queen penalty)'));
         // Clear queenSuitLock since the draw resolves the obligation.
         afterPlay = afterPlay.copyWith(queenSuitLock: null);
         break;
@@ -563,7 +634,11 @@ String nextPlayerId({
 
     final next = nextPlayerId(state: afterPlay);
     return (
-      state: afterPlay.copyWith(currentPlayerId: next, actionsThisTurn: 0, lastPlayedThisTurn: null, activeSkipCount: 0),
+      state: afterPlay.copyWith(
+          currentPlayerId: next,
+          actionsThisTurn: 0,
+          lastPlayedThisTurn: null,
+          activeSkipCount: 0),
       log: logs,
     );
   }
@@ -577,14 +652,27 @@ String nextPlayerId({
   );
   final next = nextPlayerId(state: afterDraw);
   return (
-    state: afterDraw.copyWith(currentPlayerId: next, actionsThisTurn: 0, lastPlayedThisTurn: null, activeSkipCount: 0),
-    log: [MoveLogEntry(player: aiName, isDraw: true, drawCount: 1)],
+    state: afterDraw.copyWith(
+        currentPlayerId: next,
+        actionsThisTurn: 0,
+        lastPlayedThisTurn: null,
+        activeSkipCount: 0),
+    log: [MoveLogEntry(
+        player: aiName, 
+        playerPosition: ai.tablePosition,
+        isDraw: true, 
+        drawCount: 1)],
   );
 }
 
 bool _isSpecial(CardModel c) {
   const specials = {
-    Rank.two, Rank.jack, Rank.queen, Rank.king, Rank.ace, Rank.eight,
+    Rank.two,
+    Rank.jack,
+    Rank.queen,
+    Rank.king,
+    Rank.ace,
+    Rank.eight,
   };
   return specials.contains(c.effectiveRank) || c.isJoker;
 }

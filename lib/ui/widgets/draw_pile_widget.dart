@@ -38,19 +38,24 @@ class _DrawPileWidgetState extends State<DrawPileWidget> {
       onEnter: (_) => setState(() => _isHovering = true),
       onExit: (_) => setState(() => _isHovering = false),
       child: GestureDetector(
-        onTapDown: widget.enabled ? (_) => setState(() => _isPressed = true) : null,
-        onTapUp: widget.enabled ? (_) {
-          setState(() => _isPressed = false);
-          widget.onTap?.call();
-        } : null,
+        onTapDown:
+            widget.enabled ? (_) => setState(() => _isPressed = true) : null,
+        onTapUp: widget.enabled
+            ? (_) {
+                setState(() => _isPressed = false);
+                widget.onTap?.call();
+              }
+            : null,
         onTapCancel: () => setState(() => _isPressed = false),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOutCubic,
           transform: Matrix4.identity()..scale(targetScale, targetScale),
           transformAlignment: Alignment.center,
-          width: widget.cardWidth + AppDimensions.pileStackLayers * AppDimensions.pileStackOffset * 2,
-          height: height + AppDimensions.pileStackLayers * AppDimensions.pileStackOffset * 2,
+          width: widget.cardWidth +
+              AppDimensions.pileStackLayers * AppDimensions.pileStackOffset * 2,
+          height: height +
+              AppDimensions.pileStackLayers * AppDimensions.pileStackOffset * 2,
           child: Stack(
             children: [
               // Stacked card backs (decorative depth)
@@ -68,11 +73,18 @@ class _DrawPileWidgetState extends State<DrawPileWidget> {
               // Top card back (interactive)
               Hero(
                 tag: 'draw-pile-top',
-                flightShuttleBuilder: (flightContext, animation, flightDirection, fromHeroContext, toHeroContext) {
+                flightShuttleBuilder: (flightContext, animation,
+                    flightDirection, fromHeroContext, toHeroContext) {
                   // Add an inverse shrink-then-expand bounce during flight
                   final bounce = TweenSequence([
-                    TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.85).chain(CurveTween(curve: Curves.easeOut)), weight: 30),
-                    TweenSequenceItem(tween: Tween(begin: 0.85, end: 1.0).chain(CurveTween(curve: Curves.easeIn)), weight: 70),
+                    TweenSequenceItem(
+                        tween: Tween(begin: 1.0, end: 0.85)
+                            .chain(CurveTween(curve: Curves.easeOut)),
+                        weight: 30),
+                    TweenSequenceItem(
+                        tween: Tween(begin: 0.85, end: 1.0)
+                            .chain(CurveTween(curve: Curves.easeIn)),
+                        weight: 70),
                   ]).animate(animation);
 
                   return ScaleTransition(
@@ -101,7 +113,8 @@ class _DrawPileWidgetState extends State<DrawPileWidget> {
                 right: 0,
                 child: Center(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppColors.surfaceDark.withValues(alpha: 0.8),
                       borderRadius: BorderRadius.circular(6),

@@ -19,20 +19,24 @@ class StackFlowStartScreen extends ConsumerStatefulWidget {
   const StackFlowStartScreen({super.key});
 
   @override
-  ConsumerState<StackFlowStartScreen> createState() => _StackFlowStartScreenState();
+  ConsumerState<StackFlowStartScreen> createState() =>
+      _StackFlowStartScreenState();
 }
 
-class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen> with TickerProviderStateMixin {
+class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
+    with TickerProviderStateMixin {
   late AnimationController _bgController;
   late AnimationController _logoController;
-  
+
   @override
   void initState() {
     super.initState();
-    _bgController = AnimationController(
-        vsync: this, duration: const Duration(seconds: 10))..repeat();
-    _logoController = AnimationController(
-        vsync: this, duration: const Duration(seconds: 2))..forward();
+    _bgController =
+        AnimationController(vsync: this, duration: const Duration(seconds: 10))
+          ..repeat();
+    _logoController =
+        AnimationController(vsync: this, duration: const Duration(seconds: 2))
+          ..forward();
   }
 
   @override
@@ -53,11 +57,12 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen> wit
             animation: _bgController,
             builder: (context, child) {
               return CustomPaint(
-                painter: ParticleStarfieldPainter(progress: _bgController.value),
+                painter:
+                    ParticleStarfieldPainter(progress: _bgController.value),
               );
             },
           ),
-          
+
           // 2. Main Content
           SafeArea(
             child: LayoutBuilder(
@@ -66,12 +71,12 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen> wit
                 return Column(
                   children: [
                     const SizedBox(height: 40),
-                    
+
                     // Logo Section
                     AnimatedLogo(controller: _logoController),
-                    
+
                     const Spacer(),
-                    
+
                     // Primary Buttons
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -93,9 +98,9 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen> wit
                               ],
                             ),
                     ),
-                    
+
                     const SizedBox(height: 40),
-                    
+
                     // Secondary Buttons
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -105,13 +110,23 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen> wit
                               child: ListView(
                                 scrollDirection: Axis.horizontal,
                                 children: [
-                                  _SecondaryButton("Practice Mode", () => _showAISelector(context, isPractice: true)),
+                                  _SecondaryButton(
+                                      "Practice Mode",
+                                      () => _showAISelector(context,
+                                          isPractice: true)),
                                   const SizedBox(width: 12),
-                                  _SecondaryButton("Leaderboard", () => _pushWithTransition(context, const LeaderboardScreen())),
+                                  _SecondaryButton(
+                                      "Leaderboard",
+                                      () => _pushWithTransition(
+                                          context, const LeaderboardScreen())),
                                   const SizedBox(width: 12),
-                                  _SecondaryButton("Settings", () => _showSettings(context)),
+                                  _SecondaryButton(
+                                      "Settings", () => _showSettings(context)),
                                   const SizedBox(width: 12),
-                                  _SecondaryButton("Rules", () => _pushWithTransition(context, const RulesScreen())),
+                                  _SecondaryButton(
+                                      "Rules",
+                                      () => _pushWithTransition(
+                                          context, const RulesScreen())),
                                 ],
                               ),
                             )
@@ -121,17 +136,27 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen> wit
                                 runSpacing: 16,
                                 alignment: WrapAlignment.center,
                                 children: [
-                                  _SecondaryButton("Practice Mode", () => _showAISelector(context, isPractice: true)),
-                                  _SecondaryButton("Leaderboard", () => _pushWithTransition(context, const LeaderboardScreen())),
-                                  _SecondaryButton("Settings", () => _showSettings(context)),
-                                  _SecondaryButton("Rules", () => _pushWithTransition(context, const RulesScreen())),
+                                  _SecondaryButton(
+                                      "Practice Mode",
+                                      () => _showAISelector(context,
+                                          isPractice: true)),
+                                  _SecondaryButton(
+                                      "Leaderboard",
+                                      () => _pushWithTransition(
+                                          context, const LeaderboardScreen())),
+                                  _SecondaryButton(
+                                      "Settings", () => _showSettings(context)),
+                                  _SecondaryButton(
+                                      "Rules",
+                                      () => _pushWithTransition(
+                                          context, const RulesScreen())),
                                 ],
                               ),
                             ),
                     ),
-                    
+
                     const SizedBox(height: 32),
-                    
+
                     // Footer
                     const DefaultTextStyle(
                       style: TextStyle(
@@ -143,7 +168,7 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen> wit
                         "Server validated • Secure matchmaking • Instant reconnect",
                       ),
                     ),
-                    
+
                     const SizedBox(height: 20),
                   ],
                 );
@@ -168,7 +193,8 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen> wit
               position: Tween<Offset>(
                 begin: const Offset(0.05, 0),
                 end: Offset.zero,
-              ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+              ).animate(CurvedAnimation(
+                  parent: animation, curve: Curves.easeOutCubic)),
               child: child,
             ),
           );
@@ -193,10 +219,12 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen> wit
       backgroundColor: Colors.transparent,
       builder: (context) => AISelectorModal(
         onSelected: (totalPlayers) {
-          final target = isPractice 
-            ? OfflinePracticeScreen(totalPlayers: totalPlayers)
-            : TableScreen(totalPlayers: totalPlayers); // Temporarily using TableScreen for demo as well
-            
+          final target = isPractice
+              ? OfflinePracticeScreen(totalPlayers: totalPlayers)
+              : TableScreen(
+                  totalPlayers:
+                      totalPlayers); // Temporarily using TableScreen for demo as well
+
           _pushWithTransition(context, target);
         },
       ),
@@ -253,7 +281,8 @@ class ParticleStarfieldPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(ParticleStarfieldPainter oldDelegate) => oldDelegate.progress != progress;
+  bool shouldRepaint(ParticleStarfieldPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }
 
 // -----------------------------------------------------------------------------
@@ -268,7 +297,8 @@ class AnimatedLogo extends StatefulWidget {
   State<AnimatedLogo> createState() => _AnimatedLogoState();
 }
 
-class _AnimatedLogoState extends State<AnimatedLogo> with SingleTickerProviderStateMixin {
+class _AnimatedLogoState extends State<AnimatedLogo>
+    with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
 
   @override
@@ -288,11 +318,16 @@ class _AnimatedLogoState extends State<AnimatedLogo> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    final slideAnim = Tween<Offset>(begin: const Offset(0, 0.4), end: Offset.zero).animate(
-      CurvedAnimation(parent: widget.controller, curve: const Interval(0.0, 0.8, curve: Curves.easeOutCubic)),
+    final slideAnim =
+        Tween<Offset>(begin: const Offset(0, 0.4), end: Offset.zero).animate(
+      CurvedAnimation(
+          parent: widget.controller,
+          curve: const Interval(0.0, 0.8, curve: Curves.easeOutCubic)),
     );
     final opacityAnim = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: widget.controller, curve: const Interval(0.0, 0.6, curve: Curves.easeIn)),
+      CurvedAnimation(
+          parent: widget.controller,
+          curve: const Interval(0.0, 0.6, curve: Curves.easeIn)),
     );
 
     return AnimatedBuilder(
@@ -330,12 +365,14 @@ class _AnimatedLogoState extends State<AnimatedLogo> with SingleTickerProviderSt
                   letterSpacing: 60 * 0.05,
                   shadows: [
                     Shadow(
-                      color: const Color(0xFFCCFF00).withOpacity(0.4 + (pulse * 0.6)),
+                      color: const Color(0xFFCCFF00)
+                          .withOpacity(0.4 + (pulse * 0.6)),
                       blurRadius: 15 + (pulse * 20),
                       offset: const Offset(0, 0),
                     ),
                     Shadow(
-                      color: const Color(0xFFCCFF00).withOpacity(0.2 + (pulse * 0.4)),
+                      color: const Color(0xFFCCFF00)
+                          .withOpacity(0.2 + (pulse * 0.4)),
                       blurRadius: 30 + (pulse * 30),
                       offset: const Offset(0, 0),
                     ),
@@ -409,15 +446,17 @@ class _PlayAiButtonState extends State<_PlayAiButton> {
       // onTapUp intentionally removed for InkWell compatibility
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: () {
-        // Find the _StackFlowStartScreenState to trigger the modal 
+        // Find the _StackFlowStartScreenState to trigger the modal
         // A bit of a hack since _PlayAiButton is not passed a callback directly,
         // we can look up the state in the widget tree.
-        final parentState = context.findAncestorStateOfType<_StackFlowStartScreenState>();
+        final parentState =
+            context.findAncestorStateOfType<_StackFlowStartScreenState>();
         if (parentState != null) {
           parentState._showAISelector(context, isPractice: false);
         } else {
           // Fallback if not found
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const TableScreen()));
+          Navigator.push(
+              context, MaterialPageRoute(builder: (_) => const TableScreen()));
         }
       },
     );
@@ -429,7 +468,8 @@ class _PlayOnlineButton extends StatefulWidget {
   State<_PlayOnlineButton> createState() => _PlayOnlineButtonState();
 }
 
-class _PlayOnlineButtonState extends State<_PlayOnlineButton> with SingleTickerProviderStateMixin {
+class _PlayOnlineButtonState extends State<_PlayOnlineButton>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
   bool _isPressed = false;
   late AnimationController _pulseController;
@@ -451,7 +491,8 @@ class _PlayOnlineButtonState extends State<_PlayOnlineButton> with SingleTickerP
 
   @override
   Widget build(BuildContext context) {
-    final scaleAnim = Tween<double>(begin: 1.0, end: 1.05).animate(_pulseController);
+    final scaleAnim =
+        Tween<double>(begin: 1.0, end: 1.05).animate(_pulseController);
 
     return _PrimaryButtonBase(
       label: "Play Online",
@@ -472,20 +513,23 @@ class _PlayOnlineButtonState extends State<_PlayOnlineButton> with SingleTickerP
       // onTapUp intentionally removed for InkWell compatibility
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: () {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LobbyScreen()));
+        Navigator.pushReplacement(
+            context, MaterialPageRoute(builder: (_) => const LobbyScreen()));
       },
       subtitle: AnimatedBuilder(
-        animation: scaleAnim,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: scaleAnim.value,
-            child: const Text(
-              "12/24 online",
-              style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-          );
-        }
-      ),
+          animation: scaleAnim,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: scaleAnim.value,
+              child: const Text(
+                "12/24 online",
+                style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold),
+              ),
+            );
+          }),
     );
   }
 }
@@ -514,7 +558,6 @@ class _PrimaryButtonBase extends StatelessWidget {
     required this.isPressed,
     required this.onHover,
     required this.onTapDown,
-
     required this.onTapCancel,
     required this.onTap,
   });
@@ -523,7 +566,7 @@ class _PrimaryButtonBase extends StatelessWidget {
   Widget build(BuildContext context) {
     final scale = isPressed ? 0.95 : (isHovered ? 1.10 : 1.0);
     final activeGlowColor = isHovered ? const Color(0xFF00FFFF) : glowColor;
-    
+
     return MouseRegion(
       onEnter: (_) => onHover(true),
       onExit: (_) => onHover(false),
@@ -588,7 +631,10 @@ class _PrimaryButtonBase extends StatelessWidget {
                         color: Colors.white,
                         letterSpacing: 0.5,
                         shadows: [
-                          const Shadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 2))
+                          const Shadow(
+                              color: Colors.black45,
+                              blurRadius: 4,
+                              offset: Offset(0, 2))
                         ],
                       ),
                     ),
@@ -633,10 +679,13 @@ class _SecondaryButtonState extends State<_SecondaryButton> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,
-        transform: Matrix4.identity()..scale(_isHovered ? 1.10 : 1.0, _isHovered ? 1.10 : 1.0),
+        transform: Matrix4.identity()
+          ..scale(_isHovered ? 1.10 : 1.0, _isHovered ? 1.10 : 1.0),
         transformAlignment: Alignment.center,
         decoration: BoxDecoration(
-          color: _isHovered ? const Color(0xFF00FFFF).withOpacity(0.1) : Colors.transparent,
+          color: _isHovered
+              ? const Color(0xFF00FFFF).withOpacity(0.1)
+              : Colors.transparent,
           border: Border.all(
             color: _isHovered ? const Color(0xFF00FFFF) : Colors.white60,
             width: 1.5,

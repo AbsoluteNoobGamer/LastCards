@@ -11,25 +11,26 @@ class OfflinePracticeScreen extends ConsumerStatefulWidget {
   const OfflinePracticeScreen({this.totalPlayers = 2, super.key});
 
   @override
-  ConsumerState<OfflinePracticeScreen> createState() => _OfflinePracticeScreenState();
+  ConsumerState<OfflinePracticeScreen> createState() =>
+      _OfflinePracticeScreenState();
 }
 
 class _OfflinePracticeScreenState extends ConsumerState<OfflinePracticeScreen> {
-  // TableScreen inherently manages its own local state via _initNewGame when 
+  // TableScreen inherently manages its own local state via _initNewGame when
   // not connected. Therefore, we do not need to push a provider update here.
   // It will initialize automatically on mount.
 
   @override
   Widget build(BuildContext context) {
     // We re-use the existing visual table but hide lobby features and show a badge
-    // Since TableScreen is deeply coupled in the demo, we will build a wrapper 
+    // Since TableScreen is deeply coupled in the demo, we will build a wrapper
     // or instantiate a fresh table view. For speed, we will push the existing TableScreen
-    // but pass a flag if it accepted one. Since it doesn't currently, we will just replicate 
+    // but pass a flag if it accepted one. Since it doesn't currently, we will just replicate
     // the layout of TableScreen but add the "No leaderboard impact" badge.
-    
+
     // As a true implementation, we should probably refactor TableScreen to accept a `isPracticeMode` flag,
     // but building our own PracticeScreen ensures we meet the exact requirements without breaking the multiplayer flow.
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Practice Mode"),
@@ -74,7 +75,7 @@ class _PracticeTableBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // The TableScreen is a Scaffold itself. If we nest Scaffolds, it might look slightly off.
-    // The cleanest approach is to push the TableScreen but add our AppBar to it, or 
+    // The cleanest approach is to push the TableScreen but add our AppBar to it, or
     // simply push TableScreen and add a floating badge. Let's do the floating badge approach
     // directly inside a modified TableScreen instead.
 

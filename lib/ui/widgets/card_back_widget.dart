@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimensions.dart';
 
-
 /// Premium card back — deep green/burgundy base with a gold geometric
 /// border pattern and a centred emblem, drawn entirely in [CustomPaint].
 class CardBackWidget extends StatelessWidget {
@@ -41,8 +40,7 @@ class CardBackWidget extends StatelessWidget {
         ),
       ),
       child: ClipRRect(
-        borderRadius:
-            BorderRadius.circular(AppDimensions.radiusCard - 1),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusCard - 1),
         child: CustomPaint(
           painter: _CardBackPainter(),
         ),
@@ -71,8 +69,7 @@ class _CardBackPainter extends CustomPainter {
 
     // Inner border inset
     const inset = 5.0;
-    final innerRect =
-        Rect.fromLTWH(inset, inset, w - inset * 2, h - inset * 2);
+    final innerRect = Rect.fromLTWH(inset, inset, w - inset * 2, h - inset * 2);
     final rr = RRect.fromRectAndRadius(
       innerRect,
       const Radius.circular(AppDimensions.radiusCard - 2),
@@ -83,9 +80,12 @@ class _CardBackPainter extends CustomPainter {
     _drawLattice(canvas, size, accentPaint);
 
     // Centred emblem (crown)
-    _drawCrownEmblem(canvas, size, Paint()
-      ..color = AppColors.goldPrimary.withValues(alpha: 0.8)
-      ..style = PaintingStyle.fill);
+    _drawCrownEmblem(
+        canvas,
+        size,
+        Paint()
+          ..color = AppColors.goldPrimary.withValues(alpha: 0.8)
+          ..style = PaintingStyle.fill);
   }
 
   void _drawLattice(Canvas canvas, Size size, Paint paint) {
@@ -167,4 +167,3 @@ class _CardBackPainter extends CustomPainter {
   @override
   bool shouldRepaint(_CardBackPainter old) => false;
 }
-

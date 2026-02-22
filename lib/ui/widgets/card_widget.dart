@@ -39,9 +39,7 @@ class CardWidget extends ConsumerWidget {
     }
 
     final height = AppDimensions.cardHeight(width);
-    final suitColor = card.suit.isRed
-        ? AppColors.suitRed
-        : AppColors.suitBlack;
+    final suitColor = card.suit.isRed ? AppColors.suitRed : AppColors.suitBlack;
 
     // Use implicit Tweens to drive lift and shimmer over a fast 150ms bounce
     return TweenAnimationBuilder<double>(
@@ -53,7 +51,9 @@ class CardWidget extends ConsumerWidget {
         final scale = 1.0 + (0.10 * val); // Scale 1.0 -> 1.1
 
         return MouseRegion(
-          cursor: onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+          cursor: onTap != null
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
           child: GestureDetector(
             onTap: () {
               if (onTap != null) {
@@ -61,9 +61,11 @@ class CardWidget extends ConsumerWidget {
                 onTap!();
               }
             },
-            onPanStart: onTap != null ? (_) {
-              ref.read(audioServiceProvider).playDrag();
-            } : null,
+            onPanStart: onTap != null
+                ? (_) {
+                    ref.read(audioServiceProvider).playDrag();
+                  }
+                : null,
             child: Transform.translate(
               // Provide Z-index layering or simple Matrix
               offset: Offset(0, liftY),
@@ -74,16 +76,19 @@ class CardWidget extends ConsumerWidget {
                   height: height,
                   decoration: BoxDecoration(
                     color: AppColors.cardFace,
-                    borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
+                    borderRadius:
+                        BorderRadius.circular(AppDimensions.radiusCard),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.35 + (0.15 * val)),
+                        color:
+                            Colors.black.withValues(alpha: 0.35 + (0.15 * val)),
                         blurRadius: 8 + (8 * val), // Shadow expands on lift
                         offset: Offset(0, 4 + (4 * val)),
                       ),
                       if (val > 0)
                         BoxShadow(
-                          color: AppColors.goldPrimary.withValues(alpha: val * 0.85),
+                          color: AppColors.goldPrimary
+                              .withValues(alpha: val * 0.85),
                           blurRadius: 16 * val,
                           spreadRadius: 3 * val,
                         ),

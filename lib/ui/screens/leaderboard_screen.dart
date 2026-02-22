@@ -62,7 +62,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               ],
             ),
           ),
-          
+
           Expanded(
             child: RefreshIndicator(
               onRefresh: _refresh,
@@ -74,11 +74,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                       itemBuilder: (context, index) {
                         final player = _mockPlayers[index];
                         final isTop3 = index < 3;
-                        
+
                         return ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: isTop3 
-                                ? ['#FFD700', '#C0C0C0', '#CD7F32'].map((c) => Color(int.parse(c.replaceFirst('#', '0xFF')))).toList()[index] 
+                            backgroundColor: isTop3
+                                ? ['#FFD700', '#C0C0C0', '#CD7F32']
+                                    .map((c) => Color(
+                                        int.parse(c.replaceFirst('#', '0xFF'))))
+                                    .toList()[index]
                                 : Colors.grey[800],
                             child: Text(
                               '#${index + 1}',
@@ -105,7 +108,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                   color: Colors.amber,
                                 ),
                               ),
-                              const Text('Wins', style: TextStyle(fontSize: 10)),
+                              const Text('Wins',
+                                  style: TextStyle(fontSize: 10)),
                             ],
                           ),
                         );

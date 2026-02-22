@@ -189,7 +189,8 @@ class _GoldTextField extends StatelessWidget {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppDimensions.radiusButton),
-              borderSide: const BorderSide(color: AppColors.goldPrimary, width: 1.5),
+              borderSide:
+                  const BorderSide(color: AppColors.goldPrimary, width: 1.5),
             ),
           ),
         ),
@@ -205,12 +206,14 @@ class _Divider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Expanded(child: Divider(color: AppColors.goldDark, thickness: 0.5)),
+        const Expanded(
+            child: Divider(color: AppColors.goldDark, thickness: 0.5)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppDimensions.md),
           child: Text('LOBBY', style: AppTypography.labelSmall),
         ),
-        const Expanded(child: Divider(color: AppColors.goldDark, thickness: 0.5)),
+        const Expanded(
+            child: Divider(color: AppColors.goldDark, thickness: 0.5)),
       ],
     );
   }

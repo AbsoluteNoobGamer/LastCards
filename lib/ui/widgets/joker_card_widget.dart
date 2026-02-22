@@ -167,7 +167,8 @@ class _JesterMotifPainter extends CustomPainter {
     // Four triangular points radiating inward
     for (int i = 0; i < 4; i++) {
       final base = (i * math.pi / 2) - math.pi / 4;
-      final tip = Offset(cx + r * 0.28 * math.cos(base), cy + r * 0.28 * math.sin(base));
+      final tip = Offset(
+          cx + r * 0.28 * math.cos(base), cy + r * 0.28 * math.sin(base));
       final left = Offset(
         cx + r * 0.62 * math.cos(base + math.pi / 6),
         cy + r * 0.62 * math.sin(base + math.pi / 6),

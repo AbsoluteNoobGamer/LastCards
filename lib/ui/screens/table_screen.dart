@@ -15,7 +15,8 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimensions.dart';
 import '../../core/models/move_log_entry.dart';
 import '../../core/network/websocket_client.dart';
-import '../widgets/collapsible_game_log.dart';
+
+import '../widgets/integrated_game_log.dart';
 import '../widgets/discard_pile_widget.dart';
 import '../widgets/draw_pile_widget.dart';
 import '../widgets/hud_overlay_widget.dart';
@@ -25,7 +26,6 @@ import '../widgets/card_widget.dart';
 import '../widgets/status_bar_widget.dart';
 import '../widgets/turn_indicator_overlay.dart';
 import '../../core/services/audio_service.dart';
-
 
 /// The main game table screen.
 ///
@@ -60,16 +60,16 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   // ── Move log ──────────────────────────────────────────────────────
   final List<MoveLogEntry> _moveLog = [
-    MoveLogEntry(isGameEvent: true, eventText: '🎮 Game started — match suit or rank')
+    MoveLogEntry(
+        isGameEvent: true, eventText: '🎮 Game started — match suit or rank')
   ];
 
   // ── Discard tracking for reshuffle ────────────────────────────────
   // Starts at 1 because the initial face-up card is already "discarded".
   int _totalDiscarded = 1;
 
-
   // ── Real shuffled draw pile + discard tracking ────────────────────
-  late List<CardModel> _drawPile;          // actual remaining cards
+  late List<CardModel> _drawPile; // actual remaining cards
   final List<CardModel> _discardPile = []; // tracks all discarded cards
 
   // ── Turn timer ────────────────────────────────────────────────────
@@ -87,9 +87,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   void _initNewGame() {
-    final (state, drawPile) = DemoGameState.buildWithDeck(totalPlayers: widget.totalPlayers);
-    _demoState     = state;
-    _drawPile      = drawPile;
+    final (state, drawPile) =
+        DemoGameState.buildWithDeck(totalPlayers: widget.totalPlayers);
+    _demoState = state;
+    _drawPile = drawPile;
     _discardPile
       ..clear()
       ..add(state.discardTopCard!); // seed discard with starting face-up card
@@ -119,7 +120,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         } else {
           // Timer expired
           timer.cancel();
-          if (_demoState.currentPlayerId == DemoGameState.localId && !_aiThinking) {
+          if (_demoState.currentPlayerId == DemoGameState.localId &&
+              !_aiThinking) {
             if (_demoState.queenSuitLock != null) {
               // Timer expired while Queen uncovered -> force 1 draw, keep turn active
               _addLog('⏳ Timeout! Forced to draw for Queen cover.');
@@ -139,7 +141,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     // Similar to demoDrawCard but explicitly just 1 card penalty for timeout
     // Turn DOES NOT advance because they still must cover the Queen!
     if (_aiThinking) return;
-    
+
     var newState = applyDraw(
       state: _demoState,
       playerId: DemoGameState.localId,
@@ -202,13 +204,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final liveState   = ref.watch(gameStateProvider);
-    final connState   = ref.watch(connectionStateProvider).valueOrNull
-        ?? WsConnectionState.disconnected;
+    final liveState = ref.watch(gameStateProvider);
+    final connState = ref.watch(connectionStateProvider).valueOrNull ??
+        WsConnectionState.disconnected;
 
-    final isDemoMode  = liveState == null;
-    final gameState   = liveState ?? _demoState;
-    final isMyTurn    = isDemoMode
+    final isDemoMode = liveState == null;
+    final gameState = liveState ?? _demoState;
+    final isMyTurn = isDemoMode
         ? (_demoState.currentPlayerId == DemoGameState.localId && !_aiThinking)
         : ref.watch(isLocalTurnProvider);
     final penaltyCount = isDemoMode
@@ -230,13 +232,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             child: Column(
               children: [
                 StatusBarWidget(
-                  activePlayerName: gameState.playerById(gameState.currentPlayerId)?.displayName ?? '',
+                  activePlayerName: gameState
+                          .playerById(gameState.currentPlayerId)
+                          ?.displayName ??
+                      '',
                   direction: gameState.direction,
                   upcomingPlayerNames: _getUpcomingPlayerNames(gameState),
                   secondsLeft: _secondsLeft,
-                  canEndTurn: isDemoMode
-                      ? (validateEndTurn(_demoState) == null)
-                      : true,
+                  canEndTurn:
+                      isDemoMode ? (validateEndTurn(_demoState) == null) : true,
                   onEndTurn: isDemoMode
                       ? _endTurn
                       : () {}, // TODO: handle live server End Turn
@@ -248,7 +252,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     isMyTurn: isMyTurn,
                     secondsLeft: _secondsLeft,
                     penaltyCount: penaltyCount,
-                    connState: isDemoMode ? WsConnectionState.disconnected : connState,
+                    connState:
+                        isDemoMode ? WsConnectionState.disconnected : connState,
                     canEndTurn: isDemoMode
                         ? (validateEndTurn(_demoState) == null)
                         : true,
@@ -259,9 +264,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     onPlayTap: isDemoMode
                         ? () => _demoPlayCards(DemoGameState.localId)
                         : _onPlayTap,
-                    onEndTurnTap: isDemoMode
-                        ? _endTurn
-                        : () {},
+                    onEndTurnTap: isDemoMode ? _endTurn : () {},
                   ),
                 ),
               ],
@@ -271,7 +274,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           // ── Demo banner ─────────────────────────────────────────
           if (isDemoMode)
             Positioned(
-              top: 0, left: 0, right: 0,
+              top: 0,
+              left: 0,
+              right: 0,
               child: SafeArea(
                 bottom: false,
                 child: _DemoBanner(
@@ -281,20 +286,22 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               ),
             ),
 
-          // ── Move log (left edge) ────────────────────────────────
+          // ── Integrated Move log (left edge) ────────────────────────────────
           if (isDemoMode)
             Positioned(
               left: 0,
-              top: 72,
-              child: CollapsibleGameLog(
-                entries: _moveLog,
-                activePlayerName: isMyTurn 
-                    ? 'YOUR TURN' 
-                    : (gameState.playerById(gameState.currentPlayerId)?.displayName ?? 'Unknown'),
-                onClear: () => setState(() {
-                  _moveLog.clear();
-                  _moveLog.add(MoveLogEntry(isGameEvent: true, eventText: '🗑️ Log cleared'));
-                }),
+              top: 180,
+              bottom: 0,
+              child: SafeArea(
+                child: IntegratedGameLog(
+                  entries: _moveLog,
+                  activePlayerName: isMyTurn
+                      ? 'YOUR TURN'
+                      : (gameState
+                              .playerById(gameState.currentPlayerId)
+                              ?.displayName ??
+                          'Unknown'),
+                ),
               ),
             ),
         ],
@@ -306,8 +313,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   List<String> _getUpcomingPlayerNames(GameState state) {
     if (state.players.isEmpty) return [];
-    
-    final int currentIndex = state.players.indexWhere((p) => p.id == state.currentPlayerId);
+
+    final int currentIndex =
+        state.players.indexWhere((p) => p.id == state.currentPlayerId);
     if (currentIndex == -1) return [];
 
     final names = <String>[];
@@ -343,7 +351,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   void _onPlayTap() {
     if (_selectedCardIds.isEmpty) return;
-    ref.read(gameNotifierProvider.notifier).playCards(_selectedCardIds.toList());
+    ref
+        .read(gameNotifierProvider.notifier)
+        .playCards(_selectedCardIds.toList());
     setState(() => _selectedCardIds.clear());
   }
 
@@ -354,9 +364,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (_demoState.currentPlayerId != playerId) return;
 
     final local = _demoState.players.firstWhere((p) => p.id == playerId);
-    final played = local.hand
-        .where((c) => _selectedCardIds.contains(c.id))
-        .toList();
+    final played =
+        local.hand.where((c) => _selectedCardIds.contains(c.id)).toList();
 
     // Rule validation
     final err = validatePlay(
@@ -372,7 +381,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     // Only ask for a suit if the Ace is acting as a wild card.
     // An Ace is a wild card ONLY if it's the very first card played this turn.
-    final isWildAce = _demoState.actionsThisTurn == 0 && played.first.effectiveRank == Rank.ace;
+    final isWildAce = _demoState.actionsThisTurn == 0 &&
+        played.first.effectiveRank == Rank.ace;
     if (isWildAce && mounted) {
       final chosenSuit = await showModalBottomSheet<Suit>(
         context: context,
@@ -415,7 +425,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       // Wild Aces always end the turn immediately
       _addLog('  ↳ Wild Ace played! Turn ends.');
       _endTurn();
-      
+
       return;
     }
 
@@ -446,21 +456,23 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       }
 
       final identityStr = chosenCard.shortLabel;
-      
+
       // Override the Joker's identity locally before passing to engine
-      // (The engine doesn't currently accept `jokerDeclaredSuit` and a rank natively 
-      // through `applyPlay` parameters like it does for Ace's `declaredSuit`, 
+      // (The engine doesn't currently accept `jokerDeclaredSuit` and a rank natively
+      // through `applyPlay` parameters like it does for Ace's `declaredSuit`,
       // so we modify the CardModel copy here to emulate the UI choice).
       final assignedJoker = played.first.copyWith(
         jokerDeclaredRank: chosenCard.rank,
         jokerDeclaredSuit: chosenCard.suit,
       );
 
-      var newState = applyPlay(state: _demoState, playerId: playerId, cards: [assignedJoker]);
+      var newState = applyPlay(
+          state: _demoState, playerId: playerId, cards: [assignedJoker]);
 
       _addLogEntry(MoveLogEntry(
         player: 'YOU',
-        cards: played,
+        playerPosition: TablePosition.bottom,
+        cards: [assignedJoker],
         isSpecial: true,
       ));
       _noteSpecialEffect([assignedJoker]);
@@ -481,16 +493,19 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
 
     // Apply play + special effects
-    var newState = applyPlay(state: _demoState, playerId: playerId, cards: played);
+    var newState =
+        applyPlay(state: _demoState, playerId: playerId, cards: played);
 
     final skipCounts = _demoState.activeSkipCount;
     if (skipCounts > 0 && playerId != DemoGameState.aiId) {
-        _addLog('  ↳ ${skipCounts == 1 ? "1 player" : "$skipCounts players"} skipped! (Applies on End Turn)');
+      _addLog(
+          '  ↳ ${skipCounts == 1 ? "1 player" : "$skipCounts players"} skipped! (Applies on End Turn)');
     }
 
     // Log + track discards
     _addLogEntry(MoveLogEntry(
       player: 'YOU',
+      playerPosition: TablePosition.bottom,
       cards: played,
       isSpecial: _isSpecial(played.first),
     ));
@@ -506,12 +521,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     _reshuffleIfNeeded();
     if (_checkWin(playerId, newState)) return;
-    
-    // Auto-advance if this play guarantees we get another turn immediately and 
+
+    // Auto-advance if this play guarantees we get another turn immediately and
     // there are no unresolved obligations (like covering a Queen).
     // This happens when playing a Skip (8) or a King in a 2-player game.
     final nextId = nextPlayerId(state: newState);
-    
+
     if (nextId == playerId && newState.queenSuitLock == null) {
       _addLog('  ↳ Extra turn granted!');
       _endTurn();
@@ -537,13 +552,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (isPenaltyDraw) {
       _addLogEntry(MoveLogEntry(
         player: 'YOU',
+        playerPosition: TablePosition.bottom,
         isDraw: true,
         drawCount: drawCount,
         drawReason: '(penalty)',
       ));
       // Penalty draw: turn advances automatically.
       final nextId = nextPlayerId(state: newState);
-      newState = newState.copyWith(currentPlayerId: nextId, actionsThisTurn: 0, activeSkipCount: 0);
+      newState = newState.copyWith(
+          currentPlayerId: nextId, actionsThisTurn: 0, activeSkipCount: 0);
       setState(() {
         _demoState = newState;
         _selectedCardIds.clear();
@@ -554,12 +571,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       // Voluntary draw (no valid moves) — auto-end turn per the rules.
       _addLogEntry(MoveLogEntry(
         player: 'YOU',
+        playerPosition: TablePosition.bottom,
         isDraw: true,
         drawCount: 1,
         drawReason: '(no moves)',
       ));
       final nextId = nextPlayerId(state: newState);
-      newState = newState.copyWith(currentPlayerId: nextId, actionsThisTurn: 0, activeSkipCount: 0);
+      newState = newState.copyWith(
+          currentPlayerId: nextId, actionsThisTurn: 0, activeSkipCount: 0);
       setState(() {
         _demoState = newState;
         _selectedCardIds.clear();
@@ -669,7 +688,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               _aiThinking = false;
               _moveLog
                 ..clear()
-                ..add(MoveLogEntry(isGameEvent: true, eventText: '🎮 New game started — fresh shuffle!'));
+                ..add(MoveLogEntry(
+                    isGameEvent: true,
+                    eventText: '🎮 New game started — fresh shuffle!'));
             });
           },
         ),
@@ -682,7 +703,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   bool _isSpecial(CardModel c) {
     const specials = {
-      Rank.two, Rank.jack, Rank.queen, Rank.king, Rank.ace, Rank.eight,
+      Rank.two,
+      Rank.jack,
+      Rank.queen,
+      Rank.king,
+      Rank.ace,
+      Rank.eight,
     };
     return specials.contains(c.effectiveRank) || c.isJoker;
   }
@@ -704,13 +730,16 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   void _noteSpecialEffect(List<CardModel> played) {
     for (final c in played) {
       final note = switch (c.effectiveRank) {
-        Rank.two   => '  ↳ Player 2 draws 2!',
-        Rank.jack  => c.isBlackJack ? '  ↳ Player 2 draws 5!' : '  ↳ Penalty cancelled!',
-        Rank.king  => '  ↳ Direction reversed!',
+        Rank.two => '  ↳ Player 2 draws 2!',
+        Rank.jack =>
+          c.isBlackJack ? '  ↳ Player 2 draws 5!' : '  ↳ Penalty cancelled!',
+        Rank.king => '  ↳ Direction reversed!',
         Rank.queen => '  ↳ Suit locked: ${c.effectiveSuit.displayName}',
-        Rank.ace   => '  ↳ Suit changed to ${c.effectiveSuit.displayName}!',
-        Rank.eight => c == played.first ? '  ↳ Skipped!' : null, // Prevent spamming log if multi 8s, handled by aggregate log above
-        _          => null,
+        Rank.ace => '  ↳ Suit changed to ${c.effectiveSuit.displayName}!',
+        Rank.eight => c == played.first
+            ? '  ↳ Skipped!'
+            : null, // Prevent spamming log if multi 8s, handled by aggregate log above
+        _ => null,
       };
       if (note != null) _addLog(note);
     }
@@ -728,7 +757,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     );
   }
 }
-
 
 // ── Table layout ──────────────────────────────────────────────────────────────
 
@@ -776,7 +804,8 @@ class _TableLayout extends StatelessWidget {
     // Calculate next turn ID for visual indicator
     String nextId = '';
     if (players.isNotEmpty) {
-      final int idx = players.indexWhere((p) => p.id == gameState.currentPlayerId);
+      final int idx =
+          players.indexWhere((p) => p.id == gameState.currentPlayerId);
       if (idx != -1) {
         final int dir = gameState.direction == PlayDirection.clockwise ? 1 : -1;
         final int count = players.length;
@@ -792,7 +821,8 @@ class _TableLayout extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(top: AppDimensions.md),
           child: topOpp != null
-              ? PlayerZoneWidget(player: topOpp, isNextTurn: topOpp.id == nextId)
+              ? PlayerZoneWidget(
+                  player: topOpp, isNextTurn: topOpp.id == nextId)
               : const _EmptyOpponentZone(),
         ),
 
@@ -807,7 +837,9 @@ class _TableLayout extends StatelessWidget {
                   child: leftOpp != null
                       ? RotatedBox(
                           quarterTurns: 1,
-                          child: PlayerZoneWidget(player: leftOpp, isNextTurn: leftOpp.id == nextId),
+                          child: PlayerZoneWidget(
+                              player: leftOpp,
+                              isNextTurn: leftOpp.id == nextId),
                         )
                       : const SizedBox.shrink(),
                 ),
@@ -834,7 +866,8 @@ class _TableLayout extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: AppColors.goldDark.withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusButton),
+                      borderRadius:
+                          BorderRadius.circular(AppDimensions.radiusButton),
                       border: Border.all(
                         color: AppColors.goldDark.withValues(alpha: 0.5),
                       ),
@@ -868,7 +901,6 @@ class _TableLayout extends StatelessWidget {
                     ],
                   ),
 
-
                   // End Turn button removed from here, now in Status Bar
                   // We just show a blank space or keep play button only
                   if (selectedCardIds.isNotEmpty && isMyTurn) ...[
@@ -879,7 +911,9 @@ class _TableLayout extends StatelessWidget {
                         foregroundColor: AppColors.feltDeep,
                       ),
                       onPressed: onPlayTap,
-                      child: Text('PLAY CARD${selectedCardIds.length > 1 ? 'S' : ''}', style: const TextStyle(fontWeight: FontWeight.w900)),
+                      child: Text(
+                          'PLAY CARD${selectedCardIds.length > 1 ? 'S' : ''}',
+                          style: const TextStyle(fontWeight: FontWeight.w900)),
                     ),
                   ],
                 ],
@@ -891,7 +925,9 @@ class _TableLayout extends StatelessWidget {
                   child: rightOpp != null
                       ? RotatedBox(
                           quarterTurns: 3,
-                          child: PlayerZoneWidget(player: rightOpp, isNextTurn: rightOpp.id == nextId),
+                          child: PlayerZoneWidget(
+                              player: rightOpp,
+                              isNextTurn: rightOpp.id == nextId),
                         )
                       : const SizedBox.shrink(),
                 ),
@@ -904,16 +940,16 @@ class _TableLayout extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(bottom: AppDimensions.md),
           child: PlayerZoneWidget(
-                  player: localPlayer,
-                  isLocalPlayer: true,
-                  isNextTurn: localPlayer.id == nextId,
-                  child: PlayerHandWidget(
-                    cards: localPlayer.hand,
-                    selectedCardIds: selectedCardIds,
-                    onCardTap: onCardTap,
-                    enabled: isMyTurn,
-                  ),
-                ),
+            player: localPlayer,
+            isLocalPlayer: true,
+            isNextTurn: localPlayer.id == nextId,
+            child: PlayerHandWidget(
+              cards: localPlayer.hand,
+              selectedCardIds: selectedCardIds,
+              onCardTap: onCardTap,
+              enabled: isMyTurn,
+            ),
+          ),
         ),
       ],
     );
@@ -1052,7 +1088,9 @@ class _DemoBanner extends StatelessWidget {
           const SizedBox(width: AppDimensions.sm),
           Expanded(
             child: Text(
-              aiThinking ? '⏳  Player 2 is thinking…' : 'DEMO — follow suit or rank to play',
+              aiThinking
+                  ? '⏳  Player 2 is thinking…'
+                  : 'DEMO — follow suit or rank to play',
               style: TextStyle(
                 color: AppColors.feltDeep,
                 fontSize: 11,
@@ -1136,9 +1174,11 @@ class _WinDialog extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.goldPrimary,
                   foregroundColor: AppColors.feltDeep,
-                  padding: const EdgeInsets.symmetric(vertical: AppDimensions.md),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: AppDimensions.md),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppDimensions.radiusButton),
+                    borderRadius:
+                        BorderRadius.circular(AppDimensions.radiusButton),
                   ),
                 ),
                 child: const Text(
@@ -1202,11 +1242,12 @@ class _AceSuitPickerSheet extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('A', style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w900,
-                color: AppColors.goldPrimary,
-              )),
+              const Text('A',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.goldPrimary,
+                  )),
               const SizedBox(width: 10),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1239,13 +1280,19 @@ class _AceSuitPickerSheet extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _SuitPickButton(
-                symbol: '♠', label: 'Spades', suit: Suit.spades, isRed: false),
+                  symbol: '♠',
+                  label: 'Spades',
+                  suit: Suit.spades,
+                  isRed: false),
               _SuitPickButton(
-                symbol: '♣', label: 'Clubs', suit: Suit.clubs, isRed: false),
+                  symbol: '♣', label: 'Clubs', suit: Suit.clubs, isRed: false),
               _SuitPickButton(
-                symbol: '♥', label: 'Hearts', suit: Suit.hearts, isRed: true),
+                  symbol: '♥', label: 'Hearts', suit: Suit.hearts, isRed: true),
               _SuitPickButton(
-                symbol: '♦', label: 'Diamonds', suit: Suit.diamonds, isRed: true),
+                  symbol: '♦',
+                  label: 'Diamonds',
+                  suit: Suit.diamonds,
+                  isRed: true),
             ],
           ),
 
@@ -1322,7 +1369,7 @@ class _SuitPickButton extends StatelessWidget {
 /// Bottom sheet that lets the player choose exactly which card the Joker will represent.
 class _JokerSelectionSheet extends StatelessWidget {
   const _JokerSelectionSheet({required this.options});
-  
+
   final List<CardModel> options;
 
   @override
@@ -1361,9 +1408,10 @@ class _JokerSelectionSheet extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('🃏', style: TextStyle(
-                fontSize: 28,
-              )),
+              const Text('🃏',
+                  style: TextStyle(
+                    fontSize: 28,
+                  )),
               const SizedBox(width: 10),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1400,12 +1448,12 @@ class _JokerSelectionSheet extends StatelessWidget {
               return GestureDetector(
                 onTap: () => Navigator.of(context).pop(card),
                 child: SizedBox(
-                   width: 50,
-                   // Wrap PlayingCard in a container to add a slight border on hover/tap
-                   child: CardWidget(
-                     card: card,
-                     isSelected: false, 
-                   ),
+                  width: 50,
+                  // Wrap PlayingCard in a container to add a slight border on hover/tap
+                  child: CardWidget(
+                    card: card,
+                    isSelected: false,
+                  ),
                 ),
               );
             }).toList(),
