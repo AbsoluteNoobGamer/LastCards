@@ -14,6 +14,7 @@ abstract final class AppColors {
   static const Color goldDark = Color(0xFF8A6D28);
   static const Color redAccent = Color(0xFF9B2335);
   static const Color redSoft = Color(0xFFC0392B);
+  static const Color blueAccent = Color(0xFF4A90E2);
 
   // ── UI Neutrals ──────────────────────────────────────────────────
   static const Color textPrimary = Color(0xFFF5EFE0);

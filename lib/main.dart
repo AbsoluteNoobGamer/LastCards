@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
 import 'ui/screens/lobby_screen.dart';
 import 'ui/screens/table_screen.dart';
+import 'ui/screens/start_screen.dart';
 
 void main() {
   runApp(
@@ -25,7 +26,8 @@ class StackAndFlowApp extends StatelessWidget {
       theme: AppTheme.darkTheme,
       initialRoute: '/',
       routes: {
-        '/': (_) => const LobbyScreen(),
+        '/': (_) => const StackFlowStartScreen(),
+        '/lobby': (_) => const LobbyScreen(),
         '/game': (_) => const TableScreen(),
       },
     );

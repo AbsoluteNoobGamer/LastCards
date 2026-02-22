@@ -11,7 +11,7 @@ import 'joker_card_widget.dart';
 ///
 /// Pass [isSelected] to show the lifted + gold-shimmer selection state.
 /// Pass [onTap] to make the card interactive.
-class CardWidget extends StatefulWidget {
+class CardWidget extends StatelessWidget {
   const CardWidget({
     super.key,
     required this.card,
@@ -28,109 +28,75 @@ class CardWidget extends StatefulWidget {
   final VoidCallback? onTap;
 
   @override
-  State<CardWidget> createState() => _CardWidgetState();
-}
-
-class _CardWidgetState extends State<CardWidget>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _selectController;
-  late final Animation<double> _liftAnim;
-  late final Animation<double> _shimmerAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 150),
-    );
-    _liftAnim = Tween<double>(begin: 0, end: -8).animate(
-      CurvedAnimation(parent: _selectController, curve: Curves.easeOut),
-    );
-    _shimmerAnim = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _selectController, curve: Curves.easeOut),
-    );
-  }
-
-  @override
-  void didUpdateWidget(CardWidget old) {
-    super.didUpdateWidget(old);
-    if (widget.isSelected != old.isSelected) {
-      if (widget.isSelected) {
-        _selectController.forward();
-      } else {
-        _selectController.reverse();
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _selectController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (!widget.faceUp) return CardBackWidget(width: widget.width);
-    if (widget.card.isJoker) {
-      return JokerCardWidget(width: widget.width, onTap: widget.onTap);
+    if (!faceUp) return CardBackWidget(width: width);
+    if (card.isJoker) {
+      return JokerCardWidget(width: width, onTap: onTap);
     }
 
-    final height = AppDimensions.cardHeight(widget.width);
-    final suitColor = widget.card.suit.isRed
+    final height = AppDimensions.cardHeight(width);
+    final suitColor = card.suit.isRed
         ? AppColors.suitRed
         : AppColors.suitBlack;
 
-    return AnimatedBuilder(
-      animation: _selectController,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, _liftAnim.value),
+    // Use implicit Tweens to drive lift and shimmer over a fast 150ms bounce
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0.0, end: isSelected ? 1.0 : 0.0),
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeOutCubic,
+      builder: (context, val, innerChild) {
+        final liftY = -12.0 * val; // Lifts higher now!
+        final scale = 1.0 + (0.10 * val); // Scale 1.0 -> 1.1
+
+        return MouseRegion(
+          cursor: onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
           child: GestureDetector(
-            onTap: widget.onTap,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: widget.width,
-              height: height,
-              decoration: BoxDecoration(
-                color: AppColors.cardFace,
-                borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.35),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                  if (widget.isSelected)
-                    BoxShadow(
-                      color: AppColors.goldPrimary
-                          .withValues(alpha: _shimmerAnim.value * 0.85),
-                      blurRadius: 14,
-                      spreadRadius: 2,
-                    ),
-                ],
-                border: widget.isSelected
-                    ? Border.all(
-                        color: AppColors.goldLight
-                            .withValues(alpha: _shimmerAnim.value),
-                        width: 1.5,
-                      )
-                    : Border.all(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        width: 0.5,
+            onTap: onTap,
+            child: Transform.translate(
+              // Provide Z-index layering or simple Matrix
+              offset: Offset(0, liftY),
+              child: Transform.scale(
+                scale: scale,
+                child: Container(
+                  width: width,
+                  height: height,
+                  decoration: BoxDecoration(
+                    color: AppColors.cardFace,
+                    borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.35 + (0.15 * val)),
+                        blurRadius: 8 + (8 * val), // Shadow expands on lift
+                        offset: Offset(0, 4 + (4 * val)),
                       ),
+                      if (val > 0)
+                        BoxShadow(
+                          color: AppColors.goldPrimary.withValues(alpha: val * 0.85),
+                          blurRadius: 16 * val,
+                          spreadRadius: 3 * val,
+                        ),
+                    ],
+                    border: Border.all(
+                      color: isSelected
+                          ? AppColors.goldLight.withValues(alpha: val)
+                          : Colors.black.withValues(alpha: 0.08),
+                      width: isSelected ? 2.0 : 0.5,
+                    ),
+                  ),
+                  child: innerChild,
+                ),
               ),
-              child: child,
             ),
           ),
         );
       },
-      child: _CardFaceContent(
-        card: widget.card,
-        suitColor: suitColor,
-        width: widget.width,
-        height: height,
+      child: RepaintBoundary(
+        child: _CardFaceContent(
+          card: card,
+          suitColor: suitColor,
+          width: width,
+          height: height,
+        ),
       ),
     );
   }

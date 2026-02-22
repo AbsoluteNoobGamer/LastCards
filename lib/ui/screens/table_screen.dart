@@ -13,13 +13,17 @@ import '../../core/providers/connection_provider.dart';
 import '../../core/providers/game_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimensions.dart';
+import '../../core/models/move_log_entry.dart';
 import '../../core/network/websocket_client.dart';
+import '../widgets/collapsible_game_log.dart';
 import '../widgets/discard_pile_widget.dart';
 import '../widgets/draw_pile_widget.dart';
 import '../widgets/hud_overlay_widget.dart';
 import '../widgets/player_hand_widget.dart';
 import '../widgets/player_zone_widget.dart';
 import '../widgets/card_widget.dart';
+import '../widgets/status_bar_widget.dart';
+import '../widgets/turn_indicator_overlay.dart';
 
 /// The main game table screen.
 ///
@@ -34,7 +38,8 @@ import '../widgets/card_widget.dart';
 /// └───────────────────────────────────────────┘
 /// ```
 class TableScreen extends ConsumerStatefulWidget {
-  const TableScreen({super.key});
+  final int totalPlayers;
+  const TableScreen({this.totalPlayers = 2, super.key});
 
   @override
   ConsumerState<TableScreen> createState() => _TableScreenState();
@@ -52,7 +57,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   bool _aiThinking = false;
 
   // ── Move log ──────────────────────────────────────────────────────
-  final List<String> _moveLog = ['🎮 Game started — match suit or rank'];
+  final List<MoveLogEntry> _moveLog = [
+    MoveLogEntry(isGameEvent: true, eventText: '🎮 Game started — match suit or rank')
+  ];
 
   // ── Discard tracking for reshuffle ────────────────────────────────
   // Starts at 1 because the initial face-up card is already "discarded".
@@ -74,7 +81,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   void _initNewGame() {
-    final (state, drawPile) = DemoGameState.buildWithDeck();
+    final (state, drawPile) = DemoGameState.buildWithDeck(totalPlayers: widget.totalPlayers);
     _demoState     = state;
     _drawPile      = drawPile;
     _discardPile
@@ -206,27 +213,50 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         children: [
           const _FeltTableBackground(),
 
+          // ── Turn indicator ring ──────────────────────────────────────
+          Positioned.fill(
+            child: TurnIndicatorOverlay(direction: gameState.direction),
+          ),
+
           SafeArea(
-            child: _TableLayout(
-              gameState: gameState,
-              selectedCardIds: _selectedCardIds,
-              isMyTurn: isMyTurn,
-              secondsLeft: _secondsLeft,
-              penaltyCount: penaltyCount,
-              connState: isDemoMode ? WsConnectionState.disconnected : connState,
-              canEndTurn: isDemoMode
-                  ? (validateEndTurn(_demoState) == null)
-                  : true,
-              onCardTap: _onCardTap,
-              onDrawTap: isDemoMode
-                  ? () => _demoDrawCard(DemoGameState.localId)
-                  : _onDrawTap,
-              onPlayTap: isDemoMode
-                  ? () => _demoPlayCards(DemoGameState.localId)
-                  : _onPlayTap,
-              onEndTurnTap: isDemoMode
-                  ? _endTurn
-                  : () {}, // TODO: handle live server End Turn
+            child: Column(
+              children: [
+                StatusBarWidget(
+                  activePlayerName: gameState.playerById(gameState.currentPlayerId)?.displayName ?? '',
+                  direction: gameState.direction,
+                  upcomingPlayerNames: _getUpcomingPlayerNames(gameState),
+                  secondsLeft: _secondsLeft,
+                  canEndTurn: isDemoMode
+                      ? (validateEndTurn(_demoState) == null)
+                      : true,
+                  onEndTurn: isDemoMode
+                      ? _endTurn
+                      : () {}, // TODO: handle live server End Turn
+                ),
+                Expanded(
+                  child: _TableLayout(
+                    gameState: gameState,
+                    selectedCardIds: _selectedCardIds,
+                    isMyTurn: isMyTurn,
+                    secondsLeft: _secondsLeft,
+                    penaltyCount: penaltyCount,
+                    connState: isDemoMode ? WsConnectionState.disconnected : connState,
+                    canEndTurn: isDemoMode
+                        ? (validateEndTurn(_demoState) == null)
+                        : true,
+                    onCardTap: _onCardTap,
+                    onDrawTap: isDemoMode
+                        ? () => _demoDrawCard(DemoGameState.localId)
+                        : _onDrawTap,
+                    onPlayTap: isDemoMode
+                        ? () => _demoPlayCards(DemoGameState.localId)
+                        : _onPlayTap,
+                    onEndTurnTap: isDemoMode
+                        ? _endTurn
+                        : () {},
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -246,11 +276,18 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           // ── Move log (left edge) ────────────────────────────────
           if (isDemoMode)
             Positioned(
-              left: 10,
+              left: 0,
               top: 72,
-              bottom: 10,
-              width: 240,
-              child: _MoveLogPanel(log: _moveLog),
+              child: CollapsibleGameLog(
+                entries: _moveLog,
+                activePlayerName: isMyTurn 
+                    ? 'YOUR TURN' 
+                    : (gameState.playerById(gameState.currentPlayerId)?.displayName ?? 'Unknown'),
+                onClear: () => setState(() {
+                  _moveLog.clear();
+                  _moveLog.add(MoveLogEntry(isGameEvent: true, eventText: '🗑️ Log cleared'));
+                }),
+              ),
             ),
         ],
       ),
@@ -258,6 +295,24 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   // ── Card tap ───────────────────────────────────────────────────────
+
+  List<String> _getUpcomingPlayerNames(GameState state) {
+    if (state.players.isEmpty) return [];
+    
+    final int currentIndex = state.players.indexWhere((p) => p.id == state.currentPlayerId);
+    if (currentIndex == -1) return [];
+
+    final names = <String>[];
+    final int dir = state.direction == PlayDirection.clockwise ? 1 : -1;
+    final int count = state.players.length;
+
+    for (int i = 1; i < count; i++) {
+      int nextIdx = (currentIndex + i * dir) % count;
+      if (nextIdx < 0) nextIdx += count;
+      names.add(state.players[nextIdx].displayName);
+    }
+    return names;
+  }
 
   void _onCardTap(String cardId) {
     if (_aiThinking) return;
@@ -331,9 +386,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         declaredSuit: chosenSuit,
       );
 
-      final label = played.map((c) => c.shortLabel).join(' + ');
-      _addLog('You played $label');
-      _addLog('  ↳ Suit changed to ${chosenSuit.displayName}!');
+      _addLogEntry(MoveLogEntry(
+        player: 'YOU',
+        cards: played,
+        isSpecial: isWildAce,
+      ));
+      _addLog('↻ Suit changed to ${chosenSuit.displayName}!');
 
       _totalDiscarded += played.length;
       _discardPile.addAll(played);
@@ -392,7 +450,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
       var newState = applyPlay(state: _demoState, playerId: playerId, cards: [assignedJoker]);
 
-      _addLog('You played a Joker (chosen as $identityStr)');
+      _addLogEntry(MoveLogEntry(
+        player: 'YOU',
+        cards: played,
+        isSpecial: true,
+      ));
       _noteSpecialEffect([assignedJoker]);
 
       _totalDiscarded += 1;
@@ -425,8 +487,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
 
     // Log + track discards
-    final label = played.map((c) => c.shortLabel).join(' + ');
-    _addLog('You played $label');
+    _addLogEntry(MoveLogEntry(
+      player: 'YOU',
+      cards: played,
+      isSpecial: _isSpecial(played.first),
+    ));
     _noteSpecialEffect(played);
 
     _totalDiscarded += played.length;
@@ -471,7 +536,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     );
 
     if (isPenaltyDraw) {
-      _addLog('You draw $drawCount cards (penalty!)');
+      _addLogEntry(MoveLogEntry(
+        player: 'YOU',
+        isDraw: true,
+        drawCount: drawCount,
+        drawReason: '(penalty)',
+      ));
       // Penalty draw: turn advances automatically.
       final nextId = nextPlayerId(state: newState);
       newState = newState.copyWith(currentPlayerId: nextId, actionsThisTurn: 0);
@@ -483,7 +553,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (nextId != DemoGameState.localId) _scheduleAiTurn(nextId);
     } else {
       // Voluntary draw (no valid moves) — auto-end turn per the rules.
-      _addLog('You draw a card — no valid moves, turn ends.');
+      _addLogEntry(MoveLogEntry(
+        player: 'YOU',
+        isDraw: true,
+        drawCount: 1,
+        drawReason: '(no moves)',
+      ));
       final nextId = nextPlayerId(state: newState);
       newState = newState.copyWith(currentPlayerId: nextId, actionsThisTurn: 0);
       setState(() {
@@ -515,15 +590,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       );
 
       // Track AI-played card into discard pile
-      if (result.description.contains('plays')) {
-        // The card played is now the new discardTopCard in result.state
-        if (result.state.discardTopCard != null) {
-          _discardPile.add(result.state.discardTopCard!);
-          _totalDiscarded += 1;
-        }
+      final playedByAi = result.log.expand((l) => l.cards).toList();
+      if (playedByAi.isNotEmpty) {
+        _discardPile.addAll(playedByAi);
+        _totalDiscarded += playedByAi.length;
       }
 
-      _addLog(result.description);
+      for (final entry in result.log) {
+        _addLogEntry(entry);
+      }
 
       setState(() {
         _demoState = result.state;
@@ -595,7 +670,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               _aiThinking = false;
               _moveLog
                 ..clear()
-                ..add('🎮 New game started — fresh shuffle!');
+                ..add(MoveLogEntry(isGameEvent: true, eventText: '🎮 New game started — fresh shuffle!'));
             });
           },
         ),
@@ -606,10 +681,24 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   // ── Helpers ────────────────────────────────────────────────────────
 
+  bool _isSpecial(CardModel c) {
+    const specials = {
+      Rank.two, Rank.jack, Rank.queen, Rank.king, Rank.ace, Rank.eight,
+    };
+    return specials.contains(c.effectiveRank) || c.isJoker;
+  }
+
   void _addLog(String msg) {
     setState(() {
-      _moveLog.add(msg);
-      if (_moveLog.length > 50) _moveLog.removeAt(0);
+      _moveLog.add(MoveLogEntry(isGameEvent: true, eventText: msg));
+      if (_moveLog.length > 100) _moveLog.removeAt(0);
+    });
+  }
+
+  void _addLogEntry(MoveLogEntry entry) {
+    setState(() {
+      _moveLog.add(entry);
+      if (_moveLog.length > 100) _moveLog.removeAt(0);
     });
   }
 
@@ -640,311 +729,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     );
   }
 }
-
-// ── Move log panel ────────────────────────────────────────────────────────────
-
-class _MoveLogPanel extends StatefulWidget {
-  const _MoveLogPanel({required this.log});
-  final List<String> log;
-
-  @override
-  State<_MoveLogPanel> createState() => _MoveLogPanelState();
-}
-
-class _MoveLogPanelState extends State<_MoveLogPanel> {
-  final _scrollCtrl = ScrollController();
-
-  @override
-  void didUpdateWidget(_MoveLogPanel old) {
-    super.didUpdateWidget(old);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollCtrl.hasClients) {
-        _scrollCtrl.animateTo(
-          _scrollCtrl.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-        );
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _scrollCtrl.dispose();
-    super.dispose();
-  }
-
-  // ── Entry categorisation ─────────────────────────────────────────────
-  static const _catYou    = 0;
-  static const _catAi     = 1;
-  static const _catEffect = 2;
-  static const _catSystem = 3;
-
-  int _category(String entry) {
-    if (entry.startsWith('You') || entry.startsWith('🎮')) return _catYou;
-    if (entry.startsWith('Player') || entry.startsWith('P2') || entry.startsWith('AI')) return _catAi;
-    if (entry.startsWith('  ↳')) return _catEffect;
-    return _catSystem; // ♻️, ⏳, etc.
-  }
-
-  Color _rowColor(int cat) => switch (cat) {
-    _catYou    => const Color(0xFFD4AF37),   // gold
-    _catAi     => const Color(0xFF4DD9AC),   // teal
-    _catEffect => const Color(0xFFFFB347),   // amber
-    _         => const Color(0xFF8899AA),   // slate
-  };
-
-  Color _pillColor(int cat) => switch (cat) {
-    _catYou    => const Color(0xFFD4AF37).withValues(alpha: 0.18),
-    _catAi     => const Color(0xFF4DD9AC).withValues(alpha: 0.14),
-    _catEffect => const Color(0xFFFFB347).withValues(alpha: 0.14),
-    _         => Colors.white.withValues(alpha: 0.06),
-  };
-
-  IconData _icon(int cat) => switch (cat) {
-    _catYou    => Icons.person_rounded,
-    _catAi     => Icons.smart_toy_rounded,
-    _catEffect => Icons.bolt_rounded,
-    _         => Icons.sync_rounded,
-  };
-
-  String _label(int cat) => switch (cat) {
-    _catYou    => 'YOU',
-    _catAi     => ' AI',
-    _catEffect => '  ↳',
-    _         => 'SYS',
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0A1A12).withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.goldDark.withValues(alpha: 0.35),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.55),
-            blurRadius: 18,
-            offset: const Offset(4, 4),
-          ),
-          BoxShadow(
-            color: AppColors.goldDark.withValues(alpha: 0.08),
-            blurRadius: 12,
-            spreadRadius: -2,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-
-          // ── Gradient header ─────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.goldDark.withValues(alpha: 0.55),
-                  AppColors.goldDark.withValues(alpha: 0.20),
-                ],
-              ),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(14.5)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.receipt_long_rounded,
-                    size: 14, color: AppColors.goldPrimary),
-                const SizedBox(width: 7),
-                const Text(
-                  'GAME LOG',
-                  style: TextStyle(
-                    color: AppColors.goldPrimary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.6,
-                  ),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.goldPrimary.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: AppColors.goldPrimary.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Text(
-                    '${widget.log.length}',
-                    style: const TextStyle(
-                      color: AppColors.goldPrimary,
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // ── Legend row ──────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 6, 10, 2),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                _LegendDot(color: _rowColor(_catYou),    label: 'You'),
-                const SizedBox(width: 10),
-                _LegendDot(color: _rowColor(_catAi),     label: 'AI'),
-                const SizedBox(width: 10),
-                _LegendDot(color: _rowColor(_catEffect), label: 'Effect'),
-              ],
-            ),
-          ),
-
-          const Divider(color: Color(0xFF1E3020), height: 10, thickness: 1),
-
-          // ── Log entries ─────────────────────────────────────────────
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollCtrl,
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-              itemCount: widget.log.length,
-              itemBuilder: (_, i) {
-                final entry = widget.log[i];
-                final cat   = _category(entry);
-                final color = _rowColor(cat);
-                final pill  = _pillColor(cat);
-                final isEffect = cat == _catEffect;
-
-                // Effect/sub-lines: indented, no avatar pill
-                if (isEffect) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 4, left: 28),
-                    child: Row(
-                      children: [
-                        Icon(Icons.subdirectory_arrow_right_rounded,
-                            size: 11, color: color.withValues(alpha: 0.7)),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            entry.trimLeft().replaceFirst('↳ ', ''),
-                            style: TextStyle(
-                              color: color,
-                              fontSize: 10.5,
-                              fontStyle: FontStyle.italic,
-                              height: 1.35,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                // Main action rows: coloured pill badge + text
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 5),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: pill,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: color.withValues(alpha: 0.22),
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Avatar pill
-                        Container(
-                          margin: const EdgeInsets.only(top: 1),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.22),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(_icon(cat), size: 9, color: color),
-                              const SizedBox(width: 3),
-                              Text(
-                                _label(cat),
-                                style: TextStyle(
-                                  color: color,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.8,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 7),
-                        // Entry text
-                        Expanded(
-                          child: Text(
-                            entry,
-                            style: TextStyle(
-                              color: color.withValues(alpha: 0.92),
-                              fontSize: 11,
-                              fontWeight: cat == _catYou || cat == _catAi
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LegendDot extends StatelessWidget {
-  const _LegendDot({required this.color, required this.label});
-  final Color color;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 7,
-          height: 7,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: color.withValues(alpha: 0.75),
-            fontSize: 8.5,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-
 
 
 // ── Table layout ──────────────────────────────────────────────────────────────
@@ -990,13 +774,26 @@ class _TableLayout extends StatelessWidget {
     final leftOpp = _opponentAt(players, TablePosition.left);
     final rightOpp = _opponentAt(players, TablePosition.right);
 
+    // Calculate next turn ID for visual indicator
+    String nextId = '';
+    if (players.isNotEmpty) {
+      final int idx = players.indexWhere((p) => p.id == gameState.currentPlayerId);
+      if (idx != -1) {
+        final int dir = gameState.direction == PlayDirection.clockwise ? 1 : -1;
+        final int count = players.length;
+        int nextIdx = (idx + dir) % count;
+        if (nextIdx < 0) nextIdx += count;
+        nextId = players[nextIdx].id;
+      }
+    }
+
     return Column(
       children: [
         // ── Top opponent ────────────────────────────────────────────
         Padding(
           padding: const EdgeInsets.only(top: AppDimensions.md),
           child: topOpp != null
-              ? PlayerZoneWidget(player: topOpp)
+              ? PlayerZoneWidget(player: topOpp, isNextTurn: topOpp.id == nextId)
               : const _EmptyOpponentZone(),
         ),
 
@@ -1011,7 +808,7 @@ class _TableLayout extends StatelessWidget {
                   child: leftOpp != null
                       ? RotatedBox(
                           quarterTurns: 1,
-                          child: PlayerZoneWidget(player: leftOpp),
+                          child: PlayerZoneWidget(player: leftOpp, isNextTurn: leftOpp.id == nextId),
                         )
                       : const SizedBox.shrink(),
                 ),
@@ -1073,41 +870,17 @@ class _TableLayout extends StatelessWidget {
                   ),
 
 
-                  // Play button (shown when cards are selected)
+                  // End Turn button removed from here, now in Status Bar
+                  // We just show a blank space or keep play button only
                   if (selectedCardIds.isNotEmpty && isMyTurn) ...[
                     const SizedBox(height: AppDimensions.md),
                     ElevatedButton(
-                      onPressed: onPlayTap,
-                      child: Text('PLAY ${selectedCardIds.length} CARD'
-                          '${selectedCardIds.length > 1 ? 'S' : ''}'),
-                    ),
-                  ],
-
-                  // End Turn button always visible on my turn
-                  if (isMyTurn && selectedCardIds.isEmpty) ...[
-                    const SizedBox(height: AppDimensions.md),
-                    AnimatedOpacity(
-                      opacity: canEndTurn ? 1.0 : 0.45,
-                      duration: const Duration(milliseconds: 250),
-                      child: ElevatedButton(
-                        onPressed: canEndTurn ? onEndTurnTap : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: !canEndTurn
-                              ? AppColors.textSecondary
-                              : secondsLeft <= 10
-                                  ? AppColors.redSoft
-                                  : AppColors.goldPrimary,
-                          foregroundColor: AppColors.feltDeep,
-                          disabledBackgroundColor: AppColors.textSecondary,
-                          disabledForegroundColor: AppColors.feltDeep,
-                        ),
-                        child: Text(
-                          canEndTurn
-                              ? 'END TURN ($secondsLeft)'
-                              : 'TAKE ACTION FIRST',
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.goldPrimary,
+                        foregroundColor: AppColors.feltDeep,
                       ),
+                      onPressed: onPlayTap,
+                      child: Text('PLAY CARD${selectedCardIds.length > 1 ? 'S' : ''}', style: const TextStyle(fontWeight: FontWeight.w900)),
                     ),
                   ],
                 ],
@@ -1119,7 +892,7 @@ class _TableLayout extends StatelessWidget {
                   child: rightOpp != null
                       ? RotatedBox(
                           quarterTurns: 3,
-                          child: PlayerZoneWidget(player: rightOpp),
+                          child: PlayerZoneWidget(player: rightOpp, isNextTurn: rightOpp.id == nextId),
                         )
                       : const SizedBox.shrink(),
                 ),
@@ -1134,6 +907,7 @@ class _TableLayout extends StatelessWidget {
           child: PlayerZoneWidget(
                   player: localPlayer,
                   isLocalPlayer: true,
+                  isNextTurn: localPlayer.id == nextId,
                   child: PlayerHandWidget(
                     cards: localPlayer.hand,
                     selectedCardIds: selectedCardIds,
@@ -1512,10 +1286,10 @@ class _SuitPickButton extends StatelessWidget {
           color: AppColors.cardFace,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: borderColor, width: 1.5),
-          boxShadow: [
+          boxShadow: const [
             BoxShadow(
-              color: color.withValues(alpha: 0.15),
-              blurRadius: 8,
+              color: Colors.black12,
+              blurRadius: 4,
               spreadRadius: 1,
             ),
           ],

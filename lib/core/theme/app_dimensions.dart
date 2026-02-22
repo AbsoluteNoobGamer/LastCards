@@ -21,6 +21,10 @@ abstract final class AppDimensions {
   static const double cardWidthMedium = 72; // tablet / hand fan
   static const double cardWidthLarge = 90; // desktop
 
+  // Specific table pile overrides
+  static const double cardWidthDrawPile = 160;
+  static const double cardWidthDiscardTop = 200;
+
   static double cardHeight(double width) => width / cardAspectRatio;
 
   // ── Hand fan overlap ─────────────────────────────────────────────

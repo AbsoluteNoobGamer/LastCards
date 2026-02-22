@@ -1,0 +1,210 @@
+import 'package:flutter/material.dart';
+
+class AISelectorModal extends StatefulWidget {
+  final ValueChanged<int> onSelected;
+
+  const AISelectorModal({super.key, required this.onSelected});
+
+  @override
+  State<AISelectorModal> createState() => _AISelectorModalState();
+}
+
+class _AISelectorModalState extends State<AISelectorModal> {
+  int _selectedPlayers = 2; // Default to 1 Human + 1 AI
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF1E1E1E), // Dark casino backdrop
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            '┌─ Choose Game Size ─┐',
+            style: TextStyle(
+              color: Colors.amber, 
+              fontSize: 18, 
+              fontWeight: FontWeight.bold,
+              letterSpacing: 2.0,
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.group, color: Colors.white70),
+              SizedBox(width: 8),
+              Text(
+                'Total Players',
+                style: TextStyle(fontSize: 18, color: Colors.white70),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          
+          // Selection Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildSelectorBtn(2),
+              const SizedBox(width: 16),
+              _buildSelectorBtn(3),
+              const SizedBox(width: 16),
+              _buildSelectorBtn(4),
+            ],
+          ),
+          const SizedBox(height: 32),
+
+          // Dynamic Text Summary
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.black26,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: Column(
+              children: [
+                const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('👤 ', style: TextStyle(fontSize: 20)),
+                    Text('1 Human', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('🤖 ', style: TextStyle(fontSize: 20)),
+                    Text(
+                      '${_selectedPlayers - 1} AI', 
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)
+                    ),
+                    if (_selectedPlayers == 4)
+                      const Text(
+                        ' ← MAXIMUM',
+                        style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          const Spacer(),
+          
+          // Start Game Button
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context); // Close modal
+                widget.onSelected(_selectedPlayers);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                  side: const BorderSide(color: Colors.amber, width: 2),
+                ),
+                padding: EdgeInsets.zero,
+                elevation: 0,
+              ),
+              child: Ink(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFFD700), Color(0xFFD4AF37)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                child: const Center(
+                  child: Text(
+                    'Start Game',
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Back text
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Back', style: TextStyle(color: Colors.white54, fontSize: 16)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectorBtn(int value) {
+    final isSelected = _selectedPlayers == value;
+
+    return GestureDetector(
+      onTap: () => setState(() => _selectedPlayers = value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        width: 60,
+        height: 60,
+        transform: isSelected ? (Matrix4.identity()..scale(1.1)) : Matrix4.identity(),
+        transformAlignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.amber.withValues(alpha: 0.15) : Colors.transparent,
+          border: Border.all(
+            color: isSelected ? Colors.amber : Colors.white24,
+            width: isSelected ? 2.5 : 1,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: isSelected ? [
+            BoxShadow(
+              color: Colors.amber.withValues(alpha: 0.4),
+              blurRadius: 15,
+              spreadRadius: 2,
+            )
+          ] : [],
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Text(
+              '$value',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? Colors.amber : Colors.white70,
+              ),
+            ),
+            if (isSelected)
+              Positioned(
+                bottom: 4,
+                child: Container(
+                  width: 6, 
+                  height: 6, 
+                  decoration: const BoxDecoration(
+                    color: Colors.amber, 
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              )
+          ],
+        ),
+      ),
+    );
+  }
+}
