@@ -29,6 +29,7 @@ dependencies:
   collection: ^1.18.0
   uuid: ^4.4.2
   shared_preferences: ^2.5.3
+  audioplayers: ^6.5.1
 
 dev_dependencies:
   flutter_test:

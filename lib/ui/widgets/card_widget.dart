@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../core/models/card_model.dart';
+import '../../core/services/audio_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_dimensions.dart';
 import '../../core/theme/app_typography.dart';
@@ -11,7 +14,8 @@ import 'joker_card_widget.dart';
 ///
 /// Pass [isSelected] to show the lifted + gold-shimmer selection state.
 /// Pass [onTap] to make the card interactive.
-class CardWidget extends StatelessWidget {
+/// Pass [onTap] to make the card interactive.
+class CardWidget extends ConsumerWidget {
   const CardWidget({
     super.key,
     required this.card,
@@ -28,7 +32,7 @@ class CardWidget extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (!faceUp) return CardBackWidget(width: width);
     if (card.isJoker) {
       return JokerCardWidget(width: width, onTap: onTap);
@@ -51,7 +55,15 @@ class CardWidget extends StatelessWidget {
         return MouseRegion(
           cursor: onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
           child: GestureDetector(
-            onTap: onTap,
+            onTap: () {
+              if (onTap != null) {
+                ref.read(audioServiceProvider).playClick();
+                onTap!();
+              }
+            },
+            onPanStart: onTap != null ? (_) {
+              ref.read(audioServiceProvider).playDrag();
+            } : null,
             child: Transform.translate(
               // Provide Z-index layering or simple Matrix
               offset: Offset(0, liftY),

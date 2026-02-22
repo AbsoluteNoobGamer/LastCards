@@ -24,6 +24,8 @@ import '../widgets/player_zone_widget.dart';
 import '../widgets/card_widget.dart';
 import '../widgets/status_bar_widget.dart';
 import '../widgets/turn_indicator_overlay.dart';
+import '../../core/services/audio_service.dart';
+
 
 /// The main game table screen.
 ///
@@ -78,6 +80,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   void initState() {
     super.initState();
     _initNewGame();
+    // BGM start
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(audioServiceProvider).startBgm();
+    });
   }
 
   void _initNewGame() {
@@ -94,6 +100,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   @override
   void dispose() {
     _turnTimer?.cancel();
+    // BGM stop
+    ref.read(audioServiceProvider).stopBgm();
     super.dispose();
   }
 
