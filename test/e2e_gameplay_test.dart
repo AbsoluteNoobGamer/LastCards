@@ -1,14 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stack_and_flow/core/models/card_model.dart';
-import 'package:stack_and_flow/core/models/demo_game_engine.dart';
-import 'package:stack_and_flow/core/models/demo_game_state.dart';
+import 'package:stack_and_flow/core/models/offline_game_engine.dart';
+import 'package:stack_and_flow/core/models/offline_game_state.dart';
 import 'package:stack_and_flow/core/models/game_state.dart';
 
 void main() {
   group('E2E Gameplay Flow Engine Test', () {
     test('Simulate complete 2-player game to win condition', () {
       // 1. Initialize state
-      var (state, drawPile) = DemoGameState.buildWithDeck(totalPlayers: 2);
+      var (state, drawPile) = OfflineGameState.buildWithDeck(totalPlayers: 2);
 
       // Helper function to draw cards from the pile
       List<CardModel> drawFactory(int n) {
@@ -73,7 +73,7 @@ void main() {
     });
 
     test('Regression scenario: Trying to play invalid card returns error', () {
-      var (state, _) = DemoGameState.buildWithDeck(totalPlayers: 2);
+      var (state, _) = OfflineGameState.buildWithDeck(totalPlayers: 2);
 
       // Force an invalid situation to verify rule protections
       final invalidCard = const CardModel(
