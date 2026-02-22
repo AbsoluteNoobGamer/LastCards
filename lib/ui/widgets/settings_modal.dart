@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/services/audio_service.dart';
+
 // Create a simple provider to manage SharedPreferences settings globally
 final settingsProvider = StateNotifierProvider<SettingsNotifier, SettingsState>((ref) {
   return SettingsNotifier();
@@ -100,6 +102,7 @@ class SettingsModal extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
+    final audioService = ref.watch(audioServiceProvider);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.9,
@@ -163,6 +166,12 @@ class SettingsModal extends ConsumerWidget {
               const Divider(height: 40, color: Colors.grey),
               
               // Toggles
+              SwitchListTile(
+                title: const Text('Mute All Audio'),
+                value: audioService.isMuted,
+                onChanged: (val) => audioService.toggleMute(),
+                activeColor: Colors.amber,
+              ),
               SwitchListTile(
                 title: const Text('Vibration Feedback'),
                 value: settings.vibrateEnabled,
