@@ -461,11 +461,35 @@ void main() {
       expect(state.direction, PlayDirection.counterClockwise);
     });
 
-    test('eightSkipTurn', () {
-      var state = buildState(discardTop: c(Rank.eight, Suit.diamonds));
-      // nextPlayerId(skipExtra: true) is how skips are processed in the engine
-      final next = nextPlayerId(state: state, skipExtra: true);
-      expect(next, equals('p1')); // With 1 player it wraps strictly back to them. But tested properly in multi-player setup.
+    test('eightSkipTurn (single)', () {
+      var state = buildState(discardTop: c(Rank.five, Suit.diamonds));
+      final p2 = PlayerModel(id: 'p2', displayName: 'P2', tablePosition: TablePosition.top, hand: [], cardCount: 0, isConnected: true, isActiveTurn: false, isSkipped: false);
+      final p3 = PlayerModel(id: 'p3', displayName: 'P3', tablePosition: TablePosition.left, hand: [], cardCount: 0, isConnected: true, isActiveTurn: false, isSkipped: false);
+      state = state.copyWith(players: [...state.players, p2, p3]);
+      
+      state = applyPlay(state: state, playerId: 'p1', cards: [c(Rank.eight, Suit.diamonds)]);
+      expect(state.activeSkipCount, 1);
+      final next = nextPlayerId(state: state);
+      expect(next, equals('p3')); // Skip p2
+    });
+
+    test('eightSkipTurn (stacked multiple)', () {
+      var state = buildState(discardTop: c(Rank.five, Suit.diamonds));
+      final p2 = PlayerModel(id: 'p2', displayName: 'P2', tablePosition: TablePosition.top, hand: [], cardCount: 0, isConnected: true, isActiveTurn: false, isSkipped: false);
+      final p3 = PlayerModel(id: 'p3', displayName: 'P3', tablePosition: TablePosition.left, hand: [], cardCount: 0, isConnected: true, isActiveTurn: false, isSkipped: false);
+      final p4 = PlayerModel(id: 'p4', displayName: 'P4', tablePosition: TablePosition.right, hand: [], cardCount: 0, isConnected: true, isActiveTurn: false, isSkipped: false);
+      state = state.copyWith(players: [...state.players, p2, p3, p4]);
+      
+      // Play 3 8s
+      state = applyPlay(state: state, playerId: 'p1', cards: [
+        c(Rank.eight, Suit.diamonds),
+        c(Rank.eight, Suit.hearts),
+        c(Rank.eight, Suit.spades)
+      ]);
+      expect(state.activeSkipCount, 3);
+      final next = nextPlayerId(state: state);
+      // skips p2, p3, p4 -> lands back on p1
+      expect(next, equals('p1')); 
     });
 
     test('kingSkipTwoPlayerRule', () {

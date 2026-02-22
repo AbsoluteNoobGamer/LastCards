@@ -33,6 +33,9 @@ class GameState with _$GameState {
     /// Accumulated draw penalty count (from stacked 2s and Black Jacks).
     @Default(0) int activePenaltyCount,
 
+    /// Accumulated skips built up during a turn by playing 8s.
+    @Default(0) int activeSkipCount,
+
     /// Active suit lock from an Ace or Joker declaration.
     Suit? suitLock,
 

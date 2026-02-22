@@ -38,6 +38,9 @@ mixin _$GameState {
   /// Accumulated draw penalty count (from stacked 2s and Black Jacks).
   int get activePenaltyCount => throw _privateConstructorUsedError;
 
+  /// Accumulated skips built up during a turn by playing 8s.
+  int get activeSkipCount => throw _privateConstructorUsedError;
+
   /// Active suit lock from an Ace or Joker declaration.
   Suit? get suitLock => throw _privateConstructorUsedError;
 
@@ -85,6 +88,7 @@ abstract class $GameStateCopyWith<$Res> {
       CardModel? discardSecondCard,
       int drawPileCount,
       int activePenaltyCount,
+      int activeSkipCount,
       Suit? suitLock,
       Suit? queenSuitLock,
       String? winnerId,
@@ -121,6 +125,7 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
     Object? discardSecondCard = freezed,
     Object? drawPileCount = null,
     Object? activePenaltyCount = null,
+    Object? activeSkipCount = null,
     Object? suitLock = freezed,
     Object? queenSuitLock = freezed,
     Object? winnerId = freezed,
@@ -164,6 +169,10 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
       activePenaltyCount: null == activePenaltyCount
           ? _value.activePenaltyCount
           : activePenaltyCount // ignore: cast_nullable_to_non_nullable
+              as int,
+      activeSkipCount: null == activeSkipCount
+          ? _value.activeSkipCount
+          : activeSkipCount // ignore: cast_nullable_to_non_nullable
               as int,
       suitLock: freezed == suitLock
           ? _value.suitLock
@@ -253,6 +262,7 @@ abstract class _$$GameStateImplCopyWith<$Res>
       CardModel? discardSecondCard,
       int drawPileCount,
       int activePenaltyCount,
+      int activeSkipCount,
       Suit? suitLock,
       Suit? queenSuitLock,
       String? winnerId,
@@ -290,6 +300,7 @@ class __$$GameStateImplCopyWithImpl<$Res>
     Object? discardSecondCard = freezed,
     Object? drawPileCount = null,
     Object? activePenaltyCount = null,
+    Object? activeSkipCount = null,
     Object? suitLock = freezed,
     Object? queenSuitLock = freezed,
     Object? winnerId = freezed,
@@ -334,6 +345,10 @@ class __$$GameStateImplCopyWithImpl<$Res>
           ? _value.activePenaltyCount
           : activePenaltyCount // ignore: cast_nullable_to_non_nullable
               as int,
+      activeSkipCount: null == activeSkipCount
+          ? _value.activeSkipCount
+          : activeSkipCount // ignore: cast_nullable_to_non_nullable
+              as int,
       suitLock: freezed == suitLock
           ? _value.suitLock
           : suitLock // ignore: cast_nullable_to_non_nullable
@@ -375,6 +390,7 @@ class _$GameStateImpl implements _GameState {
       this.discardSecondCard,
       this.drawPileCount = 0,
       this.activePenaltyCount = 0,
+      this.activeSkipCount = 0,
       this.suitLock,
       this.queenSuitLock,
       this.winnerId,
@@ -421,6 +437,11 @@ class _$GameStateImpl implements _GameState {
   @JsonKey()
   final int activePenaltyCount;
 
+  /// Accumulated skips built up during a turn by playing 8s.
+  @override
+  @JsonKey()
+  final int activeSkipCount;
+
   /// Active suit lock from an Ace or Joker declaration.
   @override
   final Suit? suitLock;
@@ -453,7 +474,7 @@ class _$GameStateImpl implements _GameState {
 
   @override
   String toString() {
-    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardSecondCard: $discardSecondCard, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, suitLock: $suitLock, queenSuitLock: $queenSuitLock, winnerId: $winnerId, lastUpdatedAt: $lastUpdatedAt, actionsThisTurn: $actionsThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn)';
+    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardSecondCard: $discardSecondCard, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, activeSkipCount: $activeSkipCount, suitLock: $suitLock, queenSuitLock: $queenSuitLock, winnerId: $winnerId, lastUpdatedAt: $lastUpdatedAt, actionsThisTurn: $actionsThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn)';
   }
 
   @override
@@ -477,6 +498,8 @@ class _$GameStateImpl implements _GameState {
                 other.drawPileCount == drawPileCount) &&
             (identical(other.activePenaltyCount, activePenaltyCount) ||
                 other.activePenaltyCount == activePenaltyCount) &&
+            (identical(other.activeSkipCount, activeSkipCount) ||
+                other.activeSkipCount == activeSkipCount) &&
             (identical(other.suitLock, suitLock) ||
                 other.suitLock == suitLock) &&
             (identical(other.queenSuitLock, queenSuitLock) ||
@@ -504,6 +527,7 @@ class _$GameStateImpl implements _GameState {
       discardSecondCard,
       drawPileCount,
       activePenaltyCount,
+      activeSkipCount,
       suitLock,
       queenSuitLock,
       winnerId,
@@ -538,6 +562,7 @@ abstract class _GameState implements GameState {
       final CardModel? discardSecondCard,
       final int drawPileCount,
       final int activePenaltyCount,
+      final int activeSkipCount,
       final Suit? suitLock,
       final Suit? queenSuitLock,
       final String? winnerId,
@@ -574,6 +599,10 @@ abstract class _GameState implements GameState {
   /// Accumulated draw penalty count (from stacked 2s and Black Jacks).
   @override
   int get activePenaltyCount;
+
+  /// Accumulated skips built up during a turn by playing 8s.
+  @override
+  int get activeSkipCount;
 
   /// Active suit lock from an Ace or Joker declaration.
   @override
