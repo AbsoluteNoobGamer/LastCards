@@ -11,6 +11,10 @@ class _TableLayout extends StatelessWidget {
     required this.penaltyCount,
     required this.connState,
     required this.canEndTurn,
+    required this.isDealing,
+    required this.visibleCardCounts,
+    required this.drawPileKey,
+    required this.playerZoneKeys,
     required this.onCardTap,
     required this.onDrawTap,
     required this.onPlayTap,
@@ -24,6 +28,10 @@ class _TableLayout extends StatelessWidget {
   final int penaltyCount;
   final WsConnectionState connState;
   final bool canEndTurn;
+  final bool isDealing;
+  final Map<String, int> visibleCardCounts;
+  final GlobalKey drawPileKey;
+  final Map<String, GlobalKey> playerZoneKeys;
   final ValueChanged<String> onCardTap;
   final VoidCallback onDrawTap;
   final VoidCallback onPlayTap;
@@ -31,7 +39,20 @@ class _TableLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final players = gameState.players;
+    var players = gameState.players;
+    
+    // Create new player models masked by visible counts if dealing is active.
+    if (isDealing) {
+      players = players.map((p) {
+        final visible = visibleCardCounts[p.id] ?? 0;
+        final clampedVisible = math.min(visible, p.cardCount);
+        return p.copyWith(
+          cardCount: clampedVisible,
+          hand: p.hand.take(clampedVisible).toList(),
+        );
+      }).toList();
+    }
+
     // Local player is always at TablePosition.bottom
     final localPlayer = players.firstWhere(
       (p) => p.tablePosition == TablePosition.bottom,
@@ -64,6 +85,7 @@ class _TableLayout extends StatelessWidget {
           padding: const EdgeInsets.only(top: AppDimensions.md),
           child: topOpp != null
               ? PlayerZoneWidget(
+                  key: playerZoneKeys[topOpp.id],
                   player: topOpp, isNextTurn: topOpp.id == nextId)
               : const _EmptyOpponentZone(),
         ),
@@ -73,13 +95,14 @@ class _TableLayout extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Left opponent
+               // Left opponent
               Expanded(
                 child: Center(
                   child: leftOpp != null
                       ? RotatedBox(
                           quarterTurns: 1,
                           child: PlayerZoneWidget(
+                              key: playerZoneKeys[leftOpp.id],
                               player: leftOpp,
                               isNextTurn: leftOpp.id == nextId),
                         )
@@ -114,9 +137,10 @@ class _TableLayout extends StatelessWidget {
                         color: AppColors.goldDark.withValues(alpha: 0.5),
                       ),
                     ),
-                    child: const Text(
-                      'DEALER',
-                      style: TextStyle(
+                    child: Text(
+                      isDealing ? 'DEALING...' : 'DEALER',
+                      key: const ValueKey('dealer-status'),
+                      style: const TextStyle(
                         color: AppColors.goldPrimary,
                         fontSize: 9,
                         fontWeight: FontWeight.w800,
@@ -131,9 +155,10 @@ class _TableLayout extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       DrawPileWidget(
+                        key: drawPileKey,
                         cardCount: gameState.drawPileCount,
                         onTap: onDrawTap,
-                        enabled: isMyTurn && (selectedCardIds.isEmpty),
+                        enabled: isMyTurn && (selectedCardIds.isEmpty) && !isDealing,
                       ),
                       const SizedBox(width: AppDimensions.lg),
                       DiscardPileWidget(
@@ -145,7 +170,7 @@ class _TableLayout extends StatelessWidget {
 
                   // End Turn button removed from here, now in Status Bar
                   // We just show a blank space or keep play button only
-                  if (selectedCardIds.isNotEmpty && isMyTurn) ...[
+                  if (selectedCardIds.isNotEmpty && isMyTurn && !isDealing) ...[
                     const SizedBox(height: AppDimensions.md),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
@@ -168,6 +193,7 @@ class _TableLayout extends StatelessWidget {
                       ? RotatedBox(
                           quarterTurns: 3,
                           child: PlayerZoneWidget(
+                              key: playerZoneKeys[rightOpp.id],
                               player: rightOpp,
                               isNextTurn: rightOpp.id == nextId),
                         )
@@ -182,6 +208,7 @@ class _TableLayout extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(bottom: AppDimensions.md),
           child: PlayerZoneWidget(
+            key: playerZoneKeys[localPlayer.id],
             player: localPlayer,
             isLocalPlayer: true,
             isNextTurn: localPlayer.id == nextId,
@@ -189,7 +216,7 @@ class _TableLayout extends StatelessWidget {
               cards: localPlayer.hand,
               selectedCardIds: selectedCardIds,
               onCardTap: onCardTap,
-              enabled: isMyTurn,
+              enabled: isMyTurn && !isDealing,
             ),
           ),
         ),
