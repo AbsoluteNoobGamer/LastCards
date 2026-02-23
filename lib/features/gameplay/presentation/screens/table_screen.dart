@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:stack_and_flow/features/gameplay/presentation/widgets/dealing_animation_overlay.dart';
+
 import '../../domain/entities/card.dart';
 import '../../domain/usecases/offline_game_engine.dart';
 import '../../data/datasources/offline_game_state_datasource.dart';
@@ -58,6 +60,14 @@ class TableScreen extends ConsumerStatefulWidget {
 class _TableScreenState extends ConsumerState<TableScreen> {
   final Set<String> _selectedCardIds = {};
 
+  bool _isDealing = false;
+  final Map<String, int> _visibleCardCounts = {};
+
+  // Animation overlay keys
+  final GlobalKey<DealingAnimationOverlayState> _overlayKey = GlobalKey<DealingAnimationOverlayState>();
+  final GlobalKey _drawPileKey = GlobalKey();
+  final Map<String, GlobalKey> _playerZoneKeys = {};
+
   /// Mutable offline state — set by initState via buildWithDeck().
   late GameState _offlineState;
 
@@ -100,6 +110,71 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       ..clear()
       ..add(state.discardTopCard!); // seed discard with starting face-up card
     _totalDiscarded = 1;
+    
+    // Assign player keys for animation destinations
+    _playerZoneKeys.clear();
+    for (var p in state.players) {
+      _playerZoneKeys[p.id] = GlobalKey();
+    }
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _startDealAnimation();
+    });
+  }
+
+  Future<void> _startDealAnimation() async {
+    setState(() {
+      _isDealing = true;
+      _visibleCardCounts.clear();
+      for (var p in _offlineState.players) {
+        _visibleCardCounts[p.id] = 0;
+      }
+    });
+
+    final players = _offlineState.players;
+    final localIdx = players.indexWhere((p) => p.tablePosition == TablePosition.bottom);
+    
+    // Order: Clockwise starting from the player to the left of the local player (or top if 2 players),
+    // ending with the local player.
+    final orderedPlayers = <PlayerModel>[];
+    final dir = _offlineState.direction == PlayDirection.clockwise ? 1 : -1;
+    for (int i = 1; i <= players.length; i++) {
+        int idx = (localIdx + i * dir) % players.length;
+        if (idx < 0) idx += players.length;
+        orderedPlayers.add(players[idx]);
+    }
+
+    final audioService = ref.read(audioServiceProvider);
+
+    for (int i = 0; i < 7; i++) {
+      for (final p in orderedPlayers) {
+        if (!mounted) return;
+        
+        audioService.playClick();
+        final overlay = _overlayKey.currentState;
+        if (overlay != null) {
+          await overlay.animateCardDeal(p.id);
+        } else {
+          await Future.delayed(const Duration(milliseconds: 150));
+        }
+        
+        // Wait an extra sliver between cards so they don't overlap too rigidly
+        await Future.delayed(const Duration(milliseconds: 50));
+        
+        if (mounted) {
+           setState(() {
+             _visibleCardCounts[p.id] = (_visibleCardCounts[p.id] ?? 0) + 1;
+           });
+        }
+      }
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _isDealing = false;
+    });
+    
     _startTimer();
   }
 
@@ -265,6 +340,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     canEndTurn: isOfflineMode
                         ? (validateEndTurn(_offlineState) == null)
                         : true,
+                    isDealing: _isDealing,
+                    visibleCardCounts: _visibleCardCounts,
+                    drawPileKey: _drawPileKey,
+                    playerZoneKeys: _playerZoneKeys,
                     onCardTap: _onCardTap,
                     onDrawTap: isOfflineMode
                         ? () => _offlineDrawCard(OfflineGameState.localId)
@@ -312,6 +391,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 ),
               ),
             ),
+
+          // ── Dealing Animation Overlay ──────────────────────────────
+          Positioned.fill(
+            child: DealingAnimationOverlay(
+              key: _overlayKey,
+              drawPileKey: _drawPileKey,
+              playerKeys: _playerZoneKeys,
+            ),
+          ),
         ],
       ),
     );
