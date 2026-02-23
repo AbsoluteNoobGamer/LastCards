@@ -71,9 +71,9 @@ void main() {
     final cards = find.byType(CardWidget);
     expect(cards, findsAtLeastNWidgets(8)); // 7 hand + 1 discard top
     
-    // Note: We skip the pumpWidget(SizedBox()) cleanup here because the 
-    // periodic turn timer and async deal loops can be sensitive to 
-    // unmounting during virtual-time jumps in certain environments.
-    // The test framework will handle cleanup of remaining timers.
+    // Note: We avoid pumpWidget(SizedBox()) cleanup here if the 
+    // periodic turn timer and async deal loops might leak,
+    // but we should ensure we pump to clear any pending animations.
+    await tester.pumpAndSettle();
   });
 }
