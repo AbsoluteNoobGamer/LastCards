@@ -53,7 +53,7 @@ abstract final class AppTheme {
           ),
         ),
       ),
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: AppColors.surfacePanel,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -64,7 +64,7 @@ abstract final class AppTheme {
       ),
       dividerColor: AppColors.goldDark,
       iconTheme: const IconThemeData(color: AppColors.textSecondary),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.surfacePanel,
         elevation: 4,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

@@ -548,6 +548,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (_offlineState.currentPlayerId != playerId) return;
 
     final isPenaltyDraw = _offlineState.activePenaltyCount > 0;
+    final isQueenPenaltyDraw = _offlineState.queenSuitLock != null;
     final drawCount = isPenaltyDraw ? _offlineState.activePenaltyCount : 1;
 
     var newState = applyDraw(
@@ -557,7 +558,25 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       cardFactory: _makeCards,
     );
 
-    if (isPenaltyDraw) {
+    if (isQueenPenaltyDraw) {
+      newState = newState.copyWith(queenSuitLock: null);
+      _addLogEntry(MoveLogEntry(
+        player: 'YOU',
+        playerPosition: TablePosition.bottom,
+        isDraw: true,
+        drawCount: 1,
+        drawReason: '(Queen penalty)',
+      ));
+      final nextId = nextPlayerId(state: newState);
+      newState = newState.copyWith(
+          currentPlayerId: nextId, actionsThisTurn: 0, activeSkipCount: 0);
+      setState(() {
+        _offlineState = newState;
+        _selectedCardIds.clear();
+      });
+      _turnTimer?.cancel();
+      if (nextId != OfflineGameState.localId) _scheduleAiTurn(nextId);
+    } else if (isPenaltyDraw) {
       _addLogEntry(MoveLogEntry(
         player: 'YOU',
         playerPosition: TablePosition.bottom,
@@ -678,7 +697,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final winner = state.players
         .where((p) => p.hand.isEmpty && p.cardCount == 0)
         .firstOrNull;
+
     if (winner == null) return false;
+
+    // Prevent immediate win if the player's last card was a Queen that still needs covering.
+    if (state.queenSuitLock != null && winner.id == state.currentPlayerId) {
+      return false;
+    }
 
     Future.microtask(() {
       if (!mounted) return;
