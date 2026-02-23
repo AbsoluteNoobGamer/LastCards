@@ -29,7 +29,6 @@ class StackFlowStartScreen extends ConsumerStatefulWidget {
 class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
     with TickerProviderStateMixin {
   late AnimationController _bgController;
-  late AnimationController _logoController;
 
   @override
   void initState() {
@@ -37,15 +36,11 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
     _bgController =
         AnimationController(vsync: this, duration: const Duration(seconds: 10))
           ..repeat();
-    _logoController =
-        AnimationController(vsync: this, duration: const Duration(seconds: 2))
-          ..forward();
   }
 
   @override
   void dispose() {
     _bgController.dispose();
-    _logoController.dispose();
     super.dispose();
   }
 
@@ -70,8 +65,6 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                   children: [
                     const SizedBox(height: 40),
 
-                    // Logo Section
-                    AnimatedLogo(controller: _logoController),
 
                     const Spacer(),
 
