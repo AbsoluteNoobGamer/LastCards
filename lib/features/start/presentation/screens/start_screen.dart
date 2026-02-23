@@ -55,15 +55,10 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // 1. Casino Felt Background + Floating Cards
-          AnimatedBuilder(
-            animation: _bgController,
-            builder: (context, child) {
-              return CustomPaint(
-                painter:
-                    ParticleStarfieldPainter(progress: _bgController.value),
-              );
-            },
+          // 1. Background Image
+          Image.asset(
+            'assets/images/stack_and_flow_logo.jpg',
+            fit: BoxFit.cover,
           ),
 
           // 2. Main Content
