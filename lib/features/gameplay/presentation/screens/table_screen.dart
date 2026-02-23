@@ -63,6 +63,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   bool _isDealing = false;
   final Map<String, int> _visibleCardCounts = {};
 
+  late AudioService _audioService;
+
   // Animation overlay keys
   final GlobalKey<DealingAnimationOverlayState> _overlayKey = GlobalKey<DealingAnimationOverlayState>();
   final GlobalKey _drawPileKey = GlobalKey();
@@ -94,10 +96,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   @override
   void initState() {
     super.initState();
+    _audioService = ref.read(audioServiceProvider);
     _initNewGame();
     // BGM start
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(audioServiceProvider).startBgm();
+      if (mounted) _audioService.startBgm();
     });
   }
 
@@ -182,7 +185,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   void dispose() {
     _turnTimer?.cancel();
     // BGM stop
-    ref.read(audioServiceProvider).stopBgm();
+    _audioService.stopBgm();
     super.dispose();
   }
 
