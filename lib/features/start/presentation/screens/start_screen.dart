@@ -29,7 +29,6 @@ class StackFlowStartScreen extends ConsumerStatefulWidget {
 class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
     with TickerProviderStateMixin {
   late AnimationController _bgController;
-  late AnimationController _logoController;
 
   @override
   void initState() {
@@ -37,15 +36,11 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
     _bgController =
         AnimationController(vsync: this, duration: const Duration(seconds: 10))
           ..repeat();
-    _logoController =
-        AnimationController(vsync: this, duration: const Duration(seconds: 2))
-          ..forward();
   }
 
   @override
   void dispose() {
     _bgController.dispose();
-    _logoController.dispose();
     super.dispose();
   }
 
@@ -55,15 +50,10 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // 1. Casino Felt Background + Floating Cards
-          AnimatedBuilder(
-            animation: _bgController,
-            builder: (context, child) {
-              return CustomPaint(
-                painter:
-                    ParticleStarfieldPainter(progress: _bgController.value),
-              );
-            },
+          // 1. Background Image
+          Image.asset(
+            'assets/images/stack_and_flow_logo.jpg',
+            fit: BoxFit.cover,
           ),
 
           // 2. Main Content
@@ -75,8 +65,6 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                   children: [
                     const SizedBox(height: 40),
 
-                    // Logo Section
-                    AnimatedLogo(controller: _logoController),
 
                     const Spacer(),
 
