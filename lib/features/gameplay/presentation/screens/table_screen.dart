@@ -13,12 +13,9 @@ import '../../domain/entities/game_state.dart';
 import '../../domain/entities/player.dart';
 import '../controllers/connection_provider.dart';
 import '../controllers/game_provider.dart';
+import '../../data/datasources/websocket_client.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
-import '../../domain/entities/move_log_entry.dart';
-import '../../data/datasources/websocket_client.dart';
-
-import '../widgets/integrated_game_log.dart';
 import '../widgets/discard_pile_widget.dart';
 import '../widgets/draw_pile_widget.dart';
 import '../widgets/hud_overlay_widget.dart';
@@ -80,24 +77,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   bool _aiThinking = false;
 
-  // ── Move log ──────────────────────────────────────────────────────
-  final List<MoveLogEntry> _moveLog = [
-    MoveLogEntry(
-        isGameEvent: true, eventText: '🎮 Game started — match suit or rank')
-  ];
-
-  // ── Discard tracking for reshuffle ────────────────────────────────
-  // Starts at 1 because the initial face-up card is already "discarded".
-  int _totalDiscarded = 1;
-
   // ── Real shuffled draw pile + discard tracking ────────────────────
   late List<CardModel> _drawPile; // actual remaining cards
   final List<CardModel> _discardPile = []; // tracks all discarded cards
-
   // ── Turn timer ────────────────────────────────────────────────────
   Timer? _turnTimer;
   int _secondsLeft = 30;
-
   @override
   void initState() {
     super.initState();
@@ -117,7 +102,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _discardPile
       ..clear()
       ..add(state.discardTopCard!); // seed discard with starting face-up card
-    _totalDiscarded = 1;
 
     // Assign player keys for animation destinations
     _playerZoneKeys.clear();
@@ -219,11 +203,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               !_aiThinking) {
             if (_offlineState.queenSuitLock != null) {
               // Timer expired while Queen uncovered -> force 1 draw, keep turn active
-              _addLog('⏳ Timeout! Forced to draw for Queen cover.');
               _showError('Timeout! Drew 1 card to find cover.');
               _forcedQueenTimeoutDraw();
             } else {
-              _addLog('⏳ Turn timer expired!');
               _endTurn();
             }
           }
@@ -263,7 +245,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
 
     _turnTimer?.cancel();
-    _addLog('You ended your turn.');
     setState(() => _selectedCardId = null);
 
     final nextId = nextPlayerId(state: _offlineState);
@@ -317,10 +298,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       backgroundColor: AppColors.feltDeep,
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final isTablet =
-              constraints.maxWidth >= AppDimensions.breakpointMobile;
-          final showSideLog = isOfflineMode && isTablet;
-
           return Stack(
             children: [
               const _FeltTableBackground(),
@@ -349,44 +326,36 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                           : () {}, // TODO: handle live server End Turn
                     ),
                     Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          left: showSideLog
-                              ? (constraints.maxWidth * 0.22)
-                                  .clamp(180.0, 280.0)
-                              : 0,
+                      child: _TableLayout(
+                        gameState: gameState,
+                        selectedCardId: _selectedCardId,
+                        orderedHand: _orderedHand(
+                          gameState.players
+                                  .where((p) =>
+                                      p.tablePosition == TablePosition.bottom)
+                                  .firstOrNull
+                                  ?.hand ??
+                              [],
                         ),
-                        child: _TableLayout(
-                          gameState: gameState,
-                          selectedCardId: _selectedCardId,
-                          orderedHand: _orderedHand(
-                            gameState.players
-                                    .where((p) =>
-                                        p.tablePosition == TablePosition.bottom)
-                                    .firstOrNull
-                                    ?.hand ??
-                                [],
-                          ),
-                          isMyTurn: isMyTurn,
-                          secondsLeft: _secondsLeft,
-                          penaltyCount: penaltyCount,
-                          connState: isOfflineMode
-                              ? WsConnectionState.disconnected
-                              : connState,
-                          canEndTurn: isOfflineMode
-                              ? (validateEndTurn(_offlineState) == null)
-                              : true,
-                          isDealing: _isDealing,
-                          visibleCardCounts: _visibleCardCounts,
-                          drawPileKey: _drawPileKey,
-                          playerZoneKeys: _playerZoneKeys,
-                          onCardTap: _onCardTap,
-                          onDrawTap: isOfflineMode
-                              ? () => _offlineDrawCard(OfflineGameState.localId)
-                              : _onDrawTap,
-                          onHandReorder: _onHandReorder,
-                          onEndTurnTap: isOfflineMode ? _endTurn : () {},
-                        ),
+                        isMyTurn: isMyTurn,
+                        secondsLeft: _secondsLeft,
+                        penaltyCount: penaltyCount,
+                        connState: isOfflineMode
+                            ? WsConnectionState.disconnected
+                            : connState,
+                        canEndTurn: isOfflineMode
+                            ? (validateEndTurn(_offlineState) == null)
+                            : true,
+                        isDealing: _isDealing,
+                        visibleCardCounts: _visibleCardCounts,
+                        drawPileKey: _drawPileKey,
+                        playerZoneKeys: _playerZoneKeys,
+                        onCardTap: _onCardTap,
+                        onDrawTap: isOfflineMode
+                            ? () => _offlineDrawCard(OfflineGameState.localId)
+                            : _onDrawTap,
+                        onHandReorder: _onHandReorder,
+                        onEndTurnTap: isOfflineMode ? _endTurn : () {},
                       ),
                     ),
                   ],
@@ -408,25 +377,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   ),
                 ),
 
-              // ── Integrated Move log (left edge, tablet) ───────────────────
-              if (showSideLog)
-                Positioned(
-                  left: 0,
-                  top: 180,
-                  bottom: 0,
-                  child: SafeArea(
-                    child: IntegratedGameLog(
-                      width: (constraints.maxWidth * 0.22).clamp(180.0, 280.0),
-                      entries: _moveLog,
-                      activePlayerName: isMyTurn
-                          ? 'YOUR TURN'
-                          : (gameState
-                                  .playerById(gameState.currentPlayerId)
-                                  ?.displayName ??
-                              'Unknown'),
-                    ),
-                  ),
-                ),
+
 
               // ── Dealing Animation Overlay ──────────────────────────────
               Positioned.fill(
@@ -537,14 +488,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         declaredSuit: chosenSuit,
       );
 
-      _addLogEntry(MoveLogEntry(
-        player: 'YOU',
-        cards: played,
-        isSpecial: isWildAce,
-      ));
-      _addLog('↻ Suit changed to ${chosenSuit.displayName}!');
 
-      _totalDiscarded += played.length;
+
       _discardPile.addAll(played);
 
       final localInNew = newState.players
@@ -560,7 +505,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (_checkWin(playerId, newState)) return;
 
       // Wild Aces always end the turn immediately
-      _addLog('  ↳ Wild Ace played! Turn ends.');
       _endTurn();
 
       return;
@@ -615,15 +559,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         cards: [assignedJoker],
       );
 
-      _addLogEntry(MoveLogEntry(
-        player: 'YOU',
-        playerPosition: TablePosition.bottom,
-        cards: [assignedJoker],
-        isSpecial: true,
-      ));
-      _noteSpecialEffect([assignedJoker]);
-
-      _totalDiscarded += 1;
       _discardPile.add(assignedJoker);
 
       final localInNew = newState.players
@@ -646,22 +581,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     var newState =
         applyPlay(state: _offlineState, playerId: playerId, cards: played);
 
-    final skipCounts = _offlineState.activeSkipCount;
-    if (skipCounts > 0 && playerId != OfflineGameState.aiId) {
-      _addLog(
-          '  ↳ ${skipCounts == 1 ? "1 player" : "$skipCounts players"} skipped! (Applies on End Turn)');
-    }
 
-    // Log + track discards
-    _addLogEntry(MoveLogEntry(
-      player: 'YOU',
-      playerPosition: TablePosition.bottom,
-      cards: played,
-      isSpecial: _isSpecial(played.first),
-    ));
-    _noteSpecialEffect(played);
-
-    _totalDiscarded += played.length;
     _discardPile.addAll(played);
 
     final localInNew = newState.players
@@ -682,7 +602,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final nextId = nextPlayerId(state: newState);
 
     if (nextId == playerId && newState.queenSuitLock == null) {
-      _addLog('  ↳ Extra turn granted!');
       _endTurn();
     }
   }
@@ -708,37 +627,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         .where((p) => p.tablePosition == TablePosition.bottom)
         .firstOrNull;
 
-    if (isQueenPenaltyDraw) {
-      newState = newState.copyWith(queenSuitLock: null);
-      _addLogEntry(MoveLogEntry(
-        player: 'YOU',
-        playerPosition: TablePosition.bottom,
-        isDraw: true,
-        drawCount: 1,
-        drawReason: '(Queen penalty)',
-      ));
+    if (isQueenPenaltyDraw || isPenaltyDraw) {
       final nextId = nextPlayerId(state: newState);
       newState = newState.copyWith(
           currentPlayerId: nextId, actionsThisTurn: 0, activeSkipCount: 0);
-      setState(() {
-        _offlineState = newState;
-        _selectedCardId = null;
-        if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
-      });
-      _turnTimer?.cancel();
-      if (nextId != OfflineGameState.localId) _scheduleAiTurn(nextId);
-    } else if (isPenaltyDraw) {
-      _addLogEntry(MoveLogEntry(
-        player: 'YOU',
-        playerPosition: TablePosition.bottom,
-        isDraw: true,
-        drawCount: drawCount,
-        drawReason: '(penalty)',
-      ));
-      // Penalty draw: turn advances automatically.
-      final nextId = nextPlayerId(state: newState);
-      newState = newState.copyWith(
-          currentPlayerId: nextId, actionsThisTurn: 0, activeSkipCount: 0);
+      if (isQueenPenaltyDraw) {
+        newState = newState.copyWith(queenSuitLock: null);
+      }
       setState(() {
         _offlineState = newState;
         _selectedCardId = null;
@@ -748,13 +643,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (nextId != OfflineGameState.localId) _scheduleAiTurn(nextId);
     } else {
       // Voluntary draw (no valid moves) — auto-end turn per the rules.
-      _addLogEntry(MoveLogEntry(
-        player: 'YOU',
-        playerPosition: TablePosition.bottom,
-        isDraw: true,
-        drawCount: 1,
-        drawReason: '(no moves)',
-      ));
       final nextId = nextPlayerId(state: newState);
       newState = newState.copyWith(
           currentPlayerId: nextId, actionsThisTurn: 0, activeSkipCount: 0);
@@ -788,15 +676,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       );
 
       // Track AI-played card into discard pile
-      final playedByAi = result.log.expand((l) => l.cards).toList();
+      final playedByAi = result.playedCards;
       if (playedByAi.isNotEmpty) {
         _discardPile.addAll(playedByAi);
-        _totalDiscarded += playedByAi.length;
       }
 
-      for (final entry in result.log) {
-        _addLogEntry(entry);
-      }
+
 
       setState(() {
         _offlineState = result.state;
@@ -838,10 +723,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
 
     _drawPile.addAll(toShuffle);
-    _totalDiscarded = 1;
 
     // Don't call setState here — _makeCards will sync the count after this.
-    _addLog('♻️ Shuffled +${toShuffle.length} discards back into draw pile');
   }
 
   // ── Win detection ──────────────────────────────────────────────────
@@ -872,11 +755,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               _initNewGame();
               _selectedCardId = null;
               _aiThinking = false;
-              _moveLog
-                ..clear()
-                ..add(MoveLogEntry(
-                    isGameEvent: true,
-                    eventText: '🎮 New game started — fresh shuffle!'));
+              _initNewGame();
+              _selectedCardId = null;
+              _aiThinking = false;
             });
           },
         ),
@@ -886,50 +767,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   // ── Helpers ────────────────────────────────────────────────────────
-
-  bool _isSpecial(CardModel c) {
-    const specials = {
-      Rank.two,
-      Rank.jack,
-      Rank.queen,
-      Rank.king,
-      Rank.ace,
-      Rank.eight,
-    };
-    return specials.contains(c.effectiveRank) || c.isJoker;
-  }
-
-  void _addLog(String msg) {
-    setState(() {
-      _moveLog.add(MoveLogEntry(isGameEvent: true, eventText: msg));
-      if (_moveLog.length > 100) _moveLog.removeAt(0);
-    });
-  }
-
-  void _addLogEntry(MoveLogEntry entry) {
-    setState(() {
-      _moveLog.add(entry);
-      if (_moveLog.length > 100) _moveLog.removeAt(0);
-    });
-  }
-
-  void _noteSpecialEffect(List<CardModel> played) {
-    for (final c in played) {
-      final note = switch (c.effectiveRank) {
-        Rank.two => '  ↳ Player 2 draws 2!',
-        Rank.jack =>
-          c.isBlackJack ? '  ↳ Player 2 draws 5!' : '  ↳ Penalty cancelled!',
-        Rank.king => '  ↳ Direction reversed!',
-        Rank.queen => '  ↳ Suit locked: ${c.effectiveSuit.displayName}',
-        Rank.ace => '  ↳ Suit changed to ${c.effectiveSuit.displayName}!',
-        Rank.eight => c == played.first
-            ? '  ↳ Skipped!'
-            : null, // Prevent spamming log if multi 8s, handled by aggregate log above
-        _ => null,
-      };
-      if (note != null) _addLog(note);
-    }
-  }
 
   // ── Hand ordering ──────────────────────────────────────────────────
 
