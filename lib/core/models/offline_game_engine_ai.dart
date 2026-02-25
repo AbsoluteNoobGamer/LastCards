@@ -6,13 +6,13 @@ part of 'offline_game_engine.dart';
 ///
 /// The AI also ends its turn automatically after one play/draw (no "End Turn"
 /// concept — only the human player has that control).
-({GameState state, List<MoveLogEntry> log}) aiTakeTurn({
+({GameState state, List<CardModel> playedCards}) aiTakeTurn({
   required GameState state,
   required String aiPlayerId,
   required List<CardModel> Function(int n) cardFactory,
 }) {
   final ai = state.players.firstWhere((p) => p.id == aiPlayerId);
-  final aiName = ai.displayName; // "Player 2"
+  final List<CardModel> playedCards = [];
 
   // ── Pending penalty: try to counter first ─────────────────────────
   if (state.activePenaltyCount > 0) {
@@ -48,14 +48,7 @@ part of 'offline_game_engine.dart';
             actionsThisTurn: 0,
             lastPlayedThisTurn: null,
             activeSkipCount: 0),
-        log: [
-          MoveLogEntry(
-              player: aiName,
-              playerPosition: ai.tablePosition,
-              isDraw: true,
-              drawCount: count,
-              drawReason: '(penalty)')
-        ],
+        playedCards: [],
       );
     }
     // If we have a counterCard, fall through and let the normal play logic handle it
@@ -97,19 +90,7 @@ part of 'offline_game_engine.dart';
       declaredSuit: declaredSuit,
     );
 
-    final logs = <MoveLogEntry>[
-      MoveLogEntry(
-          player: aiName,
-          playerPosition: ai.tablePosition,
-          cards: [bestCard],
-          isSpecial: _isSpecial(bestCard)),
-    ];
 
-    if (declaredSuit != null) {
-      logs.add(MoveLogEntry(
-          isGameEvent: true,
-          eventText: '↻ Declares ${declaredSuit.displayName}'));
-    }
 
     // ── Queen cover: AI must immediately cover before ending turn ──────
     // Keep trying to cover as long as queenSuitLock is active.
@@ -147,11 +128,7 @@ part of 'offline_game_engine.dart';
           playerId: aiPlayerId,
           cards: [coverCard],
         );
-        logs.add(MoveLogEntry(
-            player: aiName,
-            playerPosition: ai.tablePosition,
-            cards: [coverCard],
-            isSpecial: _isSpecial(coverCard)));
+        playedCards.add(coverCard);
       } else {
         // Cannot cover — draw 1 card penalty and abort.
         afterPlay = applyDraw(
@@ -160,12 +137,6 @@ part of 'offline_game_engine.dart';
           count: 1,
           cardFactory: cardFactory,
         );
-        logs.add(MoveLogEntry(
-            player: aiName,
-            playerPosition: ai.tablePosition,
-            isDraw: true,
-            drawCount: 1,
-            drawReason: '(Queen penalty)'));
         // Clear queenSuitLock since the draw resolves the obligation.
         afterPlay = afterPlay.copyWith(queenSuitLock: null);
         break;
@@ -179,7 +150,7 @@ part of 'offline_game_engine.dart';
           actionsThisTurn: 0,
           lastPlayedThisTurn: null,
           activeSkipCount: 0),
-      log: logs,
+      playedCards: playedCards,
     );
   }
 
@@ -197,13 +168,7 @@ part of 'offline_game_engine.dart';
         actionsThisTurn: 0,
         lastPlayedThisTurn: null,
         activeSkipCount: 0),
-    log: [
-      MoveLogEntry(
-          player: aiName,
-          playerPosition: ai.tablePosition,
-          isDraw: true,
-          drawCount: 1)
-    ],
+    playedCards: [],
   );
 }
 
