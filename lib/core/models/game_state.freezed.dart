@@ -63,6 +63,10 @@ mixin _$GameState {
   /// the same turn (Numerical Flow Rule). Reset to null when the turn advances.
   CardModel? get lastPlayedThisTurn => throw _privateConstructorUsedError;
 
+  /// True while a Joker has been committed as a play but still needs
+  /// its represented card selection to be finalized in UI.
+  bool get pendingJokerResolution => throw _privateConstructorUsedError;
+
   /// Serializes this GameState to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
 
@@ -94,7 +98,8 @@ abstract class $GameStateCopyWith<$Res> {
       String? winnerId,
       int lastUpdatedAt,
       int actionsThisTurn,
-      CardModel? lastPlayedThisTurn});
+      CardModel? lastPlayedThisTurn,
+      bool pendingJokerResolution});
 
   $CardModelCopyWith<$Res>? get discardTopCard;
   $CardModelCopyWith<$Res>? get discardSecondCard;
@@ -132,6 +137,7 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
     Object? lastUpdatedAt = null,
     Object? actionsThisTurn = null,
     Object? lastPlayedThisTurn = freezed,
+    Object? pendingJokerResolution = null,
   }) {
     return _then(_value.copyWith(
       sessionId: null == sessionId
@@ -198,6 +204,10 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
           ? _value.lastPlayedThisTurn
           : lastPlayedThisTurn // ignore: cast_nullable_to_non_nullable
               as CardModel?,
+      pendingJokerResolution: null == pendingJokerResolution
+          ? _value.pendingJokerResolution
+          : pendingJokerResolution // ignore: cast_nullable_to_non_nullable
+              as bool,
     ) as $Val);
   }
 
@@ -268,7 +278,8 @@ abstract class _$$GameStateImplCopyWith<$Res>
       String? winnerId,
       int lastUpdatedAt,
       int actionsThisTurn,
-      CardModel? lastPlayedThisTurn});
+      CardModel? lastPlayedThisTurn,
+      bool pendingJokerResolution});
 
   @override
   $CardModelCopyWith<$Res>? get discardTopCard;
@@ -307,6 +318,7 @@ class __$$GameStateImplCopyWithImpl<$Res>
     Object? lastUpdatedAt = null,
     Object? actionsThisTurn = null,
     Object? lastPlayedThisTurn = freezed,
+    Object? pendingJokerResolution = null,
   }) {
     return _then(_$GameStateImpl(
       sessionId: null == sessionId
@@ -373,6 +385,10 @@ class __$$GameStateImplCopyWithImpl<$Res>
           ? _value.lastPlayedThisTurn
           : lastPlayedThisTurn // ignore: cast_nullable_to_non_nullable
               as CardModel?,
+      pendingJokerResolution: null == pendingJokerResolution
+          ? _value.pendingJokerResolution
+          : pendingJokerResolution // ignore: cast_nullable_to_non_nullable
+              as bool,
     ));
   }
 }
@@ -396,7 +412,8 @@ class _$GameStateImpl implements _GameState {
       this.winnerId,
       this.lastUpdatedAt = 0,
       this.actionsThisTurn = 0,
-      this.lastPlayedThisTurn})
+      this.lastPlayedThisTurn,
+      this.pendingJokerResolution = false})
       : _players = players;
 
   factory _$GameStateImpl.fromJson(Map<String, dynamic> json) =>
@@ -472,9 +489,15 @@ class _$GameStateImpl implements _GameState {
   @override
   final CardModel? lastPlayedThisTurn;
 
+  /// True while a Joker has been committed as a play but still needs
+  /// its represented card selection to be finalized in UI.
+  @override
+  @JsonKey()
+  final bool pendingJokerResolution;
+
   @override
   String toString() {
-    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardSecondCard: $discardSecondCard, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, activeSkipCount: $activeSkipCount, suitLock: $suitLock, queenSuitLock: $queenSuitLock, winnerId: $winnerId, lastUpdatedAt: $lastUpdatedAt, actionsThisTurn: $actionsThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn)';
+    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardSecondCard: $discardSecondCard, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, activeSkipCount: $activeSkipCount, suitLock: $suitLock, queenSuitLock: $queenSuitLock, winnerId: $winnerId, lastUpdatedAt: $lastUpdatedAt, actionsThisTurn: $actionsThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn, pendingJokerResolution: $pendingJokerResolution)';
   }
 
   @override
@@ -511,7 +534,9 @@ class _$GameStateImpl implements _GameState {
             (identical(other.actionsThisTurn, actionsThisTurn) ||
                 other.actionsThisTurn == actionsThisTurn) &&
             (identical(other.lastPlayedThisTurn, lastPlayedThisTurn) ||
-                other.lastPlayedThisTurn == lastPlayedThisTurn));
+                other.lastPlayedThisTurn == lastPlayedThisTurn) &&
+            (identical(other.pendingJokerResolution, pendingJokerResolution) ||
+                other.pendingJokerResolution == pendingJokerResolution));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -533,7 +558,8 @@ class _$GameStateImpl implements _GameState {
       winnerId,
       lastUpdatedAt,
       actionsThisTurn,
-      lastPlayedThisTurn);
+      lastPlayedThisTurn,
+      pendingJokerResolution);
 
   /// Create a copy of GameState
   /// with the given fields replaced by the non-null parameter values.
@@ -568,7 +594,8 @@ abstract class _GameState implements GameState {
       final String? winnerId,
       final int lastUpdatedAt,
       final int actionsThisTurn,
-      final CardModel? lastPlayedThisTurn}) = _$GameStateImpl;
+      final CardModel? lastPlayedThisTurn,
+      final bool pendingJokerResolution}) = _$GameStateImpl;
 
   factory _GameState.fromJson(Map<String, dynamic> json) =
       _$GameStateImpl.fromJson;
@@ -631,6 +658,11 @@ abstract class _GameState implements GameState {
   /// the same turn (Numerical Flow Rule). Reset to null when the turn advances.
   @override
   CardModel? get lastPlayedThisTurn;
+
+  /// True while a Joker has been committed as a play but still needs
+  /// its represented card selection to be finalized in UI.
+  @override
+  bool get pendingJokerResolution;
 
   /// Create a copy of GameState
   /// with the given fields replaced by the non-null parameter values.

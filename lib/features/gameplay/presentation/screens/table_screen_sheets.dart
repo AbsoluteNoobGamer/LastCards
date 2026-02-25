@@ -195,10 +195,13 @@ class _SuitPickButton extends StatelessWidget {
 
 /// Bottom sheet that lets the player choose exactly which card the Joker will represent.
 class _JokerSelectionSheet extends StatelessWidget {
-  const _JokerSelectionSheet({required this.options, required this.context});
+  const _JokerSelectionSheet({
+    required this.options,
+    required this.playContext,
+  });
 
   final List<CardModel> options;
-  final JokerPlayContext context;
+  final JokerPlayContext playContext;
 
   @override
   Widget build(BuildContext context) {
@@ -258,7 +261,7 @@ class _JokerSelectionSheet extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    context == JokerPlayContext.turnStarter
+                    playContext == JokerPlayContext.turnStarter
                         ? 'Turn starter: choose suit/value match'
                         : 'Mid-turn: choose adjacent or same-value card',
                     style: TextStyle(
@@ -279,15 +282,12 @@ class _JokerSelectionSheet extends StatelessWidget {
             runSpacing: isMobile ? 10 : 16,
             alignment: WrapAlignment.center,
             children: options.map((card) {
-              return GestureDetector(
-                onTap: () => Navigator.of(context).pop(card),
-                child: SizedBox(
-                  width: optionWidth,
-                  // Wrap PlayingCard in a container to add a slight border on hover/tap
-                  child: CardWidget(
-                    card: card,
-                    isSelected: false,
-                  ),
+              return SizedBox(
+                width: optionWidth,
+                child: CardWidget(
+                  card: card,
+                  isSelected: false,
+                  onTap: () => Navigator.of(context).pop(card),
                 ),
               );
             }).toList(),

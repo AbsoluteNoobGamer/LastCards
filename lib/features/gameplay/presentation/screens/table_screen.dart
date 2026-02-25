@@ -548,7 +548,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       return;
     }
 
-    // Intercept Joker plays
+    // Intercept Joker plays (mirrors Ace popup flow)
     if (played.length == 1 && played.first.isJoker && mounted) {
       final jokerContext =
           jokerPlayContextFromCardsPlayed(_offlineState.actionsThisTurn);
@@ -575,7 +575,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         isScrollControlled: true,
         builder: (_) => _JokerSelectionSheet(
           options: validOptions,
-          context: jokerContext,
+          playContext: jokerContext,
         ),
       );
 
@@ -585,19 +585,16 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         return;
       }
 
-      final identityStr = chosenCard.shortLabel;
-
-      // Override the Joker's identity locally before passing to engine
-      // (The engine doesn't currently accept `jokerDeclaredSuit` and a rank natively
-      // through `applyPlay` parameters like it does for Ace's `declaredSuit`,
-      // so we modify the CardModel copy here to emulate the UI choice).
       final assignedJoker = played.first.copyWith(
         jokerDeclaredRank: chosenCard.rank,
         jokerDeclaredSuit: chosenCard.suit,
       );
 
       var newState = applyPlay(
-          state: _offlineState, playerId: playerId, cards: [assignedJoker]);
+        state: _offlineState,
+        playerId: playerId,
+        cards: [assignedJoker],
+      );
 
       _addLogEntry(MoveLogEntry(
         player: 'YOU',

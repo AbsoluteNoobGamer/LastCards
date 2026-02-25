@@ -57,6 +57,10 @@ class GameState with _$GameState {
     /// Used to enforce rank-adjacency between consecutive individual plays within
     /// the same turn (Numerical Flow Rule). Reset to null when the turn advances.
     CardModel? lastPlayedThisTurn,
+
+    /// True while a Joker has been committed as a play but still needs
+    /// its represented card selection to be finalized in UI.
+    @Default(false) bool pendingJokerResolution,
   }) = _GameState;
 
   factory GameState.fromJson(Map<String, dynamic> json) =>

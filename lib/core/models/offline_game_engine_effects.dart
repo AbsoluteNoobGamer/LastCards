@@ -51,6 +51,32 @@ GameState applyPlay({
   return gs;
 }
 
+/// Commits a Joker play into state before UI resolution.
+///
+/// This ensures the Joker is consumed from hand and the turn action is recorded
+/// in the same play pipeline as any other card.
+GameState beginJokerPlay({
+  required GameState state,
+  required String playerId,
+  required CardModel jokerCard,
+}) {
+  final played =
+      applyPlay(state: state, playerId: playerId, cards: [jokerCard]);
+  return played.copyWith(pendingJokerResolution: true);
+}
+
+/// Finalizes a previously committed Joker play after the user picks a represented card.
+GameState resolveJokerPlay({
+  required GameState state,
+  required CardModel resolvedJokerCard,
+}) {
+  return state.copyWith(
+    discardTopCard: resolvedJokerCard,
+    lastPlayedThisTurn: resolvedJokerCard,
+    pendingJokerResolution: false,
+  );
+}
+
 GameState _applySpecialEffect(
   GameState gs,
   CardModel card, {
