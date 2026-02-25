@@ -93,153 +93,144 @@ class _TableLayout extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
           child: Column(
             children: [
-              // ── Top opponent ────────────────────────────────────────────
+              // ── Top opponents row: P2 left, P3 center, P4 right ─────────
               Padding(
                 padding: EdgeInsets.only(
                     top: isMobile ? AppDimensions.xs : AppDimensions.md),
-                child: topOpp != null
-                    ? PlayerZoneWidget(
-                        key: playerZoneKeys[topOpp.id],
-                        player: topOpp,
-                        isNextTurn: topOpp.id == nextId,
-                      )
-                    : const _EmptyOpponentZone(),
-              ),
-
-              // ── Centre row: left opp / piles / right opp ───────────────
-              Expanded(
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Left opponent
                     Expanded(
-                      child: Center(
-                        child: leftOpp != null
-                            ? RotatedBox(
-                                quarterTurns: 1,
-                                child: PlayerZoneWidget(
-                                  key: playerZoneKeys[leftOpp.id],
-                                  player: leftOpp,
-                                  isNextTurn: leftOpp.id == nextId,
-                                ),
+                        child: Align(
+                      alignment: Alignment.topLeft,
+                      child: leftOpp != null
+                          ? PlayerZoneWidget(
+                              key: playerZoneKeys[leftOpp.id],
+                              player: leftOpp,
+                              isNextTurn: leftOpp.id == nextId,
+                            )
+                          : const SizedBox(height: 96),
+                    )),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: topOpp != null
+                            ? PlayerZoneWidget(
+                                key: playerZoneKeys[topOpp.id],
+                                player: topOpp,
+                                isNextTurn: topOpp.id == nextId,
                               )
-                            : const SizedBox.shrink(),
+                            : const _EmptyOpponentZone(),
                       ),
                     ),
-
-                    // Centre piles + HUD
-                    Flexible(
-                      flex: isMobile ? 2 : 3,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          HudOverlayWidget(
-                            activeSuit: gameState.suitLock,
-                            queenSuitLock: gameState.queenSuitLock,
-                            penaltyCount: penaltyCount,
-                            connectionState: connState,
-                          ),
-                          SizedBox(
-                              height: isMobile
-                                  ? AppDimensions.sm
-                                  : AppDimensions.md),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppDimensions.sm + 2,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.goldDark.withValues(alpha: 0.25),
-                              borderRadius: BorderRadius.circular(
-                                AppDimensions.radiusButton,
-                              ),
-                              border: Border.all(
-                                color:
-                                    AppColors.goldDark.withValues(alpha: 0.5),
-                              ),
-                            ),
-                            child: Text(
-                              isDealing ? 'DEALING...' : 'DEALER',
-                              key: const ValueKey('dealer-status'),
-                              style: TextStyle(
-                                color: AppColors.goldPrimary,
-                                fontSize: isMobile ? 8 : 9,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 1.5,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: AppDimensions.sm),
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                DrawPileWidget(
-                                  key: drawPileKey,
-                                  cardCount: gameState.drawPileCount,
-                                  onTap: onDrawTap,
-                                  cardWidth: drawCardWidth,
-                                  enabled: isMyTurn &&
-                                      (selectedCardIds.isEmpty) &&
-                                      !isDealing,
-                                ),
-                                const SizedBox(width: AppDimensions.sm),
-                                DiscardPileWidget(
-                                  topCard: gameState.discardTopCard,
-                                  secondCard: gameState.discardSecondCard,
-                                  cardWidth: discardCardWidth,
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (selectedCardIds.isNotEmpty &&
-                              isMyTurn &&
-                              !isDealing) ...[
-                            const SizedBox(height: AppDimensions.md),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.goldPrimary,
-                                foregroundColor: AppColors.feltDeep,
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: isMobile
-                                      ? AppDimensions.md
-                                      : AppDimensions.lg,
-                                  vertical: isMobile
-                                      ? AppDimensions.sm
-                                      : AppDimensions.md,
-                                ),
-                              ),
-                              onPressed: onPlayTap,
-                              child: Text(
-                                'PLAY CARD${selectedCardIds.length > 1 ? 'S' : ''}',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: isMobile ? 12 : 14,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-
-                    // Right opponent
                     Expanded(
-                      child: Center(
+                      child: Align(
+                        alignment: Alignment.topRight,
                         child: rightOpp != null
-                            ? RotatedBox(
-                                quarterTurns: 3,
-                                child: PlayerZoneWidget(
-                                  key: playerZoneKeys[rightOpp.id],
-                                  player: rightOpp,
-                                  isNextTurn: rightOpp.id == nextId,
-                                ),
+                            ? PlayerZoneWidget(
+                                key: playerZoneKeys[rightOpp.id],
+                                player: rightOpp,
+                                isNextTurn: rightOpp.id == nextId,
                               )
-                            : const SizedBox.shrink(),
+                            : const SizedBox(height: 96),
                       ),
                     ),
                   ],
+                ),
+              ),
+
+              // ── Centre board area (unchanged draw/discard/dealer/HUD) ───
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      HudOverlayWidget(
+                        activeSuit: gameState.suitLock,
+                        queenSuitLock: gameState.queenSuitLock,
+                        penaltyCount: penaltyCount,
+                        connectionState: connState,
+                      ),
+                      SizedBox(
+                          height:
+                              isMobile ? AppDimensions.sm : AppDimensions.md),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppDimensions.sm + 2,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.goldDark.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(
+                            AppDimensions.radiusButton,
+                          ),
+                          border: Border.all(
+                            color: AppColors.goldDark.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: Text(
+                          isDealing ? 'DEALING...' : 'DEALER',
+                          key: const ValueKey('dealer-status'),
+                          style: TextStyle(
+                            color: AppColors.goldPrimary,
+                            fontSize: isMobile ? 8 : 9,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppDimensions.sm),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            DrawPileWidget(
+                              key: drawPileKey,
+                              cardCount: gameState.drawPileCount,
+                              onTap: onDrawTap,
+                              cardWidth: drawCardWidth,
+                              enabled: isMyTurn &&
+                                  (selectedCardIds.isEmpty) &&
+                                  !isDealing,
+                            ),
+                            const SizedBox(width: AppDimensions.sm),
+                            DiscardPileWidget(
+                              topCard: gameState.discardTopCard,
+                              secondCard: gameState.discardSecondCard,
+                              cardWidth: discardCardWidth,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (selectedCardIds.isNotEmpty &&
+                          isMyTurn &&
+                          !isDealing) ...[
+                        const SizedBox(height: AppDimensions.md),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.goldPrimary,
+                            foregroundColor: AppColors.feltDeep,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isMobile
+                                  ? AppDimensions.md
+                                  : AppDimensions.lg,
+                              vertical: isMobile
+                                  ? AppDimensions.sm
+                                  : AppDimensions.md,
+                            ),
+                          ),
+                          onPressed: onPlayTap,
+                          child: Text(
+                            'PLAY CARD${selectedCardIds.length > 1 ? 'S' : ''}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: isMobile ? 12 : 14,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
 
