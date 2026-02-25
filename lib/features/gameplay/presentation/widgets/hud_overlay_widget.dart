@@ -12,7 +12,7 @@ import '../../data/datasources/websocket_client.dart';
 /// - Active suit icon (from Ace/Joker declaration or Queen lock)
 /// - Draw penalty counter badge
 /// - Connection status dot
-/// - Turn timer arc ring (gold, circular progress)
+/// - Connection status dot
 class HudOverlayWidget extends StatelessWidget {
   const HudOverlayWidget({
     super.key,
@@ -20,7 +20,6 @@ class HudOverlayWidget extends StatelessWidget {
     this.queenSuitLock,
     this.penaltyCount = 0,
     this.connectionState = WsConnectionState.connected,
-    this.turnProgress = 1.0,
   });
 
   /// Active suit declared by Ace or Joker (null = no override).
@@ -34,8 +33,6 @@ class HudOverlayWidget extends StatelessWidget {
 
   final WsConnectionState connectionState;
 
-  /// Fraction of turn time remaining (1.0 = full, 0.0 = expired).
-  final double turnProgress;
 
   @override
   Widget build(BuildContext context) {
@@ -59,9 +56,6 @@ class HudOverlayWidget extends StatelessWidget {
           _SuitIndicator(suit: queenSuitLock!, isQueenLock: true),
           const SizedBox(width: AppDimensions.sm),
         ],
-
-        // Turn timer arc
-        _TurnTimer(progress: turnProgress),
 
         const SizedBox(width: AppDimensions.sm),
 
@@ -162,28 +156,6 @@ class _SuitIndicator extends StatelessWidget {
   }
 }
 
-// ── Turn timer ────────────────────────────────────────────────────────────────
-
-class _TurnTimer extends StatelessWidget {
-  const _TurnTimer({required this.progress});
-  final double progress;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: AppDimensions.hudTimerRingSize,
-      height: AppDimensions.hudTimerRingSize,
-      child: CircularProgressIndicator(
-        value: progress,
-        strokeWidth: AppDimensions.hudTimerStrokeWidth,
-        valueColor: AlwaysStoppedAnimation<Color>(
-          progress > 0.3 ? AppColors.goldPrimary : AppColors.redSoft,
-        ),
-        backgroundColor: AppColors.goldDark.withValues(alpha: 0.3),
-      ),
-    );
-  }
-}
 
 // ── Connection dot ────────────────────────────────────────────────────────────
 

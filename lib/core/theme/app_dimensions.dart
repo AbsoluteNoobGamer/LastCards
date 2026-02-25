@@ -46,7 +46,5 @@ abstract final class AppDimensions {
   static const int pileStackLayers = 3;
 
   // ── HUD ──────────────────────────────────────────────────────────
-  static const double hudTimerRingSize = 40;
-  static const double hudTimerStrokeWidth = 3;
   static const double penaltyBadgeSize = 24;
 }
