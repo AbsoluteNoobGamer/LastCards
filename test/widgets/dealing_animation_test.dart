@@ -56,16 +56,32 @@ void main() {
     expect((tester.widget(statusFinder) as Text).data, 'DEALING...');
 
     // ── Phase 2: Wait for Deal to Complete ───────────────────────────
-    // 14 cards * (150ms + 50ms) = 2.8s. We pump 100ms at a time.
+    // 14 cards total (7 for each of 2 players).
+    // Local player should see their hand grow from 0 to 7 cards.
+    
+    int lastHandCount = 0;
     int safety = 0;
     while ((tester.widget(statusFinder) as Text).data == 'DEALING...' && safety < 100) {
       await tester.pump(const Duration(milliseconds: 100));
+      
+      // Find all CardWidgets. One is always the discard pile top.
+      // The rest are in the player's hand.
+      final allCards = tester.widgetList(find.byType(CardWidget));
+      final currentHandCount = allCards.length - 1; // Subtract 1 for discard top
+      
+      if (currentHandCount > lastHandCount) {
+        expect(currentHandCount, lastHandCount + 1, reason: 'Hand should grow sequentially');
+        lastHandCount = currentHandCount;
+        debugPrint('Revealed card $currentHandCount to player');
+      }
+      
       safety++;
     }
     await tester.pump();
     
     // Now it should show "DEALER"
     expect((tester.widget(statusFinder) as Text).data, 'DEALER');
+    expect(lastHandCount, 7, reason: 'Final hand count should be 7');
 
     // ── Phase 3: Post-Deal Normal Action ─────────────────────────────
     final cards = find.byType(CardWidget);

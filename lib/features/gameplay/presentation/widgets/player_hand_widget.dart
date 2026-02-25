@@ -179,10 +179,8 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget> {
               children: [
                 for (int i = 0; i < n; i++)
                   AnimatedPositioned(
-                    duration: _draggingIndex != null
-                        ? const Duration(milliseconds: 150)
-                        : Duration.zero,
-                    curve: Curves.easeOut,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
                     left: _leftFor(
                       visibleIndex: i,
                       spread: spread,
@@ -210,52 +208,70 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget> {
                           child: toHeroContext.widget,
                         );
                       },
-                      child: LongPressDraggable<int>(
-                        data: i,
-                        delay: const Duration(milliseconds: 300),
-                        onDragStarted: () {
-                          setState(() {
-                            _draggingIndex = i;
-                            _insertIndex = i;
-                          });
+                      child: TweenAnimationBuilder<double>(
+                        key: ValueKey('entry-${cards[i].id}'),
+                        tween: Tween(begin: 0.0, end: 1.0),
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeOutBack,
+                        builder: (context, value, child) {
+                          return Opacity(
+                            opacity: value.clamp(0.0, 1.0),
+                            child: Transform.translate(
+                              offset: Offset(0, 20 * (1 - value)),
+                              child: Transform.scale(
+                                scale: 0.8 + (0.2 * value),
+                                child: child,
+                              ),
+                            ),
+                          );
                         },
-                        onDraggableCanceled: (_, __) {
-                          setState(() {
-                            _draggingIndex = null;
-                            _insertIndex = null;
-                          });
-                        },
-                        onDragEnd: (_) {
-                          setState(() {
-                            _draggingIndex = null;
-                            _insertIndex = null;
-                          });
-                        },
-                        feedback: Material(
-                          color: Colors.transparent,
-                          elevation: 10,
+                        child: LongPressDraggable<int>(
+                          data: i,
+                          delay: const Duration(milliseconds: 300),
+                          onDragStarted: () {
+                            setState(() {
+                              _draggingIndex = i;
+                              _insertIndex = i;
+                            });
+                          },
+                          onDraggableCanceled: (_, __) {
+                            setState(() {
+                              _draggingIndex = null;
+                              _insertIndex = null;
+                            });
+                          },
+                          onDragEnd: (_) {
+                            setState(() {
+                              _draggingIndex = null;
+                              _insertIndex = null;
+                            });
+                          },
+                          feedback: Material(
+                            color: Colors.transparent,
+                            elevation: 10,
+                            child: CardWidget(
+                              card: cards[i],
+                              width: targetWidth,
+                              faceUp: true,
+                            ),
+                          ),
+                          childWhenDragging: Opacity(
+                            opacity: 0.25,
+                            child: CardWidget(
+                              card: cards[i],
+                              width: targetWidth,
+                              faceUp: true,
+                            ),
+                          ),
                           child: CardWidget(
                             card: cards[i],
                             width: targetWidth,
                             faceUp: true,
+                            isSelected: widget.selectedCardId == cards[i].id,
+                            onTap: widget.enabled
+                                ? () => widget.onCardTap?.call(cards[i].id)
+                                : null,
                           ),
-                        ),
-                        childWhenDragging: Opacity(
-                          opacity: 0.25,
-                          child: CardWidget(
-                            card: cards[i],
-                            width: targetWidth,
-                            faceUp: true,
-                          ),
-                        ),
-                        child: CardWidget(
-                          card: cards[i],
-                          width: targetWidth,
-                          faceUp: true,
-                          isSelected: widget.selectedCardId == cards[i].id,
-                          onTap: widget.enabled
-                              ? () => widget.onCardTap?.call(cards[i].id)
-                              : null,
                         ),
                       ),
                     ),
