@@ -58,7 +58,11 @@ class TableScreen extends ConsumerStatefulWidget {
 // (already imported above)
 
 class _TableScreenState extends ConsumerState<TableScreen> {
-  final Set<String> _selectedCardIds = {};
+  String? _selectedCardId;
+
+  /// Local display order of the player's hand (card IDs).
+  /// New cards are appended to the right; drag-and-drop updates this list.
+  List<String> _handOrder = [];
 
   bool _isDealing = false;
   final Map<String, int> _visibleCardCounts = {};
@@ -120,6 +124,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     for (var p in state.players) {
       _playerZoneKeys[p.id] = GlobalKey();
     }
+
+    // Initialise hand order from the local player's starting cards
+    final localStart = state.players
+        .where((p) => p.tablePosition == TablePosition.bottom)
+        .firstOrNull;
+    _handOrder = localStart?.hand.map((c) => c.id).toList() ?? [];
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _startDealAnimation();
@@ -254,7 +264,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     _turnTimer?.cancel();
     _addLog('You ended your turn.');
-    setState(() => _selectedCardIds.clear());
+    setState(() => _selectedCardId = null);
 
     final nextId = nextPlayerId(state: _offlineState);
     setState(() {
@@ -348,7 +358,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         ),
                         child: _TableLayout(
                           gameState: gameState,
-                          selectedCardIds: _selectedCardIds,
+                          selectedCardId: _selectedCardId,
+                          orderedHand: _orderedHand(
+                            gameState.players
+                                    .where((p) =>
+                                        p.tablePosition == TablePosition.bottom)
+                                    .firstOrNull
+                                    ?.hand ??
+                                [],
+                          ),
                           isMyTurn: isMyTurn,
                           secondsLeft: _secondsLeft,
                           penaltyCount: penaltyCount,
@@ -366,10 +384,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                           onDrawTap: isOfflineMode
                               ? () => _offlineDrawCard(OfflineGameState.localId)
                               : _onDrawTap,
-                          onPlayTap: isOfflineMode
-                              ? () =>
-                                  _offlinePlayCards(OfflineGameState.localId)
-                              : _onPlayTap,
+                          onHandReorder: _onHandReorder,
                           onEndTurnTap: isOfflineMode ? _endTurn : () {},
                         ),
                       ),
@@ -451,13 +466,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   void _onCardTap(String cardId) {
     if (_aiThinking) return;
-    setState(() {
-      if (_selectedCardIds.contains(cardId)) {
-        _selectedCardIds.remove(cardId);
-      } else {
-        _selectedCardIds.add(cardId);
-      }
-    });
+    final isOfflineMode = ref.read(gameStateProvider) == null;
+    if (isOfflineMode) {
+      _offlinePlayCards(OfflineGameState.localId, cardId: cardId);
+    } else {
+      _onPlayTap(cardId: cardId);
+    }
   }
 
   // ── Live server actions ────────────────────────────────────────────
@@ -465,28 +479,27 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   void _onDrawTap() {
     if (!ref.read(isLocalTurnProvider)) return;
     ref.read(gameNotifierProvider.notifier).drawCard();
-    setState(() => _selectedCardIds.clear());
+    setState(() => _selectedCardId = null);
   }
 
-  void _onPlayTap() {
-    if (_selectedCardIds.isEmpty) return;
-    ref
-        .read(gameNotifierProvider.notifier)
-        .playCards(_selectedCardIds.toList());
-    setState(() => _selectedCardIds.clear());
+  void _onPlayTap({required String cardId}) {
+    ref.read(gameNotifierProvider.notifier).playCards([cardId]);
+    setState(() => _selectedCardId = null);
   }
 
   // ── Offline mode: play cards ───────────────────────────────────────────────
 
-  Future<void> _offlinePlayCards(String playerId) async {
-    if (_selectedCardIds.isEmpty || _aiThinking) return;
+  Future<void> _offlinePlayCards(String playerId,
+      {required String cardId}) async {
+    if (_aiThinking) return;
     if (_offlineState.currentPlayerId != playerId) return;
 
     final local = _offlineState.players.firstWhere((p) => p.id == playerId);
-    final played =
-        local.hand.where((c) => _selectedCardIds.contains(c.id)).toList();
+    final played = local.hand.where((c) => c.id == cardId).toList();
 
-    // Rule validation
+    if (played.isEmpty) return;
+
+    // Rule validation — validate before any visual change
     final err = validatePlay(
       cards: played,
       discardTop: _offlineState.discardTopCard!,
@@ -494,7 +507,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     );
     if (err != null) {
       _showError(err);
-      setState(() => _selectedCardIds.clear());
       return;
     }
 
@@ -503,6 +515,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final isWildAce = _offlineState.actionsThisTurn == 0 &&
         played.first.effectiveRank == Rank.ace;
     if (isWildAce && mounted) {
+      // Show selection visual while the modal is open
+      setState(() => _selectedCardId = cardId);
       final chosenSuit = await showModalBottomSheet<Suit>(
         context: context,
         backgroundColor: Colors.transparent,
@@ -511,7 +525,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (!mounted) return;
       // If dismissed without picking, cancel the play.
       if (chosenSuit == null) {
-        setState(() => _selectedCardIds.clear());
+        setState(() => _selectedCardId = null);
         return;
       }
 
@@ -533,9 +547,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       _totalDiscarded += played.length;
       _discardPile.addAll(played);
 
+      final localInNew = newState.players
+          .where((p) => p.tablePosition == TablePosition.bottom)
+          .firstOrNull;
       setState(() {
         _offlineState = newState;
-        _selectedCardIds.clear();
+        _selectedCardId = null;
+        if (localInNew != null) _syncHandOrder(localInNew.hand);
       });
 
       _reshuffleIfNeeded();
@@ -565,10 +583,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
       if (validOptions.isEmpty) {
         _showError('No valid moves available for the Joker right now.');
-        setState(() => _selectedCardIds.clear());
         return;
       }
 
+      // Show selection visual while the modal is open
+      setState(() => _selectedCardId = cardId);
       final chosenCard = await showModalBottomSheet<CardModel>(
         context: context,
         backgroundColor: Colors.transparent,
@@ -581,7 +600,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
       if (!mounted) return;
       if (chosenCard == null) {
-        setState(() => _selectedCardIds.clear());
+        setState(() => _selectedCardId = null);
         return;
       }
 
@@ -607,9 +626,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       _totalDiscarded += 1;
       _discardPile.add(assignedJoker);
 
+      final localInNew = newState.players
+          .where((p) => p.tablePosition == TablePosition.bottom)
+          .firstOrNull;
       setState(() {
         _offlineState = newState;
-        _selectedCardIds.clear();
+        _selectedCardId = null;
+        if (localInNew != null) _syncHandOrder(localInNew.hand);
       });
 
       _reshuffleIfNeeded();
@@ -641,9 +664,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _totalDiscarded += played.length;
     _discardPile.addAll(played);
 
+    final localInNew = newState.players
+        .where((p) => p.tablePosition == TablePosition.bottom)
+        .firstOrNull;
     setState(() {
       _offlineState = newState;
-      _selectedCardIds.clear();
+      _selectedCardId = null;
+      if (localInNew != null) _syncHandOrder(localInNew.hand);
     });
 
     _reshuffleIfNeeded();
@@ -677,6 +704,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       cardFactory: _makeCards,
     );
 
+    final localAfterDraw = newState.players
+        .where((p) => p.tablePosition == TablePosition.bottom)
+        .firstOrNull;
+
     if (isQueenPenaltyDraw) {
       newState = newState.copyWith(queenSuitLock: null);
       _addLogEntry(MoveLogEntry(
@@ -691,7 +722,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           currentPlayerId: nextId, actionsThisTurn: 0, activeSkipCount: 0);
       setState(() {
         _offlineState = newState;
-        _selectedCardIds.clear();
+        _selectedCardId = null;
+        if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
       });
       _turnTimer?.cancel();
       if (nextId != OfflineGameState.localId) _scheduleAiTurn(nextId);
@@ -709,7 +741,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           currentPlayerId: nextId, actionsThisTurn: 0, activeSkipCount: 0);
       setState(() {
         _offlineState = newState;
-        _selectedCardIds.clear();
+        _selectedCardId = null;
+        if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
       });
       _turnTimer?.cancel();
       if (nextId != OfflineGameState.localId) _scheduleAiTurn(nextId);
@@ -727,7 +760,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           currentPlayerId: nextId, actionsThisTurn: 0, activeSkipCount: 0);
       setState(() {
         _offlineState = newState;
-        _selectedCardIds.clear();
+        _selectedCardId = null;
+        if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
       });
       _turnTimer?.cancel();
       if (nextId != OfflineGameState.localId) {
@@ -836,7 +870,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             Navigator.of(context).pop();
             setState(() {
               _initNewGame();
-              _selectedCardIds.clear();
+              _selectedCardId = null;
               _aiThinking = false;
               _moveLog
                 ..clear()
@@ -895,6 +929,62 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       };
       if (note != null) _addLog(note);
     }
+  }
+
+  // ── Hand ordering ──────────────────────────────────────────────────
+
+  /// Keeps `_handOrder` in sync with [hand]: removes stale IDs and appends
+  /// any new card IDs (newly drawn cards) at the right end.
+  void _syncHandOrder(List<CardModel> hand) {
+    final ids = {for (final c in hand) c.id};
+    final filtered = _handOrder.where((id) => ids.contains(id)).toList();
+    final filteredSet = filtered.toSet();
+    for (final card in hand) {
+      if (!filteredSet.contains(card.id)) filtered.add(card.id);
+    }
+    _handOrder = filtered;
+  }
+
+  /// Returns [hand] sorted according to `_handOrder`.
+  /// Cards not yet in `_handOrder` (e.g. just drawn) are appended at the end.
+  List<CardModel> _orderedHand(List<CardModel> hand) {
+    final idToCard = {for (final c in hand) c.id: c};
+    final seen = <String>{};
+    final result = <CardModel>[];
+    for (final id in _handOrder) {
+      final card = idToCard[id];
+      if (card != null && seen.add(id)) result.add(card);
+    }
+    for (final c in hand) {
+      if (seen.add(c.id)) result.add(c);
+    }
+    return result;
+  }
+
+  void _onHandReorder(int oldIndex, int newIndex) {
+    setState(() {
+      // Work on the currently displayed order (stale entries already excluded
+      // by _orderedHand), then store as the new canonical order.
+      final liveState = ref.read(gameStateProvider);
+      final gameState = liveState ?? _offlineState;
+      final localPlayer = gameState.players
+          .where((p) => p.tablePosition == TablePosition.bottom)
+          .firstOrNull;
+      if (localPlayer == null) return;
+
+      final currentOrder =
+          _orderedHand(localPlayer.hand).map((c) => c.id).toList();
+      if (oldIndex < 0 ||
+          oldIndex >= currentOrder.length ||
+          newIndex < 0 ||
+          newIndex >= currentOrder.length) {
+        return;
+      }
+
+      final id = currentOrder.removeAt(oldIndex);
+      currentOrder.insert(newIndex, id);
+      _handOrder = currentOrder;
+    });
   }
 
   void _showError(String msg) {

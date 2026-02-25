@@ -54,7 +54,7 @@ Future<void> pumpHand(
             alignment: Alignment.bottomCenter,
             child: PlayerHandWidget(
               cards: cards,
-              selectedCardIds: selectedCardIds,
+              selectedCardId: selectedCardIds.isEmpty ? null : selectedCardIds.first,
               enabled: enabled,
             ),
           ),
