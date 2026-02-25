@@ -17,141 +17,261 @@ import 'card_widget.dart';
 ///   Cards are placed at a fixed 20 dp step inside a [SingleChildScrollView].
 ///   Left/right [ShaderMask] fades hint that the row is scrollable.
 ///
-/// In both cases the widget always reports exactly [maxWidth] wide to its
-/// parent. This prevents [PlayerZoneWidget]'s wrapping Container from
-/// expanding beyond the viewport when constraints are loose.
-class PlayerHandWidget extends StatelessWidget {
+/// Cards can be reordered via long-press drag. While a drag is in progress
+/// the other cards shift to reveal an insertion gap.
+class PlayerHandWidget extends StatefulWidget {
   const PlayerHandWidget({
     super.key,
     required this.cards,
-    this.selectedCardIds = const {},
+    this.selectedCardId,
     this.onCardTap,
+    this.onReorder,
     this.cardWidth = AppDimensions.cardWidthMedium,
     this.enabled = true,
   });
 
   final List<CardModel> cards;
-  final Set<String> selectedCardIds;
+  final String? selectedCardId;
   final ValueChanged<String>? onCardTap;
+
+  /// Called when the user drops a card at a new position.
+  /// [oldIndex] and [newIndex] are indices into the current [cards] list.
+  final void Function(int oldIndex, int newIndex)? onReorder;
+
   final double cardWidth;
   final bool enabled;
+
+  @override
+  State<PlayerHandWidget> createState() => _PlayerHandWidgetState();
+}
+
+class _PlayerHandWidgetState extends State<PlayerHandWidget> {
+  /// Index of the card currently being dragged (into [widget.cards]).
+  int? _draggingIndex;
+
+  /// Where the dragged card would be inserted if dropped now.
+  int? _insertIndex;
 
   /// Minimum visible horizontal strip per card before Option B takes over.
   static const double _minStripDp = 20.0;
 
+  // ── insert-index calculation ─────────────────────────────────────────────
+
+  /// Given a drag position [dragX] within the hand area, return the index at
+  /// which the dragged card should be inserted.
+  int _calcInsertIndex(double dragX, double spread, int n) {
+    if (n <= 1) return 0;
+    for (int i = 0; i < n - 1; i++) {
+      // Midpoint between card i and card i+1
+      if (dragX < i * spread + spread / 2) return i;
+    }
+    return n - 1;
+  }
+
+  // ── adjusted left position ────────────────────────────────────────────────
+
+  /// Returns the [left] offset for card at [visibleIndex] in the fanned stack,
+  /// taking into account a potential insertion gap when dragging.
+  ///
+  /// When [_draggingIndex] and [_insertIndex] are non-null we open one extra
+  /// [spread] unit of space at the target insertion slot so it looks like the
+  /// other cards are making room.
+  double _leftFor({
+    required int visibleIndex,
+    required double spread,
+    required double totalWidth,
+    required double targetWidth,
+    required int n,
+  }) {
+    if (n <= 1) return (totalWidth - targetWidth) / 2;
+
+    final di = _draggingIndex;
+    final ii = _insertIndex;
+
+    if (di == null || ii == null || di == ii) {
+      return visibleIndex.toDouble() * spread;
+    }
+
+    // Shift cards to open a gap at the insertion point
+    double base = visibleIndex.toDouble() * spread;
+    // Cards that come after the insertion point (but are not the dragged card)
+    // shift one extra spread to the right.
+    if (visibleIndex != di && visibleIndex >= ii) {
+      base += spread;
+    }
+    return base;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final cards = widget.cards;
     if (cards.isEmpty) {
       return const SizedBox.shrink();
     }
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // ── Available width ──────────────────────────────────────────────
+        // ── Available width ────────────────────────────────────────────
         final maxWidth = constraints.maxWidth.isFinite
             ? constraints.maxWidth
             : MediaQuery.of(context).size.width;
 
         final isCompact = maxWidth < AppDimensions.breakpointMobile;
 
-        // Card width formula is unchanged from the original.
         final targetWidth =
-            (maxWidth * (isCompact ? 0.14 : 0.11)).clamp(44.0, cardWidth);
+            (maxWidth * (isCompact ? 0.14 : 0.11)).clamp(44.0, widget.cardWidth);
         final cardH = AppDimensions.cardHeight(targetWidth) + 14;
 
         final n = cards.length;
 
-        // ── Spread calculation ───────────────────────────────────────────
-        //
-        // We want: targetWidth + (n − 1) × spread == maxWidth
-        //   ⟹ spread = (maxWidth − targetWidth) / (n − 1)
-        //
-        // This guarantees totalWidth == maxWidth for Option A
-        // (verified: targetWidth + (n-1) × spread
-        //          = targetWidth + (maxWidth − targetWidth) = maxWidth ✓).
-
+        // ── Spread calculation ─────────────────────────────────────────
         final double spread;
         final bool useScroll;
 
         if (n <= 1) {
-          // Single card: centre it, no spread needed.
           spread = 0;
           useScroll = false;
         } else {
           final computedSpread = (maxWidth - targetWidth) / (n - 1);
           if (computedSpread >= _minStripDp) {
-            // Option A: all cards fit with comfortable overlap.
             spread = computedSpread;
             useScroll = false;
           } else {
-            // Option B: enforce minimum strip; activate scroll.
             spread = _minStripDp;
             useScroll = true;
           }
         }
 
-        // For Option A: totalWidth == maxWidth (exact fit).
-        // For Option B: totalWidth = targetWidth + (n-1) × 20 dp (scrollable).
-        // For n == 1: totalWidth == targetWidth.
         final totalWidth =
             n <= 1 ? targetWidth : targetWidth + (n - 1) * spread;
 
-        // ── Card stack ───────────────────────────────────────────────────
-        final cardStack = Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            for (int i = 0; i < n; i++)
-              Positioned(
-                // Centre single card; otherwise fan from left edge.
-                left: n == 1
-                    ? (totalWidth - targetWidth) / 2
-                    : i.toDouble() * spread,
-                bottom: 0,
-                child: Hero(
-                  tag: 'card-${cards[i].id}',
-                  flightShuttleBuilder: (flightContext, animation,
-                      flightDirection, fromHeroContext, toHeroContext) {
-                    final bounce = TweenSequence([
-                      TweenSequenceItem(
-                          tween: Tween(begin: 1.0, end: 1.1)
-                              .chain(CurveTween(curve: Curves.easeOut)),
-                          weight: 50),
-                      TweenSequenceItem(
-                          tween: Tween(begin: 1.1, end: 1.0)
-                              .chain(CurveTween(curve: Curves.easeIn)),
-                          weight: 50),
-                    ]).animate(animation);
+        // Extra width needed when a gap is shown during drag
+        final dragExtraWidth =
+            (_draggingIndex != null && _insertIndex != null) ? spread : 0.0;
+        final stackWidth = totalWidth + dragExtraWidth;
 
-                    return ScaleTransition(
-                      scale: bounce,
-                      child: toHeroContext.widget,
-                    );
-                  },
-                  child: CardWidget(
-                    card: cards[i],
-                    width: targetWidth,
-                    faceUp: true,
-                    isSelected: selectedCardIds.contains(cards[i].id),
-                    onTap: enabled ? () => onCardTap?.call(cards[i].id) : null,
+        // ── Card stack with drag-and-drop ──────────────────────────────
+        final cardStack = DragTarget<int>(
+          onMove: (details) {
+            final localX = details.offset.dx;
+            final newInsert = _calcInsertIndex(localX, spread, n);
+            if (newInsert != _insertIndex) {
+              setState(() => _insertIndex = newInsert);
+            }
+          },
+          onAcceptWithDetails: (details) {
+            final di = _draggingIndex;
+            final ii = _insertIndex;
+            if (di != null && ii != null && di != ii) {
+              widget.onReorder?.call(di, ii);
+            }
+            setState(() {
+              _draggingIndex = null;
+              _insertIndex = null;
+            });
+          },
+          onLeave: (_) {
+            setState(() => _insertIndex = null);
+          },
+          builder: (context, candidateData, rejectedData) {
+            return Stack(
+              alignment: Alignment.bottomCenter,
+              children: [
+                for (int i = 0; i < n; i++)
+                  AnimatedPositioned(
+                    duration: _draggingIndex != null
+                        ? const Duration(milliseconds: 150)
+                        : Duration.zero,
+                    curve: Curves.easeOut,
+                    left: _leftFor(
+                      visibleIndex: i,
+                      spread: spread,
+                      totalWidth: stackWidth,
+                      targetWidth: targetWidth,
+                      n: n,
+                    ),
+                    bottom: 0,
+                    child: Hero(
+                      tag: 'card-${cards[i].id}',
+                      flightShuttleBuilder: (flightContext, animation,
+                          flightDirection, fromHeroContext, toHeroContext) {
+                        final bounce = TweenSequence([
+                          TweenSequenceItem(
+                              tween: Tween(begin: 1.0, end: 1.1)
+                                  .chain(CurveTween(curve: Curves.easeOut)),
+                              weight: 50),
+                          TweenSequenceItem(
+                              tween: Tween(begin: 1.1, end: 1.0)
+                                  .chain(CurveTween(curve: Curves.easeIn)),
+                              weight: 50),
+                        ]).animate(animation);
+                        return ScaleTransition(
+                          scale: bounce,
+                          child: toHeroContext.widget,
+                        );
+                      },
+                      child: LongPressDraggable<int>(
+                        data: i,
+                        delay: const Duration(milliseconds: 300),
+                        onDragStarted: () {
+                          setState(() {
+                            _draggingIndex = i;
+                            _insertIndex = i;
+                          });
+                        },
+                        onDraggableCanceled: (_, __) {
+                          setState(() {
+                            _draggingIndex = null;
+                            _insertIndex = null;
+                          });
+                        },
+                        onDragEnd: (_) {
+                          setState(() {
+                            _draggingIndex = null;
+                            _insertIndex = null;
+                          });
+                        },
+                        feedback: Material(
+                          color: Colors.transparent,
+                          elevation: 10,
+                          child: CardWidget(
+                            card: cards[i],
+                            width: targetWidth,
+                            faceUp: true,
+                          ),
+                        ),
+                        childWhenDragging: Opacity(
+                          opacity: 0.25,
+                          child: CardWidget(
+                            card: cards[i],
+                            width: targetWidth,
+                            faceUp: true,
+                          ),
+                        ),
+                        child: CardWidget(
+                          card: cards[i],
+                          width: targetWidth,
+                          faceUp: true,
+                          isSelected: widget.selectedCardId == cards[i].id,
+                          onTap: widget.enabled
+                              ? () => widget.onCardTap?.call(cards[i].id)
+                              : null,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-          ],
+              ],
+            );
+          },
         );
 
-        // ── Outer SizedBox is always exactly maxWidth wide ───────────────
-        //
-        // This is the critical fix: by pinning the widget's reported width to
-        // maxWidth, PlayerZoneWidget's inner Column never exceeds screen bounds
-        // regardless of how large totalWidth grows (Option B content).
-
+        // ── Outer SizedBox is always exactly maxWidth wide ─────────────
         if (!useScroll) {
-          // Option A: stack fits inside maxWidth exactly — no scroll needed.
           return SizedBox(
             width: maxWidth,
             height: cardH,
             child: SizedBox(
-              width: totalWidth,
+              width: stackWidth,
               height: cardH,
               child: cardStack,
             ),
@@ -177,7 +297,7 @@ class PlayerHandWidget extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
               child: SizedBox(
-                width: totalWidth,
+                width: stackWidth,
                 height: cardH,
                 child: cardStack,
               ),

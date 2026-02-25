@@ -5,7 +5,8 @@ part of 'table_screen.dart';
 class _TableLayout extends StatelessWidget {
   const _TableLayout({
     required this.gameState,
-    required this.selectedCardIds,
+    required this.selectedCardId,
+    required this.orderedHand,
     required this.isMyTurn,
     required this.secondsLeft,
     required this.penaltyCount,
@@ -17,12 +18,13 @@ class _TableLayout extends StatelessWidget {
     required this.playerZoneKeys,
     required this.onCardTap,
     required this.onDrawTap,
-    required this.onPlayTap,
+    required this.onHandReorder,
     required this.onEndTurnTap,
   });
 
   final GameState gameState;
-  final Set<String> selectedCardIds;
+  final String? selectedCardId;
+  final List<CardModel> orderedHand;
   final bool isMyTurn;
   final int secondsLeft;
   final int penaltyCount;
@@ -34,7 +36,7 @@ class _TableLayout extends StatelessWidget {
   final Map<String, GlobalKey> playerZoneKeys;
   final ValueChanged<String> onCardTap;
   final VoidCallback onDrawTap;
-  final VoidCallback onPlayTap;
+  final void Function(int oldIndex, int newIndex) onHandReorder;
   final VoidCallback onEndTurnTap;
 
   @override
@@ -190,7 +192,7 @@ class _TableLayout extends StatelessWidget {
                               onTap: onDrawTap,
                               cardWidth: drawCardWidth,
                               enabled: isMyTurn &&
-                                  (selectedCardIds.isEmpty) &&
+                                  selectedCardId == null &&
                                   !isDealing,
                             ),
                             const SizedBox(width: AppDimensions.sm),
@@ -202,33 +204,6 @@ class _TableLayout extends StatelessWidget {
                           ],
                         ),
                       ),
-                      if (selectedCardIds.isNotEmpty &&
-                          isMyTurn &&
-                          !isDealing) ...[
-                        const SizedBox(height: AppDimensions.md),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.goldPrimary,
-                            foregroundColor: AppColors.feltDeep,
-                            padding: EdgeInsets.symmetric(
-                              horizontal: isMobile
-                                  ? AppDimensions.md
-                                  : AppDimensions.lg,
-                              vertical: isMobile
-                                  ? AppDimensions.sm
-                                  : AppDimensions.md,
-                            ),
-                          ),
-                          onPressed: onPlayTap,
-                          child: Text(
-                            'PLAY CARD${selectedCardIds.length > 1 ? 'S' : ''}',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: isMobile ? 12 : 14,
-                            ),
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -245,9 +220,10 @@ class _TableLayout extends StatelessWidget {
                   isLocalPlayer: true,
                   isNextTurn: localPlayer.id == nextId,
                   child: PlayerHandWidget(
-                    cards: localPlayer.hand,
-                    selectedCardIds: selectedCardIds,
+                    cards: orderedHand,
+                    selectedCardId: selectedCardId,
                     onCardTap: onCardTap,
+                    onReorder: onHandReorder,
                     enabled: isMyTurn && !isDealing,
                     cardWidth: handCardWidth,
                   ),
