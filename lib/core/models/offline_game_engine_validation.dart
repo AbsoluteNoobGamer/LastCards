@@ -203,8 +203,9 @@ List<CardModel> getValidJokerOptions({
   for (final suit in Suit.values) {
     for (final rank in Rank.values) {
       if (rank == Rank.joker) continue; // Joker can't mimic a Joker
-      if (rank == targetRank && suit == targetSuit)
+      if (rank == targetRank && suit == targetSuit) {
         continue; // Cannot be exact dupe
+      }
 
       bool isValidMatch = false;
 
@@ -292,8 +293,9 @@ String? _validateSingle(CardModel card, CardModel discard, GameState state) {
   // Queen suit-lock: must play the locked suit OR another Queen.
   if (state.queenSuitLock != null) {
     if (card.effectiveSuit == state.queenSuitLock) return null;
-    if (card.effectiveRank == Rank.queen)
+    if (card.effectiveRank == Rank.queen) {
       return null; // Q->Q chaining is explicitly allowed
+    }
     return 'Queen lock active — play a ${state.queenSuitLock!.displayName} card or another Queen.';
   }
 
@@ -315,6 +317,9 @@ String? _validateSingle(CardModel card, CardModel discard, GameState state) {
 ///   • The Queen suit-lock must be resolved (covered) before ending.
 ///   • The player must have taken at least one action (`actionsThisTurn > 0`).
 String? validateEndTurn(GameState state) {
+  if (state.pendingJokerResolution) {
+    return 'Resolve Joker selection first.';
+  }
   if (state.queenSuitLock != null) {
     return 'Cover Queen first!';
   }
