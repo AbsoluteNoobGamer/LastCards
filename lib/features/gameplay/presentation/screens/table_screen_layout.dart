@@ -220,7 +220,11 @@ class _TableLayout extends StatelessWidget {
                   isLocalPlayer: true,
                   isNextTurn: localPlayer.id == nextId,
                   child: PlayerHandWidget(
-                    cards: orderedHand,
+                    cards: isDealing
+                        ? orderedHand
+                            .take(visibleCardCounts[localPlayer.id] ?? 0)
+                            .toList()
+                        : orderedHand,
                     selectedCardId: selectedCardId,
                     onCardTap: onCardTap,
                     onReorder: onHandReorder,
