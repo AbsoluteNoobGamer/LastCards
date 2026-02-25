@@ -11,10 +11,12 @@ class IntegratedGameLog extends StatefulWidget {
     super.key,
     required this.entries,
     required this.activePlayerName,
+    this.width = 220,
   });
 
   final List<MoveLogEntry> entries;
   final String activePlayerName;
+  final double width;
 
   @override
   State<IntegratedGameLog> createState() => _IntegratedGameLogState();
@@ -52,7 +54,7 @@ class _IntegratedGameLogState extends State<IntegratedGameLog> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 220, // Smaller width
+      width: widget.width,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

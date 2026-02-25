@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/player.dart';
+import '../controllers/game_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/player_styles.dart';
-import 'card_back_widget.dart';
 
 /// Wraps a player's card area with:
 /// - Gold glow ring when [isActiveTurn]
@@ -13,7 +14,7 @@ import 'card_back_widget.dart';
 /// - Opponent hands shown as a condensed face-down fan
 /// - Card count badge
 
-class PlayerZoneWidget extends StatelessWidget {
+class PlayerZoneWidget extends ConsumerWidget {
   const PlayerZoneWidget({
     super.key,
     required this.player,
@@ -31,7 +32,26 @@ class PlayerZoneWidget extends StatelessWidget {
   final Widget? child;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final liveGameState = ref.watch(gameStateProvider);
+    final livePlayers = liveGameState?.players ?? const [];
+    var reactiveCardCount = player.cardCount;
+    for (final p in livePlayers) {
+      if (p.id == player.id) {
+        reactiveCardCount = p.cardCount;
+        break;
+      }
+    }
+    final playerWithReactiveCount =
+        player.copyWith(cardCount: reactiveCardCount);
+
+    if (!isLocalPlayer && child == null) {
+      return _OpponentAvatarZone(
+        player: playerWithReactiveCount,
+        isNextTurn: isNextTurn,
+      );
+    }
+
     final isActive = player.isActiveTurn;
     final isSkipped = player.isSkipped;
     final isOffline = !player.isConnected;
@@ -137,17 +157,131 @@ class PlayerZoneWidget extends StatelessWidget {
           children: [
             // Player name + card count
             _PlayerLabel(
-              player: player,
+              player: playerWithReactiveCount,
               isLocalPlayer: isLocalPlayer,
               isNextTurn: isNextTurn,
             ),
             const SizedBox(height: AppDimensions.xs),
 
             // Content
-            child ?? _OpponentFan(cardCount: player.cardCount),
+            child ?? const SizedBox.shrink(),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _OpponentAvatarZone extends StatelessWidget {
+  const _OpponentAvatarZone({
+    required this.player,
+    required this.isNextTurn,
+  });
+
+  final PlayerModel player;
+  final bool isNextTurn;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = PlayerStyles.getColor(player.tablePosition);
+    final isActive = player.isActiveTurn;
+
+    final ringColor = isActive
+        ? color
+        : (isNextTurn
+            ? AppColors.blueAccent
+            : AppColors.textSecondary.withValues(alpha: 0.35));
+    final ringWidth = isActive ? 3.0 : (isNextTurn ? 2.2 : 1.5);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(36),
+            onTap: () {},
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minWidth: AppDimensions.minTouchTarget,
+                minHeight: AppDimensions.minTouchTarget,
+              ),
+              child: SizedBox(
+                width: 68,
+                height: 68,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: ringColor, width: ringWidth),
+                        boxShadow: isActive || isNextTurn
+                            ? [
+                                BoxShadow(
+                                  color: ringColor.withValues(alpha: 0.55),
+                                  blurRadius: isActive ? 14 : 10,
+                                  spreadRadius: isActive ? 2 : 1,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: CircleAvatar(
+                        radius: 30,
+                        backgroundColor: color.withValues(alpha: 0.2),
+                        child: Icon(
+                          PlayerStyles.getIcon(player.tablePosition),
+                          color: color,
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: -2,
+                      bottom: -2,
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.goldDark,
+                          border: Border.all(
+                            color: AppColors.surfacePanel,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Text(
+                          '${player.cardCount}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: 96,
+          child: Text(
+            player.displayName,
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.labelSmall.copyWith(
+              color: isActive ? color : AppColors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -263,40 +397,6 @@ class _PlayerLabel extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-// ── Opponent face-down card fan ───────────────────────────────────────────────
-
-class _OpponentFan extends StatelessWidget {
-  const _OpponentFan({required this.cardCount});
-
-  final int cardCount;
-
-  @override
-  Widget build(BuildContext context) {
-    const maxVisible = 7;
-    final visible = cardCount.clamp(0, maxVisible);
-    const cardW = AppDimensions.cardWidthSmall;
-    const overlap = 18.0;
-
-    if (visible == 0) return const SizedBox(width: cardW, height: 70);
-
-    final totalWidth = cardW + (visible - 1) * overlap;
-
-    return SizedBox(
-      width: totalWidth,
-      height: AppDimensions.cardHeight(cardW),
-      child: Stack(
-        children: [
-          for (int i = 0; i < visible; i++)
-            Positioned(
-              left: i * overlap.toDouble(),
-              child: const CardBackWidget(width: cardW),
-            ),
-        ],
-      ),
     );
   }
 }

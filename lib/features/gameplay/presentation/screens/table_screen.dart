@@ -66,7 +66,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   late AudioService _audioService;
 
   // Animation overlay keys
-  final GlobalKey<DealingAnimationOverlayState> _overlayKey = GlobalKey<DealingAnimationOverlayState>();
+  final GlobalKey<DealingAnimationOverlayState> _overlayKey =
+      GlobalKey<DealingAnimationOverlayState>();
   final GlobalKey _drawPileKey = GlobalKey();
   final Map<String, GlobalKey> _playerZoneKeys = {};
 
@@ -113,13 +114,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       ..clear()
       ..add(state.discardTopCard!); // seed discard with starting face-up card
     _totalDiscarded = 1;
-    
+
     // Assign player keys for animation destinations
     _playerZoneKeys.clear();
     for (var p in state.players) {
       _playerZoneKeys[p.id] = GlobalKey();
     }
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _startDealAnimation();
     });
@@ -135,16 +136,17 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     });
 
     final players = _offlineState.players;
-    final localIdx = players.indexWhere((p) => p.tablePosition == TablePosition.bottom);
-    
+    final localIdx =
+        players.indexWhere((p) => p.tablePosition == TablePosition.bottom);
+
     // Order: Clockwise starting from the player to the left of the local player (or top if 2 players),
     // ending with the local player.
     final orderedPlayers = <PlayerModel>[];
     final dir = _offlineState.direction == PlayDirection.clockwise ? 1 : -1;
     for (int i = 1; i <= players.length; i++) {
-        int idx = (localIdx + i * dir) % players.length;
-        if (idx < 0) idx += players.length;
-        orderedPlayers.add(players[idx]);
+      int idx = (localIdx + i * dir) % players.length;
+      if (idx < 0) idx += players.length;
+      orderedPlayers.add(players[idx]);
     }
 
     final audioService = ref.read(audioServiceProvider);
@@ -152,7 +154,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     for (int i = 0; i < 7; i++) {
       for (final p in orderedPlayers) {
         if (!mounted) return;
-        
+
         audioService.playClick();
         final overlay = _overlayKey.currentState;
         if (overlay != null) {
@@ -160,14 +162,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         } else {
           await Future.delayed(const Duration(milliseconds: 150));
         }
-        
+
         // Wait an extra sliver between cards so they don't overlap too rigidly
         await Future.delayed(const Duration(milliseconds: 50));
-        
+
         if (mounted) {
-           setState(() {
-             _visibleCardCounts[p.id] = (_visibleCardCounts[p.id] ?? 0) + 1;
-           });
+          setState(() {
+            _visibleCardCounts[p.id] = (_visibleCardCounts[p.id] ?? 0) + 1;
+          });
         }
       }
     }
@@ -177,7 +179,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     setState(() {
       _isDealing = false;
     });
-    
+
     _startTimer();
   }
 
@@ -303,107 +305,125 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.feltDeep,
-      body: Stack(
-        children: [
-          const _FeltTableBackground(),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isTablet =
+              constraints.maxWidth >= AppDimensions.breakpointMobile;
+          final showSideLog = isOfflineMode && isTablet;
 
-          // ── Turn indicator ring ──────────────────────────────────────
-          Positioned.fill(
-            child: TurnIndicatorOverlay(direction: gameState.direction),
-          ),
+          return Stack(
+            children: [
+              const _FeltTableBackground(),
 
-          SafeArea(
-            child: Column(
-              children: [
-                StatusBarWidget(
-                  activePlayerName: gameState
-                          .playerById(gameState.currentPlayerId)
-                          ?.displayName ??
-                      '',
-                  direction: gameState.direction,
-                  upcomingPlayerNames: _getUpcomingPlayerNames(gameState),
-                  secondsLeft: _secondsLeft,
-                  canEndTurn: isOfflineMode
-                      ? (validateEndTurn(_offlineState) == null)
-                      : true,
-                  onEndTurn: isOfflineMode
-                      ? _endTurn
-                      : () {}, // TODO: handle live server End Turn
-                ),
-                Expanded(
-                  child: _TableLayout(
-                    gameState: gameState,
-                    selectedCardIds: _selectedCardIds,
-                    isMyTurn: isMyTurn,
-                    secondsLeft: _secondsLeft,
-                    penaltyCount: penaltyCount,
-                    connState: isOfflineMode
-                        ? WsConnectionState.disconnected
-                        : connState,
-                    canEndTurn: isOfflineMode
-                        ? (validateEndTurn(_offlineState) == null)
-                        : true,
-                    isDealing: _isDealing,
-                    visibleCardCounts: _visibleCardCounts,
-                    drawPileKey: _drawPileKey,
-                    playerZoneKeys: _playerZoneKeys,
-                    onCardTap: _onCardTap,
-                    onDrawTap: isOfflineMode
-                        ? () => _offlineDrawCard(OfflineGameState.localId)
-                        : _onDrawTap,
-                    onPlayTap: isOfflineMode
-                        ? () => _offlinePlayCards(OfflineGameState.localId)
-                        : _onPlayTap,
-                    onEndTurnTap: isOfflineMode ? _endTurn : () {},
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // ── Offline banner ─────────────────────────────────────────
-          if (isOfflineMode)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: SafeArea(
-                bottom: false,
-                child: _OfflineBanner(
-                  aiThinking: _aiThinking,
-                  onBack: () => Navigator.of(context).pop(),
-                ),
+              // ── Turn indicator ring ──────────────────────────────────────
+              Positioned.fill(
+                child: TurnIndicatorOverlay(direction: gameState.direction),
               ),
-            ),
 
-          // ── Integrated Move log (left edge) ────────────────────────────────
-          if (isOfflineMode)
-            Positioned(
-              left: 0,
-              top: 180,
-              bottom: 0,
-              child: SafeArea(
-                child: IntegratedGameLog(
-                  entries: _moveLog,
-                  activePlayerName: isMyTurn
-                      ? 'YOUR TURN'
-                      : (gameState
+              SafeArea(
+                child: Column(
+                  children: [
+                    StatusBarWidget(
+                      activePlayerName: gameState
                               .playerById(gameState.currentPlayerId)
                               ?.displayName ??
-                          'Unknown'),
+                          '',
+                      direction: gameState.direction,
+                      upcomingPlayerNames: _getUpcomingPlayerNames(gameState),
+                      secondsLeft: _secondsLeft,
+                      canEndTurn: isOfflineMode
+                          ? (validateEndTurn(_offlineState) == null)
+                          : true,
+                      onEndTurn: isOfflineMode
+                          ? _endTurn
+                          : () {}, // TODO: handle live server End Turn
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          left: showSideLog
+                              ? (constraints.maxWidth * 0.22)
+                                  .clamp(180.0, 280.0)
+                              : 0,
+                        ),
+                        child: _TableLayout(
+                          gameState: gameState,
+                          selectedCardIds: _selectedCardIds,
+                          isMyTurn: isMyTurn,
+                          secondsLeft: _secondsLeft,
+                          penaltyCount: penaltyCount,
+                          connState: isOfflineMode
+                              ? WsConnectionState.disconnected
+                              : connState,
+                          canEndTurn: isOfflineMode
+                              ? (validateEndTurn(_offlineState) == null)
+                              : true,
+                          isDealing: _isDealing,
+                          visibleCardCounts: _visibleCardCounts,
+                          drawPileKey: _drawPileKey,
+                          playerZoneKeys: _playerZoneKeys,
+                          onCardTap: _onCardTap,
+                          onDrawTap: isOfflineMode
+                              ? () => _offlineDrawCard(OfflineGameState.localId)
+                              : _onDrawTap,
+                          onPlayTap: isOfflineMode
+                              ? () =>
+                                  _offlinePlayCards(OfflineGameState.localId)
+                              : _onPlayTap,
+                          onEndTurnTap: isOfflineMode ? _endTurn : () {},
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
 
-          // ── Dealing Animation Overlay ──────────────────────────────
-          Positioned.fill(
-            child: DealingAnimationOverlay(
-              key: _overlayKey,
-              drawPileKey: _drawPileKey,
-              playerKeys: _playerZoneKeys,
-            ),
-          ),
-        ],
+              // ── Offline banner ─────────────────────────────────────────
+              if (isOfflineMode)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: SafeArea(
+                    bottom: false,
+                    child: _OfflineBanner(
+                      aiThinking: _aiThinking,
+                      onBack: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                ),
+
+              // ── Integrated Move log (left edge, tablet) ───────────────────
+              if (showSideLog)
+                Positioned(
+                  left: 0,
+                  top: 180,
+                  bottom: 0,
+                  child: SafeArea(
+                    child: IntegratedGameLog(
+                      width: (constraints.maxWidth * 0.22).clamp(180.0, 280.0),
+                      entries: _moveLog,
+                      activePlayerName: isMyTurn
+                          ? 'YOUR TURN'
+                          : (gameState
+                                  .playerById(gameState.currentPlayerId)
+                                  ?.displayName ??
+                              'Unknown'),
+                    ),
+                  ),
+                ),
+
+              // ── Dealing Animation Overlay ──────────────────────────────
+              Positioned.fill(
+                child: DealingAnimationOverlay(
+                  key: _overlayKey,
+                  drawPileKey: _drawPileKey,
+                  playerKeys: _playerZoneKeys,
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
