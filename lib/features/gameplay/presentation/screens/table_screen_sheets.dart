@@ -195,9 +195,10 @@ class _SuitPickButton extends StatelessWidget {
 
 /// Bottom sheet that lets the player choose exactly which card the Joker will represent.
 class _JokerSelectionSheet extends StatelessWidget {
-  const _JokerSelectionSheet({required this.options});
+  const _JokerSelectionSheet({required this.options, required this.context});
 
   final List<CardModel> options;
+  final JokerPlayContext context;
 
   @override
   Widget build(BuildContext context) {
@@ -257,7 +258,9 @@ class _JokerSelectionSheet extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'Choose the exact card the Joker will become',
+                    context == JokerPlayContext.turnStarter
+                        ? 'Turn starter: choose suit/value match'
+                        : 'Mid-turn: choose adjacent or same-value card',
                     style: TextStyle(
                       color: AppColors.goldDark.withValues(alpha: 0.75),
                       fontSize: isMobile ? 11 : 12,

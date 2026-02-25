@@ -172,14 +172,33 @@ String? validatePlay({
 /// 2. Adjacent rank (±1 or Ace=1 for 2) as discard, same suit.
 /// 3. If discard is a penalty card and penalty active, can also stack 2s (if 2 chain)
 ///    or Red Jacks/Black Jacks depending on standard penalty rules.
+enum JokerPlayContext {
+  turnStarter,
+  midTurnContinuance,
+}
+
+JokerPlayContext jokerPlayContextFromCardsPlayed(int cardsPlayedThisTurn) {
+  return cardsPlayedThisTurn == 0
+      ? JokerPlayContext.turnStarter
+      : JokerPlayContext.midTurnContinuance;
+}
+
 List<CardModel> getValidJokerOptions({
   required GameState state,
   required CardModel discardTop,
+  JokerPlayContext? context,
+  CardModel? contextTopCard,
 }) {
   final List<CardModel> validOptions = [];
-  final targetRank = discardTop.effectiveRank;
-  final targetSuit = discardTop.effectiveSuit;
-  final isTurnStart = state.actionsThisTurn == 0;
+  final playContext =
+      context ?? jokerPlayContextFromCardsPlayed(state.actionsThisTurn);
+  final anchorCard = contextTopCard ??
+      (playContext == JokerPlayContext.midTurnContinuance &&
+              state.lastPlayedThisTurn != null
+          ? state.lastPlayedThisTurn!
+          : discardTop);
+  final targetRank = anchorCard.effectiveRank;
+  final targetSuit = anchorCard.effectiveSuit;
 
   for (final suit in Suit.values) {
     for (final rank in Rank.values) {
@@ -202,7 +221,7 @@ List<CardModel> getValidJokerOptions({
 
         isValidMatch = isTwo || isBlackJack || isRedJack;
       } else {
-        if (isTurnStart) {
+        if (playContext == JokerPlayContext.turnStarter) {
           // 1. TURN-START (first play after opponent ends):
           // Joker can mimic any card of the same suit OR any card of the same rank.
           if (suit == targetSuit || rank == targetRank) {
@@ -211,13 +230,19 @@ List<CardModel> getValidJokerOptions({
         } else {
           // 2. MID-TURN CONTINUANCE:
           // Joker can mimic adjacent rank of same suit OR same rank.
-          if (rank == targetRank) {
+          final isSameValueOtherSuit = rank == targetRank && suit != targetSuit;
+          if (isSameValueOtherSuit) {
             isValidMatch = true;
           } else if (suit == targetSuit) {
-            final diff = (rank.numericValue - targetRank.numericValue).abs();
-            final isAceTwo = (rank == Rank.two && targetRank == Rank.ace) ||
-                (rank == Rank.ace && targetRank == Rank.two);
-            if (diff == 1 || isAceTwo) {
+            final bool isAdjacentSameSuit;
+            if (targetRank == Rank.ace) {
+              // No wrap-around below Ace (so K is not valid when anchoring on Ace).
+              isAdjacentSameSuit = rank == Rank.two;
+            } else {
+              final diff = (rank.numericValue - targetRank.numericValue).abs();
+              isAdjacentSameSuit = diff == 1;
+            }
+            if (isAdjacentSameSuit) {
               isValidMatch = true;
             }
           }

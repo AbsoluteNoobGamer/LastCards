@@ -550,9 +550,17 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     // Intercept Joker plays
     if (played.length == 1 && played.first.isJoker && mounted) {
+      final jokerContext =
+          jokerPlayContextFromCardsPlayed(_offlineState.actionsThisTurn);
+      final jokerAnchor = jokerContext == JokerPlayContext.midTurnContinuance
+          ? (_offlineState.lastPlayedThisTurn ?? _offlineState.discardTopCard!)
+          : _offlineState.discardTopCard!;
+
       final validOptions = getValidJokerOptions(
         state: _offlineState,
         discardTop: _offlineState.discardTopCard!,
+        context: jokerContext,
+        contextTopCard: jokerAnchor,
       );
 
       if (validOptions.isEmpty) {
@@ -565,7 +573,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         context: context,
         backgroundColor: Colors.transparent,
         isScrollControlled: true,
-        builder: (_) => _JokerSelectionSheet(options: validOptions),
+        builder: (_) => _JokerSelectionSheet(
+          options: validOptions,
+          context: jokerContext,
+        ),
       );
 
       if (!mounted) return;
