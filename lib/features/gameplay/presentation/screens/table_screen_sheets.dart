@@ -8,9 +8,14 @@ class _AceSuitPickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final isMobile = media.size.width < AppDimensions.breakpointMobile;
+    final buttonWidth = (media.size.width * 0.18).clamp(56.0, 74.0);
+    final buttonHeight = (buttonWidth * 1.25).clamp(72.0, 92.0);
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         color: const Color(0xFF0F2016),
         borderRadius: BorderRadius.circular(20),
@@ -44,9 +49,9 @@ class _AceSuitPickerSheet extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('A',
+              Text('A',
                   style: TextStyle(
-                    fontSize: 28,
+                    fontSize: isMobile ? 24 : 28,
                     fontWeight: FontWeight.w900,
                     color: AppColors.goldPrimary,
                   )),
@@ -58,7 +63,7 @@ class _AceSuitPickerSheet extends StatelessWidget {
                     'Ace Played!',
                     style: TextStyle(
                       color: AppColors.goldPrimary,
-                      fontSize: 16,
+                      fontSize: isMobile ? 14 : 16,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.5,
                     ),
@@ -67,7 +72,7 @@ class _AceSuitPickerSheet extends StatelessWidget {
                     'Choose the new active suit',
                     style: TextStyle(
                       color: AppColors.goldDark.withValues(alpha: 0.75),
-                      fontSize: 12,
+                      fontSize: isMobile ? 11 : 12,
                     ),
                   ),
                 ],
@@ -78,23 +83,39 @@ class _AceSuitPickerSheet extends StatelessWidget {
           const SizedBox(height: 24),
 
           // Suit buttons
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 10,
+            runSpacing: 10,
             children: [
               _SuitPickButton(
                   symbol: '♠',
                   label: 'Spades',
                   suit: Suit.spades,
-                  isRed: false),
+                  isRed: false,
+                  width: buttonWidth,
+                  height: buttonHeight),
               _SuitPickButton(
-                  symbol: '♣', label: 'Clubs', suit: Suit.clubs, isRed: false),
+                  symbol: '♣',
+                  label: 'Clubs',
+                  suit: Suit.clubs,
+                  isRed: false,
+                  width: buttonWidth,
+                  height: buttonHeight),
               _SuitPickButton(
-                  symbol: '♥', label: 'Hearts', suit: Suit.hearts, isRed: true),
+                  symbol: '♥',
+                  label: 'Hearts',
+                  suit: Suit.hearts,
+                  isRed: true,
+                  width: buttonWidth,
+                  height: buttonHeight),
               _SuitPickButton(
                   symbol: '♦',
                   label: 'Diamonds',
                   suit: Suit.diamonds,
-                  isRed: true),
+                  isRed: true,
+                  width: buttonWidth,
+                  height: buttonHeight),
             ],
           ),
 
@@ -111,12 +132,16 @@ class _SuitPickButton extends StatelessWidget {
     required this.label,
     required this.suit,
     required this.isRed,
+    required this.width,
+    required this.height,
   });
 
   final String symbol;
   final String label;
   final Suit suit;
   final bool isRed;
+  final double width;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
@@ -128,8 +153,8 @@ class _SuitPickButton extends StatelessWidget {
     return GestureDetector(
       onTap: () => Navigator.of(context).pop(suit),
       child: Container(
-        width: 68,
-        height: 84,
+        width: width,
+        height: height,
         decoration: BoxDecoration(
           color: AppColors.cardFace,
           borderRadius: BorderRadius.circular(12),
@@ -147,13 +172,13 @@ class _SuitPickButton extends StatelessWidget {
           children: [
             Text(
               symbol,
-              style: TextStyle(fontSize: 32, color: color),
+              style: TextStyle(fontSize: width * 0.46, color: color),
             ),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
-                fontSize: 9.5,
+                fontSize: width * 0.14,
                 fontWeight: FontWeight.w700,
                 color: color.withValues(alpha: 0.85),
                 letterSpacing: 0.3,
@@ -176,9 +201,13 @@ class _JokerSelectionSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final isMobile = media.size.width < AppDimensions.breakpointMobile;
+    final optionWidth = (media.size.width * 0.12).clamp(44.0, 64.0);
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         color: const Color(0xFF0F2016),
         borderRadius: BorderRadius.circular(20),
@@ -212,7 +241,7 @@ class _JokerSelectionSheet extends StatelessWidget {
             children: [
               const Text('🃏',
                   style: TextStyle(
-                    fontSize: 28,
+                    fontSize: 26,
                   )),
               const SizedBox(width: 10),
               Column(
@@ -222,7 +251,7 @@ class _JokerSelectionSheet extends StatelessWidget {
                     'Joker Played!',
                     style: TextStyle(
                       color: AppColors.goldPrimary,
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.5,
                     ),
@@ -231,7 +260,7 @@ class _JokerSelectionSheet extends StatelessWidget {
                     'Choose the exact card the Joker will become',
                     style: TextStyle(
                       color: AppColors.goldDark.withValues(alpha: 0.75),
-                      fontSize: 12,
+                      fontSize: isMobile ? 11 : 12,
                     ),
                   ),
                 ],
@@ -243,14 +272,14 @@ class _JokerSelectionSheet extends StatelessWidget {
 
           // Build a wrapping grid of PlayingCard visuals
           Wrap(
-            spacing: 12,
-            runSpacing: 16,
+            spacing: isMobile ? 8 : 12,
+            runSpacing: isMobile ? 10 : 16,
             alignment: WrapAlignment.center,
             children: options.map((card) {
               return GestureDetector(
                 onTap: () => Navigator.of(context).pop(card),
                 child: SizedBox(
-                  width: 50,
+                  width: optionWidth,
                   // Wrap PlayingCard in a container to add a slight border on hover/tap
                   child: CardWidget(
                     card: card,

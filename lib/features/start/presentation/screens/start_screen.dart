@@ -61,107 +61,127 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final isMobile = constraints.maxWidth < 600;
-                return Column(
-                  children: [
-                    const SizedBox(height: 40),
-
-
-                    const Spacer(),
-
-                    // Primary Buttons
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: isMobile
-                          ? Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _PlayAiButton(),
-                                const SizedBox(height: 16),
-                                _PlayOnlineButton(),
-                              ],
-                            )
-                          : Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                _PlayAiButton(),
-                                const SizedBox(width: 24),
-                                _PlayOnlineButton(),
-                              ],
-                            ),
+                return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints:
+                        BoxConstraints(minHeight: constraints.maxHeight),
+                    child: Column(
+                      children: [
+                        SizedBox(height: isMobile ? 24 : 40),
+                        SizedBox(
+                            height: constraints.maxHeight *
+                                (isMobile ? 0.24 : 0.3)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: isMobile
+                              ? Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _PlayAiButton(),
+                                    const SizedBox(height: 16),
+                                    _PlayOnlineButton(),
+                                  ],
+                                )
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    _PlayAiButton(),
+                                    const SizedBox(width: 24),
+                                    _PlayOnlineButton(),
+                                  ],
+                                ),
+                        ),
+                        SizedBox(height: isMobile ? 24 : 40),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: isMobile
+                              ? SizedBox(
+                                  height: 50,
+                                  child: ListView(
+                                    scrollDirection: Axis.horizontal,
+                                    children: [
+                                      _SecondaryButton(
+                                        "Practice Mode",
+                                        () => _showAISelector(
+                                          context,
+                                          isPractice: true,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      _SecondaryButton(
+                                        "Leaderboard",
+                                        () => _pushWithTransition(
+                                          context,
+                                          const LeaderboardScreen(),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      _SecondaryButton(
+                                        "Settings",
+                                        () => _showSettings(context),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      _SecondaryButton(
+                                        "Rules",
+                                        () => _pushWithTransition(
+                                          context,
+                                          const RulesScreen(),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : Center(
+                                  child: Wrap(
+                                    spacing: 16,
+                                    runSpacing: 16,
+                                    alignment: WrapAlignment.center,
+                                    children: [
+                                      _SecondaryButton(
+                                        "Practice Mode",
+                                        () => _showAISelector(
+                                          context,
+                                          isPractice: true,
+                                        ),
+                                      ),
+                                      _SecondaryButton(
+                                        "Leaderboard",
+                                        () => _pushWithTransition(
+                                          context,
+                                          const LeaderboardScreen(),
+                                        ),
+                                      ),
+                                      _SecondaryButton(
+                                        "Settings",
+                                        () => _showSettings(context),
+                                      ),
+                                      _SecondaryButton(
+                                        "Rules",
+                                        () => _pushWithTransition(
+                                          context,
+                                          const RulesScreen(),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                        ),
+                        const SizedBox(height: 32),
+                        const DefaultTextStyle(
+                          style: TextStyle(
+                            color: Colors.white60,
+                            fontSize: 12,
+                            letterSpacing: 0.5,
+                          ),
+                          child: Text(
+                            "Server validated • Secure matchmaking • Instant reconnect",
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
                     ),
-
-                    const SizedBox(height: 40),
-
-                    // Secondary Buttons
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: isMobile
-                          ? SizedBox(
-                              height: 50,
-                              child: ListView(
-                                scrollDirection: Axis.horizontal,
-                                children: [
-                                  _SecondaryButton(
-                                      "Practice Mode",
-                                      () => _showAISelector(context,
-                                          isPractice: true)),
-                                  const SizedBox(width: 12),
-                                  _SecondaryButton(
-                                      "Leaderboard",
-                                      () => _pushWithTransition(
-                                          context, const LeaderboardScreen())),
-                                  const SizedBox(width: 12),
-                                  _SecondaryButton(
-                                      "Settings", () => _showSettings(context)),
-                                  const SizedBox(width: 12),
-                                  _SecondaryButton(
-                                      "Rules",
-                                      () => _pushWithTransition(
-                                          context, const RulesScreen())),
-                                ],
-                              ),
-                            )
-                          : Center(
-                              child: Wrap(
-                                spacing: 16,
-                                runSpacing: 16,
-                                alignment: WrapAlignment.center,
-                                children: [
-                                  _SecondaryButton(
-                                      "Practice Mode",
-                                      () => _showAISelector(context,
-                                          isPractice: true)),
-                                  _SecondaryButton(
-                                      "Leaderboard",
-                                      () => _pushWithTransition(
-                                          context, const LeaderboardScreen())),
-                                  _SecondaryButton(
-                                      "Settings", () => _showSettings(context)),
-                                  _SecondaryButton(
-                                      "Rules",
-                                      () => _pushWithTransition(
-                                          context, const RulesScreen())),
-                                ],
-                              ),
-                            ),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Footer
-                    const DefaultTextStyle(
-                      style: TextStyle(
-                        color: Colors.white60,
-                        fontSize: 12,
-                        letterSpacing: 0.5,
-                      ),
-                      child: Text(
-                        "Server validated • Secure matchmaking • Instant reconnect",
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-                  ],
+                  ),
                 );
               },
             ),

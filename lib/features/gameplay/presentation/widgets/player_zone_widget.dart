@@ -278,25 +278,36 @@ class _OpponentFan extends StatelessWidget {
   Widget build(BuildContext context) {
     const maxVisible = 7;
     final visible = cardCount.clamp(0, maxVisible);
-    const cardW = AppDimensions.cardWidthSmall;
-    const overlap = 18.0;
 
-    if (visible == 0) return const SizedBox(width: cardW, height: 70);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.of(context).size.width;
+        final cardW =
+            (maxWidth * 0.16).clamp(36.0, AppDimensions.cardWidthSmall);
+        final overlap = (cardW * 0.36).clamp(10.0, 18.0);
 
-    final totalWidth = cardW + (visible - 1) * overlap;
+        if (visible == 0) {
+          return SizedBox(
+              width: cardW, height: AppDimensions.cardHeight(cardW));
+        }
 
-    return SizedBox(
-      width: totalWidth,
-      height: AppDimensions.cardHeight(cardW),
-      child: Stack(
-        children: [
-          for (int i = 0; i < visible; i++)
-            Positioned(
-              left: i * overlap.toDouble(),
-              child: const CardBackWidget(width: cardW),
-            ),
-        ],
-      ),
+        final totalWidth = cardW + (visible - 1) * overlap;
+        return SizedBox(
+          width: totalWidth,
+          height: AppDimensions.cardHeight(cardW),
+          child: Stack(
+            children: [
+              for (int i = 0; i < visible; i++)
+                Positioned(
+                  left: i * overlap.toDouble(),
+                  child: CardBackWidget(width: cardW),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

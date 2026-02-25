@@ -104,11 +104,16 @@ class SettingsModal extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
     final audioService = ref.watch(audioServiceProvider);
+    final media = MediaQuery.of(context);
+    final isMobile = media.size.width < 600;
+    final initialSize = isMobile ? 0.9 : 0.82;
+    final minSize = isMobile ? 0.55 : 0.45;
+    final maxSize = isMobile ? 0.96 : 0.9;
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.9,
-      minChildSize: 0.5,
-      maxChildSize: 0.9,
+      initialChildSize: initialSize,
+      minChildSize: minSize,
+      maxChildSize: maxSize,
       expand: false,
       builder: (context, scrollController) {
         return Container(
@@ -116,82 +121,110 @@ class SettingsModal extends ConsumerWidget {
             color: Color(0xFF1E1E1E),
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
-          child: ListView(
-            controller: scrollController,
-            padding: const EdgeInsets.all(24),
-            children: [
-              // Handle bump
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 24),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade600,
-                    borderRadius: BorderRadius.circular(2),
+          child: SafeArea(
+            top: false,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final horizontal = isMobile ? 16.0 : 24.0;
+                final titleSize = isMobile ? 22.0 : 24.0;
+                final contentWidth =
+                    constraints.maxWidth > 760 ? 760.0 : constraints.maxWidth;
+
+                return Align(
+                  alignment: Alignment.topCenter,
+                  child: SizedBox(
+                    width: contentWidth,
+                    child: ListView(
+                      controller: scrollController,
+                      padding: EdgeInsets.fromLTRB(
+                        horizontal,
+                        16,
+                        horizontal,
+                        16 + media.viewInsets.bottom,
+                      ),
+                      children: [
+                        // Handle bump
+                        Center(
+                          child: Container(
+                            width: 40,
+                            height: 4,
+                            margin: const EdgeInsets.only(bottom: 24),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade600,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        Text(
+                          'Settings',
+                          style: TextStyle(
+                            fontSize: titleSize,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        _SliderRow(
+                          label: 'Sound Effects',
+                          value: settings.soundVolume,
+                          min: 0,
+                          max: 100,
+                          onChanged: notifier.updateSound,
+                        ),
+                        _SliderRow(
+                          label: 'Music',
+                          value: settings.musicVolume,
+                          min: 0,
+                          max: 100,
+                          onChanged: notifier.updateMusic,
+                        ),
+                        _SliderRow(
+                          label: 'Animation Speed',
+                          value: settings.animationSpeed,
+                          min: 0.5,
+                          max: 2.0,
+                          divisions: 3,
+                          onChanged: notifier.updateAnimSpeed,
+                          valueLabel: '${settings.animationSpeed}x',
+                        ),
+                        const Divider(height: 40, color: Colors.grey),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: isMobile,
+                          title: const Text('Mute All Audio'),
+                          value: audioService.isMuted,
+                          onChanged: (val) => audioService.toggleMute(),
+                          activeColor: Colors.amber,
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: isMobile,
+                          title: const Text('Vibration Feedback'),
+                          value: settings.vibrateEnabled,
+                          onChanged: notifier.toggleVibrate,
+                          activeColor: Colors.amber,
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: isMobile,
+                          title: const Text('Show Tooltips'),
+                          value: settings.tooltipsEnabled,
+                          onChanged: notifier.toggleTooltips,
+                          activeColor: Colors.amber,
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: isMobile,
+                          title: const Text('Dark Mode'),
+                          value: settings.darkMode,
+                          onChanged: notifier.toggleDarkMode,
+                          activeColor: Colors.amber,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ),
-
-              const Text(
-                'Settings',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 24),
-
-              // Sliders
-              _SliderRow(
-                label: 'Sound Effects',
-                value: settings.soundVolume,
-                min: 0,
-                max: 100,
-                onChanged: notifier.updateSound,
-              ),
-              _SliderRow(
-                label: 'Music',
-                value: settings.musicVolume,
-                min: 0,
-                max: 100,
-                onChanged: notifier.updateMusic,
-              ),
-              _SliderRow(
-                label: 'Animation Speed',
-                value: settings.animationSpeed,
-                min: 0.5,
-                max: 2.0,
-                divisions: 3, // 0.5, 1.0, 1.5, 2.0
-                onChanged: notifier.updateAnimSpeed,
-                valueLabel: '${settings.animationSpeed}x',
-              ),
-
-              const Divider(height: 40, color: Colors.grey),
-
-              // Toggles
-              SwitchListTile(
-                title: const Text('Mute All Audio'),
-                value: audioService.isMuted,
-                onChanged: (val) => audioService.toggleMute(),
-                activeColor: Colors.amber,
-              ),
-              SwitchListTile(
-                title: const Text('Vibration Feedback'),
-                value: settings.vibrateEnabled,
-                onChanged: notifier.toggleVibrate,
-                activeColor: Colors.amber,
-              ),
-              SwitchListTile(
-                title: const Text('Show Tooltips'),
-                value: settings.tooltipsEnabled,
-                onChanged: notifier.toggleTooltips,
-                activeColor: Colors.amber,
-              ),
-              SwitchListTile(
-                title: const Text('Dark Mode'),
-                value: settings.darkMode,
-                onChanged: notifier.toggleDarkMode,
-                activeColor: Colors.amber,
-              ),
-            ],
+                );
+              },
+            ),
           ),
         );
       },

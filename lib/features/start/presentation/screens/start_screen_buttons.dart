@@ -176,6 +176,15 @@ class _PrimaryButtonBase extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+    final buttonWidth = isMobile
+        ? (screenWidth * 0.78).clamp(220.0, 360.0)
+        : (screenWidth * 0.3).clamp(220.0, 300.0);
+    final buttonHeight = isMobile ? 64.0 : 70.0;
+    final iconSize = isMobile ? 24.0 : 28.0;
+    final labelSize = isMobile ? 18.0 : 20.0;
+
     final scale = isPressed ? 0.95 : (isHovered ? 1.10 : 1.0);
     final activeGlowColor = isHovered ? const Color(0xFF00FFFF) : glowColor;
 
@@ -188,11 +197,11 @@ class _PrimaryButtonBase extends StatelessWidget {
         curve: Curves.easeOutCubic,
         transform: Matrix4.identity()..scale(scale, scale),
         transformAlignment: Alignment.center,
-        width: 250,
-        height: 70,
+        width: buttonWidth,
+        height: buttonHeight,
         decoration: BoxDecoration(
           gradient: gradient,
-          borderRadius: BorderRadius.circular(35),
+          borderRadius: BorderRadius.circular(buttonHeight / 2),
           boxShadow: [
             BoxShadow(
               color: activeGlowColor.withOpacity(isHovered ? 0.8 : 0.3),
@@ -212,7 +221,7 @@ class _PrimaryButtonBase extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(35),
+            borderRadius: BorderRadius.circular(buttonHeight / 2),
             splashColor: const Color(0xFF00FFFF).withOpacity(0.3),
             highlightColor: Colors.transparent,
             onTapDown: onTapDown,
@@ -228,7 +237,7 @@ class _PrimaryButtonBase extends StatelessWidget {
               children: [
                 Text(
                   icon,
-                  style: const TextStyle(fontSize: 28),
+                  style: TextStyle(fontSize: iconSize),
                 ),
                 const SizedBox(width: 12),
                 Column(
@@ -238,7 +247,7 @@ class _PrimaryButtonBase extends StatelessWidget {
                     Text(
                       label,
                       style: GoogleFonts.outfit(
-                        fontSize: 20,
+                        fontSize: labelSize,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
                         letterSpacing: 0.5,
