@@ -195,6 +195,7 @@ class _TableLayout extends StatelessWidget {
                               onTap: onDrawTap,
                               cardWidth: drawCardWidth,
                               enabled: isMyTurn &&
+                                  gameState.actionsThisTurn == 0 &&
                                   selectedCardId == null &&
                                   !isDealing,
                             ),

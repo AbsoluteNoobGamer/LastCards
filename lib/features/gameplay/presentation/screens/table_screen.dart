@@ -612,6 +612,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (_aiThinking) return;
     if (_offlineState.currentPlayerId != playerId) return;
 
+    // RULE: A player's turn consists of ONE action — either playing OR drawing.
+    // If they have already played a card this turn, the draw action is blocked.
+    if (_offlineState.actionsThisTurn > 0) return;
+
     final isPenaltyDraw = _offlineState.activePenaltyCount > 0;
     final isQueenPenaltyDraw = _offlineState.queenSuitLock != null;
     final drawCount = isPenaltyDraw ? _offlineState.activePenaltyCount : 1;
