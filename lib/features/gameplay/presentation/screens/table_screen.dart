@@ -162,6 +162,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         if (mounted) {
           setState(() {
             _visibleCardCounts[p.id] = (_visibleCardCounts[p.id] ?? 0) + 1;
+            // Decrement the draw pile counter in real-time as cards are dealt
+            _offlineState = _offlineState.copyWith(
+              drawPileCount: math.max(0, _offlineState.drawPileCount - 1),
+            );
           });
         }
       }
