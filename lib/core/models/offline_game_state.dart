@@ -133,7 +133,7 @@ abstract final class OfflineGameState {
       direction: PlayDirection.clockwise,
       discardTopCard: discardTop,
       discardSecondCard: null,
-      drawPileCount: drawPile.length,
+      drawPileCount: 53, // Starts at 53 (54 total - 1 face up) before dealing to players
       activePenaltyCount: 0,
       suitLock: null,
       queenSuitLock: null,
