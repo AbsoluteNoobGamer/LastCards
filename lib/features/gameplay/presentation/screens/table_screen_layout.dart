@@ -20,6 +20,7 @@ class _TableLayout extends StatelessWidget {
     required this.onDrawTap,
     required this.onHandReorder,
     required this.onEndTurnTap,
+    required this.isOffline,
   });
 
   final GameState gameState;
@@ -38,6 +39,7 @@ class _TableLayout extends StatelessWidget {
   final VoidCallback onDrawTap;
   final void Function(int oldIndex, int newIndex) onHandReorder;
   final VoidCallback onEndTurnTap;
+  final bool isOffline;
 
   @override
   Widget build(BuildContext context) {
@@ -150,7 +152,6 @@ class _TableLayout extends StatelessWidget {
                         activeSuit: gameState.suitLock,
                         queenSuitLock: gameState.queenSuitLock,
                         penaltyCount: penaltyCount,
-                        connectionState: connState,
                       ),
                       SizedBox(
                           height:
