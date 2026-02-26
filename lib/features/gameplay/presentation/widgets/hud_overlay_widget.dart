@@ -4,7 +4,6 @@ import '../../domain/entities/card.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../data/datasources/websocket_client.dart';
 
 /// Floating HUD overlay displayed over the table.
 ///
@@ -12,14 +11,12 @@ import '../../data/datasources/websocket_client.dart';
 /// - Active suit icon (from Ace/Joker declaration or Queen lock)
 /// - Draw penalty counter badge
 /// - Connection status dot
-/// - Connection status dot
 class HudOverlayWidget extends StatelessWidget {
   const HudOverlayWidget({
     super.key,
     this.activeSuit,
     this.queenSuitLock,
     this.penaltyCount = 0,
-    this.connectionState = WsConnectionState.connected,
   });
 
   /// Active suit declared by Ace or Joker (null = no override).
@@ -30,8 +27,6 @@ class HudOverlayWidget extends StatelessWidget {
 
   /// Number of accumulated penalty cards facing the next player.
   final int penaltyCount;
-
-  final WsConnectionState connectionState;
 
 
   @override
@@ -58,9 +53,6 @@ class HudOverlayWidget extends StatelessWidget {
         ],
 
         const SizedBox(width: AppDimensions.sm),
-
-        // Connection dot
-        _ConnectionDot(state: connectionState),
       ],
     );
   }
@@ -150,40 +142,6 @@ class _SuitIndicator extends StatelessWidget {
             color: suitColor,
             fontSize: isQueenLock ? 20 : 18,
           ),
-        ),
-      ),
-    );
-  }
-}
-
-
-// ── Connection dot ────────────────────────────────────────────────────────────
-
-class _ConnectionDot extends StatelessWidget {
-  const _ConnectionDot({required this.state});
-  final WsConnectionState state;
-
-  Color get _color => switch (state) {
-        WsConnectionState.connected => const Color(0xFF27AE60),
-        WsConnectionState.connecting ||
-        WsConnectionState.reconnecting =>
-          AppColors.goldPrimary,
-        WsConnectionState.disconnected => AppColors.redSoft,
-      };
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: state.name,
-      child: Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(
-          color: _color,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(color: _color.withValues(alpha: 0.6), blurRadius: 4),
-          ],
         ),
       ),
     );
