@@ -82,7 +82,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   final List<CardModel> _discardPile = []; // tracks all discarded cards
   // ── Turn timer ────────────────────────────────────────────────────
   Timer? _turnTimer;
-  int _secondsLeft = 30;
   @override
   void initState() {
     super.initState();
@@ -187,30 +186,28 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   void _startTimer() {
     _turnTimer?.cancel();
-    _secondsLeft = 30;
+    int secondsLeft = 30;
     _turnTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
         timer.cancel();
         return;
       }
-      setState(() {
-        if (_secondsLeft > 0) {
-          _secondsLeft--;
-        } else {
-          // Timer expired
-          timer.cancel();
-          if (_offlineState.currentPlayerId == OfflineGameState.localId &&
-              !_aiThinking) {
-            if (_offlineState.queenSuitLock != null) {
-              // Timer expired while Queen uncovered -> force 1 draw, keep turn active
-              _showError('Timeout! Drew 1 card to find cover.');
-              _forcedQueenTimeoutDraw();
-            } else {
-              _endTurn();
-            }
+      if (secondsLeft > 0) {
+        secondsLeft--;
+      } else {
+        // Timer expired
+        timer.cancel();
+        if (_offlineState.currentPlayerId == OfflineGameState.localId &&
+            !_aiThinking) {
+          if (_offlineState.queenSuitLock != null) {
+            // Timer expired while Queen uncovered -> force 1 draw, keep turn active
+            _showError('Timeout! Drew 1 card to find cover.');
+            _forcedQueenTimeoutDraw();
+          } else {
+            _endTurn();
           }
         }
-      });
+      }
     });
   }
 
@@ -317,7 +314,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                           '',
                       direction: gameState.direction,
                       upcomingPlayerNames: _getUpcomingPlayerNames(gameState),
-                      secondsLeft: _secondsLeft,
                       canEndTurn: isOfflineMode
                           ? (validateEndTurn(_offlineState) == null)
                           : true,
@@ -338,7 +334,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                               [],
                         ),
                         isMyTurn: isMyTurn,
-                        secondsLeft: _secondsLeft,
                         penaltyCount: penaltyCount,
                         connState: isOfflineMode
                             ? WsConnectionState.disconnected

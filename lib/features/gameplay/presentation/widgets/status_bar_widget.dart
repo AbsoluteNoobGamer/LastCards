@@ -7,7 +7,6 @@ class StatusBarWidget extends StatefulWidget {
   final String activePlayerName;
   final PlayDirection direction;
   final List<String> upcomingPlayerNames;
-  final int secondsLeft;
   final bool canEndTurn;
   final VoidCallback? onEndTurn;
 
@@ -16,7 +15,6 @@ class StatusBarWidget extends StatefulWidget {
     required this.activePlayerName,
     required this.direction,
     required this.upcomingPlayerNames,
-    required this.secondsLeft,
     required this.canEndTurn,
     this.onEndTurn,
   });
@@ -35,7 +33,7 @@ class _StatusBarWidgetState extends State<StatusBarWidget> {
         ? ' (${widget.upcomingPlayerNames.join('→')})'
         : '';
 
-    final bool isTimerLow = widget.secondsLeft <= 5;
+
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -153,23 +151,7 @@ class _StatusBarWidgetState extends State<StatusBarWidget> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            '00:${widget.secondsLeft.toString().padLeft(2, '0')} ⏳',
-                            style: TextStyle(
-                              color: isTimerLow
-                                  ? AppColors.redSoft
-                                  : AppColors.goldLight,
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              shadows: isTimerLow
-                                  ? [
-                                      Shadow(
-                                          color: AppColors.redSoft,
-                                          blurRadius: 8)
-                                    ]
-                                  : null,
-                            ),
-                          ),
+
                           endTurnButton(),
                         ],
                       ),
@@ -220,24 +202,8 @@ class _StatusBarWidgetState extends State<StatusBarWidget> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            '00:${widget.secondsLeft.toString().padLeft(2, '0')} ⏳',
-                            style: TextStyle(
-                              color: isTimerLow
-                                  ? AppColors.redSoft
-                                  : AppColors.goldLight,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              shadows: isTimerLow
-                                  ? [
-                                      Shadow(
-                                          color: AppColors.redSoft,
-                                          blurRadius: 8)
-                                    ]
-                                  : null,
-                            ),
-                          ),
-                          const SizedBox(width: AppDimensions.md),
+
+
                           endTurnButton(),
                         ],
                       ),
