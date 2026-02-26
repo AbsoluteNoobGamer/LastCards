@@ -5,9 +5,11 @@
 *.swp
 .DS_Store
 .atom/
+.build/
 .buildlog/
 .history
 .svn/
+.swiftpm/
 migrate_working_dir/
 
 # IntelliJ related
@@ -20,6 +22,7 @@ migrate_working_dir/
 # VS Code which you may wish to be included in version control, so this line
 # is commented out by default.
 #.vscode/
+**/.vscode/settings.json
 
 # Flutter/Dart/Pub related
 **/doc/api/
@@ -42,6 +45,14 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Android Gradle
+**/android/.gradle/
+**/android/captures/
+**/android/gradlew
+**/android/gradlew.bat
+**/android/local.properties
+**/android/key.properties
+
 # Windows
 windows/flutter/ephemeral/
 windows/flutter/generated_plugin_registrant.cc
@@ -58,3 +69,18 @@ macos/Flutter/GeneratedPluginRegistrant.swift
 # Linux
 linux/flutter/ephemeral/
 linux/flutter/generated_plugin_registrant.cc
+
+# iOS
+ios/Flutter/Generated.xcconfig
+ios/Pods/
+ios/Podfile.lock
+
+# Secrets & Environment
+.env
+.env.*
+google-services.json
+GoogleService-Info.plist
+
+# Go modules (if applicable)
+vendor/
+go.sum

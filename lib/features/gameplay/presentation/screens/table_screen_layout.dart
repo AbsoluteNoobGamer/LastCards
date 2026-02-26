@@ -156,28 +156,31 @@ class _TableLayout extends StatelessWidget {
                       SizedBox(
                           height:
                               isMobile ? AppDimensions.sm : AppDimensions.md),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppDimensions.sm + 2,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.goldDark.withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(
-                            AppDimensions.radiusButton,
+                      Opacity(
+                        opacity: 0.0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppDimensions.sm + 2,
+                            vertical: 3,
                           ),
-                          border: Border.all(
-                            color: AppColors.goldDark.withValues(alpha: 0.5),
+                          decoration: BoxDecoration(
+                            color: AppColors.goldDark.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(
+                              AppDimensions.radiusButton,
+                            ),
+                            border: Border.all(
+                              color: AppColors.goldDark.withValues(alpha: 0.5),
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          isDealing ? 'DEALING...' : 'DEALER',
-                          key: const ValueKey('dealer-status'),
-                          style: TextStyle(
-                            color: AppColors.goldPrimary,
-                            fontSize: isMobile ? 8 : 9,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.5,
+                          child: Text(
+                            isDealing ? 'DEALING...' : 'DEALER',
+                            key: const ValueKey('dealer-status'),
+                            style: TextStyle(
+                              color: AppColors.goldPrimary,
+                              fontSize: isMobile ? 8 : 9,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.5,
+                            ),
                           ),
                         ),
                       ),
