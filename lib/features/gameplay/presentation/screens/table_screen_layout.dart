@@ -8,7 +8,6 @@ class _TableLayout extends StatelessWidget {
     required this.selectedCardId,
     required this.orderedHand,
     required this.isMyTurn,
-    required this.secondsLeft,
     required this.penaltyCount,
     required this.connState,
     required this.canEndTurn,
@@ -27,7 +26,7 @@ class _TableLayout extends StatelessWidget {
   final String? selectedCardId;
   final List<CardModel> orderedHand;
   final bool isMyTurn;
-  final int secondsLeft;
+
   final int penaltyCount;
   final WsConnectionState connState;
   final bool canEndTurn;
