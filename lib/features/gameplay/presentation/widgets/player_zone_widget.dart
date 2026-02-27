@@ -276,9 +276,6 @@ class _PlayerLabel extends StatelessWidget {
     if (player.isActiveTurn && isLocalPlayer) {
       badgeText = "YOUR TURN";
       badgeColor = PlayerStyles.getColor(player.tablePosition);
-    } else if (!player.isActiveTurn && isLocalPlayer) {
-      badgeText = "Waiting...";
-      badgeColor = AppColors.textSecondary;
     }
 
     Widget badgeWidget = const SizedBox.shrink();
