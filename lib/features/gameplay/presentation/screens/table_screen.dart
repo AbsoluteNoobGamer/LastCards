@@ -356,6 +356,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         onHandReorder: _onHandReorder,
                         onEndTurnTap: isOfflineMode ? _endTurn : () {},
                         isOffline: isOfflineMode,
+                        discardPileCount: _discardPile.length,
                       ),
                     ),
                   ],
