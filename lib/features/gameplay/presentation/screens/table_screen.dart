@@ -450,14 +450,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     if (played.isEmpty) return;
 
-    // Rule validation — validate before any visual change
+    // Rule validation — validate before any visual change.
+    // If the play is invalid, apply the penalty sequence instead of blocking.
     final err = validatePlay(
       cards: played,
       discardTop: _offlineState.discardTopCard!,
       state: _offlineState,
     );
     if (err != null) {
-      _showError(err);
+      _applyInvalidPlayPenalty(playerId, played);
       return;
     }
 
@@ -603,6 +604,59 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     if (nextId == playerId && newState.queenSuitLock == null) {
       _endTurn();
+    }
+  }
+
+  // ── Offline mode: invalid play penalty sequence ────────────────────────────
+
+  /// Fired when the local player attempts to play a card that fails validation.
+  ///
+  /// Penalty sequence (strictly in this order):
+  ///   1. Return card to hand   — already satisfied: [applyPlay] was never called.
+  ///   2. Draw up to 2 cards from the draw pile.
+  ///   3. End the player's turn immediately.
+  void _applyInvalidPlayPenalty(String playerId, List<CardModel> attemptedCards) {
+    _showError('Invalid play! Drawing 2 cards as penalty.');
+
+    // Step 2: draw up to 2 cards (respects remaining pile size).
+    final drawCount = math.min(2, _drawPile.length);
+    var newState = applyDraw(
+      state: _offlineState,
+      playerId: playerId,
+      count: drawCount,
+      cardFactory: _makeCards,
+    );
+
+    // applyDraw clears activePenaltyCount — restore the pre-existing penalty
+    // so an ongoing 2/Jack penalty chain is not inadvertently cancelled.
+    newState = newState.copyWith(
+      activePenaltyCount: _offlineState.activePenaltyCount,
+    );
+
+    // Step 3: end the turn.
+    final nextId = nextPlayerId(state: newState);
+    newState = newState.copyWith(
+      currentPlayerId: nextId,
+      actionsThisTurn: 0,
+      lastPlayedThisTurn: null,
+      activeSkipCount: 0,
+    );
+
+    final localAfter = newState.players
+        .where((p) => p.tablePosition == TablePosition.bottom)
+        .firstOrNull;
+
+    setState(() {
+      _offlineState = newState;
+      _selectedCardId = null;
+      if (localAfter != null) _syncHandOrder(localAfter.hand);
+    });
+
+    _turnTimer?.cancel();
+    if (nextId != OfflineGameState.localId) {
+      _scheduleAiTurn(nextId);
+    } else {
+      _startTimer();
     }
   }
 
