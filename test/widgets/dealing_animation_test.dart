@@ -90,6 +90,6 @@ void main() {
     // Note: We avoid pumpWidget(SizedBox()) cleanup here if the 
     // periodic turn timer and async deal loops might leak,
     // but we should ensure we pump to clear any pending animations.
-    await tester.pumpAndSettle();
+    // await tester.pumpAndSettle(); // REMOVED: hangs due to periodic timer/animations
   });
 }

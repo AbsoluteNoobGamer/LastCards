@@ -614,7 +614,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     // RULE: A player's turn consists of ONE action — either playing OR drawing.
     // If they have already played a card this turn, the draw action is blocked.
-    if (_offlineState.actionsThisTurn > 0) return;
+    // EXCEPTION: If there is a Queen suit lock, they MUST draw if they cannot play.
+    if (_offlineState.actionsThisTurn > 0 &&
+        _offlineState.queenSuitLock == null) {
+      return;
+    }
 
     final isPenaltyDraw = _offlineState.activePenaltyCount > 0;
     final isQueenPenaltyDraw = _offlineState.queenSuitLock != null;
@@ -638,6 +642,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (isQueenPenaltyDraw) {
         newState = newState.copyWith(queenSuitLock: null);
       }
+      setState(() {
+        _offlineState = newState;
+        _selectedCardId = null;
+        if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
+      });
+      _turnTimer?.cancel();
+      if (nextId != OfflineGameState.localId) _scheduleAiTurn(nextId);
       setState(() {
         _offlineState = newState;
         _selectedCardId = null;
