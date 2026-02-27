@@ -19,13 +19,11 @@ class PlayerZoneWidget extends ConsumerWidget {
     super.key,
     required this.player,
     this.isLocalPlayer = false,
-    this.isNextTurn = false,
     this.child,
   });
 
   final PlayerModel player;
   final bool isLocalPlayer;
-  final bool isNextTurn;
 
   /// Override content (e.g. the local PlayerHandWidget). If null, renders
   /// an opponent face-down fan automatically.
@@ -48,7 +46,6 @@ class PlayerZoneWidget extends ConsumerWidget {
     if (!isLocalPlayer && child == null) {
       return _OpponentAvatarZone(
         player: playerWithReactiveCount,
-        isNextTurn: isNextTurn,
       );
     }
 
@@ -58,7 +55,7 @@ class PlayerZoneWidget extends ConsumerWidget {
 
     // Inactive: 50% opacity gray (unless skipped)
     final double baseOpacity =
-        isSkipped ? 0.40 : (isActive || isNextTurn ? 1.0 : 0.50);
+        isSkipped ? 0.40 : (isActive ? 1.0 : 0.50);
 
     return AnimatedOpacity(
       opacity: baseOpacity,
@@ -134,7 +131,6 @@ class PlayerZoneWidget extends ConsumerWidget {
             _PlayerLabel(
               player: playerWithReactiveCount,
               isLocalPlayer: isLocalPlayer,
-              isNextTurn: isNextTurn,
             ),
             const SizedBox(height: AppDimensions.xs),
 
@@ -150,11 +146,9 @@ class PlayerZoneWidget extends ConsumerWidget {
 class _OpponentAvatarZone extends StatelessWidget {
   const _OpponentAvatarZone({
     required this.player,
-    required this.isNextTurn,
   });
 
   final PlayerModel player;
-  final bool isNextTurn;
 
   @override
   Widget build(BuildContext context) {
@@ -162,11 +156,9 @@ class _OpponentAvatarZone extends StatelessWidget {
     final isActive = player.isActiveTurn;
 
     final ringColor = isActive
-        ? color
-        : (isNextTurn
-            ? AppColors.blueAccent
-            : AppColors.textSecondary.withValues(alpha: 0.35));
-    final ringWidth = isActive ? 3.0 : (isNextTurn ? 2.2 : 1.5);
+        ? AppColors.blueAccent
+        : AppColors.textSecondary.withValues(alpha: 0.35);
+    final ringWidth = isActive ? 3.0 : 1.5;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -195,12 +187,12 @@ class _OpponentAvatarZone extends StatelessWidget {
                             ? AppColors.goldPrimary.withValues(alpha: 0.22)
                             : color.withValues(alpha: 0.2),
                         border: Border.all(color: ringColor, width: ringWidth),
-                        boxShadow: isActive || isNextTurn
+                        boxShadow: isActive
                             ? [
                                 BoxShadow(
                                   color: ringColor.withValues(alpha: 0.55),
-                                  blurRadius: isActive ? 14 : 10,
-                                  spreadRadius: isActive ? 2 : 1,
+                                  blurRadius: 14,
+                                  spreadRadius: 2,
                                 ),
                               ]
                             : null,
@@ -270,12 +262,10 @@ class _PlayerLabel extends StatelessWidget {
   const _PlayerLabel({
     required this.player,
     this.isLocalPlayer = false,
-    this.isNextTurn = false,
   });
 
   final PlayerModel player;
   final bool isLocalPlayer;
-  final bool isNextTurn;
 
   @override
   Widget build(BuildContext context) {
@@ -337,8 +327,8 @@ class _PlayerLabel extends StatelessWidget {
                 style: AppTypography.labelSmall.copyWith(
                   color: player.isActiveTurn
                       ? PlayerStyles.getColor(player.tablePosition)
-                      : (isNextTurn ? Colors.white : AppColors.textPrimary),
-                  fontStyle: isNextTurn ? FontStyle.italic : FontStyle.normal,
+                      : AppColors.textPrimary,
+                  fontStyle: FontStyle.normal,
                   shadows: player.isActiveTurn
                       ? [
                           Shadow(
