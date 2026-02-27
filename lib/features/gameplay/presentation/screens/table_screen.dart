@@ -25,6 +25,7 @@ import '../widgets/card_widget.dart';
 import '../widgets/status_bar_widget.dart';
 import '../widgets/turn_indicator_overlay.dart';
 import '../controllers/audio_service.dart';
+import '../widgets/last_move_panel_widget.dart';
 
 part 'table_screen_background.dart';
 part 'table_screen_layout.dart';
@@ -56,6 +57,9 @@ class TableScreen extends ConsumerStatefulWidget {
 
 class _TableScreenState extends ConsumerState<TableScreen> {
   String? _selectedCardId;
+
+  /// The most recent move made by any player (null until the first move).
+  LastMoveInfo? _lastMove;
 
   /// Local display order of the player's hand (card IDs).
   /// New cards are appended to the right; drag-and-drop updates this list.
@@ -101,6 +105,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _discardPile
       ..clear()
       ..add(state.discardTopCard!); // seed discard with starting face-up card
+    _lastMove = null; // reset on new game
 
     // Assign player keys for animation destinations
     _playerZoneKeys.clear();
@@ -357,6 +362,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         onEndTurnTap: isOfflineMode ? _endTurn : () {},
                         isOffline: isOfflineMode,
                         discardPileCount: _discardPile.length,
+                        lastMove: _lastMove,
                       ),
                     ),
                   ],
@@ -497,10 +503,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final localInNew = newState.players
           .where((p) => p.tablePosition == TablePosition.bottom)
           .firstOrNull;
+      final playerName = _offlineState.playerById(playerId)?.displayName ?? playerId;
       setState(() {
         _offlineState = newState;
         _selectedCardId = null;
         if (localInNew != null) _syncHandOrder(localInNew.hand);
+        _lastMove = LastMoveInfo(
+          playerName: playerName,
+          cardLabel: played.first.shortLabel,
+        );
       });
 
       _reshuffleIfNeeded();
@@ -566,10 +577,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final localInNew = newState.players
           .where((p) => p.tablePosition == TablePosition.bottom)
           .firstOrNull;
+      final jokerPlayerName = _offlineState.playerById(playerId)?.displayName ?? playerId;
       setState(() {
         _offlineState = newState;
         _selectedCardId = null;
         if (localInNew != null) _syncHandOrder(localInNew.hand);
+        _lastMove = LastMoveInfo(
+          playerName: jokerPlayerName,
+          cardLabel: assignedJoker.shortLabel,
+        );
       });
 
       _reshuffleIfNeeded();
@@ -589,10 +605,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final localInNew = newState.players
         .where((p) => p.tablePosition == TablePosition.bottom)
         .firstOrNull;
+    final playPlayerName = _offlineState.playerById(playerId)?.displayName ?? playerId;
     setState(() {
       _offlineState = newState;
       _selectedCardId = null;
       if (localInNew != null) _syncHandOrder(localInNew.hand);
+      _lastMove = LastMoveInfo(
+        playerName: playPlayerName,
+        cardLabel: played.first.shortLabel,
+      );
     });
 
     _reshuffleIfNeeded();
@@ -691,6 +712,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         .firstOrNull;
 
     if (isQueenPenaltyDraw || isPenaltyDraw) {
+      final penaltyPlayerName = _offlineState.playerById(playerId)?.displayName ?? playerId;
       final nextId = nextPlayerId(state: newState);
       newState = newState.copyWith(
           currentPlayerId: nextId, actionsThisTurn: 0, activeSkipCount: 0);
@@ -701,18 +723,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         _offlineState = newState;
         _selectedCardId = null;
         if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
-      });
-      _turnTimer?.cancel();
-      if (nextId != OfflineGameState.localId) _scheduleAiTurn(nextId);
-      setState(() {
-        _offlineState = newState;
-        _selectedCardId = null;
-        if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
+        _lastMove = LastMoveInfo(playerName: penaltyPlayerName);
       });
       _turnTimer?.cancel();
       if (nextId != OfflineGameState.localId) _scheduleAiTurn(nextId);
     } else {
       // Voluntary draw (no valid moves) — auto-end turn per the rules.
+      final drawPlayerName = _offlineState.playerById(playerId)?.displayName ?? playerId;
       final nextId = nextPlayerId(state: newState);
       newState = newState.copyWith(
           currentPlayerId: nextId, actionsThisTurn: 0, activeSkipCount: 0);
@@ -720,6 +737,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         _offlineState = newState;
         _selectedCardId = null;
         if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
+        _lastMove = LastMoveInfo(playerName: drawPlayerName);
       });
       _turnTimer?.cancel();
       if (nextId != OfflineGameState.localId) {
@@ -751,11 +769,18 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         _discardPile.addAll(playedByAi);
       }
 
-
+      final aiPlayerName = _offlineState.playerById(aiId)?.displayName ?? aiId;
+      final aiLastMove = playedByAi.isNotEmpty
+          ? LastMoveInfo(
+              playerName: aiPlayerName,
+              cardLabel: playedByAi.first.shortLabel,
+            )
+          : LastMoveInfo(playerName: aiPlayerName); // drew a card
 
       setState(() {
         _offlineState = result.state;
         _aiThinking = false;
+        _lastMove = aiLastMove;
       });
 
       if (_checkWin(aiId, result.state)) return;

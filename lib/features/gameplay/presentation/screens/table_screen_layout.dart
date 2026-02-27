@@ -21,6 +21,7 @@ class _TableLayout extends StatelessWidget {
     required this.onEndTurnTap,
     required this.isOffline,
     this.discardPileCount = 0,
+    this.lastMove,
   });
 
   final GameState gameState;
@@ -42,6 +43,8 @@ class _TableLayout extends StatelessWidget {
   final bool isOffline;
   /// Number of cards in the discard pile for dynamic stacking depth.
   final int discardPileCount;
+  /// The most recent move made by any player, or null if the game just started.
+  final LastMoveInfo? lastMove;
 
   @override
   Widget build(BuildContext context) {
@@ -129,6 +132,14 @@ class _TableLayout extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+              ),
+
+              // ── Last Move Display Panel ─────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Center(
+                  child: LastMovePanelWidget(lastMove: lastMove),
                 ),
               ),
 
