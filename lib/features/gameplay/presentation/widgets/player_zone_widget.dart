@@ -83,35 +83,10 @@ class PlayerZoneWidget extends ConsumerWidget {
           return Container(
             padding: const EdgeInsets.all(AppDimensions.sm),
             decoration: BoxDecoration(
+              color: isActive
+                  ? AppColors.goldPrimary.withValues(alpha: glowValue * 0.15)
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(AppDimensions.radiusCard + 4),
-              boxShadow: isActive
-                  ? [
-                      BoxShadow(
-                        color: PlayerStyles.getColor(player.tablePosition)
-                            .withValues(alpha: glowValue * 0.8),
-                        blurRadius: 15 * glowValue,
-                        spreadRadius: 2 * glowValue,
-                      ),
-                    ]
-                  : isNextTurn
-                      ? [
-                          BoxShadow(
-                            color: AppColors.blueAccent.withValues(alpha: 0.6),
-                            blurRadius: 8,
-                            spreadRadius: 1,
-                          ),
-                        ]
-                      : null,
-              border: Border.all(
-                color: isActive
-                    ? PlayerStyles.getColor(player.tablePosition)
-                        .withValues(alpha: glowValue)
-                    : isNextTurn
-                        ? AppColors.blueAccent.withValues(alpha: 0.8)
-                        : AppColors.textSecondary
-                            .withValues(alpha: 0.3), // Gray border
-                width: isActive ? 2.5 : (isNextTurn ? 2.0 : 1.0),
-              ),
             ),
             child: Stack(
               alignment: Alignment.center,
@@ -216,6 +191,9 @@ class _OpponentAvatarZone extends StatelessWidget {
                       duration: const Duration(milliseconds: 220),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
+                        color: isActive
+                            ? AppColors.goldPrimary.withValues(alpha: 0.22)
+                            : color.withValues(alpha: 0.2),
                         border: Border.all(color: ringColor, width: ringWidth),
                         boxShadow: isActive || isNextTurn
                             ? [
@@ -229,7 +207,7 @@ class _OpponentAvatarZone extends StatelessWidget {
                       ),
                       child: CircleAvatar(
                         radius: 30,
-                        backgroundColor: color.withValues(alpha: 0.2),
+                        backgroundColor: Colors.transparent,
                         child: Icon(
                           PlayerStyles.getIcon(player.tablePosition),
                           color: color,
