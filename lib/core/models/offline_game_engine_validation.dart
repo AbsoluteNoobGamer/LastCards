@@ -320,8 +320,8 @@ String? validateEndTurn(GameState state) {
   if (state.pendingJokerResolution) {
     return 'Resolve Joker selection first.';
   }
-  if (state.queenSuitLock != null) {
-    return 'Cover Queen first!';
+  if (state.queenSuitLock != null && state.lastPlayedThisTurn != null) {
+    return 'Cover Queen or draw a card first!';
   }
   if (state.actionsThisTurn == 0) {
     return 'Cannot end turn without playing or drawing.';

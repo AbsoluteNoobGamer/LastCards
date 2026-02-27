@@ -240,30 +240,34 @@ class _PrimaryButtonBase extends StatelessWidget {
                   style: TextStyle(fontSize: iconSize),
                 ),
                 const SizedBox(width: 12),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: GoogleFonts.outfit(
-                        fontSize: labelSize,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: 0.5,
-                        shadows: [
-                          const Shadow(
-                              color: Colors.black45,
-                              blurRadius: 4,
-                              offset: Offset(0, 2))
-                        ],
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: GoogleFonts.outfit(
+                          fontSize: labelSize,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                          shadows: [
+                            const Shadow(
+                                color: Colors.black45,
+                                blurRadius: 4,
+                                offset: Offset(0, 2))
+                          ],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 2),
-                      subtitle!,
-                    ]
-                  ],
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 2),
+                        subtitle!,
+                      ]
+                    ],
+                  ),
                 ),
               ],
             ),
