@@ -5,8 +5,20 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import 'card_back_widget.dart';
 
+/// Maps a card count to the number of visible stack layers behind the top card.
+/// 0 cards → 0 layers, 1–10 → 1, 11–20 → 2, 21–30 → 3, 31–40 → 4, 40+ → 5.
+int _stackLayers(int count) {
+  if (count <= 0) return 0;
+  if (count <= 10) return 1;
+  if (count <= 20) return 2;
+  if (count <= 30) return 3;
+  if (count <= 40) return 4;
+  return 5;
+}
+
 /// Draw pile widget — stacked card-back effect with a count badge.
 /// Tappable by the local player when it's their turn and they can't play.
+/// The number of visible stack layers scales dynamically with [cardCount].
 class DrawPileWidget extends StatefulWidget {
   const DrawPileWidget({
     super.key,
@@ -34,6 +46,13 @@ class _DrawPileWidgetState extends State<DrawPileWidget> {
     final double targetScale = (_isPressed || _isHovering) ? 0.95 : 1.0;
     final height = AppDimensions.cardHeight(widget.cardWidth);
 
+    // Dynamic layer count based on actual card count
+    final layers = _stackLayers(widget.cardCount);
+    const layerOffset = AppDimensions.pileStackOffset;
+
+    // Size the container to accommodate the maximum possible layers cleanly
+    final extraPadding = layers * layerOffset * 2;
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovering = true),
       onExit: (_) => setState(() => _isHovering = false),
@@ -50,26 +69,23 @@ class _DrawPileWidgetState extends State<DrawPileWidget> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOutCubic,
-          transform: Matrix4.identity()..scale(targetScale, targetScale),
+          transform: Matrix4.diagonal3Values(targetScale, targetScale, 1.0),
           transformAlignment: Alignment.center,
-          width: widget.cardWidth +
-              AppDimensions.pileStackLayers * AppDimensions.pileStackOffset * 2,
-          height: height +
-              AppDimensions.pileStackLayers * AppDimensions.pileStackOffset * 2,
+          width: widget.cardWidth + extraPadding,
+          height: height + extraPadding,
           child: Stack(
             children: [
-              // Stacked card backs (decorative depth)
-              for (int i = AppDimensions.pileStackLayers; i > 0; i--)
+              // Dynamic stacked card backs (furthest layer first)
+              for (int i = layers; i > 0; i--)
                 Positioned(
-                  left: i * AppDimensions.pileStackOffset,
-                  top: i * AppDimensions.pileStackOffset,
+                  left: i * layerOffset,
+                  top: i * layerOffset,
                   child: Opacity(
-                    opacity: 1 - (i * 0.15),
+                    opacity: (1 - i * 0.15).clamp(0.2, 1.0),
                     child: CardBackWidget(width: widget.cardWidth),
                   ),
                 ),
 
-              // Top card back (interactive)
               // Top card back (interactive)
               Hero(
                 tag: 'draw-pile-top',

@@ -20,6 +20,7 @@ class _TableLayout extends StatelessWidget {
     required this.onHandReorder,
     required this.onEndTurnTap,
     required this.isOffline,
+    this.discardPileCount = 0,
   });
 
   final GameState gameState;
@@ -39,6 +40,8 @@ class _TableLayout extends StatelessWidget {
   final void Function(int oldIndex, int newIndex) onHandReorder;
   final VoidCallback onEndTurnTap;
   final bool isOffline;
+  /// Number of cards in the discard pile for dynamic stacking depth.
+  final int discardPileCount;
 
   @override
   Widget build(BuildContext context) {
@@ -193,6 +196,7 @@ class _TableLayout extends StatelessWidget {
                               topCard: gameState.discardTopCard,
                               secondCard: gameState.discardSecondCard,
                               cardWidth: discardCardWidth,
+                              discardPileCount: discardPileCount,
                             ),
                           ],
                         ),
