@@ -44,6 +44,11 @@ class _TableLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     var players = gameState.players;
 
+    // Update player models to accurately reflect `isActiveTurn` BEFORE extracting
+    players = players.map((p) => p.copyWith(
+      isActiveTurn: p.id == gameState.currentPlayerId
+    )).toList();
+
     // Create new player models masked by visible counts if dealing is active.
     if (isDealing) {
       players = players.map((p) {
@@ -66,20 +71,6 @@ class _TableLayout extends StatelessWidget {
     final topOpp = _opponentAt(players, TablePosition.top);
     final leftOpp = _opponentAt(players, TablePosition.left);
     final rightOpp = _opponentAt(players, TablePosition.right);
-
-    // Calculate next turn ID for visual indicator
-    String nextId = '';
-    if (players.isNotEmpty) {
-      final int idx =
-          players.indexWhere((p) => p.id == gameState.currentPlayerId);
-      if (idx != -1) {
-        final int dir = gameState.direction == PlayDirection.clockwise ? 1 : -1;
-        final int count = players.length;
-        int nextIdx = (idx + dir) % count;
-        if (nextIdx < 0) nextIdx += count;
-        nextId = players[nextIdx].id;
-      }
-    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -109,7 +100,6 @@ class _TableLayout extends StatelessWidget {
                           ? PlayerZoneWidget(
                               key: playerZoneKeys[leftOpp.id],
                               player: leftOpp,
-                              isNextTurn: leftOpp.id == nextId,
                             )
                           : const SizedBox(height: 96),
                     )),
@@ -120,7 +110,6 @@ class _TableLayout extends StatelessWidget {
                             ? PlayerZoneWidget(
                                 key: playerZoneKeys[topOpp.id],
                                 player: topOpp,
-                                isNextTurn: topOpp.id == nextId,
                               )
                             : const _EmptyOpponentZone(),
                       ),
@@ -132,7 +121,6 @@ class _TableLayout extends StatelessWidget {
                             ? PlayerZoneWidget(
                                 key: playerZoneKeys[rightOpp.id],
                                 player: rightOpp,
-                                isNextTurn: rightOpp.id == nextId,
                               )
                             : const SizedBox(height: 96),
                       ),
@@ -222,7 +210,6 @@ class _TableLayout extends StatelessWidget {
                   key: playerZoneKeys[localPlayer.id],
                   player: localPlayer,
                   isLocalPlayer: true,
-                  isNextTurn: localPlayer.id == nextId,
                   child: PlayerHandWidget(
                     cards: isDealing
                         ? orderedHand
