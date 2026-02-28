@@ -89,8 +89,8 @@ part of 'offline_game_engine.dart';
       cards: [bestCard],
       declaredSuit: declaredSuit,
     );
-
-
+    
+    playedCards.add(bestCard);
 
     // ── Queen cover: AI must immediately cover before ending turn ──────
     // Keep trying to cover as long as queenSuitLock is active.
