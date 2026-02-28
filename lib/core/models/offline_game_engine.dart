@@ -1,11 +1,5 @@
-import 'dart:math' as math;
+import 'package:stack_and_flow/shared/engine/game_engine.dart';
 
-import 'card_model.dart';
-import 'game_state.dart';
+export 'package:stack_and_flow/shared/engine/game_engine.dart';
 
-import 'player_model.dart';
-
-part 'offline_game_engine_validation.dart';
-part 'offline_game_engine_effects.dart';
-part 'offline_game_engine_turns.dart';
 part 'offline_game_engine_ai.dart';

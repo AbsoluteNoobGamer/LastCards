@@ -1,4 +1,13 @@
-part of 'offline_game_engine.dart';
+import 'dart:math' as math;
+
+import '../models/card_model.dart';
+import '../models/game_state_model.dart';
+import '../rules/card_rules.dart';
+import '../rules/pickup_chain_rules.dart';
+
+export '../models/card_model.dart';
+export '../models/game_state_model.dart';
+export '../rules/card_rules.dart' show JokerPlayContext, jokerPlayContextFromCardsPlayed;
 
 // ── Play validation ────────────────────────────────────────────────────────────
 
@@ -30,13 +39,7 @@ String? validatePlay({
   if (state.activePenaltyCount > 0) {
     if (state.actionsThisTurn == 0) {
       // When a penalty is active, the FIRST card played in the turn must address it.
-      final firstCard = cards.first;
-      final isTwo = firstCard.effectiveRank == Rank.two;
-      final isBlackJack = firstCard.isBlackJack;
-      final isRedJack =
-          firstCard.effectiveRank == Rank.jack && !firstCard.isBlackJack;
-
-      if (!isTwo && !isBlackJack && !isRedJack) {
+      if (!isFirstCardValidUnderPenalty(cards.first)) {
         return 'Active penalty! Your first card must be a 2 or Black Jack to stack, or a Red Jack to cancel.';
       }
     }
@@ -44,12 +47,7 @@ String? validatePlay({
     // Whether it's the first play or mid-turn, if the play consists ONLY of valid
     // penalty-addressing cards, it bypasses standard normal suit/rank matching
     // against the discard pile and numerical flow rules entirely.
-    final allTwos = cards.every((c) => c.effectiveRank == Rank.two);
-    final allBlackJacks = cards.every((c) => c.isBlackJack);
-    final allRedJacks =
-        cards.every((c) => c.effectiveRank == Rank.jack && !c.isBlackJack);
-
-    if (allTwos || allBlackJacks || allRedJacks) {
+    if (areAllCardsPenaltyAddressing(cards)) {
       return null;
     }
   }
@@ -105,12 +103,12 @@ String? validatePlay({
       return 'Sequence must be consecutive cards of the same suit.';
     }
 
-    // Scenario 2 (Multi-card play involving Ace): 
+    // Scenario 2 (Multi-card play involving Ace):
     // If the sequence starts with an Ace, it must match the pre-turn centre suit
     // in order to be a valid *sequence containing an Ace*.
     if (state.actionsThisTurn == 0 && sorted.first.effectiveRank == Rank.ace) {
       if (sorted.first.effectiveSuit != state.preTurnCentreSuit) {
-         return 'Invalid sequence: The Ace (${sorted.first.shortLabel}) must match the centre card (${state.preTurnCentreSuit?.displayName}) to start a sequence.';
+        return 'Invalid sequence: The Ace (${sorted.first.shortLabel}) must match the centre card (${state.preTurnCentreSuit?.displayName}) to start a sequence.';
       }
     }
 
@@ -137,13 +135,7 @@ String? validatePlay({
     // If the previous card was a penalty card (2 or Jack) and the next card is
     // also a penalty-capable card (2 or Jack), they can chain directly
     // regardless of suite/rank adjacencies to build or reset penalties.
-    final prevIsPenaltyNode =
-        prev.effectiveRank == Rank.two || prev.effectiveRank == Rank.jack;
-    final nextIsPenaltyNode =
-        next.effectiveRank == Rank.two || next.effectiveRank == Rank.jack;
-    final isPenaltyChain = prevIsPenaltyNode && nextIsPenaltyNode;
-
-    if (!isSpecialOverride && !isPenaltyChain) {
+    if (!isSpecialOverride && !isPenaltyChain(prev, next)) {
       final sameSuit = next.effectiveSuit == prev.effectiveSuit;
       final rankDiff =
           (next.effectiveRank.numericValue - prev.effectiveRank.numericValue)
@@ -158,7 +150,7 @@ String? validatePlay({
       // to continue the sequence, the Ace *must* have matched the pre-turn centre suit.
       if (prev.effectiveRank == Rank.ace && state.cardsPlayedThisTurn == 1) {
         if (prev.effectiveSuit != state.preTurnCentreSuit) {
-           return 'Invalid sequence: The Ace (${prev.shortLabel}) must match the original centre card (${state.preTurnCentreSuit?.displayName}) to continue a sequence.';
+          return 'Invalid sequence: The Ace (${prev.shortLabel}) must match the original centre card (${state.preTurnCentreSuit?.displayName}) to continue a sequence.';
         }
       }
 
@@ -190,17 +182,6 @@ String? validatePlay({
 /// 2. Adjacent rank (±1 or Ace=1 for 2) as discard, same suit.
 /// 3. If discard is a penalty card and penalty active, can also stack 2s (if 2 chain)
 ///    or Red Jacks/Black Jacks depending on standard penalty rules.
-enum JokerPlayContext {
-  turnStarter,
-  midTurnContinuance,
-}
-
-JokerPlayContext jokerPlayContextFromCardsPlayed(int cardsPlayedThisTurn) {
-  return cardsPlayedThisTurn == 0
-      ? JokerPlayContext.turnStarter
-      : JokerPlayContext.midTurnContinuance;
-}
-
 List<CardModel> getValidJokerOptions({
   required GameState state,
   required CardModel discardTop,
@@ -217,7 +198,8 @@ List<CardModel> getValidJokerOptions({
           : discardTop);
   final targetRank = anchorCard.effectiveRank;
   final targetSuit = anchorCard.effectiveSuit;
-  final activeSequenceSuit = playContext == JokerPlayContext.midTurnContinuance ? targetSuit : null;
+  final activeSequenceSuit =
+      playContext == JokerPlayContext.midTurnContinuance ? targetSuit : null;
 
   for (final suit in Suit.values) {
     for (final rank in Rank.values) {
@@ -253,7 +235,8 @@ List<CardModel> getValidJokerOptions({
         final isRedJack =
             rank == Rank.jack && (suit == Suit.hearts || suit == Suit.diamonds);
 
-        isValidMatch = isTwo || isBlackJack || isRedJack || isSequenceContinuation;
+        isValidMatch =
+            isTwo || isBlackJack || isRedJack || isSequenceContinuation;
       } else {
         if (playContext == JokerPlayContext.turnStarter) {
           // 1. TURN-START (first play after opponent ends):
@@ -348,4 +331,186 @@ String? validateEndTurn(GameState state) {
     return 'Cannot end turn without playing or drawing.';
   }
   return null;
+}
+
+// ── Effect application ─────────────────────────────────────────────────────────
+
+/// Removes [cards] from the player's hand, updates the discard pile, and
+/// applies any special-card effects.
+GameState applyPlay({
+  required GameState state,
+  required String playerId,
+  required List<CardModel> cards,
+  Suit? declaredSuit, // for Ace plays
+}) {
+  var gs = _removeCardsFromHand(state, playerId, cards);
+
+  gs = gs.copyWith(
+    discardSecondCard: gs.discardTopCard,
+    discardTopCard: cards.last,
+    suitLock: null,
+    queenSuitLock: null,
+  );
+
+  // A declaredSuit is only honored if the Ace was played as a Wild Card
+  // (i.e., it's the very first card of the turn and the first card of this play).
+  final isWildAcePlay =
+      state.actionsThisTurn == 0 && cards.first.effectiveRank == Rank.ace;
+
+  for (final card in cards) {
+    final useDeclaredSuit = isWildAcePlay && card.id == cards.first.id;
+    gs = _applySpecialEffect(gs, card,
+        declaredSuit: useDeclaredSuit ? declaredSuit : null);
+  }
+
+  // Sequence Penalty Override: If the final card of the play is not a penalty
+  // generating card (like a 2 or Black Jack), any accumulated penalty is canceled.
+  // This rewards players for continuing a numerical sequence out of a penalty.
+  final lastCard = cards.last;
+  if (shouldClearPenaltyAfterPlay(lastCard)) {
+    gs = gs.copyWith(activePenaltyCount: 0);
+  }
+
+  // Count this as a valid action for the current player, and record the last
+  // card played this turn for same-turn sequential adjacency enforcement.
+  gs = gs.copyWith(
+    actionsThisTurn: gs.actionsThisTurn + 1,
+    cardsPlayedThisTurn: gs.cardsPlayedThisTurn + cards.length,
+    lastPlayedThisTurn: lastCard,
+  );
+
+  return gs;
+}
+
+/// Commits a Joker play into state before UI resolution.
+///
+/// This ensures the Joker is consumed from hand and the turn action is recorded
+/// in the same play pipeline as any other card.
+GameState beginJokerPlay({
+  required GameState state,
+  required String playerId,
+  required CardModel jokerCard,
+}) {
+  final played =
+      applyPlay(state: state, playerId: playerId, cards: [jokerCard]);
+  return played.copyWith(pendingJokerResolution: true);
+}
+
+/// Finalizes a previously committed Joker play after the user picks a represented card.
+GameState resolveJokerPlay({
+  required GameState state,
+  required CardModel resolvedJokerCard,
+}) {
+  return state.copyWith(
+    discardTopCard: resolvedJokerCard,
+    lastPlayedThisTurn: resolvedJokerCard,
+    pendingJokerResolution: false,
+  );
+}
+
+GameState _applySpecialEffect(
+  GameState gs,
+  CardModel card, {
+  Suit? declaredSuit,
+}) {
+  switch (card.effectiveRank) {
+    case Rank.two:
+      return gs.copyWith(activePenaltyCount: gs.activePenaltyCount + 2);
+
+    case Rank.jack:
+      if (card.isBlackJack) {
+        return gs.copyWith(activePenaltyCount: gs.activePenaltyCount + 5);
+      } else {
+        return gs.copyWith(activePenaltyCount: 0); // Red Jack cancels
+      }
+
+    case Rank.king:
+      final newDir = gs.direction == PlayDirection.clockwise
+          ? PlayDirection.counterClockwise
+          : PlayDirection.clockwise;
+      return gs.copyWith(direction: newDir);
+
+    case Rank.queen:
+      return gs.copyWith(queenSuitLock: card.effectiveSuit);
+
+    case Rank.ace:
+      if (declaredSuit != null) {
+        return gs.copyWith(suitLock: declaredSuit);
+      }
+      return gs;
+
+    case Rank.eight:
+      return gs.copyWith(activeSkipCount: gs.activeSkipCount + 1);
+
+    case Rank.joker:
+    default:
+      return gs;
+  }
+}
+
+GameState _removeCardsFromHand(
+  GameState state,
+  String playerId,
+  List<CardModel> cards,
+) {
+  final ids = cards.map((c) => c.id).toSet();
+  return state.copyWith(
+    players: state.players.map((p) {
+      if (p.id != playerId) return p;
+      final newHand = p.hand.where((c) => !ids.contains(c.id)).toList();
+      return p.copyWith(hand: newHand, cardCount: newHand.length);
+    }).toList(),
+  );
+}
+
+// ── Draw card ─────────────────────────────────────────────────────────────────
+
+/// Draws [count] cards for [playerId] using [cardFactory] and clears any
+/// active penalty.
+GameState applyDraw({
+  required GameState state,
+  required String playerId,
+  required int count,
+  required List<CardModel> Function(int n) cardFactory,
+}) {
+  final drawn = cardFactory(count);
+  return state.copyWith(
+    players: state.players.map((p) {
+      if (p.id != playerId) return p;
+      final newHand = [...p.hand, ...drawn];
+      return p.copyWith(hand: newHand, cardCount: newHand.length);
+    }).toList(),
+    drawPileCount: math.max(0, state.drawPileCount - count),
+    activePenaltyCount: 0,
+  );
+}
+
+// ── Turn advancement ──────────────────────────────────────────────────────────
+
+/// Returns the next player's ID, honouring direction and optional skip.
+String nextPlayerId({
+  required GameState state,
+}) {
+  final players = state.players;
+  final currentIndex = players.indexWhere((p) => p.id == state.currentPlayerId);
+  if (currentIndex < 0) return state.currentPlayerId;
+
+  // In a 2-player game, playing a King (Reverse) acts as a Skip.
+  // The player gets another turn immediately.
+  final lastCard = state.lastPlayedThisTurn;
+  final isKingPlayed = lastCard != null && lastCard.effectiveRank == Rank.king;
+  if (players.length == 2 && isKingPlayed) {
+    return state.currentPlayerId;
+  }
+
+  final step = state.direction == PlayDirection.clockwise ? 1 : -1;
+  int next = currentIndex;
+  final advances = 1 + state.activeSkipCount;
+
+  for (int i = 0; i < advances; i++) {
+    next = (next + step) % players.length;
+    if (next < 0) next += players.length;
+  }
+
+  return players[next].id;
 }
