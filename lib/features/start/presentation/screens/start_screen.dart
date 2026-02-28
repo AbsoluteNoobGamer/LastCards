@@ -62,18 +62,22 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
           Stack(
             fit: StackFit.expand,
             children: [
-              Image.asset(
-                'assets/images/StackandFlowBackground.png',
-                fit: BoxFit.cover,
+              Container(
+                decoration: const BoxDecoration(
+                  image: DecorationImage(
+                    image: AssetImage('assets/images/StackandFlowBackground.png'),
+                    fit: BoxFit.cover,
+                  ),
+                ),
               ),
               Container(
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      const Color(0x60000000), // #00000060
-                      const Color(0x80000000), // #00000080
+                      Color(0x99000000),
+                      Color(0xCC000000),
                     ],
                   ),
                 ),
