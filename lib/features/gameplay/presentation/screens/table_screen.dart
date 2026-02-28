@@ -513,6 +513,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           ? (_offlineState.lastPlayedThisTurn ?? _offlineState.discardTopCard!)
           : _offlineState.discardTopCard!;
 
+      final activeSequenceSuit = jokerContext == JokerPlayContext.midTurnContinuance
+          ? jokerAnchor.effectiveSuit
+          : null;
+
       final validOptions = getValidJokerOptions(
         state: _offlineState,
         discardTop: _offlineState.discardTopCard!,
@@ -534,6 +538,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         builder: (_) => _JokerSelectionSheet(
           options: validOptions,
           playContext: jokerContext,
+          activeSequenceSuit: activeSequenceSuit,
         ),
       );
 
