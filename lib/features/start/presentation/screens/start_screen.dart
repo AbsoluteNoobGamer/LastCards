@@ -104,25 +104,36 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           child: Column(
                             children: [
-                              Text(
-                                "Stack and Flow",
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.cinzel(
-                                  fontSize: 40,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFFFFD700),
-                                  letterSpacing: 6.0,
-                                  shadows: [
-                                    Shadow(
-                                      color: const Color(0x80FFD700), // #FFD70080
-                                      blurRadius: 20,
-                                    ),
-                                    const Shadow(
-                                      color: Color(0x60000000), // #00000060
-                                      blurRadius: 8,
-                                      offset: Offset(0, 4),
-                                    ),
-                                  ],
+                              ShaderMask(
+                                shaderCallback: (Rect bounds) {
+                                  return const LinearGradient(
+                                    colors: [
+                                      Color(0xFFFFE566),
+                                      Color(0xFFC9A84C),
+                                      Color(0xFFFFE566),
+                                    ],
+                                  ).createShader(bounds);
+                                },
+                                child: Text(
+                                  "Stack and Flow",
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.cinzel(
+                                    fontSize: 42,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    letterSpacing: 5.0,
+                                    shadows: const [
+                                      Shadow(
+                                        color: Color(0x60FFD700),
+                                        blurRadius: 24,
+                                      ),
+                                      Shadow(
+                                        color: Color(0x80000000),
+                                        blurRadius: 6,
+                                        offset: Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                               SizedBox(height: isMobile ? 32 : 48),
@@ -196,14 +207,27 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                           ),
                         ),
                         const SizedBox(height: 32),
-                        Text(
-                          "STACK & FLOW",
-                          style: GoogleFonts.cinzel(
-                            color: const Color(0xFFC9A84C),
-                            fontSize: 12,
-                            letterSpacing: 4.0,
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 40),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Expanded(child: Divider(color: Color(0x40C9A84C))),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: Text(
+                                  "STACK & FLOW",
+                                  style: GoogleFonts.cinzel(
+                                    color: const Color(0xFFC9A84C),
+                                    fontSize: 13,
+                                    letterSpacing: 6.0,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              const Expanded(child: Divider(color: Color(0x40C9A84C))),
+                            ],
                           ),
-                          textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 20),
                       ],
