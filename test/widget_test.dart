@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stack_and_flow/app/app.dart';
 
@@ -15,5 +16,8 @@ void main() {
 
     // Basic check: verify it pumps without crashing.
     expect(find.byType(StackAndFlowApp), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.binding.delayed(const Duration(hours: 1));
   });
 }

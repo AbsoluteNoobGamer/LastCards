@@ -1,0 +1,235 @@
+Resolving dependencies...
+Downloading packages...
+  _fe_analyzer_shared 80.0.0 (97.0.0 available)
+  analyzer 7.3.0 (11.0.0 available)
+  analyzer_plugin 0.12.0 (0.14.5 available)
+  build 2.5.4 (4.0.4 available)
+  build_config 1.1.2 (1.3.0 available)
+  build_resolvers 2.5.4 (3.0.4 available)
+  build_runner 2.5.4 (2.11.1 available)
+  build_runner_core 9.1.2 (9.3.2 available)
+  custom_lint_core 0.7.1 (0.8.2 available)
+  custom_lint_visitor 1.0.0+7.3.0 (1.0.0+9.0.0 available)
+  dart_style 3.1.0 (3.1.6 available)
+  flutter_lints 5.0.0 (6.0.0 available)
+  flutter_riverpod 2.6.1 (3.2.1 available)
+  freezed 2.5.8 (3.2.5 available)
+  freezed_annotation 2.4.4 (3.1.0 available)
+  google_fonts 6.3.3 (8.0.2 available)
+  json_annotation 4.9.0 (4.11.0 available)
+  json_serializable 6.9.5 (6.13.0 available)
+  lints 5.1.1 (6.1.0 available)
+  matcher 0.12.18 (0.12.19 available)
+  meta 1.17.0 (1.18.1 available)
+  mockito 5.4.5 (5.6.3 available)
+  riverpod 2.6.1 (3.2.1 available)
+  riverpod_analyzer_utils 0.5.9 (0.5.10 available)
+  riverpod_annotation 2.6.1 (4.0.2 available)
+  riverpod_generator 2.6.4 (4.0.3 available)
+  source_gen 2.0.0 (4.2.0 available)
+  source_helper 1.3.7 (1.3.10 available)
+  test_api 0.7.9 (0.7.10 available)
+Got dependencies!
+29 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/widget_test.dart
+00:00 +0: App smoke test
+══╡ EXCEPTION CAUGHT BY RENDERING LIBRARY ╞═════════════════════════════════════════════════════════
+The following assertion was thrown during layout:
+A RenderFlex overflowed by 25 pixels on the right.
+
+The relevant error-causing widget was:
+  Row
+  Row:file:///C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/lib/features/start/presentation/screens/start_screen_buttons.dart:336:28
+
+The overflowing RenderFlex has an orientation of Axis.horizontal.
+The edge of the RenderFlex that is overflowing has been marked in the rendering with a yellow and
+black striped pattern. This is usually caused by the contents being too big for the RenderFlex.
+Consider applying a flex factor (e.g. using an Expanded widget) to force the children of the
+RenderFlex to fit within the available space instead of being sized to their natural size.
+This is considered an error condition because it indicates that there is content that cannot be
+seen. If the content is legitimately bigger than the available space, consider clipping it with a
+ClipRect widget before putting it in the flex, or using a scrollable container rather than a Flex,
+like a ListView.
+The specific RenderFlex in question is: RenderFlex#45288 relayoutBoundary=up7 OVERFLOWING:
+  creator: Row ← Listener ← RawGestureDetector ← GestureDetector ← Semantics ← DefaultSelectionStyle ←
+    Builder ← MouseRegion ← Semantics ← _FocusInheritedScope ← Focus ← _ActionsScope ← ⋯
+  parentData: <none> (can use size)
+  constraints: BoxConstraints(0.0<=w<=237.0, 0.0<=h<=67.0)
+  size: Size(237.0, 40.0)
+  direction: horizontal
+  mainAxisAlignment: center
+  mainAxisSize: max
+  crossAxisAlignment: center
+  textDirection: ltr
+  verticalDirection: down
+  spacing: 0.0
+◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY RENDERING LIBRARY ╞═════════════════════════════════════════════════════════
+The following assertion was thrown during layout:
+A RenderFlex overflowed by 6.7 pixels on the right.
+
+The relevant error-causing widget was:
+  Row
+  Row:file:///C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/lib/features/start/presentation/screens/start_screen_buttons.dart:336:28
+
+The overflowing RenderFlex has an orientation of Axis.horizontal.
+The edge of the RenderFlex that is overflowing has been marked in the rendering with a yellow and
+black striped pattern. This is usually caused by the contents being too big for the RenderFlex.
+Consider applying a flex factor (e.g. using an Expanded widget) to force the children of the
+RenderFlex to fit within the available space instead of being sized to their natural size.
+This is considered an error condition because it indicates that there is content that cannot be
+seen. If the content is legitimately bigger than the available space, consider clipping it with a
+ClipRect widget before putting it in the flex, or using a scrollable container rather than a Flex,
+like a ListView.
+The specific RenderFlex in question is: RenderFlex#4ac7f relayoutBoundary=up7 OVERFLOWING:
+  creator: Row ← Listener ← RawGestureDetector ← GestureDetector ← Semantics ← DefaultSelectionStyle ←
+    Builder ← MouseRegion ← Semantics ← _FocusInheritedScope ← Focus ← _ActionsScope ← ⋯
+  parentData: <none> (can use size)
+  constraints: BoxConstraints(0.0<=w<=237.0, 0.0<=h<=67.0)
+  size: Size(237.0, 40.0)
+  direction: horizontal
+  mainAxisAlignment: center
+  mainAxisSize: max
+  crossAxisAlignment: center
+  textDirection: ltr
+  verticalDirection: down
+  spacing: 0.0
+◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY IMAGE RESOURCE SERVICE ╞════════════════════════════════════════════════════
+The following assertion was thrown resolving an image codec:
+Unable to load asset: "assets/images/StackandFlowBackground.png".
+The asset does not exist or has empty data.
+
+When the exception was thrown, this was the stack:
+#0      PlatformAssetBundle.load (package:flutter/src/services/asset_bundle.dart:340:7)
+#1      PlatformAssetBundle.loadBuffer (package:flutter/src/services/asset_bundle.dart:367:36)
+#2      AssetBundleImageProvider._loadAsync (package:flutter/src/painting/image_provider.dart:783:33)
+#3      AssetBundleImageProvider.loadImage (package:flutter/src/painting/image_provider.dart:743:14)
+#4      ImageProvider.resolveStreamForKey.<anonymous closure> (package:flutter/src/painting/image_provider.dart:546:39)
+#5      ImageCache.putIfAbsent (package:flutter/src/painting/image_cache.dart:368:22)
+#6      ImageProvider.resolveStreamForKey (package:flutter/src/painting/image_provider.dart:543:81)
+#7      ScrollAwareImageProvider.resolveStreamForKey (package:flutter/src/widgets/scroll_aware_image_provider.dart:105:19)
+#8      ImageProvider.resolve.<anonymous closure> (package:flutter/src/painting/image_provider.dart:383:9)
+#9      ImageProvider._createErrorHandlerAndKey.<anonymous closure> (package:flutter/src/painting/image_provider.dart:499:28)
+#10     SynchronousFuture.then (package:flutter/src/foundation/synchronous_future.dart:44:27)
+#11     ImageProvider._createErrorHandlerAndKey (package:flutter/src/painting/image_provider.dart:496:10)
+#12     ImageProvider.resolve (package:flutter/src/painting/image_provider.dart:380:5)
+#13     _ImageState._resolveImage (package:flutter/src/widgets/image.dart:1202:44)
+#14     _ImageState.didChangeDependencies (package:flutter/src/widgets/image.dart:1149:5)
+#15     StatefulElement._firstBuild (package:flutter/src/widgets/framework.dart:5968:11)
+#16     ComponentElement.mount (package:flutter/src/widgets/framework.dart:5793:5)
+#17     Element.inflateWidget (package:flutter/src/widgets/framework.dart:4587:20)
+#18     MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7264:36)
+#19     MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7279:32)
+#20     Element.inflateWidget (package:flutter/src/widgets/framework.dart:4587:20)
+#21     MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7264:36)
+#22     MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7279:32)
+...     Normal element mounting (25 frames)
+#47     Element.inflateWidget (package:flutter/src/widgets/framework.dart:4587:20)
+#48     MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7264:36)
+#49     MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7279:32)
+...     Normal element mounting (372 frames)
+#421    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4587:20)
+#422    MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7264:36)
+#423    MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7279:32)
+...     Normal element mounting (462 frames)
+#885    _UncontrolledProviderScopeElement.mount (package:flutter_riverpod/src/framework.dart:315:11)
+...     Normal element mounting (9 frames)
+#894    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4587:20)
+#895    Element.updateChild (package:flutter/src/widgets/framework.dart:4053:20)
+#896    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#897    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#898    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#899    _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#900    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#901    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#902    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#903    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#904    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#905    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#906    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#907    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#908    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#909    _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#910    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#911    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#912    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#913    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#914    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#915    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#916    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#917    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#918    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#919    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#920    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#921    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#922    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#923    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#924    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#925    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#926    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#927    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#928    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#929    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#930    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#931    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#932    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#933    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#934    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#935    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#936    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#937    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#938    _RawViewElement._updateChild (package:flutter/src/widgets/view.dart:481:16)
+#939    _RawViewElement.update (package:flutter/src/widgets/view.dart:568:5)
+#940    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#941    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#942    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#943    StatelessElement.update (package:flutter/src/widgets/framework.dart:5895:5)
+#944    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#945    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#946    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#947    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#948    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#949    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#950    RootElement._rebuild (package:flutter/src/widgets/binding.dart:1822:16)
+#951    RootElement.update (package:flutter/src/widgets/binding.dart:1800:5)
+#952    RootElement.performRebuild (package:flutter/src/widgets/binding.dart:1814:7)
+#953    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#954    BuildScope._tryRebuild (package:flutter/src/widgets/framework.dart:2750:15)
+#955    BuildScope._flushDirtyElements (package:flutter/src/widgets/framework.dart:2807:11)
+#956    BuildOwner.buildScope (package:flutter/src/widgets/framework.dart:3111:18)
+#957    AutomatedTestWidgetsFlutterBinding.drawFrame (package:flutter_test/src/binding.dart:2131:19)
+#958    RendererBinding._handlePersistentFrameCallback (package:flutter/src/rendering/binding.dart:495:5)
+#959    SchedulerBinding._invokeFrameCallback (package:flutter/src/scheduler/binding.dart:1430:15)
+#960    SchedulerBinding.handleDrawFrame (package:flutter/src/scheduler/binding.dart:1345:9)
+#961    AutomatedTestWidgetsFlutterBinding.pump.<anonymous closure> (package:flutter_test/src/binding.dart:1960:9)
+#964    TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#965    AutomatedTestWidgetsFlutterBinding.pump (package:flutter_test/src/binding.dart:1949:27)
+#966    WidgetTester.pumpWidget.<anonymous closure> (package:flutter_test/src/widget_tester.dart:598:22)
+#969    TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#970    WidgetTester.pumpWidget (package:flutter_test/src/widget_tester.dart:595:27)
+#971    main.<anonymous closure> (file:///C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/widget_test.dart:13:18)
+#972    testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:29)
+<asynchronous suspension>
+#973    TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1682:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided 5 frames from dart:async and package:stack_trace)
+
+Image provider: AssetImage(bundle: null, name: "assets/images/StackandFlowBackground.png")
+Image key: AssetBundleImageKey(bundle: PlatformAssetBundle#cff3d(), name:
+  "assets/images/StackandFlowBackground.png", scale: 1.0)
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following message was thrown:
+Multiple exceptions (3) were detected during the running of the current test, and at least one was
+unexpected.
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:00 +0 -1: App smoke test [E]
+  Test failed. See exception logs above.
+  The test description was: App smoke test
+  
+00:00 +0 -1: Some tests failed.
