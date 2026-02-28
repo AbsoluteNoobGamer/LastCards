@@ -99,42 +99,12 @@ class _PlayAiButton extends StatefulWidget {
 class _PlayAiButtonState extends State<_PlayAiButton> {
   bool _isHovered = false;
   bool _isPressed = false;
-  String _emoji = "🤖";
-  Timer? _blinkTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _startBlinking();
-  }
-
-  void _startBlinking() {
-    _blinkTimer = Timer.periodic(const Duration(seconds: 4), (timer) async {
-      if (!mounted) return;
-      setState(() => _emoji = "😳"); // Wink/blink
-      await Future.delayed(const Duration(milliseconds: 200));
-      if (!mounted) return;
-      setState(() => _emoji = "🤖");
-    });
-  }
-
-  @override
-  void dispose() {
-    _blinkTimer?.cancel();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     return _PrimaryButtonBase(
       label: "Play with AI",
-      icon: _emoji,
-      gradient: const LinearGradient(
-        colors: [Color(0xFFFFD700), Color(0xFFFF8C00)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      glowColor: const Color(0xFFFFD700),
+      iconWidget: const Icon(Icons.smart_toy, color: Color(0xFFFFD700), size: 28),
       isHovered: _isHovered,
       isPressed: _isPressed,
       onHover: (val) => setState(() => _isHovered = val),
@@ -195,13 +165,7 @@ class _PlayOnlineButtonState extends State<_PlayOnlineButton>
 
     return _PrimaryButtonBase(
       label: "Play Online",
-      icon: "👥",
-      gradient: const LinearGradient(
-        colors: [Color(0xFF00E5FF), Color(0xFF007AFA)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      glowColor: const Color(0xFF00E5FF),
+      iconWidget: const Icon(Icons.people, color: Color(0xFFFFD700), size: 28),
       isHovered: _isHovered,
       isPressed: _isPressed,
       onHover: (val) => setState(() => _isHovered = val),
@@ -209,7 +173,6 @@ class _PlayOnlineButtonState extends State<_PlayOnlineButton>
         HapticFeedback.lightImpact();
         setState(() => _isPressed = true);
       },
-      // onTapUp intentionally removed for InkWell compatibility
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: () {
         Navigator.pushReplacement(
@@ -220,12 +183,33 @@ class _PlayOnlineButtonState extends State<_PlayOnlineButton>
           builder: (context, child) {
             return Transform.scale(
               scale: scaleAnim.value,
-              child: const Text(
-                "12/24 online",
-                style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF00FF88),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0x8000FF88),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        )
+                      ]
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    "12/24 online",
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFC9A84C),
+                        fontWeight: FontWeight.bold),
+                  ),
+                ],
               ),
             );
           }),
@@ -235,24 +219,19 @@ class _PlayOnlineButtonState extends State<_PlayOnlineButton>
 
 class _PrimaryButtonBase extends StatelessWidget {
   final String label;
-  final String icon;
+  final Widget iconWidget;
   final Widget? subtitle;
-  final Gradient gradient;
-  final Color glowColor;
   final bool isHovered;
   final bool isPressed;
   final ValueChanged<bool> onHover;
   final GestureTapDownCallback onTapDown;
-  // Removed onTapUp
   final GestureTapCancelCallback onTapCancel;
   final VoidCallback onTap;
 
   const _PrimaryButtonBase({
     required this.label,
-    required this.icon,
+    required this.iconWidget,
     this.subtitle,
-    required this.gradient,
-    required this.glowColor,
     required this.isHovered,
     required this.isPressed,
     required this.onHover,
@@ -268,12 +247,9 @@ class _PrimaryButtonBase extends StatelessWidget {
     final buttonWidth = isMobile
         ? (screenWidth * 0.78).clamp(220.0, 360.0)
         : (screenWidth * 0.3).clamp(220.0, 300.0);
-    final buttonHeight = isMobile ? 64.0 : 70.0;
-    final iconSize = isMobile ? 24.0 : 28.0;
-    final labelSize = isMobile ? 18.0 : 20.0;
+    const buttonHeight = 68.0;
 
-    final scale = isPressed ? 0.95 : (isHovered ? 1.10 : 1.0);
-    final activeGlowColor = isHovered ? const Color(0xFF00FFFF) : glowColor;
+    final scale = isPressed ? 0.95 : (isHovered ? 1.05 : 1.0);
 
     return MouseRegion(
       onEnter: (_) => onHover(true),
@@ -287,26 +263,39 @@ class _PrimaryButtonBase extends StatelessWidget {
         width: buttonWidth,
         height: buttonHeight,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           gradient: const LinearGradient(
-            colors: [Color(0xFFFFD700), Color(0xFFC9A84C)],
+            colors: [Color(0xFFFFD700), Color(0xFF8B6500)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x40FFD700),
-              blurRadius: 12,
+              color: Color(0x30FFD700),
+              blurRadius: 20,
               spreadRadius: 2,
+            ),
+            BoxShadow(
+              color: Color(0x15FFD700),
+              blurRadius: 40,
+              spreadRadius: 4,
+            ),
+            BoxShadow(
+              color: Color(0x80000000),
+              blurRadius: 8,
+              offset: Offset(0, 4),
             ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(1.5),
+          padding: const EdgeInsets.all(2.0),
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF110828).withOpacity(0.8),
-              borderRadius: BorderRadius.circular(14.5),
+              gradient: const RadialGradient(
+                colors: [Color(0xFF2B1700), Color(0xFF1A0E00)],
+                radius: 1.5,
+              ),
+              borderRadius: BorderRadius.circular(16.0),
             ),
             child: Stack(
               fit: StackFit.expand,
@@ -323,7 +312,7 @@ class _PrimaryButtonBase extends StatelessWidget {
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(14.5),
+                    borderRadius: BorderRadius.circular(16.0),
                     splashColor: const Color(0xFFFFD700).withOpacity(0.3),
                     highlightColor: Colors.transparent,
                     onTapDown: onTapDown,
@@ -337,32 +326,31 @@ class _PrimaryButtonBase extends StatelessWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          icon,
-                          style: TextStyle(fontSize: iconSize),
-                        ),
+                        iconWidget,
                         const SizedBox(width: 12),
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              label,
-                              style: GoogleFonts.outfit(
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                letterSpacing: 1.5,
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                label,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  letterSpacing: 2.0,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            if (subtitle != null) ...[
-                              const SizedBox(height: 2),
-                              subtitle!,
-                            ]
-                          ],
+                              if (subtitle != null) ...[
+                                const SizedBox(height: 2),
+                                subtitle!,
+                              ]
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -407,29 +395,44 @@ class _SecondaryButtonState extends State<_SecondaryButton> {
         transform: Matrix4.identity()
           ..scale(_isHovered ? 1.05 : 1.0, _isHovered ? 1.05 : 1.0),
         transformAlignment: Alignment.center,
+        height: 80.0,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           gradient: const LinearGradient(
-            colors: [Color(0xFFFFD700), Color(0xFFC9A84C)],
+            colors: [Color(0xFFFFD700), Color(0xFF8B6500)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          boxShadow: [
+          boxShadow: const [
             BoxShadow(
-              color: const Color(0x40FFD700),
-              blurRadius: _isHovered ? 16 : 12,
-              spreadRadius: _isHovered ? 4 : 2,
+              color: Color(0x30FFD700),
+              blurRadius: 20,
+              spreadRadius: 2,
+            ),
+            BoxShadow(
+              color: Color(0x15FFD700),
+              blurRadius: 40,
+              spreadRadius: 4,
+            ),
+            BoxShadow(
+              color: Color(0x80000000),
+              blurRadius: 8,
+              offset: Offset(0, 4),
             ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(1.5),
+          padding: const EdgeInsets.all(2.0),
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF110828).withOpacity(0.8),
-              borderRadius: BorderRadius.circular(10.5),
+              gradient: const RadialGradient(
+                colors: [Color(0xFF2B1700), Color(0xFF1A0E00)],
+                radius: 1.5,
+              ),
+              borderRadius: BorderRadius.circular(12.0),
             ),
             child: Stack(
+              fit: StackFit.expand,
               children: [
                 Positioned(
                   top: 0,
@@ -443,7 +446,7 @@ class _SecondaryButtonState extends State<_SecondaryButton> {
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(10.5),
+                    borderRadius: BorderRadius.circular(12.0),
                     splashColor: const Color(0xFFC9A84C).withOpacity(0.3),
                     highlightColor: Colors.transparent,
                     onTap: () {
@@ -451,36 +454,35 @@ class _SecondaryButtonState extends State<_SecondaryButton> {
                       widget.onTap();
                     },
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 4, vertical: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: SizedBox(
                         width: double.infinity,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                          Icon(widget.icon, color: Colors.white, size: 16),
-                          const SizedBox(height: 6),
-                          Text(
-                            widget.label,
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.outfit(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              letterSpacing: 0.5,
+                            Icon(widget.icon, color: const Color(0xFFFFD700), size: 22),
+                            const SizedBox(height: 6),
+                            Text(
+                              widget.label,
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.outfit(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: 1.0,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
           ),
         ),
       ),
