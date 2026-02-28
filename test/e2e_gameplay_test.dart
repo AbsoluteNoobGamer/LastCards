@@ -18,7 +18,7 @@ void main() {
           // we'll supply dummy cards to keep the game flowing if we hit the bottom of the deck.
           for (int i = 0; i < n; i++) {
             drawPile.add(
-                CardModel(id: 'mock_\$i', suit: Suit.spades, rank: Rank.two));
+                CardModel(id: 'mock_\$i', suit: Suit.spades, rank: Rank.five));
           }
         }
         final drawn = drawPile.sublist(0, n);

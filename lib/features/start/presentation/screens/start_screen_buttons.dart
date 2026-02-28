@@ -287,73 +287,85 @@ class _PrimaryButtonBase extends StatelessWidget {
         width: buttonWidth,
         height: buttonHeight,
         decoration: BoxDecoration(
-          gradient: gradient,
-          borderRadius: BorderRadius.circular(buttonHeight / 2),
-          boxShadow: [
+          borderRadius: BorderRadius.circular(16),
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFFD700), Color(0xFFC9A84C)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: const [
             BoxShadow(
-              color: activeGlowColor.withOpacity(isHovered ? 0.8 : 0.3),
-              blurRadius: isHovered ? 25 : 15,
-              spreadRadius: isHovered ? 4 : 0,
-              offset: const Offset(0, 4),
+              color: Color(0x40FFD700),
+              blurRadius: 12,
+              spreadRadius: 2,
             ),
-            // Inner border
-            BoxShadow(
-              color: Colors.white.withOpacity(0.3),
-              blurRadius: 0,
-              spreadRadius: 1,
-              offset: const Offset(0, 1),
-            )
           ],
         ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(buttonHeight / 2),
-            splashColor: const Color(0xFF00FFFF).withOpacity(0.3),
-            highlightColor: Colors.transparent,
-            onTapDown: onTapDown,
-            onTapCancel: onTapCancel,
-            onTap: () {
-              onTap();
-              Future.delayed(const Duration(milliseconds: 150), () {
-                if (context.mounted) onTapCancel();
-              });
-            },
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+        child: Padding(
+          padding: const EdgeInsets.all(1.5),
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF110828).withOpacity(0.8),
+              borderRadius: BorderRadius.circular(14.5),
+            ),
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                Text(
-                  icon,
-                  style: TextStyle(fontSize: iconSize),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    height: 1,
+                    color: Colors.white.withOpacity(0.05),
+                  ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        style: GoogleFonts.outfit(
-                          fontSize: labelSize,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          letterSpacing: 0.5,
-                          shadows: [
-                            const Shadow(
-                                color: Colors.black45,
-                                blurRadius: 4,
-                                offset: Offset(0, 2))
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14.5),
+                    splashColor: const Color(0xFFFFD700).withOpacity(0.3),
+                    highlightColor: Colors.transparent,
+                    onTapDown: onTapDown,
+                    onTapCancel: onTapCancel,
+                    onTap: () {
+                      onTap();
+                      Future.delayed(const Duration(milliseconds: 150), () {
+                        if (context.mounted) onTapCancel();
+                      });
+                    },
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          icon,
+                          style: TextStyle(fontSize: iconSize),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              label,
+                              style: GoogleFonts.outfit(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: 1.5,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (subtitle != null) ...[
+                              const SizedBox(height: 2),
+                              subtitle!,
+                            ]
                           ],
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (subtitle != null) ...[
-                        const SizedBox(height: 2),
-                        subtitle!,
-                      ]
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -371,9 +383,10 @@ class _PrimaryButtonBase extends StatelessWidget {
 
 class _SecondaryButton extends StatefulWidget {
   final String label;
+  final IconData icon;
   final VoidCallback onTap;
 
-  const _SecondaryButton(this.label, this.onTap);
+  const _SecondaryButton(this.label, this.icon, this.onTap);
 
   @override
   State<_SecondaryButton> createState() => _SecondaryButtonState();
@@ -392,47 +405,82 @@ class _SecondaryButtonState extends State<_SecondaryButton> {
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,
         transform: Matrix4.identity()
-          ..scale(_isHovered ? 1.10 : 1.0, _isHovered ? 1.10 : 1.0),
+          ..scale(_isHovered ? 1.05 : 1.0, _isHovered ? 1.05 : 1.0),
         transformAlignment: Alignment.center,
         decoration: BoxDecoration(
-          color: _isHovered
-              ? const Color(0xFF00FFFF).withOpacity(0.1)
-              : Colors.transparent,
-          border: Border.all(
-            color: _isHovered ? const Color(0xFF00FFFF) : Colors.white60,
-            width: 1.5,
+          borderRadius: BorderRadius.circular(12),
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFFD700), Color(0xFFC9A84C)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(25),
           boxShadow: [
-            if (_isHovered)
-              BoxShadow(
-                color: const Color(0xFF00FFFF).withOpacity(0.4),
-                blurRadius: 15,
-                spreadRadius: 2,
-              )
+            BoxShadow(
+              color: const Color(0x40FFD700),
+              blurRadius: _isHovered ? 16 : 12,
+              spreadRadius: _isHovered ? 4 : 2,
+            ),
           ],
         ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(25),
-            splashColor: const Color(0xFF00FFFF).withOpacity(0.3),
-            highlightColor: Colors.transparent,
-            onTap: () {
-              HapticFeedback.selectionClick();
-              widget.onTap();
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              child: Text(
-                widget.label,
-                style: GoogleFonts.outfit(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: _isHovered ? Colors.white : Colors.white70,
+        child: Padding(
+          padding: const EdgeInsets.all(1.5),
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF110828).withOpacity(0.8),
+              borderRadius: BorderRadius.circular(10.5),
+            ),
+            child: Stack(
+              children: [
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    height: 1,
+                    color: Colors.white.withOpacity(0.05),
+                  ),
+                ),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10.5),
+                    splashColor: const Color(0xFFC9A84C).withOpacity(0.3),
+                    highlightColor: Colors.transparent,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      widget.onTap();
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 12),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                          Icon(widget.icon, color: Colors.white, size: 16),
+                          const SizedBox(height: 6),
+                          Text(
+                            widget.label,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.outfit(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 0.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
+          ),
           ),
         ),
       ),
