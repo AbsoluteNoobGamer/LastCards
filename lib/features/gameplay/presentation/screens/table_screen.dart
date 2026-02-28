@@ -862,6 +862,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     if (winner == null) return false;
 
+    // Prevent immediate win if the player emptied their hand with a pick-up card.
+    // The penalty chain must fully resolve first — opponents may counter or stack.
+    // Only when activePenaltyCount reaches 0 (chain exhausted) is the win confirmed.
+    if (state.activePenaltyCount > 0 && winner.id == state.currentPlayerId) {
+      return false;
+    }
+
     // Prevent immediate win if the player's last card was a Queen that still needs covering.
     if (state.queenSuitLock != null && winner.id == state.currentPlayerId) {
       return false;
