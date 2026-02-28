@@ -1,6 +1,93 @@
 part of 'start_screen.dart';
 
 // -----------------------------------------------------------------------------
+// Profile Badge (top-right corner of main menu)
+// -----------------------------------------------------------------------------
+
+/// Displays the local player's avatar and display name in a compact chip.
+/// Watches [profileProvider] so it automatically rebuilds when the profile
+/// is saved and the user returns from [ProfileScreen].
+class _ProfileBadge extends ConsumerWidget {
+  const _ProfileBadge({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(profileProvider);
+    final avatarPath = profile.avatarPath;
+
+    final Widget avatarWidget = avatarPath != null
+        ? CircleAvatar(
+            radius: 22,
+            backgroundImage: FileImage(File(avatarPath)),
+            backgroundColor: const Color(0xFF1C1C1C),
+          )
+        : const CircleAvatar(
+            radius: 22,
+            backgroundColor: Color(0xFF1C1C1C),
+            child:
+                Icon(Icons.person_rounded, size: 24, color: Color(0xFFC9A84C)),
+          );
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(top: 8, right: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(40),
+          border: Border.all(
+            color: const Color(0xFFC9A84C).withValues(alpha: 0.7),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Avatar circle
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xFFC9A84C),
+                  width: 2,
+                ),
+              ),
+              child: avatarWidget,
+            ),
+            const SizedBox(width: 8),
+            // Player name
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 110),
+              child: Text(
+                profile.name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.3,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 4),
+            // Edit pencil icon
+            const Icon(
+              Icons.edit_rounded,
+              color: Color(0xFFC9A84C),
+              size: 14,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
 // Primary Buttons
 // -----------------------------------------------------------------------------
 

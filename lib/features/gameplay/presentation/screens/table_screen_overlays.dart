@@ -3,9 +3,10 @@ part of 'table_screen.dart';
 // ── Offline mode banner ───────────────────────────────────────────────────────
 
 class _OfflineBanner extends StatelessWidget {
-  const _OfflineBanner({required this.onBack, required this.aiThinking});
+  const _OfflineBanner({required this.onBack, required this.aiThinking, this.onProfile});
   final VoidCallback onBack;
   final bool aiThinking;
+  final VoidCallback? onProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -45,11 +46,18 @@ class _OfflineBanner extends StatelessWidget {
               letterSpacing: 0.5,
             ),
           ),
+          const SizedBox(width: AppDimensions.xs),
+          GestureDetector(
+            onTap: onProfile,
+            child: const Icon(Icons.person_rounded,
+                size: 20, color: AppColors.feltDeep),
+          ),
         ],
       ),
     );
   }
 }
+
 
 // ── Win dialog ────────────────────────────────────────────────────────────────
 
