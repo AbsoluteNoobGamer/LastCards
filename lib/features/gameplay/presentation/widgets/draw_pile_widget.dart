@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -19,6 +21,9 @@ int _stackLayers(int count) {
 /// Draw pile widget — stacked card-back effect with a count badge.
 /// Tappable by the local player when it's their turn and they can't play.
 /// The number of visible stack layers scales dynamically with [cardCount].
+///
+/// [reshuffleNotifier] — when this notifier fires (its value is toggled),
+/// the widget plays a short shuffle animation to signal a reshuffle event.
 class DrawPileWidget extends StatefulWidget {
   const DrawPileWidget({
     super.key,
@@ -26,6 +31,7 @@ class DrawPileWidget extends StatefulWidget {
     this.onTap,
     this.cardWidth = AppDimensions.cardWidthDrawPile,
     this.enabled = true,
+    this.reshuffleNotifier,
   });
 
   final int cardCount;
@@ -33,13 +39,96 @@ class DrawPileWidget extends StatefulWidget {
   final double cardWidth;
   final bool enabled;
 
+  /// Optional notifier whose value is toggled whenever a reshuffle occurs.
+  /// Toggling (not just setting) lets repeated reshuffles each trigger the
+  /// animation even if the value cycles back to the same bool.
+  final ValueNotifier<bool>? reshuffleNotifier;
+
   @override
   State<DrawPileWidget> createState() => _DrawPileWidgetState();
 }
 
-class _DrawPileWidgetState extends State<DrawPileWidget> {
+class _DrawPileWidgetState extends State<DrawPileWidget>
+    with SingleTickerProviderStateMixin {
   bool _isHovering = false;
   bool _isPressed = false;
+
+  late final AnimationController _shuffleCtrl;
+  late final Animation<double> _shuffleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // 900 ms shuffle animation controller
+    _shuffleCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+
+    // Oscillating fan effect:
+    // 0–25 %  → scale down to 0.88
+    // 25–75 % → 4 rapid oscillations left/right (±10 px translated via sin)
+    // 75–100% → scale back to 1.0
+    // We expose a single 0→1 animation and compute derived values in build().
+    _shuffleAnim = CurvedAnimation(
+      parent: _shuffleCtrl,
+      curve: Curves.linear,
+    );
+
+    widget.reshuffleNotifier?.addListener(_onReshuffle);
+  }
+
+  @override
+  void didUpdateWidget(DrawPileWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.reshuffleNotifier != widget.reshuffleNotifier) {
+      oldWidget.reshuffleNotifier?.removeListener(_onReshuffle);
+      widget.reshuffleNotifier?.addListener(_onReshuffle);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.reshuffleNotifier?.removeListener(_onReshuffle);
+    _shuffleCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onReshuffle() {
+    if (!mounted) return;
+    _shuffleCtrl.forward(from: 0);
+  }
+
+  /// Returns the animated x-offset of the top card (oscillation phase).
+  double _computeOffsetX(double t) {
+    // Only oscillate during 25–75 % of the animation.
+    if (t < 0.25 || t > 0.75) return 0.0;
+    final normalised = (t - 0.25) / 0.50; // 0→1 within the oscillation window
+    return math.sin(normalised * math.pi * 6) * 10.0; // 3 full swings × 10 px
+  }
+
+  /// Returns the animated scale of the whole pile during the animation.
+  double _computeScale(double t) {
+    if (t < 0.25) {
+      // scale down: 1.0 → 0.88
+      return 1.0 - t / 0.25 * 0.12;
+    } else if (t < 0.75) {
+      return 0.88;
+    } else {
+      // scale back: 0.88 → 1.0
+      return 0.88 + (t - 0.75) / 0.25 * 0.12;
+    }
+  }
+
+  /// Gold overlay opacity — visible during the oscillation window only.
+  double _computeGlowOpacity(double t) {
+    if (t < 0.20 || t > 0.80) return 0.0;
+    // Ramp up: 20–30 %, full: 30–70 %, ramp down: 70–80 %
+    if (t < 0.30) return (t - 0.20) / 0.10;
+    if (t > 0.70) return (0.80 - t) / 0.10;
+    return 1.0;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,90 +155,135 @@ class _DrawPileWidgetState extends State<DrawPileWidget> {
               }
             : null,
         onTapCancel: () => setState(() => _isPressed = false),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          transform: Matrix4.diagonal3Values(targetScale, targetScale, 1.0),
-          transformAlignment: Alignment.center,
-          width: widget.cardWidth + extraPadding,
-          height: height + extraPadding,
-          child: Stack(
-            children: [
-              // Dynamic stacked card backs (furthest layer first)
-              for (int i = layers; i > 0; i--)
-                Positioned(
-                  left: i * layerOffset,
-                  top: i * layerOffset,
-                  child: Opacity(
-                    opacity: (1 - i * 0.15).clamp(0.2, 1.0),
-                    child: CardBackWidget(width: widget.cardWidth),
-                  ),
-                ),
+        child: AnimatedBuilder(
+          animation: _shuffleAnim,
+          builder: (context, child) {
+            final t = _shuffleAnim.value;
+            final shuffleScale = _computeScale(t);
+            final offsetX = _computeOffsetX(t);
+            final glowOpacity = _computeGlowOpacity(t) * 0.45;
 
-              // Top card back (interactive)
-              Hero(
-                tag: 'draw-pile-top',
-                flightShuttleBuilder: (flightContext, animation,
-                    flightDirection, fromHeroContext, toHeroContext) {
-                  // Add an inverse shrink-then-expand bounce during flight
-                  final bounce = TweenSequence([
-                    TweenSequenceItem(
-                        tween: Tween(begin: 1.0, end: 0.85)
-                            .chain(CurveTween(curve: Curves.easeOut)),
-                        weight: 30),
-                    TweenSequenceItem(
-                        tween: Tween(begin: 0.85, end: 1.0)
-                            .chain(CurveTween(curve: Curves.easeIn)),
-                        weight: 70),
-                  ]).animate(animation);
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              transform: Matrix4.diagonal3Values(
+                  targetScale, targetScale, 1.0),
+              transformAlignment: Alignment.center,
+              width: widget.cardWidth + extraPadding,
+              height: height + extraPadding,
+              child: Transform.scale(
+                scale: shuffleScale,
+                child: Stack(
+                  children: [
+                    // Dynamic stacked card backs (furthest layer first)
+                    for (int i = layers; i > 0; i--)
+                      Positioned(
+                        left: i * layerOffset,
+                        top: i * layerOffset,
+                        child: Opacity(
+                          opacity: (1 - i * 0.15).clamp(0.2, 1.0),
+                          child: CardBackWidget(width: widget.cardWidth),
+                        ),
+                      ),
 
-                  return ScaleTransition(
-                    scale: bounce,
-                    child: toHeroContext.widget,
-                  );
-                },
-                child: AnimatedOpacity(
-                  opacity: widget.enabled ? 1.0 : 0.5,
-                  duration: const Duration(milliseconds: 200),
-                  child: CardBackWidget(width: widget.cardWidth),
-                ),
-              ),
+                    // Top card back (interactive) — animated during reshuffle
+                    Transform.translate(
+                      offset: Offset(offsetX, 0),
+                      child: Hero(
+                        tag: 'draw-pile-top',
+                        flightShuttleBuilder: (flightContext, animation,
+                            flightDirection,
+                            fromHeroContext,
+                            toHeroContext) {
+                          final bounce = TweenSequence([
+                            TweenSequenceItem(
+                                tween: Tween(begin: 1.0, end: 0.85)
+                                    .chain(CurveTween(curve: Curves.easeOut)),
+                                weight: 30),
+                            TweenSequenceItem(
+                                tween: Tween(begin: 0.85, end: 1.0)
+                                    .chain(CurveTween(curve: Curves.easeIn)),
+                                weight: 70),
+                          ]).animate(animation);
 
-              // Card count badge
-              Positioned(
-                top: 8,
-                left: 8,
-                child: _CountBadge(count: widget.cardCount),
-              ),
-
-              // "DRAW" label
-              Positioned(
-                bottom: 12,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceDark.withValues(alpha: 0.8),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppColors.goldDark, width: 1),
-                    ),
-                    child: Text(
-                      'DRAW',
-                      style: AppTypography.labelSmall.copyWith(
-                        letterSpacing: 2,
-                        color: AppColors.goldLight,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
+                          return ScaleTransition(
+                            scale: bounce,
+                            child: toHeroContext.widget,
+                          );
+                        },
+                        child: AnimatedOpacity(
+                          opacity: widget.enabled ? 1.0 : 0.5,
+                          duration: const Duration(milliseconds: 200),
+                          child: CardBackWidget(width: widget.cardWidth),
+                        ),
                       ),
                     ),
-                  ),
+
+                    // Gold glow overlay — only visible during the reshuffle
+                    if (glowOpacity > 0)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: Opacity(
+                            opacity: glowOpacity,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: AppColors.goldPrimary,
+                                  width: 3,
+                                ),
+                                gradient: RadialGradient(
+                                  colors: [
+                                    AppColors.goldLight
+                                        .withValues(alpha: 0.35),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // Card count badge
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: _CountBadge(count: widget.cardCount),
+                    ),
+
+                    // "DRAW" label
+                    Positioned(
+                      bottom: 12,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceDark.withValues(alpha: 0.8),
+                            borderRadius: BorderRadius.circular(6),
+                            border:
+                                Border.all(color: AppColors.goldDark, width: 1),
+                          ),
+                          child: Text(
+                            'DRAW',
+                            style: AppTypography.labelSmall.copyWith(
+                              letterSpacing: 2,
+                              color: AppColors.goldLight,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

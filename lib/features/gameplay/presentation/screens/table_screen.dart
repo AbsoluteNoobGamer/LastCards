@@ -86,6 +86,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   final List<CardModel> _discardPile = []; // tracks all discarded cards
   // ── Turn timer ────────────────────────────────────────────────────
   Timer? _turnTimer;
+
+  /// Toggled (not set) each time a reshuffle fires so DrawPileWidget can
+  /// play the shuffle animation even on repeated reshuffles.
+  final ValueNotifier<bool> _reshuffleNotifier = ValueNotifier<bool>(false);
   @override
   void initState() {
     super.initState();
@@ -188,6 +192,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   @override
   void dispose() {
     _turnTimer?.cancel();
+    _reshuffleNotifier.dispose();
     // BGM stop
     _audioService.stopBgm();
     super.dispose();
@@ -271,14 +276,19 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   /// Pops [n] cards from the real draw pile.
-  /// Triggers a reshuffle automatically if the pile is about to run dry.
+  ///
+  /// After removing the requested cards, checks if the pile has dropped to
+  /// 5 or fewer — if so, immediately reshuffles the centre pile back in.
+  /// Using <=5 (not ==5) ensures a multi-card draw that skips exactly 5
+  /// still triggers the reshuffle.
   List<CardModel> _makeCards(int n) {
-    _reshuffleIfNeeded(needed: n);
     final count = math.min(n, _drawPile.length);
     final drawn = _drawPile.sublist(0, count);
     _drawPile.removeRange(0, count);
-    // Keep GameState count in sync
+    // Sync counter immediately after every draw.
     _offlineState = _offlineState.copyWith(drawPileCount: _drawPile.length);
+    // Trigger reshuffle whenever pile drops to 5 or below.
+    _reshuffleCentrePileIntoDrawPile();
     return drawn;
   }
 
@@ -363,6 +373,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         isOffline: isOfflineMode,
                         discardPileCount: _discardPile.length,
                         lastMove: _lastMove,
+                        reshuffleNotifier: _reshuffleNotifier,
                       ),
                     ),
                   ],
@@ -514,7 +525,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         );
       });
 
-      _reshuffleIfNeeded();
+      _reshuffleCentrePileIntoDrawPile();
       if (_checkWin(playerId, newState)) return;
 
       // Wild Aces always end the turn immediately
@@ -588,7 +599,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         );
       });
 
-      _reshuffleIfNeeded();
+      _reshuffleCentrePileIntoDrawPile();
       if (_checkWin(playerId, newState)) return;
 
       // Allow the player to continue their turn (stack more cards if they want).
@@ -616,7 +627,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       );
     });
 
-    _reshuffleIfNeeded();
+    _reshuffleCentrePileIntoDrawPile();
     if (_checkWin(playerId, newState)) return;
 
     // Auto-advance if this play guarantees we get another turn immediately and
@@ -795,20 +806,38 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     });
   }
 
-  // ── Reshuffle discard → draw (Fisher-Yates) ───────────────────────
+  // ── Reshuffle centre pile → draw pile ─────────────────────────────────────
 
-  void _reshuffleIfNeeded({int needed = 1}) {
-    if (_drawPile.length >= needed && _drawPile.isNotEmpty) return;
-    if (_discardPile.length <= 1) return; // nothing to reshuffle
+  /// Dedicated reshuffle function. Called from [_makeCards] every time cards
+  /// leave the draw pile — this covers ALL draw paths: player draws, penalty
+  /// draws, invalid-play penalty draws, and AI draws.
+  ///
+  /// Fires when [_drawPile.length] drops to **5 or fewer** cards so that a
+  /// multi-card draw which skips exactly 5 is never missed.
+  ///
+  /// Behaviour (in order):
+  ///   1. Takes all centre-pile cards EXCEPT the current top card.
+  ///   2. Shuffles them with Fisher-Yates.
+  ///   3. Appends them to [_drawPile].
+  ///   4. Calls setState to update [drawPileCount] immediately.
+  ///   5. Toggles [_reshuffleNotifier] → DrawPileWidget plays its animation.
+  ///   6. Shows a visible "Reshuffling deck..." snackbar.
+  ///   7. Prints the new count to the console for confirmation.
+  void _reshuffleCentrePileIntoDrawPile() {
+    // Gate: only trigger when 5 or fewer remain AND centre pile has spare cards.
+    if (_drawPile.length > 5) return;
+    if (_discardPile.length <= 1) return; // nothing beyond the top card
 
-    // Keep the top discard in place; shuffle the rest back.
+    // ── 1. Protect top centre card ──────────────────────────────────────────
     final topCard = _discardPile.last;
-    final toShuffle = _discardPile.sublist(0, _discardPile.length - 1);
+    final toShuffle = List<CardModel>.from(
+      _discardPile.sublist(0, _discardPile.length - 1),
+    );
     _discardPile
       ..clear()
-      ..add(topCard);
+      ..add(topCard); // top card stays; everything else leaves
 
-    // Fisher-Yates
+    // ── 2. Fisher-Yates shuffle ─────────────────────────────────────────────
     final rng = math.Random();
     for (int i = toShuffle.length - 1; i > 0; i--) {
       final j = rng.nextInt(i + 1);
@@ -817,9 +846,45 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       toShuffle[j] = tmp;
     }
 
+    // ── 3. Add shuffled cards to draw pile ──────────────────────────────────
     _drawPile.addAll(toShuffle);
 
-    // Don't call setState here — _makeCards will sync the count after this.
+    // ── 7. Console confirmation ─────────────────────────────────────────────
+    // ignore: avoid_print
+    print('Reshuffle complete. New draw pile count: ${_drawPile.length}');
+
+    if (!mounted) return;
+
+    // ── 4 & 5. Update counter + trigger animation ────────────────────────────
+    setState(() {
+      _offlineState =
+          _offlineState.copyWith(drawPileCount: _drawPile.length);
+      _reshuffleNotifier.value = !_reshuffleNotifier.value;
+    });
+
+    // ── 6. Visible banner so players know a reshuffle happened ──────────────
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.shuffle_rounded, color: Colors.white, size: 18),
+              SizedBox(width: 8),
+              Text(
+                'Reshuffling deck...',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.goldDark,
+          duration: const Duration(milliseconds: 1800),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
   }
 
   // ── Win detection ──────────────────────────────────────────────────

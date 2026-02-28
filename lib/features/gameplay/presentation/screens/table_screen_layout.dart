@@ -22,6 +22,7 @@ class _TableLayout extends StatelessWidget {
     required this.isOffline,
     this.discardPileCount = 0,
     this.lastMove,
+    this.reshuffleNotifier,
   });
 
   final GameState gameState;
@@ -45,6 +46,8 @@ class _TableLayout extends StatelessWidget {
   final int discardPileCount;
   /// The most recent move made by any player, or null if the game just started.
   final LastMoveInfo? lastMove;
+  /// Notifier toggled on every reshuffle — forwarded to [DrawPileWidget].
+  final ValueNotifier<bool>? reshuffleNotifier;
 
   @override
   Widget build(BuildContext context) {
@@ -201,6 +204,7 @@ class _TableLayout extends StatelessWidget {
                                       gameState.queenSuitLock != null) &&
                                   selectedCardId == null &&
                                   !isDealing,
+                              reshuffleNotifier: reshuffleNotifier,
                             ),
                             const SizedBox(width: AppDimensions.sm),
                             DiscardPileWidget(
