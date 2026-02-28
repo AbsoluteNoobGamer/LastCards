@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:stack_and_flow/shared/rules/win_condition_rules.dart';
+
 import '../models/card_model.dart';
 import '../models/game_event.dart';
 import '../models/game_state.dart';
@@ -22,6 +24,8 @@ class GameNotifier extends StateNotifier<GameState?> {
     _subs.add(
       _eventHandler.stateSnapshots.listen((e) {
         state = e.gameState;
+        // Online mode consumes shared rules for structural dependency.
+        if (state != null) wouldConfirmWin(state!);
       }),
     );
 

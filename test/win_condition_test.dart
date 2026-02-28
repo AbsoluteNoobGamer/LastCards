@@ -3,6 +3,7 @@ import 'package:stack_and_flow/core/models/card_model.dart';
 import 'package:stack_and_flow/core/models/offline_game_engine.dart';
 import 'package:stack_and_flow/core/models/game_state.dart';
 import 'package:stack_and_flow/core/models/player_model.dart';
+import 'package:stack_and_flow/shared/rules/win_condition_rules.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers — mirrors the style in engine_test.dart
@@ -13,31 +14,6 @@ CardModel c(Rank r, Suit s, {String? id}) =>
 
 CardModel joker(Suit s, {String? id}) =>
     CardModel(id: id ?? 'joker_${s.name}', rank: Rank.joker, suit: s);
-
-/// Reproduces the exact guard logic used in `_checkWin` (table_screen.dart).
-///
-/// Returns `true` only if the win would be confirmed immediately.
-/// Returns `false` if the win is deferred (pick-up chain still active,
-/// or Queen lock not yet resolved) or if no winner exists.
-bool wouldCheckWinConfirm(GameState state) {
-  final winner = state.players
-      .where((p) => p.hand.isEmpty && p.cardCount == 0)
-      .firstOrNull;
-
-  if (winner == null) return false;
-
-  // Pick-up card deferral: chain must resolve first.
-  if (state.activePenaltyCount > 0 && winner.id == state.currentPlayerId) {
-    return false;
-  }
-
-  // Queen lock deferral: must be covered first.
-  if (state.queenSuitLock != null && winner.id == state.currentPlayerId) {
-    return false;
-  }
-
-  return true;
-}
 
 /// Builds a two-player GameState with p1 as current player.
 GameState buildState({
@@ -113,7 +89,7 @@ void main() {
 
       // Win must be deferred — chain not yet resolved
       expect(
-        wouldCheckWinConfirm(state),
+        wouldConfirmWin(state),
         isFalse,
         reason: 'A player cannot win immediately by playing a 2 as their last card; '
             'the pick-up chain must resolve first',
@@ -147,7 +123,7 @@ void main() {
       expect(state.activePenaltyCount, 5, reason: 'Black Jack adds 5 to the penalty count');
 
       expect(
-        wouldCheckWinConfirm(state),
+        wouldConfirmWin(state),
         isFalse,
         reason: 'A player cannot win immediately by playing a Black Jack as their last card',
       );
@@ -188,7 +164,7 @@ void main() {
 
       // Win must NOW be confirmed
       expect(
-        wouldCheckWinConfirm(state),
+        wouldConfirmWin(state),
         isTrue,
         reason: 'After the chain resolves with P1 still on zero cards, the win must be confirmed',
       );
@@ -218,7 +194,7 @@ void main() {
       expect(state.players.firstWhere((p) => p.id == 'p1').hand, isEmpty);
 
       // Win is deferred (chain live)
-      expect(wouldCheckWinConfirm(state), isFalse,
+      expect(wouldConfirmWin(state), isFalse,
           reason: 'Win must be deferred while chain is active');
 
       // P2 counters with 2♥ → chain grows to 4, turn advances
@@ -259,7 +235,7 @@ void main() {
           reason: 'applyDraw clears activePenaltyCount');
 
       expect(
-        wouldCheckWinConfirm(stateAfterDraw.copyWith(currentPlayerId: 'p1')),
+        wouldConfirmWin(stateAfterDraw.copyWith(currentPlayerId: 'p1')),
         isFalse,
         reason: 'P1 is no longer on zero cards — win did not happen',
       );
