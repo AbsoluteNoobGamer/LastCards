@@ -104,7 +104,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   void _initNewGame() {
     final (state, drawPile) =
         OfflineGameState.buildWithDeck(totalPlayers: widget.totalPlayers);
-    _offlineState = state;
+    _offlineState = state.copyWith(
+      preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
+    );
     _drawPile = drawPile;
     _discardPile
       ..clear()
@@ -287,6 +289,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         cardsPlayedThisTurn: 0,
         lastPlayedThisTurn: null,
         activeSkipCount: 0,
+        preTurnCentreSuit: _offlineState.discardTopCard?.effectiveSuit,
       );
     });
 
@@ -642,6 +645,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       cardsPlayedThisTurn: 0,
       lastPlayedThisTurn: null,
       activeSkipCount: 0,
+      preTurnCentreSuit: newState.discardTopCard?.effectiveSuit,
     );
 
     final localAfter = newState.players
@@ -695,7 +699,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final penaltyPlayerName = _offlineState.playerById(playerId)?.displayName ?? playerId;
       final nextId = nextPlayerId(state: newState);
       newState = newState.copyWith(
-          currentPlayerId: nextId, actionsThisTurn: 0, cardsPlayedThisTurn: 0, activeSkipCount: 0);
+          currentPlayerId: nextId, actionsThisTurn: 0, cardsPlayedThisTurn: 0, activeSkipCount: 0, preTurnCentreSuit: newState.discardTopCard?.effectiveSuit);
       if (isQueenPenaltyDraw) {
         newState = newState.copyWith(queenSuitLock: null);
       }
@@ -712,7 +716,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final drawPlayerName = _offlineState.playerById(playerId)?.displayName ?? playerId;
       final nextId = nextPlayerId(state: newState);
       newState = newState.copyWith(
-          currentPlayerId: nextId, actionsThisTurn: 0, cardsPlayedThisTurn: 0, activeSkipCount: 0);
+          currentPlayerId: nextId, actionsThisTurn: 0, cardsPlayedThisTurn: 0, activeSkipCount: 0, preTurnCentreSuit: newState.discardTopCard?.effectiveSuit);
       setState(() {
         _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
         _selectedCardId = null;
@@ -757,15 +761,22 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             )
           : LastMoveInfo(playerName: aiPlayerName); // drew a card
 
+      if (_checkWin(aiId, result.state)) return;
+
+      var finalState = result.state;
+
+      final nextId = finalState.currentPlayerId;
+      if (nextId != aiId) {
+         // Turn advanced, capture the new centre suit
+         finalState = finalState.copyWith(preTurnCentreSuit: finalState.discardTopCard?.effectiveSuit);
+      }
+
       setState(() {
-        _offlineState = result.state.copyWith(drawPileCount: _drawPile.length);
+        _offlineState = finalState.copyWith(drawPileCount: _drawPile.length);
         _aiThinking = false;
         _lastMove = aiLastMove;
       });
 
-      if (_checkWin(aiId, result.state)) return;
-
-      final nextId = result.state.currentPlayerId;
       if (nextId != OfflineGameState.localId) {
         _scheduleAiTurn(nextId);
       } else {

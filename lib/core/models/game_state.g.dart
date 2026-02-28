@@ -26,6 +26,8 @@ _$GameStateImpl _$$GameStateImplFromJson(Map<String, dynamic> json) =>
       activePenaltyCount: (json['activePenaltyCount'] as num?)?.toInt() ?? 0,
       activeSkipCount: (json['activeSkipCount'] as num?)?.toInt() ?? 0,
       suitLock: $enumDecodeNullable(_$SuitEnumMap, json['suitLock']),
+      preTurnCentreSuit:
+          $enumDecodeNullable(_$SuitEnumMap, json['preTurnCentreSuit']),
       queenSuitLock: $enumDecodeNullable(_$SuitEnumMap, json['queenSuitLock']),
       winnerId: json['winnerId'] as String?,
       lastUpdatedAt: (json['lastUpdatedAt'] as num?)?.toInt() ?? 0,
@@ -51,6 +53,7 @@ Map<String, dynamic> _$$GameStateImplToJson(_$GameStateImpl instance) =>
       'activePenaltyCount': instance.activePenaltyCount,
       'activeSkipCount': instance.activeSkipCount,
       'suitLock': _$SuitEnumMap[instance.suitLock],
+      'preTurnCentreSuit': _$SuitEnumMap[instance.preTurnCentreSuit],
       'queenSuitLock': _$SuitEnumMap[instance.queenSuitLock],
       'winnerId': instance.winnerId,
       'lastUpdatedAt': instance.lastUpdatedAt,
