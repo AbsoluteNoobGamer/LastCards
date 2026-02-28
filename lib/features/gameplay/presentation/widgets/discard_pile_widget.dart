@@ -11,6 +11,10 @@ import 'card_widget.dart';
 ///
 /// Shows the [topCard] prominently with subtle stacked card layers behind it
 /// that scale with [discardPileCount]. Animates in new cards via [AnimatedSwitcher].
+///
+/// When the top card is a Joker that has been declared ([CardModel.jokerDeclaredSuit]
+/// and [CardModel.jokerDeclaredRank] are set), the card renders as the declared face
+/// and shows a looping animated gold outline to signal it is a Joker in disguise.
 class DiscardPileWidget extends StatefulWidget {
   const DiscardPileWidget({
     super.key,
@@ -54,6 +58,26 @@ class _DiscardPileWidgetState extends State<DiscardPileWidget> {
     final layers = _stackLayers(widget.discardPileCount);
     const layerOffset = 2.5; // px per layer
 
+    // Determine if the top card is a Joker with a declared face
+    final topCard = widget.topCard;
+    final isJokerDisguised = topCard != null &&
+        topCard.isJoker &&
+        topCard.jokerDeclaredSuit != null &&
+        topCard.jokerDeclaredRank != null;
+
+    // When disguised, create a synthetic card that displays the declared face.
+    // We keep the original id so AnimatedSwitcher key/Hero tag remain stable.
+    final displayCard = isJokerDisguised
+        ? topCard!.copyWith(
+            rank: topCard.jokerDeclaredRank!,
+            suit: topCard.jokerDeclaredSuit!,
+            // Clear declaration fields so CardWidget renders it as a normal card,
+            // not as a Joker again.
+            jokerDeclaredRank: null,
+            jokerDeclaredSuit: null,
+          )
+        : topCard;
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovering = true),
       onExit: (_) => setState(() => _isHovering = false),
@@ -64,11 +88,11 @@ class _DiscardPileWidgetState extends State<DiscardPileWidget> {
           alignment: Alignment.center,
           children: [
             // Zone label (visible when pile is empty)
-            if (widget.topCard == null)
+            if (topCard == null)
               _EmptyPileLabel(width: widget.cardWidth, height: height),
 
             // Dynamic stacked card-back layers (furthest first)
-            if (widget.topCard != null)
+            if (topCard != null)
               for (int i = layers; i >= 1; i--)
                 Positioned(
                   top: 8 + i * layerOffset,
@@ -80,7 +104,7 @@ class _DiscardPileWidgetState extends State<DiscardPileWidget> {
                 ),
 
             // Top card — hover lift + animated switcher for smooth transitions
-            if (widget.topCard != null)
+            if (topCard != null)
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOutCubic,
@@ -99,13 +123,14 @@ class _DiscardPileWidgetState extends State<DiscardPileWidget> {
                     child: FadeTransition(opacity: animation, child: child),
                   ),
                   child: Hero(
-                    key: ValueKey(widget.topCard!.id),
-                    tag: 'card-${widget.topCard!.id}',
+                    key: ValueKey(topCard.id),
+                    tag: 'card-${topCard.id}',
                     child: _ClippedCardWithRing(
                       cardWidth: widget.cardWidth,
                       isHovering: _isHovering,
+                      isJokerDisguised: isJokerDisguised,
                       child: CardWidget(
-                        card: widget.topCard!,
+                        card: displayCard!,
                         width: widget.cardWidth,
                         faceUp: true,
                       ),
@@ -122,64 +147,141 @@ class _DiscardPileWidgetState extends State<DiscardPileWidget> {
 
 /// Wraps a card with a drop-shadow + gold ring border that is fully clipped to
 /// the card's rounded corners — eliminating any rectangular box artefact.
-class _ClippedCardWithRing extends StatelessWidget {
+///
+/// When [isJokerDisguised] is true, an [AnimationController] drives a looping
+/// pulsing gold glow so all players can see this is a Joker in disguise.
+class _ClippedCardWithRing extends StatefulWidget {
   const _ClippedCardWithRing({
     required this.cardWidth,
     required this.isHovering,
+    required this.isJokerDisguised,
     required this.child,
   });
 
   final double cardWidth;
   final bool isHovering;
+  final bool isJokerDisguised;
   final Widget child;
+
+  @override
+  State<_ClippedCardWithRing> createState() => _ClippedCardWithRingState();
+}
+
+class _ClippedCardWithRingState extends State<_ClippedCardWithRing>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    );
+    _pulseAnimation = CurvedAnimation(
+      parent: _pulseController,
+      curve: Curves.easeInOut,
+    );
+
+    if (widget.isJokerDisguised) {
+      _pulseController.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(_ClippedCardWithRing oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isJokerDisguised && !_pulseController.isAnimating) {
+      _pulseController.repeat(reverse: true);
+    } else if (!widget.isJokerDisguised && _pulseController.isAnimating) {
+      _pulseController.stop();
+      _pulseController.value = 0.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(
-      AppDimensions.radiusCard * (cardWidth / AppDimensions.cardWidthMedium),
+      AppDimensions.radiusCard * (widget.cardWidth / AppDimensions.cardWidthMedium),
     );
 
-    return DecoratedBox(
-      // Outer shadow paints around the clip without creating a background box
-      decoration: BoxDecoration(
-        borderRadius: radius,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.8),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        final pulse = _pulseAnimation.value; // 0.0 → 1.0 → 0.0 (looping)
+
+        // Joker-disguised glow: gold border pulses between dim and bright,
+        // and the shadow glow breathes softly in and out.
+        final jokerBorderAlpha = widget.isJokerDisguised
+            ? (0.55 + 0.45 * pulse) // 0.55 – 1.0
+            : 0.0;
+        final jokerGlowRadius = widget.isJokerDisguised
+            ? (12.0 + 20.0 * pulse) // 12 – 32 px glow
+            : 0.0;
+        final jokerGlowAlpha = widget.isJokerDisguised
+            ? (0.35 + 0.45 * pulse) // 0.35 – 0.80
+            : 0.0;
+
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.8),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+              ),
+              if (widget.isHovering && !widget.isJokerDisguised)
+                BoxShadow(
+                  color: AppColors.goldPrimary.withValues(alpha: 0.5),
+                  blurRadius: 25,
+                  spreadRadius: 2,
+                ),
+              // Animated Joker glow — replaces hover glow when disguised
+              if (widget.isJokerDisguised)
+                BoxShadow(
+                  color: AppColors.goldPrimary.withValues(alpha: jokerGlowAlpha),
+                  blurRadius: jokerGlowRadius,
+                  spreadRadius: 3,
+                ),
+            ],
           ),
-          if (isHovering)
-            BoxShadow(
-              color: AppColors.goldPrimary.withValues(alpha: 0.5),
-              blurRadius: 25,
-              spreadRadius: 2,
-            ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: radius,
-        child: Stack(
-          children: [
-            child,
-            // Gold ring drawn INSIDE the clipped area — stays rounded, no rectangle
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: radius,
-                    border: Border.all(
-                      color:
-                          isHovering ? AppColors.goldPrimary : AppColors.goldDark,
-                      width: 3,
+          child: ClipRRect(
+            borderRadius: radius,
+            child: Stack(
+              children: [
+                child!,
+                // Gold ring drawn INSIDE the clipped area — stays rounded, no rectangle
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: radius,
+                        border: Border.all(
+                          color: widget.isJokerDisguised
+                              ? AppColors.goldPrimary.withValues(alpha: jokerBorderAlpha)
+                              : (widget.isHovering
+                                  ? AppColors.goldPrimary
+                                  : AppColors.goldDark),
+                          width: widget.isJokerDisguised ? 3.5 : 3,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
+      child: widget.child,
     );
   }
 }
