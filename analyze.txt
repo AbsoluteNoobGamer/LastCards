@@ -1,80 +1,36 @@
-Resolving dependencies...
-Downloading packages...
-  _fe_analyzer_shared 85.0.0 (96.0.0 available)
-  analyzer 7.6.0 (10.2.0 available)
-  analyzer_plugin 0.12.0 (0.14.4 available)
-  async 2.12.0 (2.13.0 available)
-  build 2.5.4 (4.0.4 available)
-  build_config 1.1.2 (1.2.0 available)
-  build_resolvers 2.5.4 (3.0.4 available)
-  build_runner 2.5.4 (2.11.1 available)
-  build_runner_core 9.1.2 (9.3.2 available)
-  built_value 8.12.3 (8.12.4 available)
-  checked_yaml 2.0.3 (2.0.4 available)
-  custom_lint 0.7.3 (0.8.1 available)
-  custom_lint_builder 0.7.3 (0.8.1 available)
-  custom_lint_core 0.7.1 (0.8.2 available)
-  custom_lint_visitor 1.0.0+7.7.0 (1.0.0+9.0.0 available)
-  dart_style 3.1.1 (3.1.5 available)
-  flutter_lints 5.0.0 (6.0.0 available)
-  flutter_riverpod 2.6.1 (3.2.1 available)
-  freezed 2.5.8 (3.2.5 available)
-  freezed_annotation 2.4.4 (3.1.0 available)
-  google_fonts 6.3.2 (8.0.2 available)
-  json_annotation 4.9.0 (4.11.0 available)
-  json_serializable 6.9.5 (6.13.0 available)
-  lints 5.1.1 (6.1.0 available)
-  meta 1.17.0 (1.18.1 available)
-  path_provider_android 2.2.19 (2.2.22 available)
-  path_provider_foundation 2.4.2 (2.6.0 available)
-  riverpod 2.6.1 (3.2.1 available)
-  riverpod_analyzer_utils 0.5.9 (0.5.10 available)
-  riverpod_annotation 2.6.1 (4.0.2 available)
-  riverpod_generator 2.6.4 (4.0.3 available)
-  riverpod_lint 2.6.4 (3.1.3 available)
-  shared_preferences 2.5.3 (2.5.4 available)
-  shared_preferences_android 2.4.13 (2.4.21 available)
-  shared_preferences_foundation 2.5.4 (2.5.6 available)
-  source_gen 2.0.0 (4.2.0 available)
-  source_helper 1.3.5 (1.3.10 available)
-  source_span 1.10.1 (1.10.2 available)
-  synchronized 3.3.1 (3.4.0 available)
-  uuid 4.5.2 (4.5.3 available)
-  vm_service 14.3.1 (15.0.2 available)
-Got dependencies!
-41 packages have newer versions incompatible with dependency constraints.
-Try `flutter pub outdated` for more information.
-Analyzing cards...                                              
+Analyzing cards...
 
-warning - Unused import: 'package:flutter/material.dart' - integration_test\dealing_animation_test.dart:1:8 - unused_import
-warning - Unused import: 'package:flutter_riverpod/flutter_riverpod.dart' - integration_test\dealing_animation_test.dart:4:8 - unused_import
-warning - The declaration 'hasOverflowException' isn't referenced - integration_test\hand_overflow_e2e_test.dart:64:8 - unused_element
-warning - Unused import: 'player_model.dart' - lib\core\models\offline_game_engine.dart:6:8 - unused_import
-warning - The '!' will have no effect because the receiver can't be null - lib\core\models\offline_game_engine_ai.dart:73:17 - unnecessary_non_null_assertion
-warning - The '!' will have no effect because the receiver can't be null - lib\core\models\offline_game_engine_ai.dart:75:24 - unnecessary_non_null_assertion
-warning - The '!' will have no effect because the receiver can't be null - lib\core\models\offline_game_engine_ai.dart:79:28 - unnecessary_non_null_assertion
-warning - Unused import: '../providers/connection_provider.dart' - lib\core\services\audio_service.dart:6:8 - unused_import
-   info - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead - lib\features\gameplay\presentation\widgets\dealing_animation_overlay.dart:128:23 - deprecated_member_use
-   info - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead - lib\features\gameplay\presentation\widgets\draw_pile_widget.dart:53:42 - deprecated_member_use
-   info - Statements in an if should be enclosed in a block - lib\features\gameplay\presentation\widgets\turn_indicator_overlay.dart:34:19 - curly_braces_in_flow_control_structures
-   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\leaderboard\presentation\screens\leaderboard_screen.dart:59:41 - deprecated_member_use
-warning - Unused import: '../../../start/presentation/screens/start_screen.dart' - lib\features\practice\presentation\screens\offline_practice_screen.dart:4:8 - unused_import
-   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\practice\presentation\screens\offline_practice_screen.dart:46:37 - deprecated_member_use
-   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\rules\presentation\screens\rules_screen.dart:230:47 - deprecated_member_use
-   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\settings\presentation\widgets\settings_modal.dart:196:27 - deprecated_member_use
-   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\settings\presentation\widgets\settings_modal.dart:204:27 - deprecated_member_use
-   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\settings\presentation\widgets\settings_modal.dart:212:27 - deprecated_member_use
-   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\settings\presentation\widgets\settings_modal.dart:220:27 - deprecated_member_use
-   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\start\presentation\screens\start_screen_background.dart:45:41 - deprecated_member_use
-   info - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead - lib\features\start\presentation\screens\start_screen_buttons.dart:198:40 - deprecated_member_use
-   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\start\presentation\screens\start_screen_buttons.dart:207:38 - deprecated_member_use
-   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\start\presentation\screens\start_screen_buttons.dart:214:35 - deprecated_member_use
-   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\start\presentation\screens\start_screen_buttons.dart:225:50 - deprecated_member_use
-   info - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead - lib\features\start\presentation\screens\start_screen_buttons.dart:304:13 - deprecated_member_use
-   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\start\presentation\screens\start_screen_buttons.dart:308:41 - deprecated_member_use
-   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\start\presentation\screens\start_screen_buttons.dart:318:48 - deprecated_member_use
-   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\start\presentation\screens\start_screen_buttons.dart:328:50 - deprecated_member_use
-   info - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead - lib\features\start\presentation\widgets\ai_selector_modal.dart:187:47 - deprecated_member_use
-warning - Unused import: 'package:stack_and_flow/core/models/offline_game_state.dart' - test\engine_test.dart:6:8 - unused_import
-warning - Unused import: 'package:flutter_riverpod/flutter_riverpod.dart' - test\widgets\timer_visibility_test.dart:3:8 - unused_import
+  error - lib\core\models\game_state.dart:69:8 - The redirected constructor '_GameState Function({int actionsThisTurn, int activePenaltyCount, int activeSkipCount, required String currentPlayerId, required PlayDirection direction, CardModel? discardSecondCard, CardModel? discardTopCard, int drawPileCount, CardModel? lastPlayedThisTurn, int lastUpdatedAt, bool pendingJokerResolution, required GamePhase phase, required List<PlayerModel> players, Suit? queenSuitLock, required String sessionId, Suit? suitLock, String? winnerId})' has incompatible parameters with 'GameState Function({int actionsThisTurn, int activePenaltyCount, int activeSkipCount, int cardsPlayedThisTurn, required String currentPlayerId, required PlayDirection direction, CardModel? discardSecondCard, CardModel? discardTopCard, int drawPileCount, CardModel? lastPlayedThisTurn, int lastUpdatedAt, bool pendingJokerResolution, required GamePhase phase, required List<PlayerModel> players, Suit? queenSuitLock, required String sessionId, Suit? suitLock, String? winnerId})'. Try redirecting to a different constructor. - redirect_to_invalid_function_type
+warning - integration_test\dealing_animation_test.dart:1:8 - Unused import: 'package:flutter/material.dart'. Try removing the import directive. - unused_import
+warning - integration_test\dealing_animation_test.dart:4:8 - Unused import: 'package:flutter_riverpod/flutter_riverpod.dart'. Try removing the import directive. - unused_import
+warning - integration_test\hand_overflow_e2e_test.dart:64:8 - The declaration 'hasOverflowException' isn't referenced. Try removing the declaration of 'hasOverflowException'. - unused_element
+warning - lib\core\models\offline_game_engine.dart:6:8 - Unused import: 'player_model.dart'. Try removing the import directive. - unused_import
+warning - lib\core\models\offline_game_engine_ai.dart:74:17 - The '!' will have no effect because the receiver can't be null. Try removing the '!' operator. - unnecessary_non_null_assertion
+warning - lib\core\models\offline_game_engine_ai.dart:76:24 - The '!' will have no effect because the receiver can't be null. Try removing the '!' operator. - unnecessary_non_null_assertion
+warning - lib\core\models\offline_game_engine_ai.dart:80:28 - The '!' will have no effect because the receiver can't be null. Try removing the '!' operator. - unnecessary_non_null_assertion
+warning - lib\core\services\audio_service.dart:6:8 - Unused import: '../providers/connection_provider.dart'. Try removing the import directive. - unused_import
+warning - lib\features\gameplay\presentation\widgets\discard_pile_widget.dart:71:18 - The '!' will have no effect because the receiver can't be null. Try removing the '!' operator. - unnecessary_non_null_assertion
+warning - lib\features\practice\presentation\screens\offline_practice_screen.dart:4:8 - Unused import: '../../../start/presentation/screens/start_screen.dart'. Try removing the import directive. - unused_import
+warning - test\engine_test.dart:6:8 - Unused import: 'package:stack_and_flow/core/models/offline_game_state.dart'. Try removing the import directive. - unused_import
+warning - test\widgets\timer_visibility_test.dart:3:8 - Unused import: 'package:flutter_riverpod/flutter_riverpod.dart'. Try removing the import directive. - unused_import
+   info - lib\features\gameplay\presentation\widgets\dealing_animation_overlay.dart:128:23 - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\features\gameplay\presentation\widgets\turn_indicator_overlay.dart:34:19 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib\features\leaderboard\presentation\screens\leaderboard_screen.dart:59:41 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\features\practice\presentation\screens\offline_practice_screen.dart:46:37 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\features\rules\presentation\screens\rules_screen.dart:230:47 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\features\settings\presentation\widgets\settings_modal.dart:196:27 - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\features\settings\presentation\widgets\settings_modal.dart:204:27 - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\features\settings\presentation\widgets\settings_modal.dart:212:27 - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\features\settings\presentation\widgets\settings_modal.dart:220:27 - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\features\start\presentation\screens\start_screen_background.dart:45:41 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\features\start\presentation\screens\start_screen_buttons.dart:198:40 - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\features\start\presentation\screens\start_screen_buttons.dart:207:38 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\features\start\presentation\screens\start_screen_buttons.dart:214:35 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\features\start\presentation\screens\start_screen_buttons.dart:225:50 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\features\start\presentation\screens\start_screen_buttons.dart:308:13 - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\features\start\presentation\screens\start_screen_buttons.dart:312:41 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\features\start\presentation\screens\start_screen_buttons.dart:322:48 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\features\start\presentation\screens\start_screen_buttons.dart:332:50 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib\features\start\presentation\widgets\ai_selector_modal.dart:187:47 - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
 
+32 issues found.

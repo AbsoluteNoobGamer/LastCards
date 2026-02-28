@@ -42,8 +42,9 @@ dev_dependencies:
   freezed: ^2.5.7
   json_serializable: ^6.8.0
   riverpod_generator: ^2.4.3
-  custom_lint: 0.7.3
-  riverpod_lint: ^2.3.13
+  # custom_lint: 0.7.3
+  # riverpod_lint: ^2.3.13
+  analyzer: 7.3.0
 
 flutter:
   uses-material-design: true

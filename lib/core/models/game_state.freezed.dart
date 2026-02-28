@@ -58,6 +58,11 @@ mixin _$GameState {
   /// Used to enforce that a player must play or draw before ending their turn.
   int get actionsThisTurn => throw _privateConstructorUsedError;
 
+  /// Number of individual cards played by the current player this turn.
+  /// Resets to 0 whenever the active player changes (at start of each new turn).
+  /// Used to determine if an Ace was played alone or as part of a sequence.
+  int get cardsPlayedThisTurn => throw _privateConstructorUsedError;
+
   /// The last card played by the current player this turn (as a single play).
   /// Used to enforce rank-adjacency between consecutive individual plays within
   /// the same turn (Numerical Flow Rule). Reset to null when the turn advances.
@@ -98,6 +103,7 @@ abstract class $GameStateCopyWith<$Res> {
       String? winnerId,
       int lastUpdatedAt,
       int actionsThisTurn,
+      int cardsPlayedThisTurn,
       CardModel? lastPlayedThisTurn,
       bool pendingJokerResolution});
 
@@ -136,6 +142,7 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
     Object? winnerId = freezed,
     Object? lastUpdatedAt = null,
     Object? actionsThisTurn = null,
+    Object? cardsPlayedThisTurn = null,
     Object? lastPlayedThisTurn = freezed,
     Object? pendingJokerResolution = null,
   }) {
@@ -199,6 +206,10 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
       actionsThisTurn: null == actionsThisTurn
           ? _value.actionsThisTurn
           : actionsThisTurn // ignore: cast_nullable_to_non_nullable
+              as int,
+      cardsPlayedThisTurn: null == cardsPlayedThisTurn
+          ? _value.cardsPlayedThisTurn
+          : cardsPlayedThisTurn // ignore: cast_nullable_to_non_nullable
               as int,
       lastPlayedThisTurn: freezed == lastPlayedThisTurn
           ? _value.lastPlayedThisTurn
@@ -278,6 +289,7 @@ abstract class _$$GameStateImplCopyWith<$Res>
       String? winnerId,
       int lastUpdatedAt,
       int actionsThisTurn,
+      int cardsPlayedThisTurn,
       CardModel? lastPlayedThisTurn,
       bool pendingJokerResolution});
 
@@ -317,6 +329,7 @@ class __$$GameStateImplCopyWithImpl<$Res>
     Object? winnerId = freezed,
     Object? lastUpdatedAt = null,
     Object? actionsThisTurn = null,
+    Object? cardsPlayedThisTurn = null,
     Object? lastPlayedThisTurn = freezed,
     Object? pendingJokerResolution = null,
   }) {
@@ -381,6 +394,10 @@ class __$$GameStateImplCopyWithImpl<$Res>
           ? _value.actionsThisTurn
           : actionsThisTurn // ignore: cast_nullable_to_non_nullable
               as int,
+      cardsPlayedThisTurn: null == cardsPlayedThisTurn
+          ? _value.cardsPlayedThisTurn
+          : cardsPlayedThisTurn // ignore: cast_nullable_to_non_nullable
+              as int,
       lastPlayedThisTurn: freezed == lastPlayedThisTurn
           ? _value.lastPlayedThisTurn
           : lastPlayedThisTurn // ignore: cast_nullable_to_non_nullable
@@ -412,6 +429,7 @@ class _$GameStateImpl implements _GameState {
       this.winnerId,
       this.lastUpdatedAt = 0,
       this.actionsThisTurn = 0,
+      this.cardsPlayedThisTurn = 0,
       this.lastPlayedThisTurn,
       this.pendingJokerResolution = false})
       : _players = players;
@@ -483,6 +501,13 @@ class _$GameStateImpl implements _GameState {
   @JsonKey()
   final int actionsThisTurn;
 
+  /// Number of individual cards played by the current player this turn.
+  /// Resets to 0 whenever the active player changes (at start of each new turn).
+  /// Used to determine if an Ace was played alone or as part of a sequence.
+  @override
+  @JsonKey()
+  final int cardsPlayedThisTurn;
+
   /// The last card played by the current player this turn (as a single play).
   /// Used to enforce rank-adjacency between consecutive individual plays within
   /// the same turn (Numerical Flow Rule). Reset to null when the turn advances.
@@ -497,7 +522,7 @@ class _$GameStateImpl implements _GameState {
 
   @override
   String toString() {
-    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardSecondCard: $discardSecondCard, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, activeSkipCount: $activeSkipCount, suitLock: $suitLock, queenSuitLock: $queenSuitLock, winnerId: $winnerId, lastUpdatedAt: $lastUpdatedAt, actionsThisTurn: $actionsThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn, pendingJokerResolution: $pendingJokerResolution)';
+    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardSecondCard: $discardSecondCard, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, activeSkipCount: $activeSkipCount, suitLock: $suitLock, queenSuitLock: $queenSuitLock, winnerId: $winnerId, lastUpdatedAt: $lastUpdatedAt, actionsThisTurn: $actionsThisTurn, cardsPlayedThisTurn: $cardsPlayedThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn, pendingJokerResolution: $pendingJokerResolution)';
   }
 
   @override
@@ -533,6 +558,8 @@ class _$GameStateImpl implements _GameState {
                 other.lastUpdatedAt == lastUpdatedAt) &&
             (identical(other.actionsThisTurn, actionsThisTurn) ||
                 other.actionsThisTurn == actionsThisTurn) &&
+            (identical(other.cardsPlayedThisTurn, cardsPlayedThisTurn) ||
+                other.cardsPlayedThisTurn == cardsPlayedThisTurn) &&
             (identical(other.lastPlayedThisTurn, lastPlayedThisTurn) ||
                 other.lastPlayedThisTurn == lastPlayedThisTurn) &&
             (identical(other.pendingJokerResolution, pendingJokerResolution) ||
@@ -558,6 +585,7 @@ class _$GameStateImpl implements _GameState {
       winnerId,
       lastUpdatedAt,
       actionsThisTurn,
+      cardsPlayedThisTurn,
       lastPlayedThisTurn,
       pendingJokerResolution);
 
@@ -594,6 +622,7 @@ abstract class _GameState implements GameState {
       final String? winnerId,
       final int lastUpdatedAt,
       final int actionsThisTurn,
+      final int cardsPlayedThisTurn,
       final CardModel? lastPlayedThisTurn,
       final bool pendingJokerResolution}) = _$GameStateImpl;
 
@@ -652,6 +681,12 @@ abstract class _GameState implements GameState {
   /// Used to enforce that a player must play or draw before ending their turn.
   @override
   int get actionsThisTurn;
+
+  /// Number of individual cards played by the current player this turn.
+  /// Resets to 0 whenever the active player changes (at start of each new turn).
+  /// Used to determine if an Ace was played alone or as part of a sequence.
+  @override
+  int get cardsPlayedThisTurn;
 
   /// The last card played by the current player this turn (as a single play).
   /// Used to enforce rank-adjacency between consecutive individual plays within

@@ -53,6 +53,11 @@ class GameState with _$GameState {
     /// Used to enforce that a player must play or draw before ending their turn.
     @Default(0) int actionsThisTurn,
 
+    /// Number of individual cards played by the current player this turn.
+    /// Resets to 0 whenever the active player changes (at start of each new turn).
+    /// Used to determine if an Ace was played alone or as part of a sequence.
+    @Default(0) int cardsPlayedThisTurn,
+
     /// The last card played by the current player this turn (as a single play).
     /// Used to enforce rank-adjacency between consecutive individual plays within
     /// the same turn (Numerical Flow Rule). Reset to null when the turn advances.

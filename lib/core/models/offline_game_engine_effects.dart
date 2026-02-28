@@ -45,6 +45,7 @@ GameState applyPlay({
   // card played this turn for same-turn sequential adjacency enforcement.
   gs = gs.copyWith(
     actionsThisTurn: gs.actionsThisTurn + 1,
+    cardsPlayedThisTurn: gs.cardsPlayedThisTurn + cards.length,
     lastPlayedThisTurn: lastCard,
   );
 
