@@ -238,7 +238,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     );
 
     setState(() {
-      _offlineState = newState;
+      _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
     });
 
     // Restart timer to give them a chance to play the drawn card or draw again explicitly
@@ -516,7 +516,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           .firstOrNull;
       final playerName = _offlineState.playerById(playerId)?.displayName ?? playerId;
       setState(() {
-        _offlineState = newState;
+        _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
         _selectedCardId = null;
         if (localInNew != null) _syncHandOrder(localInNew.hand);
         _lastMove = LastMoveInfo(
@@ -590,7 +590,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           .firstOrNull;
       final jokerPlayerName = _offlineState.playerById(playerId)?.displayName ?? playerId;
       setState(() {
-        _offlineState = newState;
+        _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
         _selectedCardId = null;
         if (localInNew != null) _syncHandOrder(localInNew.hand);
         _lastMove = LastMoveInfo(
@@ -618,7 +618,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         .firstOrNull;
     final playPlayerName = _offlineState.playerById(playerId)?.displayName ?? playerId;
     setState(() {
-      _offlineState = newState;
+      _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
       _selectedCardId = null;
       if (localInNew != null) _syncHandOrder(localInNew.hand);
       _lastMove = LastMoveInfo(
@@ -680,7 +680,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         .firstOrNull;
 
     setState(() {
-      _offlineState = newState;
+      _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
       _selectedCardId = null;
       if (localAfter != null) _syncHandOrder(localAfter.hand);
     });
@@ -731,7 +731,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         newState = newState.copyWith(queenSuitLock: null);
       }
       setState(() {
-        _offlineState = newState;
+        _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
         _selectedCardId = null;
         if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
         _lastMove = LastMoveInfo(playerName: penaltyPlayerName);
@@ -745,7 +745,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       newState = newState.copyWith(
           currentPlayerId: nextId, actionsThisTurn: 0, activeSkipCount: 0);
       setState(() {
-        _offlineState = newState;
+        _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
         _selectedCardId = null;
         if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
         _lastMove = LastMoveInfo(playerName: drawPlayerName);
@@ -789,7 +789,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           : LastMoveInfo(playerName: aiPlayerName); // drew a card
 
       setState(() {
-        _offlineState = result.state;
+        _offlineState = result.state.copyWith(drawPileCount: _drawPile.length);
         _aiThinking = false;
         _lastMove = aiLastMove;
       });
@@ -851,7 +851,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     // ── 7. Console confirmation ─────────────────────────────────────────────
     // ignore: avoid_print
-    print('Reshuffle complete. New draw pile count: ${_drawPile.length}');
+    print("Draw pile counter after reshuffle: ${_drawPile.length}");
+    
+    // Add verification print
+    int totalHandCount = 0;
+    for (var player in _offlineState.players) {
+      totalHandCount += player.hand.length;
+    }
+    // ignore: avoid_print
+    print("Total cards in circulation: ${_drawPile.length + _discardPile.length + totalHandCount}");
 
     if (!mounted) return;
 
