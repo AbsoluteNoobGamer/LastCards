@@ -12,6 +12,7 @@ import 'package:stack_and_flow/shared/rules/win_condition_rules.dart';
 import '../../data/datasources/offline_game_state_datasource.dart';
 import '../../domain/entities/game_state.dart';
 import '../../domain/entities/player.dart';
+import '../../../../shared/engine/game_turn_timer.dart';
 import '../controllers/connection_provider.dart';
 import '../controllers/game_provider.dart';
 import '../../data/datasources/websocket_client.dart';
@@ -28,6 +29,7 @@ import '../widgets/turn_indicator_overlay.dart';
 import '../controllers/audio_service.dart';
 import '../widgets/last_move_panel_widget.dart';
 import '../../../../features/profile/presentation/screens/profile_screen.dart';
+import '../../../../widgets/turn_timer_bar.dart';
 
 part 'table_screen_background.dart';
 part 'table_screen_layout.dart';
@@ -87,7 +89,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   late List<CardModel> _drawPile; // actual remaining cards
   final List<CardModel> _discardPile = []; // tracks all discarded cards
   // ── Turn timer ────────────────────────────────────────────────────
-  Timer? _turnTimer;
+  late final GameTurnTimer _engineTimer = GameTurnTimer();
 
   /// Toggled (not set) each time a reshuffle fires so DrawPileWidget can
   /// play the shuffle animation even on repeated reshuffles.
@@ -195,7 +197,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   @override
   void dispose() {
-    _turnTimer?.cancel();
+    _engineTimer.dispose();
     _reshuffleNotifier.dispose();
     // BGM stop
     _audioService.stopBgm();
@@ -203,30 +205,65 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   void _startTimer() {
-    _turnTimer?.cancel();
-    int secondsLeft = 30;
-    _turnTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      if (secondsLeft > 0) {
-        secondsLeft--;
-      } else {
-        // Timer expired
-        timer.cancel();
-        if (_offlineState.currentPlayerId == OfflineGameState.localId &&
-            !_aiThinking) {
-          if (_offlineState.queenSuitLock != null) {
-            // Timer expired while Queen uncovered -> force 1 draw, keep turn active
-            _showError('Timeout! Drew 1 card to find cover.');
-            _forcedQueenTimeoutDraw();
-          } else {
-            _endTurn();
-          }
+    _engineTimer.start(() {
+      if (!mounted) return;
+      if (_offlineState.currentPlayerId == OfflineGameState.localId &&
+          !_aiThinking) {
+        if (_offlineState.queenSuitLock != null) {
+          // Timer expired while Queen uncovered -> force 1 draw, keep turn active
+          _showError('Timeout! Drew 1 card to find cover.');
+          _forcedQueenTimeoutDraw();
+        } else {
+          // Normal timeout -> force 1 draw and immediately end turn
+          _forcedTimeoutDrawAndEnd();
         }
       }
     });
+  }
+
+  void _forcedTimeoutDrawAndEnd() {
+    if (_aiThinking) return;
+
+    _showError('Timeout! Drew 1 card as penalty.');
+
+    var newState = applyDraw(
+      state: _offlineState,
+      playerId: OfflineGameState.localId,
+      count: 1,
+      cardFactory: _makeCards,
+    );
+
+    // End turn automatically
+    final nextId = nextPlayerId(state: newState);
+    newState = newState.copyWith(
+      currentPlayerId: nextId,
+      actionsThisTurn: 0,
+      cardsPlayedThisTurn: 0,
+      lastPlayedThisTurn: null,
+      activeSkipCount: 0,
+      preTurnCentreSuit: newState.discardTopCard?.effectiveSuit,
+    );
+
+    final localAfter = newState.players
+        .where((p) => p.tablePosition == TablePosition.bottom)
+        .firstOrNull;
+
+    setState(() {
+      _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
+      _selectedCardId = null;
+      if (localAfter != null) _syncHandOrder(localAfter.hand);
+      _lastMove = LastMoveInfo(
+          playerName: _offlineState.playerById(OfflineGameState.localId)?.displayName ?? OfflineGameState.localId,
+          cardLabel: 'Timeout Draw'
+      );
+    });
+
+    _engineTimer.cancel();
+    if (nextId != OfflineGameState.localId) {
+      _scheduleAiTurn(nextId);
+    } else {
+      _startTimer();
+    }
   }
 
   void _forcedQueenTimeoutDraw() {
@@ -259,7 +296,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       return;
     }
 
-    _turnTimer?.cancel();
+    _engineTimer.cancel();
     setState(() => _selectedCardId = null);
 
     // Rule 1: Ace played alone triggers the suit selector at End Turn
@@ -387,6 +424,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         discardPileCount: _discardPile.length,
                         lastMove: _lastMove,
                         reshuffleNotifier: _reshuffleNotifier,
+                        timeRemainingStream: _engineTimer.timeRemainingStream,
                       ),
                     ),
                   ],
@@ -637,7 +675,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (localAfter != null) _syncHandOrder(localAfter.hand);
     });
 
-    _turnTimer?.cancel();
+    _engineTimer.cancel();
     if (nextId != OfflineGameState.localId) {
       _scheduleAiTurn(nextId);
     } else {
@@ -688,7 +726,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
         _lastMove = LastMoveInfo(playerName: penaltyPlayerName);
       });
-      _turnTimer?.cancel();
+      _engineTimer.cancel();
       if (nextId != OfflineGameState.localId) _scheduleAiTurn(nextId);
     } else {
       // Voluntary draw (no valid moves) — auto-end turn per the rules.
@@ -702,7 +740,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
         _lastMove = LastMoveInfo(playerName: drawPlayerName);
       });
-      _turnTimer?.cancel();
+      _engineTimer.cancel();
       if (nextId != OfflineGameState.localId) {
         _scheduleAiTurn(nextId);
       } else {
