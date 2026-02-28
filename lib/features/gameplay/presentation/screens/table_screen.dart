@@ -22,7 +22,7 @@ import '../widgets/hud_overlay_widget.dart';
 import '../widgets/player_hand_widget.dart';
 import '../widgets/player_zone_widget.dart';
 import '../widgets/card_widget.dart';
-import '../widgets/status_bar_widget.dart';
+import '../widgets/floating_action_bar_widget.dart';
 import '../widgets/turn_indicator_overlay.dart';
 import '../controllers/audio_service.dart';
 import '../widgets/last_move_panel_widget.dart';
@@ -351,20 +351,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               SafeArea(
                 child: Column(
                   children: [
-                    StatusBarWidget(
-                      activePlayerName: gameState
-                              .playerById(gameState.currentPlayerId)
-                              ?.displayName ??
-                          '',
-                      direction: gameState.direction,
-                      upcomingPlayerNames: _getUpcomingPlayerNames(gameState),
-                      canEndTurn: isOfflineMode
-                          ? (validateEndTurn(_offlineState) == null)
-                          : true,
-                      onEndTurn: isOfflineMode
-                          ? _endTurn
-                          : () {}, // TODO: handle live server End Turn
-                    ),
                     Expanded(
                       child: _TableLayout(
                         gameState: gameState,
@@ -438,25 +424,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   // ── Card tap ───────────────────────────────────────────────────────
-
-  List<String> _getUpcomingPlayerNames(GameState state) {
-    if (state.players.isEmpty) return [];
-
-    final int currentIndex =
-        state.players.indexWhere((p) => p.id == state.currentPlayerId);
-    if (currentIndex == -1) return [];
-
-    final names = <String>[];
-    final int dir = state.direction == PlayDirection.clockwise ? 1 : -1;
-    final int count = state.players.length;
-
-    for (int i = 1; i < count; i++) {
-      int nextIdx = (currentIndex + i * dir) % count;
-      if (nextIdx < 0) nextIdx += count;
-      names.add(state.players[nextIdx].displayName);
-    }
-    return names;
-  }
 
   void _onCardTap(String cardId) {
     if (_aiThinking) return;
