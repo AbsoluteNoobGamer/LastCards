@@ -23,6 +23,7 @@ class _TableLayout extends StatelessWidget {
     this.discardPileCount = 0,
     this.lastMove,
     this.reshuffleNotifier,
+    this.timeRemainingStream,
   });
 
   final GameState gameState;
@@ -48,6 +49,8 @@ class _TableLayout extends StatelessWidget {
   final LastMoveInfo? lastMove;
   /// Notifier toggled on every reshuffle — forwarded to [DrawPileWidget].
   final ValueNotifier<bool>? reshuffleNotifier;
+  /// The stream to consume for turn timers.
+  final Stream<int>? timeRemainingStream;
 
   @override
   Widget build(BuildContext context) {
@@ -226,11 +229,21 @@ class _TableLayout extends StatelessWidget {
                 padding: EdgeInsets.only(
                   bottom: isMobile ? AppDimensions.sm : AppDimensions.md,
                 ),
-                child: FloatingActionBarWidget(
-                  activePlayerName: gameState.playerById(gameState.currentPlayerId)?.displayName ?? '',
-                  direction: gameState.direction,
-                  canEndTurn: canEndTurn,
-                  onEndTurn: onEndTurnTap,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TurnTimerBar(
+                      timeRemainingStream: timeRemainingStream,
+                      isVisible: true,
+                    ),
+                    const SizedBox(height: 8),
+                    FloatingActionBarWidget(
+                      activePlayerName: gameState.playerById(gameState.currentPlayerId)?.displayName ?? '',
+                      direction: gameState.direction,
+                      canEndTurn: canEndTurn,
+                      onEndTurn: onEndTurnTap,
+                    ),
+                  ],
                 ),
               ),
 

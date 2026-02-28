@@ -1,0 +1,54 @@
+Resolving dependencies...
+Downloading packages...
+  _fe_analyzer_shared 80.0.0 (97.0.0 available)
+  analyzer 7.3.0 (11.0.0 available)
+  analyzer_plugin 0.12.0 (0.14.5 available)
+  build 2.5.4 (4.0.4 available)
+  build_config 1.1.2 (1.3.0 available)
+  build_resolvers 2.5.4 (3.0.4 available)
+  build_runner 2.5.4 (2.11.1 available)
+  build_runner_core 9.1.2 (9.3.2 available)
+  custom_lint_core 0.7.1 (0.8.2 available)
+  custom_lint_visitor 1.0.0+7.3.0 (1.0.0+9.0.0 available)
+  dart_style 3.1.0 (3.1.6 available)
+  flutter_lints 5.0.0 (6.0.0 available)
+  flutter_riverpod 2.6.1 (3.2.1 available)
+  freezed 2.5.8 (3.2.5 available)
+  freezed_annotation 2.4.4 (3.1.0 available)
+  google_fonts 6.3.3 (8.0.2 available)
+  json_annotation 4.9.0 (4.11.0 available)
+  json_serializable 6.9.5 (6.13.0 available)
+  lints 5.1.1 (6.1.0 available)
+  matcher 0.12.18 (0.12.19 available)
+  meta 1.17.0 (1.18.1 available)
+  mockito 5.4.5 (5.6.3 available)
+  riverpod 2.6.1 (3.2.1 available)
+  riverpod_analyzer_utils 0.5.9 (0.5.10 available)
+  riverpod_annotation 2.6.1 (4.0.2 available)
+  riverpod_generator 2.6.4 (4.0.3 available)
+  source_gen 2.0.0 (4.2.0 available)
+  source_helper 1.3.7 (1.3.10 available)
+  test_api 0.7.9 (0.7.10 available)
+Got dependencies!
+29 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/widget_test.dart
+00:00 +0 -1: loading C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/widget_test.dart [E]
+  Failed to load "C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/widget_test.dart":
+  Compilation failed for testPath=C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/widget_test.dart: lib/features/gameplay/presentation/screens/table_screen.dart:679:5: Error: The getter '_turnTimer' isn't defined for the type '_TableScreenState'.
+   - '_TableScreenState' is from 'package:stack_and_flow/features/gameplay/presentation/screens/table_screen.dart' ('lib/features/gameplay/presentation/screens/table_screen.dart').
+  Try correcting the name to the name of an existing getter, or defining a getter or field named '_turnTimer'.
+      _turnTimer?.cancel();
+      ^^^^^^^^^^
+  lib/features/gameplay/presentation/screens/table_screen.dart:730:7: Error: The getter '_turnTimer' isn't defined for the type '_TableScreenState'.
+   - '_TableScreenState' is from 'package:stack_and_flow/features/gameplay/presentation/screens/table_screen.dart' ('lib/features/gameplay/presentation/screens/table_screen.dart').
+  Try correcting the name to the name of an existing getter, or defining a getter or field named '_turnTimer'.
+        _turnTimer?.cancel();
+        ^^^^^^^^^^
+  lib/features/gameplay/presentation/screens/table_screen.dart:744:7: Error: The getter '_turnTimer' isn't defined for the type '_TableScreenState'.
+   - '_TableScreenState' is from 'package:stack_and_flow/features/gameplay/presentation/screens/table_screen.dart' ('lib/features/gameplay/presentation/screens/table_screen.dart').
+  Try correcting the name to the name of an existing getter, or defining a getter or field named '_turnTimer'.
+        _turnTimer?.cancel();
+        ^^^^^^^^^^
+  .
+00:00 +0 -1: Some tests failed.
