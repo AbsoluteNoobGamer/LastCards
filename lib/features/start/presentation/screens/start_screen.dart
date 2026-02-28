@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 import 'dart:ui' as ui;
 
@@ -14,6 +15,8 @@ import '../../../leaderboard/presentation/screens/leaderboard_screen.dart';
 import '../../../rules/presentation/screens/rules_screen.dart';
 import '../../../settings/presentation/widgets/settings_modal.dart';
 import '../widgets/ai_selector_modal.dart';
+import '../../../profile/presentation/screens/profile_screen.dart';
+import '../../../../core/providers/profile_provider.dart';
 
 part 'start_screen_background.dart';
 part 'start_screen_buttons.dart';
@@ -36,6 +39,12 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
     _bgController =
         AnimationController(vsync: this, duration: const Duration(seconds: 10))
           ..repeat();
+
+    // Load the saved profile from SharedPreferences so the avatar and name
+    // are up-to-date when the menu appears.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(profileProvider.notifier).loadFromPrefs();
+    });
   }
 
   @override
@@ -186,9 +195,30 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
               },
             ),
           ),
+
+          // 3. Profile badge — top-right corner
+          Positioned(
+            top: 0,
+            right: 0,
+            child: SafeArea(
+              child: _ProfileBadge(
+                onTap: () => _openProfileScreen(context),
+              ),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  void _openProfileScreen(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
+    ).then((_) {
+      // Refresh profile state when returning from ProfileScreen.
+      if (mounted) ref.read(profileProvider.notifier).loadFromPrefs();
+    });
   }
 
   void _pushWithTransition(BuildContext context, Widget screen) {

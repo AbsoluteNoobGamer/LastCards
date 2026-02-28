@@ -1,13 +1,19 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stack_and_flow/app/app.dart';
 
 void main() {
   testWidgets('App smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const StackAndFlowApp());
+    // Seed SharedPreferences so ProfileService doesn't crash during init.
+    SharedPreferences.setMockInitialValues({'profile_name': 'Noob 1'});
 
-    // Basic check: verify some initial text or widget if appropriate.
-    // For now, just ensure it pumps without crashing.
+    // Build our app wrapped in ProviderScope (same as main.dart).
+    await tester.pumpWidget(
+      const ProviderScope(child: StackAndFlowApp()),
+    );
+
+    // Basic check: verify it pumps without crashing.
     expect(find.byType(StackAndFlowApp), findsOneWidget);
   });
 }

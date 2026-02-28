@@ -1,0 +1,25 @@
+00:00 +0: loading C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart
+00:00 +0: 1. Default profile default name initialises as "Noob 1" on first launch
+00:00 +1: 1. Default profile default profile is saved to SharedPreferences on first launch
+00:00 +2: 1. Default profile saved profile loads correctly on subsequent launches
+00:00 +3: 2. Name validation valid name passes profanity filter and accepts correctly
+00:00 +4: 2. Name validation profane name is rejected with correct error message
+00:00 +5: 2. Name validation name over 17 characters is rejected
+00:00 +6: 2. Name validation name exactly 17 characters is accepted
+00:00 +7: 2. Name validation name matching "Player 2" is rejected
+00:00 +8: 2. Name validation name matching "Player 3" is rejected
+00:00 +9: 2. Name validation name matching "Player 4" is rejected
+00:01 +10: 2. Name validation empty name is rejected
+00:01 +11: 2. Name validation valid name shows green border (name-valid indicator)
+00:01 +12: 2. Name validation invalid name shows red border (name-error indicator)
+00:01 +13: 3. Image validation clean image passes NSFW scan and is accepted
+00:01 +14: 3. Image validation NSFW image is rejected with correct error message
+00:01 +15: 3. Image validation rejected image is not saved to SharedPreferences
+00:01 +16: 3. Image validation accepted image path is saved to SharedPreferences correctly
+00:01 +17: 4. Save button Save button is disabled on screen open with no changes
+00:01 +18: 4. Save button Save button enables after valid name change
+00:01 +19: 4. Save button Save button remains disabled if only invalid changes made
+00:01 +20: 5. Persistence saved name persists after app restart (mocked SharedPreferences)
+00:01 +21: 5. Persistence saved avatar path persists after app restart (mocked SharedPreferences)
+00:01 +22: 5. Persistence profile screen loads saved values correctly on reopen
+00:01 +23: All tests passed!
