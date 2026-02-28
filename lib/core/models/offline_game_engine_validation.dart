@@ -105,6 +105,15 @@ String? validatePlay({
       return 'Sequence must be consecutive cards of the same suit.';
     }
 
+    // Scenario 2 (Multi-card play involving Ace): 
+    // If the sequence starts with an Ace, it must match the pre-turn centre suit
+    // in order to be a valid *sequence containing an Ace*.
+    if (state.actionsThisTurn == 0 && sorted.first.effectiveRank == Rank.ace) {
+      if (sorted.first.effectiveSuit != state.preTurnCentreSuit) {
+         return 'Invalid sequence: The Ace (${sorted.first.shortLabel}) must match the centre card (${state.preTurnCentreSuit?.displayName}) to start a sequence.';
+      }
+    }
+
     // Leading card (lowest value) validates against the discard.
     return _validateSingle(sorted.first, discardTop, state);
   }
@@ -143,6 +152,15 @@ String? validatePlay({
       final isTwoAndAce = (prev.effectiveRank == Rank.two &&
               next.effectiveRank == Rank.ace) ||
           (prev.effectiveRank == Rank.ace && next.effectiveRank == Rank.two);
+
+      // Scenario 2 (Sequential Ace play):
+      // If the player played an Ace as their first card this turn, and is now trying
+      // to continue the sequence, the Ace *must* have matched the pre-turn centre suit.
+      if (prev.effectiveRank == Rank.ace && state.cardsPlayedThisTurn == 1) {
+        if (prev.effectiveSuit != state.preTurnCentreSuit) {
+           return 'Invalid sequence: The Ace (${prev.shortLabel}) must match the original centre card (${state.preTurnCentreSuit?.displayName}) to continue a sequence.';
+        }
+      }
 
       print(
           'DEBUG FLOW: prev=${prev.shortLabel} next=${next.shortLabel} sameSuit=$sameSuit rankDiff=$rankDiff isTwoAndAce=$isTwoAndAce');

@@ -39,6 +39,10 @@ class GameState with _$GameState {
     /// Active suit lock from an Ace or Joker declaration.
     Suit? suitLock,
 
+    /// The suit of the centre pile before the first card of the turn was played.
+    /// Used to validate sequence continuations originating from an Ace play.
+    Suit? preTurnCentreSuit,
+
     /// Active suit from a Queen — the next player MUST follow this suit.
     Suit? queenSuitLock,
 

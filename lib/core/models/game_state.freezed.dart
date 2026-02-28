@@ -44,6 +44,10 @@ mixin _$GameState {
   /// Active suit lock from an Ace or Joker declaration.
   Suit? get suitLock => throw _privateConstructorUsedError;
 
+  /// The suit of the centre pile before the first card of the turn was played.
+  /// Used to validate sequence continuations originating from an Ace play.
+  Suit? get preTurnCentreSuit => throw _privateConstructorUsedError;
+
   /// Active suit from a Queen — the next player MUST follow this suit.
   Suit? get queenSuitLock => throw _privateConstructorUsedError;
 
@@ -99,6 +103,7 @@ abstract class $GameStateCopyWith<$Res> {
       int activePenaltyCount,
       int activeSkipCount,
       Suit? suitLock,
+      Suit? preTurnCentreSuit,
       Suit? queenSuitLock,
       String? winnerId,
       int lastUpdatedAt,
@@ -138,6 +143,7 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
     Object? activePenaltyCount = null,
     Object? activeSkipCount = null,
     Object? suitLock = freezed,
+    Object? preTurnCentreSuit = freezed,
     Object? queenSuitLock = freezed,
     Object? winnerId = freezed,
     Object? lastUpdatedAt = null,
@@ -190,6 +196,10 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
       suitLock: freezed == suitLock
           ? _value.suitLock
           : suitLock // ignore: cast_nullable_to_non_nullable
+              as Suit?,
+      preTurnCentreSuit: freezed == preTurnCentreSuit
+          ? _value.preTurnCentreSuit
+          : preTurnCentreSuit // ignore: cast_nullable_to_non_nullable
               as Suit?,
       queenSuitLock: freezed == queenSuitLock
           ? _value.queenSuitLock
@@ -285,6 +295,7 @@ abstract class _$$GameStateImplCopyWith<$Res>
       int activePenaltyCount,
       int activeSkipCount,
       Suit? suitLock,
+      Suit? preTurnCentreSuit,
       Suit? queenSuitLock,
       String? winnerId,
       int lastUpdatedAt,
@@ -325,6 +336,7 @@ class __$$GameStateImplCopyWithImpl<$Res>
     Object? activePenaltyCount = null,
     Object? activeSkipCount = null,
     Object? suitLock = freezed,
+    Object? preTurnCentreSuit = freezed,
     Object? queenSuitLock = freezed,
     Object? winnerId = freezed,
     Object? lastUpdatedAt = null,
@@ -378,6 +390,10 @@ class __$$GameStateImplCopyWithImpl<$Res>
           ? _value.suitLock
           : suitLock // ignore: cast_nullable_to_non_nullable
               as Suit?,
+      preTurnCentreSuit: freezed == preTurnCentreSuit
+          ? _value.preTurnCentreSuit
+          : preTurnCentreSuit // ignore: cast_nullable_to_non_nullable
+              as Suit?,
       queenSuitLock: freezed == queenSuitLock
           ? _value.queenSuitLock
           : queenSuitLock // ignore: cast_nullable_to_non_nullable
@@ -425,6 +441,7 @@ class _$GameStateImpl implements _GameState {
       this.activePenaltyCount = 0,
       this.activeSkipCount = 0,
       this.suitLock,
+      this.preTurnCentreSuit,
       this.queenSuitLock,
       this.winnerId,
       this.lastUpdatedAt = 0,
@@ -481,6 +498,11 @@ class _$GameStateImpl implements _GameState {
   @override
   final Suit? suitLock;
 
+  /// The suit of the centre pile before the first card of the turn was played.
+  /// Used to validate sequence continuations originating from an Ace play.
+  @override
+  final Suit? preTurnCentreSuit;
+
   /// Active suit from a Queen — the next player MUST follow this suit.
   @override
   final Suit? queenSuitLock;
@@ -522,7 +544,7 @@ class _$GameStateImpl implements _GameState {
 
   @override
   String toString() {
-    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardSecondCard: $discardSecondCard, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, activeSkipCount: $activeSkipCount, suitLock: $suitLock, queenSuitLock: $queenSuitLock, winnerId: $winnerId, lastUpdatedAt: $lastUpdatedAt, actionsThisTurn: $actionsThisTurn, cardsPlayedThisTurn: $cardsPlayedThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn, pendingJokerResolution: $pendingJokerResolution)';
+    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardSecondCard: $discardSecondCard, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, activeSkipCount: $activeSkipCount, suitLock: $suitLock, preTurnCentreSuit: $preTurnCentreSuit, queenSuitLock: $queenSuitLock, winnerId: $winnerId, lastUpdatedAt: $lastUpdatedAt, actionsThisTurn: $actionsThisTurn, cardsPlayedThisTurn: $cardsPlayedThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn, pendingJokerResolution: $pendingJokerResolution)';
   }
 
   @override
@@ -550,6 +572,8 @@ class _$GameStateImpl implements _GameState {
                 other.activeSkipCount == activeSkipCount) &&
             (identical(other.suitLock, suitLock) ||
                 other.suitLock == suitLock) &&
+            (identical(other.preTurnCentreSuit, preTurnCentreSuit) ||
+                other.preTurnCentreSuit == preTurnCentreSuit) &&
             (identical(other.queenSuitLock, queenSuitLock) ||
                 other.queenSuitLock == queenSuitLock) &&
             (identical(other.winnerId, winnerId) ||
@@ -568,26 +592,28 @@ class _$GameStateImpl implements _GameState {
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      sessionId,
-      phase,
-      const DeepCollectionEquality().hash(_players),
-      currentPlayerId,
-      direction,
-      discardTopCard,
-      discardSecondCard,
-      drawPileCount,
-      activePenaltyCount,
-      activeSkipCount,
-      suitLock,
-      queenSuitLock,
-      winnerId,
-      lastUpdatedAt,
-      actionsThisTurn,
-      cardsPlayedThisTurn,
-      lastPlayedThisTurn,
-      pendingJokerResolution);
+  int get hashCode => Object.hashAll([
+        runtimeType,
+        sessionId,
+        phase,
+        const DeepCollectionEquality().hash(_players),
+        currentPlayerId,
+        direction,
+        discardTopCard,
+        discardSecondCard,
+        drawPileCount,
+        activePenaltyCount,
+        activeSkipCount,
+        suitLock,
+        preTurnCentreSuit,
+        queenSuitLock,
+        winnerId,
+        lastUpdatedAt,
+        actionsThisTurn,
+        cardsPlayedThisTurn,
+        lastPlayedThisTurn,
+        pendingJokerResolution
+      ]);
 
   /// Create a copy of GameState
   /// with the given fields replaced by the non-null parameter values.
@@ -618,6 +644,7 @@ abstract class _GameState implements GameState {
       final int activePenaltyCount,
       final int activeSkipCount,
       final Suit? suitLock,
+      final Suit? preTurnCentreSuit,
       final Suit? queenSuitLock,
       final String? winnerId,
       final int lastUpdatedAt,
@@ -663,6 +690,11 @@ abstract class _GameState implements GameState {
   /// Active suit lock from an Ace or Joker declaration.
   @override
   Suit? get suitLock;
+
+  /// The suit of the centre pile before the first card of the turn was played.
+  /// Used to validate sequence continuations originating from an Ace play.
+  @override
+  Suit? get preTurnCentreSuit;
 
   /// Active suit from a Queen — the next player MUST follow this suit.
   @override
