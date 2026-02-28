@@ -221,6 +221,19 @@ class _TableLayout extends StatelessWidget {
                 ),
               ),
 
+              // ── Floating Action Bar (Bottom HUD) ─────────────────────────
+              Padding(
+                padding: EdgeInsets.only(
+                  bottom: isMobile ? AppDimensions.sm : AppDimensions.md,
+                ),
+                child: FloatingActionBarWidget(
+                  activePlayerName: gameState.playerById(gameState.currentPlayerId)?.displayName ?? '',
+                  direction: gameState.direction,
+                  canEndTurn: canEndTurn,
+                  onEndTurn: onEndTurnTap,
+                ),
+              ),
+
               // ── Local player hand ───────────────────────────────────────
               Padding(
                 padding: EdgeInsets.only(
