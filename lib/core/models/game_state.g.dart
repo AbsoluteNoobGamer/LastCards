@@ -30,6 +30,7 @@ _$GameStateImpl _$$GameStateImplFromJson(Map<String, dynamic> json) =>
       winnerId: json['winnerId'] as String?,
       lastUpdatedAt: (json['lastUpdatedAt'] as num?)?.toInt() ?? 0,
       actionsThisTurn: (json['actionsThisTurn'] as num?)?.toInt() ?? 0,
+      cardsPlayedThisTurn: (json['cardsPlayedThisTurn'] as num?)?.toInt() ?? 0,
       lastPlayedThisTurn: json['lastPlayedThisTurn'] == null
           ? null
           : CardModel.fromJson(
@@ -54,6 +55,7 @@ Map<String, dynamic> _$$GameStateImplToJson(_$GameStateImpl instance) =>
       'winnerId': instance.winnerId,
       'lastUpdatedAt': instance.lastUpdatedAt,
       'actionsThisTurn': instance.actionsThisTurn,
+      'cardsPlayedThisTurn': instance.cardsPlayedThisTurn,
       'lastPlayedThisTurn': instance.lastPlayedThisTurn,
       'pendingJokerResolution': instance.pendingJokerResolution,
     };

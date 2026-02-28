@@ -245,7 +245,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _startTimer();
   }
 
-  void _endTurn() {
+  Future<void> _endTurn() async {
     if (_aiThinking) return;
     if (_offlineState.currentPlayerId != OfflineGameState.localId) return;
 
@@ -258,11 +258,33 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _turnTimer?.cancel();
     setState(() => _selectedCardId = null);
 
+    // Rule 1: Ace played alone triggers the suit selector at End Turn
+    if (_offlineState.discardTopCard?.effectiveRank == Rank.ace &&
+        _offlineState.cardsPlayedThisTurn == 1 &&
+        mounted) {
+      final chosenSuit = await showModalBottomSheet<Suit>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (_) => const _AceSuitPickerSheet(),
+      );
+      if (!mounted) return;
+
+      if (chosenSuit == null) {
+        _startTimer(); // Resume the timer if they dismissed the sheet
+        return; // Don't end turn yet
+      }
+
+      setState(() {
+        _offlineState = _offlineState.copyWith(suitLock: chosenSuit);
+      });
+    }
+
     final nextId = nextPlayerId(state: _offlineState);
     setState(() {
       _offlineState = _offlineState.copyWith(
         currentPlayerId: nextId,
         actionsThisTurn: 0,
+        cardsPlayedThisTurn: 0,
         lastPlayedThisTurn: null,
         activeSkipCount: 0,
       );
@@ -480,60 +502,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       return;
     }
 
-    // Only ask for a suit if the Ace is acting as a wild card.
-    // An Ace is a wild card ONLY if it's the very first card played this turn.
-    final isWildAce = _offlineState.actionsThisTurn == 0 &&
-        played.first.effectiveRank == Rank.ace;
-    if (isWildAce && mounted) {
-      // Show selection visual while the modal is open
-      setState(() => _selectedCardId = cardId);
-      final chosenSuit = await showModalBottomSheet<Suit>(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (_) => const _AceSuitPickerSheet(),
-      );
-      if (!mounted) return;
-      // If dismissed without picking, cancel the play.
-      if (chosenSuit == null) {
-        setState(() => _selectedCardId = null);
-        return;
-      }
-
-      // Apply play with the declared suit.
-      var newState = applyPlay(
-        state: _offlineState,
-        playerId: playerId,
-        cards: played,
-        declaredSuit: chosenSuit,
-      );
-
-
-
-      _discardPile.addAll(played);
-
-      final localInNew = newState.players
-          .where((p) => p.tablePosition == TablePosition.bottom)
-          .firstOrNull;
-      final playerName = _offlineState.playerById(playerId)?.displayName ?? playerId;
-      setState(() {
-        _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
-        _selectedCardId = null;
-        if (localInNew != null) _syncHandOrder(localInNew.hand);
-        _lastMove = LastMoveInfo(
-          playerName: playerName,
-          cardLabel: played.first.shortLabel,
-        );
-      });
-
-      _reshuffleCentrePileIntoDrawPile();
-      if (_checkWin(playerId, newState)) return;
-
-      // Wild Aces always end the turn immediately
-      _endTurn();
-
-      return;
-    }
-
     // Intercept Joker plays (mirrors Ace popup flow)
     if (played.length == 1 && played.first.isJoker && mounted) {
       final jokerContext =
@@ -671,6 +639,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     newState = newState.copyWith(
       currentPlayerId: nextId,
       actionsThisTurn: 0,
+      cardsPlayedThisTurn: 0,
       lastPlayedThisTurn: null,
       activeSkipCount: 0,
     );
@@ -726,7 +695,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final penaltyPlayerName = _offlineState.playerById(playerId)?.displayName ?? playerId;
       final nextId = nextPlayerId(state: newState);
       newState = newState.copyWith(
-          currentPlayerId: nextId, actionsThisTurn: 0, activeSkipCount: 0);
+          currentPlayerId: nextId, actionsThisTurn: 0, cardsPlayedThisTurn: 0, activeSkipCount: 0);
       if (isQueenPenaltyDraw) {
         newState = newState.copyWith(queenSuitLock: null);
       }
@@ -743,7 +712,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final drawPlayerName = _offlineState.playerById(playerId)?.displayName ?? playerId;
       final nextId = nextPlayerId(state: newState);
       newState = newState.copyWith(
-          currentPlayerId: nextId, actionsThisTurn: 0, activeSkipCount: 0);
+          currentPlayerId: nextId, actionsThisTurn: 0, cardsPlayedThisTurn: 0, activeSkipCount: 0);
       setState(() {
         _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
         _selectedCardId = null;

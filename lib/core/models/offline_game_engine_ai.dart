@@ -46,6 +46,7 @@ part of 'offline_game_engine.dart';
         state: newState.copyWith(
             currentPlayerId: next,
             actionsThisTurn: 0,
+            cardsPlayedThisTurn: 0,
             lastPlayedThisTurn: null,
             activeSkipCount: 0),
         playedCards: [],
@@ -148,6 +149,7 @@ part of 'offline_game_engine.dart';
       state: afterPlay.copyWith(
           currentPlayerId: next,
           actionsThisTurn: 0,
+          cardsPlayedThisTurn: 0,
           lastPlayedThisTurn: null,
           activeSkipCount: 0),
       playedCards: playedCards,
@@ -166,6 +168,7 @@ part of 'offline_game_engine.dart';
     state: afterDraw.copyWith(
         currentPlayerId: next,
         actionsThisTurn: 0,
+        cardsPlayedThisTurn: 0,
         lastPlayedThisTurn: null,
         activeSkipCount: 0),
     playedCards: [],
