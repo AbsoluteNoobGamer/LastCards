@@ -135,6 +135,59 @@ void main() {
       expect(labels, containsAll({'2♥', 'A♠', 'A♦', 'A♣'}));
       expect(labels.contains('K♥'), isFalse);
     });
+
+    test(
+        'Context B edge case: Joker after 2♥ returns A♥, 3♥, and 3 cross-suit 2s = 5',
+        () {
+      const top = CardModel(id: '2h', rank: Rank.two, suit: Suit.hearts);
+      final state = _baseState(
+        discardTop: top,
+        actionsThisTurn: 1,
+        lastPlayedThisTurn: top,
+      );
+
+      final options = getValidJokerOptions(
+        state: state,
+        discardTop: top,
+        context: JokerPlayContext.midTurnContinuance,
+        contextTopCard: top,
+      );
+
+      final labels = options.map((c) => c.shortLabel).toSet();
+      expect(options.length, 5);
+      expect(labels, containsAll({'A♥', '3♥', '2♠', '2♦', '2♣'}));
+    });
+
+    test(
+        'Context B with active penalty: Joker after 2♥ returns sequence continuations AND penalty addressing cards',
+        () {
+      // 2♥ played mid-turn on top of another penalty card, activePenaltyCount = 2
+      const top = CardModel(id: '2h', rank: Rank.two, suit: Suit.hearts);
+      final state = _baseState(
+        discardTop: top,
+        actionsThisTurn: 1,
+        lastPlayedThisTurn: top,
+        activePenaltyCount: 2,
+      );
+
+      final options = getValidJokerOptions(
+        state: state,
+        discardTop: top,
+        context: JokerPlayContext.midTurnContinuance,
+        contextTopCard: top,
+      );
+
+      final labels = options.map((c) => c.shortLabel).toSet();
+      
+      // Should contain sequence continuations for 2♥
+      expect(labels, containsAll({'A♥', '3♥'}));
+      
+      // Should contain penalty addressing cards (all 2s, Black Jacks, Red Jacks)
+      // Note: 2♥ is the target, so it's excluded from options.
+      expect(labels, containsAll({'2♠', '2♦', '2♣'})); // Other 2s
+      expect(labels, containsAll({'J♠', 'J♣'})); // Black Jacks
+      expect(labels, containsAll({'J♥', 'J♦'})); // Red Jacks
+    });
   });
 
   group('Joker regression checks', () {

@@ -217,6 +217,7 @@ List<CardModel> getValidJokerOptions({
           : discardTop);
   final targetRank = anchorCard.effectiveRank;
   final targetSuit = anchorCard.effectiveSuit;
+  final activeSequenceSuit = playContext == JokerPlayContext.midTurnContinuance ? targetSuit : null;
 
   for (final suit in Suit.values) {
     for (final rank in Rank.values) {
@@ -227,18 +228,32 @@ List<CardModel> getValidJokerOptions({
 
       bool isValidMatch = false;
 
+      // Check sequence continuation explicitly
+      bool isSequenceContinuation = false;
+      if (activeSequenceSuit != null && suit == activeSequenceSuit) {
+        if (targetRank == Rank.ace) {
+          isSequenceContinuation = rank == Rank.two;
+        } else if (rank == Rank.ace) {
+          isSequenceContinuation = targetRank == Rank.two;
+        } else {
+          final diff = (rank.numericValue - targetRank.numericValue).abs();
+          isSequenceContinuation = diff == 1;
+        }
+      }
+
       // 3. Penalty Rules
       if (state.activePenaltyCount > 0) {
         // During an active penalty, standard adjacent/rank matching doesn't apply.
         // A player MUST address the penalty. Valid cards are 2s, Black Jacks, and Red Jacks.
         // So a Joker can mimic ANY 2, ANY Black Jack, or ANY Red Jack (except the exact dupe).
+        // Sequence continuations of the active sequence are also allowed.
         final isTwo = rank == Rank.two;
         final isBlackJack =
             rank == Rank.jack && (suit == Suit.clubs || suit == Suit.spades);
         final isRedJack =
             rank == Rank.jack && (suit == Suit.hearts || suit == Suit.diamonds);
 
-        isValidMatch = isTwo || isBlackJack || isRedJack;
+        isValidMatch = isTwo || isBlackJack || isRedJack || isSequenceContinuation;
       } else {
         if (playContext == JokerPlayContext.turnStarter) {
           // 1. TURN-START (first play after opponent ends):
@@ -250,20 +265,8 @@ List<CardModel> getValidJokerOptions({
           // 2. MID-TURN CONTINUANCE:
           // Joker can mimic adjacent rank of same suit OR same rank.
           final isSameValueOtherSuit = rank == targetRank && suit != targetSuit;
-          if (isSameValueOtherSuit) {
+          if (isSameValueOtherSuit || isSequenceContinuation) {
             isValidMatch = true;
-          } else if (suit == targetSuit) {
-            final bool isAdjacentSameSuit;
-            if (targetRank == Rank.ace) {
-              // No wrap-around below Ace (so K is not valid when anchoring on Ace).
-              isAdjacentSameSuit = rank == Rank.two;
-            } else {
-              final diff = (rank.numericValue - targetRank.numericValue).abs();
-              isAdjacentSameSuit = diff == 1;
-            }
-            if (isAdjacentSameSuit) {
-              isValidMatch = true;
-            }
           }
         }
       }

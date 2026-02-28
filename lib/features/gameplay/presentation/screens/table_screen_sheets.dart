@@ -198,10 +198,12 @@ class _JokerSelectionSheet extends StatelessWidget {
   const _JokerSelectionSheet({
     required this.options,
     required this.playContext,
+    this.activeSequenceSuit,
   });
 
   final List<CardModel> options;
   final JokerPlayContext playContext;
+  final Suit? activeSequenceSuit;
 
   @override
   Widget build(BuildContext context) {
@@ -276,26 +278,68 @@ class _JokerSelectionSheet extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // Build a wrapping grid of PlayingCard visuals
-          Wrap(
-            spacing: isMobile ? 8 : 12,
-            runSpacing: isMobile ? 10 : 16,
-            alignment: WrapAlignment.center,
-            children: options.map((card) {
-              return SizedBox(
-                width: optionWidth,
-                child: CardWidget(
-                  card: card,
-                  isSelected: false,
-                  onTap: () => Navigator.of(context).pop(card),
-                ),
+          if (activeSequenceSuit != null) ...[
+            Builder(builder: (context) {
+              final sequenceOptions = options.where((c) => c.suit == activeSequenceSuit).toList();
+              final otherOptions = options.where((c) => c.suit != activeSequenceSuit).toList();
+
+              if (sequenceOptions.isEmpty) {
+                 return _buildOptionsWrap(options, optionWidth, context, isMobile);
+              }
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                   Text(
+                     'Sequence Continuations',
+                     style: TextStyle(
+                       color: AppColors.goldPrimary,
+                       fontSize: isMobile ? 13 : 14,
+                       fontWeight: FontWeight.w700,
+                     ),
+                   ),
+                   const SizedBox(height: 12),
+                   _buildOptionsWrap(sequenceOptions, optionWidth, context, isMobile),
+                   if (otherOptions.isNotEmpty) ...[
+                     const SizedBox(height: 24),
+                     Text(
+                       'Other Options',
+                       style: TextStyle(
+                         color: AppColors.goldDark,
+                         fontSize: isMobile ? 12 : 13,
+                         fontWeight: FontWeight.w600,
+                       ),
+                     ),
+                     const SizedBox(height: 12),
+                     _buildOptionsWrap(otherOptions, optionWidth, context, isMobile),
+                   ]
+                ],
               );
-            }).toList(),
-          ),
+            }),
+          ] else
+            _buildOptionsWrap(options, optionWidth, context, isMobile),
 
           const SizedBox(height: 8),
         ],
       ),
+    );
+  }
+
+  Widget _buildOptionsWrap(List<CardModel> cardOptions, double optionWidth, BuildContext context, bool isMobile) {
+    return Wrap(
+      spacing: isMobile ? 8 : 12,
+      runSpacing: isMobile ? 10 : 16,
+      alignment: WrapAlignment.center,
+      children: cardOptions.map((card) {
+        return SizedBox(
+          width: optionWidth,
+          child: CardWidget(
+            card: card,
+            isSelected: false,
+            onTap: () => Navigator.of(context).pop(card),
+          ),
+        );
+      }).toList(),
     );
   }
 }
