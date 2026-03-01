@@ -2,6 +2,11 @@
 
 A new Flutter project.
 
+## Game Rules
+
+- [Rules by Mode](docs/rules-by-mode.md)
+- Complete gameplay rules, special cards, and mode-specific behavior.
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
