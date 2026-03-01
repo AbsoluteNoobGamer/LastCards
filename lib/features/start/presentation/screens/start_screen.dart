@@ -17,6 +17,7 @@ import '../../../settings/presentation/widgets/settings_modal.dart';
 import '../widgets/ai_selector_modal.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
 import '../../../../core/providers/profile_provider.dart';
+import '../../../../screens/tournament_screen.dart';
 
 part 'start_screen_background.dart';
 part 'start_screen_buttons.dart';
@@ -144,14 +145,23 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                                         _PlayAiButton(),
                                         const SizedBox(height: 16),
                                         _PlayOnlineButton(),
+                                        const SizedBox(height: 16),
+                                        _TournamentButton(),
                                       ],
                                     )
-                                  : Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                  : Column(
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        _PlayAiButton(),
-                                        const SizedBox(width: 24),
-                                        _PlayOnlineButton(),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            _PlayAiButton(),
+                                            const SizedBox(width: 24),
+                                            _PlayOnlineButton(),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 24),
+                                        _TournamentButton(),
                                       ],
                                     ),
                             ],

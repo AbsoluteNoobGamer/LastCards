@@ -217,6 +217,36 @@ class _PlayOnlineButtonState extends State<_PlayOnlineButton>
   }
 }
 
+class _TournamentButton extends StatefulWidget {
+  @override
+  State<_TournamentButton> createState() => _TournamentButtonState();
+}
+
+class _TournamentButtonState extends State<_TournamentButton> {
+  bool _isHovered = false;
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PrimaryButtonBase(
+      label: "Tournament",
+      iconWidget: const Icon(Icons.emoji_events, color: Color(0xFFFFD700), size: 26),
+      isHovered: _isHovered,
+      isPressed: _isPressed,
+      onHover: (val) => setState(() => _isHovered = val),
+      onTapDown: (_) {
+        HapticFeedback.lightImpact();
+        setState(() => _isPressed = true);
+      },
+      onTapCancel: () => setState(() => _isPressed = false),
+      onTap: () {
+        Navigator.push(
+            context, MaterialPageRoute(builder: (_) => const TournamentScreen()));
+      },
+    );
+  }
+}
+
 class _PrimaryButtonBase extends StatelessWidget {
   final String label;
   final Widget iconWidget;
