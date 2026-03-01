@@ -192,29 +192,46 @@ class _TableLayout extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: AppDimensions.sm),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
+                      Center(
                         child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            DrawPileWidget(
-                              key: drawPileKey,
-                              cardCount: gameState.drawPileCount,
-                              onTap: onDrawTap,
-                              cardWidth: drawCardWidth,
-                              enabled: isMyTurn &&
-                                  (gameState.actionsThisTurn == 0 ||
-                                      gameState.queenSuitLock != null) &&
-                                  selectedCardId == null &&
-                                  !isDealing,
-                              reshuffleNotifier: reshuffleNotifier,
+                            SizedBox(
+                              width: 100,
+                              height: 145,
+                              child: OverflowBox(
+                                maxWidth: double.infinity,
+                                maxHeight: double.infinity,
+                                child: DrawPileWidget(
+                                  key: drawPileKey,
+                                  cardCount: gameState.drawPileCount,
+                                  onTap: onDrawTap,
+                                  cardWidth: 100,
+                                  enabled: isMyTurn &&
+                                      (gameState.actionsThisTurn == 0 ||
+                                          gameState.queenSuitLock != null) &&
+                                      selectedCardId == null &&
+                                      !isDealing,
+                                  reshuffleNotifier: reshuffleNotifier,
+                                ),
+                              ),
                             ),
-                            const SizedBox(width: AppDimensions.sm),
-                            DiscardPileWidget(
-                              topCard: gameState.discardTopCard,
-                              secondCard: gameState.discardSecondCard,
-                              cardWidth: discardCardWidth,
-                              discardPileCount: discardPileCount,
+                            const SizedBox(width: 24),
+                            SizedBox(
+                              width: 100,
+                              height: 145,
+                              child: OverflowBox(
+                                maxWidth: double.infinity,
+                                maxHeight: double.infinity,
+                                child: DiscardPileWidget(
+                                  topCard: gameState.discardTopCard,
+                                  secondCard: gameState.discardSecondCard,
+                                  cardWidth: 100,
+                                  discardPileCount: discardPileCount,
+                                ),
+                              ),
                             ),
                           ],
                         ),
