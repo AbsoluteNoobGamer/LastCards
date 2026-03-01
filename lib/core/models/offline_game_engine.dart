@@ -1,4 +1,5 @@
 import 'package:stack_and_flow/shared/engine/game_engine.dart';
+import 'player_model.dart';
 
 export 'package:stack_and_flow/shared/engine/game_engine.dart';
 
