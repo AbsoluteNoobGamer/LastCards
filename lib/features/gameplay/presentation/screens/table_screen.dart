@@ -27,6 +27,8 @@ import '../widgets/turn_indicator_overlay.dart';
 import '../controllers/audio_service.dart';
 import '../widgets/last_move_panel_widget.dart';
 import '../../../../widgets/turn_timer_bar.dart';
+import '../../../../services/audio_service.dart' as game_audio;
+import '../../../../services/game_sound.dart';
 
 part 'table_screen_background.dart';
 part 'table_screen_layout.dart';
@@ -116,6 +118,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   final List<CardModel> _discardPile = []; // tracks all discarded cards
   // ── Turn timer ────────────────────────────────────────────────────
   late final GameTurnTimer _engineTimer = GameTurnTimer();
+  StreamSubscription<int>? _timerWarningSub;
+  bool _timerWarningPlayed = false;
 
   /// Toggled (not set) each time a reshuffle fires so DrawPileWidget can
   /// play the shuffle animation even on repeated reshuffles.
@@ -215,7 +219,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       for (final p in orderedPlayers) {
         if (!mounted) return;
 
-        await audioService.playDealCard();
+        audioService.playDealCard();
         final overlay = _overlayKey.currentState;
         if (overlay != null) {
           await overlay.animateCardDeal(p.id);
@@ -253,6 +257,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   @override
   void dispose() {
+    _timerWarningSub?.cancel();
     _engineTimer.dispose();
     _reshuffleNotifier.dispose();
     // BGM stop
@@ -261,6 +266,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   void _startTimer() {
+    _timerWarningPlayed = false;
+    _timerWarningSub?.cancel();
+    _timerWarningSub = _engineTimer.timeRemainingStream.listen((secondsLeft) {
+      if (!_timerWarningPlayed && secondsLeft > 0 && secondsLeft <= 10) {
+        _timerWarningPlayed = true;
+        game_audio.AudioService.instance.playSound(GameSound.timerWarning);
+      }
+    });
+    game_audio.AudioService.instance.playSound(GameSound.turnStart);
     _engineTimer.start(() {
       if (!mounted) return;
       if (widget.isTournamentMode &&
@@ -287,6 +301,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (_offlineState.currentPlayerId == OfflineGameState.localId &&
           !_aiThinking) {
         // Timeout rule: always force a single draw, end the turn, and pass play.
+        game_audio.AudioService.instance.playSound(GameSound.timerExpired);
         _forcedTimeoutDrawAndEnd();
       }
     });
@@ -1003,6 +1018,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     // ── 3. Add shuffled cards to draw pile ──────────────────────────────────
     _drawPile.addAll(toShuffle);
+    game_audio.AudioService.instance.playSound(GameSound.shuffleDeck);
 
     // ── 7. Console confirmation ─────────────────────────────────────────────
     // ignore: avoid_print
@@ -1062,6 +1078,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final winner = state.players
         .where((p) => p.hand.isEmpty && p.cardCount == 0)
         .firstOrNull!;
+    game_audio.AudioService.instance.playSound(GameSound.playerWin);
 
     Future.microtask(() {
       if (!mounted) return;
@@ -1098,10 +1115,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final finishPosition = _tournamentFinishedPlayerIds.length;
     final playerName = state.playerById(playerId)?.displayName ?? playerId;
     widget.onPlayerFinished(playerName, finishPosition);
+    if (_tournamentFinishedPlayerIds.length < state.players.length) {
+      game_audio.AudioService.instance.playSound(GameSound.tournamentQualify);
+    }
 
     if (_tournamentFinishedPlayerIds.length == state.players.length) {
       _tournamentRoundComplete = true;
       final eliminatedPlayerId = _tournamentFinishedPlayerIds.last;
+      game_audio.AudioService.instance.playSound(GameSound.tournamentEliminate);
 
       _engineTimer.cancel();
       setState(() {

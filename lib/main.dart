@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
 import 'core/services/profile_service.dart';
+import 'services/audio_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -10,6 +11,7 @@ Future<void> main() async {
   // Initialise default profile ("Noob 1") on first launch.
   // This is a no-op on all subsequent launches.
   await const ProfileService().initDefaultIfNeeded();
+  await AudioService.instance.init();
 
   runApp(
     // Riverpod root scope
