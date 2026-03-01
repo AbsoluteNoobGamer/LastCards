@@ -4,6 +4,8 @@ import 'package:stack_and_flow/features/gameplay/presentation/screens/table_scre
 import 'package:stack_and_flow/screens/tournament/tournament_lobby_screen.dart';
 import 'package:stack_and_flow/screens/tournament/tournament_round_summary_screen.dart';
 import 'package:stack_and_flow/screens/tournament/tournament_winner_screen.dart';
+import 'package:stack_and_flow/services/audio_service.dart';
+import 'package:stack_and_flow/services/game_sound.dart';
 import 'package:stack_and_flow/tournament/tournament_engine.dart';
 
 typedef TournamentRoundGameBuilder = Widget Function({
@@ -128,6 +130,8 @@ class _TournamentScreenState extends State<TournamentScreen> {
     if (!mounted || !_engine.isComplete) {
       return;
     }
+
+    AudioService.instance.playSound(GameSound.tournamentWin);
 
     await Navigator.pushReplacement(
       context,

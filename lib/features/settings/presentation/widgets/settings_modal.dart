@@ -190,9 +190,9 @@ class SettingsModal extends ConsumerWidget {
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
                           dense: isMobile,
-                          title: const Text('Mute All Audio'),
-                          value: audioService.isMuted,
-                          onChanged: (val) => audioService.toggleMute(),
+                          title: const Text('Sound Effects'),
+                          value: audioService.soundEffectsEnabled,
+                          onChanged: (val) => audioService.setSoundEffectsEnabled(val),
                           activeColor: Colors.amber,
                         ),
                         SwitchListTile(

@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import '../models/card_model.dart';
 import '../models/game_state_model.dart';
 import '../rules/card_rules.dart';
 import '../rules/pickup_chain_rules.dart';
+import '../../services/audio_service.dart';
+import '../../services/game_sound.dart';
 
 export '../models/card_model.dart';
 export '../models/game_state_model.dart';
@@ -352,6 +355,13 @@ GameState applyPlay({
     queenSuitLock: null,
   );
 
+  if (cards.isNotEmpty) {
+    unawaited(AudioService.instance.playSound(GameSound.cardPlace));
+    if (cards.any(_isSpecialCard)) {
+      unawaited(AudioService.instance.playSound(GameSound.specialCard));
+    }
+  }
+
   // A declaredSuit is only honored if the Ace was played as a Wild Card
   // (i.e., it's the very first card of the turn and the first card of this play).
   final isWildAcePlay =
@@ -527,6 +537,12 @@ GameState applyDraw({
   required List<CardModel> Function(int n) cardFactory,
 }) {
   final drawn = cardFactory(count);
+  if (drawn.isNotEmpty) {
+    unawaited(AudioService.instance.playSound(GameSound.cardDraw));
+    if (state.activePenaltyCount > 0) {
+      unawaited(AudioService.instance.playSound(GameSound.penaltyDraw));
+    }
+  }
   return state.copyWith(
     players: state.players.map((p) {
       if (p.id != playerId) return p;
@@ -536,6 +552,21 @@ GameState applyDraw({
     drawPileCount: math.max(0, state.drawPileCount - count),
     activePenaltyCount: 0,
   );
+}
+
+bool _isSpecialCard(CardModel card) {
+  switch (card.effectiveRank) {
+    case Rank.two:
+    case Rank.jack:
+    case Rank.king:
+    case Rank.ace:
+    case Rank.queen:
+    case Rank.eight:
+    case Rank.joker:
+      return true;
+    default:
+      return false;
+  }
 }
 
 // ── Turn advancement ──────────────────────────────────────────────────────────
