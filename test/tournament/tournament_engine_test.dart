@@ -1,0 +1,413 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:stack_and_flow/features/gameplay/presentation/screens/table_screen.dart';
+import 'package:stack_and_flow/screens/tournament_screen.dart';
+import 'package:stack_and_flow/tournament/tournament_engine.dart';
+
+void main() {
+  List<TournamentPlayer> buildPlayers() {
+    return const [
+      TournamentPlayer(id: 'p1', displayName: 'P1'),
+      TournamentPlayer(id: 'p2', displayName: 'P2'),
+      TournamentPlayer(id: 'p3', displayName: 'P3'),
+      TournamentPlayer(id: 'p4', displayName: 'P4'),
+    ];
+  }
+
+  void finishRound(TournamentEngine engine, List<String> finishOrder) {
+    for (final playerId in finishOrder) {
+      engine.registerHandEmpty(playerId);
+    }
+  }
+
+  group('TournamentEngine', () {
+    test('1st to empty hand is recorded as 1st finisher', () {
+      final engine = TournamentEngine.online(players: buildPlayers());
+      engine.startTournament();
+
+      finishRound(engine, ['p1', 'p2', 'p3', 'p4']);
+
+      expect(engine.finishingPositionFor(roundNumber: 1, playerId: 'p1'), 1);
+    });
+
+    test('last to empty hand is eliminated', () async {
+      final engine = TournamentEngine.online(players: buildPlayers());
+      PlayerEliminatedEvent? eliminatedEvent;
+      engine.playerEliminated.listen((event) => eliminatedEvent = event);
+
+      engine.startTournament();
+      finishRound(engine, ['p1', 'p2', 'p3', 'p4']);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(eliminatedEvent, isNotNull);
+      expect(eliminatedEvent!.playerId, 'p4');
+      expect(eliminatedEvent!.finishingPosition, 4);
+    });
+
+    test('correct players advance after 4-player round', () {
+      final engine = TournamentEngine.online(players: buildPlayers());
+      engine.startTournament();
+
+      finishRound(engine, ['p3', 'p1', 'p2', 'p4']);
+
+      expect(engine.activePlayerIds, ['p3', 'p1', 'p2']);
+    });
+
+    test('remaining players continue after one player finishes', () {
+      final engine = TournamentEngine.online(players: buildPlayers());
+      engine.startTournament();
+
+      engine.recordPlayerFinished('p1', finishPosition: 1);
+
+      expect(engine.isRoundInProgress, isTrue);
+      expect(engine.roundResults, isEmpty);
+      expect(engine.finishingPositionFor(roundNumber: 1, playerId: 'p1'), 1);
+    });
+
+    test('when 3 of 4 qualify, last remaining player is immediately eliminated',
+        () {
+      final engine = TournamentEngine.online(players: buildPlayers());
+      engine.startTournament();
+
+      engine.recordPlayerFinished('p1', finishPosition: 1);
+      engine.recordPlayerFinished('p2', finishPosition: 2);
+      engine.recordPlayerFinished('p3', finishPosition: 3);
+      expect(engine.roundResults.length, 1);
+      expect(engine.isRoundInProgress, isFalse);
+      expect(engine.roundResults.first.eliminatedPlayerId, 'p4');
+      expect(engine.finishingPositionFor(roundNumber: 1, playerId: 'p4'), 4);
+    });
+
+    test('last player turns stop immediately when auto-eliminated', () {
+      final engine = TournamentEngine.online(players: buildPlayers());
+      engine.startTournament();
+
+      engine.recordPlayerFinished('p1', finishPosition: 1);
+      engine.recordPlayerFinished('p2', finishPosition: 2);
+      engine.recordPlayerFinished('p3', finishPosition: 3);
+
+      expect(engine.isRoundInProgress, isFalse);
+      expect(engine.activePlayerIds, ['p1', 'p2', 'p3']);
+      expect(engine.currentRoundFinishingOrder, ['p1', 'p2', 'p3', 'p4']);
+    });
+
+    test('round summary callback is ready immediately after auto-elimination',
+        () async {
+      final engine = TournamentEngine.online(players: buildPlayers());
+      RoundCompleteEvent? completed;
+      engine.roundComplete.listen((event) => completed = event);
+
+      engine.startTournament();
+      engine.recordPlayerFinished('p1', finishPosition: 1);
+      engine.recordPlayerFinished('p2', finishPosition: 2);
+      engine.recordPlayerFinished('p3', finishPosition: 3);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(completed, isNotNull);
+      expect(completed!.result.roundNumber, 1);
+      expect(completed!.result.eliminatedPlayerId, 'p4');
+    });
+
+    test('rounds progress 4 -> 3 -> 2', () {
+      final engine = TournamentEngine.online(players: buildPlayers());
+      engine.startTournament();
+      expect(engine.activePlayerIds.length, 4);
+
+      finishRound(engine, ['p1', 'p2', 'p3', 'p4']);
+      expect(engine.activePlayerIds.length, 3);
+
+      engine.startNextRound();
+      finishRound(engine, ['p2', 'p1', 'p3']);
+      expect(engine.activePlayerIds.length, 2);
+    });
+
+    test('new round starts with reduced player count', () {
+      final engine = TournamentEngine.online(players: buildPlayers());
+      engine.startTournament();
+      finishRound(engine, ['p1', 'p2', 'p3', 'p4']);
+
+      engine.startNextRound();
+      expect(engine.currentRound, 2);
+      expect(engine.activePlayerIds.length, 3);
+    });
+
+    test('tournament winner identified after final', () {
+      final engine = TournamentEngine.online(players: buildPlayers());
+      engine.startTournament();
+      finishRound(engine, ['p1', 'p2', 'p3', 'p4']);
+
+      engine.startNextRound();
+      finishRound(engine, ['p1', 'p3', 'p2']);
+
+      engine.startNextRound();
+      finishRound(engine, ['p3', 'p1']);
+
+      expect(engine.isComplete, isTrue);
+      expect(engine.winnerId, 'p3');
+    });
+
+    test('playerEliminated fires each round', () async {
+      final engine = TournamentEngine.online(players: buildPlayers());
+      final eliminated = <PlayerEliminatedEvent>[];
+      engine.playerEliminated.listen(eliminated.add);
+
+      engine.startTournament();
+      finishRound(engine, ['p1', 'p2', 'p3', 'p4']);
+      engine.startNextRound();
+      finishRound(engine, ['p1', 'p3', 'p2']);
+      engine.startNextRound();
+      finishRound(engine, ['p1', 'p3']);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(eliminated.length, 3);
+      expect(eliminated.map((e) => e.playerId), ['p4', 'p2', 'p3']);
+    });
+
+    test('tournamentComplete fires after final', () async {
+      final engine = TournamentEngine.online(players: buildPlayers());
+      TournamentCompleteEvent? complete;
+      engine.tournamentComplete.listen((event) => complete = event);
+
+      engine.startTournament();
+      finishRound(engine, ['p2', 'p1', 'p3', 'p4']);
+      engine.startNextRound();
+      finishRound(engine, ['p2', 'p3', 'p1']);
+      engine.startNextRound();
+      finishRound(engine, ['p2', 'p3']);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(complete, isNotNull);
+      expect(complete!.winnerPlayerId, 'p2');
+      expect(complete!.roundResults.length, 3);
+    });
+
+    test('offline mode fills empty slots with AI', () {
+      final engine = TournamentEngine.offline(
+        players: const [
+          TournamentPlayer(id: 'local', displayName: 'You'),
+        ],
+      );
+
+      expect(engine.allPlayers.length, 4);
+      expect(engine.allPlayers.where((player) => player.isAi).length, 3);
+    });
+  });
+
+  group('Tournament mode flow wiring', () {
+    testWidgets(
+        'onPlayerFinished is called each time a player empties hand in tournament mode',
+        (tester) async {
+      final finishCalls = <String>[];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TournamentScreen(
+            roundGameBuilder: ({
+              required totalPlayers,
+              required isTournamentMode,
+              required onPlayerFinished,
+              required tournamentPlayerNameByTableId,
+            }) {
+              return _AutoFinishRoundGameScreen(
+                finishOrderNames: const ['You', 'Player 2', 'Player 3', 'Player 4'],
+                onPlayerFinished: (name, pos) {
+                  finishCalls.add('$name:$pos');
+                  onPlayerFinished(name, pos);
+                },
+              );
+            },
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Start Tournament'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(finishCalls.length, 4);
+      expect(finishCalls, ['You:1', 'Player 2:2', 'Player 3:3', 'Player 4:4']);
+    });
+
+    testWidgets('standard win screen does NOT appear when isTournamentMode is true',
+        (tester) async {
+      bool? capturedTournamentMode;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TournamentScreen(
+            roundGameBuilder: ({
+              required totalPlayers,
+              required isTournamentMode,
+              required onPlayerFinished,
+              required tournamentPlayerNameByTableId,
+            }) {
+              capturedTournamentMode = isTournamentMode;
+              return _AutoFinishRoundGameScreen(
+                finishOrderNames: const ['You', 'Player 2', 'Player 3', 'Player 4'],
+                onPlayerFinished: onPlayerFinished,
+              );
+            },
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Start Tournament'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(capturedTournamentMode, isTrue);
+      expect(find.text('PLAY AGAIN'), findsNothing);
+    });
+
+    testWidgets('round summary screen appears after all 4 players have finished',
+        (tester) async {
+      TournamentRoundResult? summaryResult;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TournamentScreen(
+            onRoundSummaryShown: (result) => summaryResult = result,
+            roundGameBuilder: ({
+              required totalPlayers,
+              required isTournamentMode,
+              required onPlayerFinished,
+              required tournamentPlayerNameByTableId,
+            }) {
+              return _AutoFinishRoundGameScreen(
+                finishOrderNames: const ['You', 'Player 2', 'Player 3', 'Player 4'],
+                onPlayerFinished: onPlayerFinished,
+              );
+            },
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Start Tournament'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(summaryResult, isNotNull);
+      expect(summaryResult!.roundNumber, 1);
+    });
+
+    testWidgets(
+        'round summary is shown immediately after auto-elimination (last player does not continue)',
+        (tester) async {
+      TournamentRoundResult? summaryResult;
+      final finishCalls = <String>[];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TournamentScreen(
+            onRoundSummaryShown: (result) => summaryResult = result,
+            roundGameBuilder: ({
+              required totalPlayers,
+              required isTournamentMode,
+              required onPlayerFinished,
+              required tournamentPlayerNameByTableId,
+            }) {
+              return _AutoFinishRoundGameScreen(
+                finishOrderNames: const ['You', 'Player 2', 'Player 3'],
+                autoPopAfterCallbacks: false,
+                onPlayerFinished: (name, pos) {
+                  finishCalls.add('$name:$pos');
+                  onPlayerFinished(name, pos);
+                },
+              );
+            },
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Start Tournament'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(finishCalls, ['You:1', 'Player 2:2', 'Player 3:3']);
+      expect(summaryResult, isNotNull);
+      expect(summaryResult!.eliminatedPlayerId, 'tournament-ai-4');
+    });
+
+    testWidgets('eliminated player is correctly the last to finish', (tester) async {
+      TournamentRoundResult? summaryResult;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TournamentScreen(
+            onRoundSummaryShown: (result) => summaryResult = result,
+            roundGameBuilder: ({
+              required totalPlayers,
+              required isTournamentMode,
+              required onPlayerFinished,
+              required tournamentPlayerNameByTableId,
+            }) {
+              return _AutoFinishRoundGameScreen(
+                finishOrderNames: const ['Player 2', 'You', 'Player 3', 'Player 4'],
+                onPlayerFinished: onPlayerFinished,
+              );
+            },
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Start Tournament'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(summaryResult, isNotNull);
+      expect(summaryResult!.eliminatedPlayerId, 'tournament-ai-4');
+    });
+
+    test('normal game mode win screen still appears correctly when isTournamentMode is false',
+        () {
+      expect(shouldShowStandardWinOverlay(isTournamentMode: false), isTrue);
+      expect(shouldShowStandardWinOverlay(isTournamentMode: true), isFalse);
+    });
+  });
+}
+
+class _AutoFinishRoundGameScreen extends StatefulWidget {
+  const _AutoFinishRoundGameScreen({
+    required this.finishOrderNames,
+    required this.onPlayerFinished,
+    this.autoPopAfterCallbacks = true,
+  });
+
+  final List<String> finishOrderNames;
+  final void Function(String playerName, int finishPosition) onPlayerFinished;
+  final bool autoPopAfterCallbacks;
+
+  @override
+  State<_AutoFinishRoundGameScreen> createState() =>
+      _AutoFinishRoundGameScreenState();
+}
+
+class _AutoFinishRoundGameScreenState extends State<_AutoFinishRoundGameScreen> {
+  bool _didTrigger = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didTrigger) return;
+    _didTrigger = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (var i = 0; i < widget.finishOrderNames.length; i++) {
+        widget.onPlayerFinished(widget.finishOrderNames[i], i + 1);
+      }
+      if (!widget.autoPopAfterCallbacks) return;
+      if (!mounted) return;
+      Navigator.of(context).pop(
+        const TournamentRoundGameResult(
+          finishedPlayerIds: ['player-local', 'tournament-ai-1', 'tournament-ai-2', 'tournament-ai-3'],
+          eliminatedPlayerId: 'tournament-ai-3',
+        ),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(child: Text('Fake Tournament Round')),
+    );
+  }
+}

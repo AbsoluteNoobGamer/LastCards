@@ -1,101 +1,215 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:stack_and_flow/core/models/offline_game_state.dart';
+import 'package:stack_and_flow/features/gameplay/presentation/screens/table_screen.dart';
+import 'package:stack_and_flow/screens/tournament/tournament_lobby_screen.dart';
+import 'package:stack_and_flow/screens/tournament/tournament_round_summary_screen.dart';
+import 'package:stack_and_flow/screens/tournament/tournament_winner_screen.dart';
+import 'package:stack_and_flow/tournament/tournament_engine.dart';
 
-class TournamentScreen extends StatelessWidget {
-  const TournamentScreen({super.key});
+typedef TournamentRoundGameBuilder = Widget Function({
+  required int totalPlayers,
+  required bool isTournamentMode,
+  required void Function(String playerName, int finishPosition) onPlayerFinished,
+  required Map<String, String> tournamentPlayerNameByTableId,
+});
+
+class TournamentScreen extends StatefulWidget {
+  const TournamentScreen({
+    this.roundGameBuilder = _defaultRoundGameBuilder,
+    this.onRoundSummaryShown,
+    super.key,
+  });
+
+  final TournamentRoundGameBuilder roundGameBuilder;
+  final void Function(TournamentRoundResult result)? onRoundSummaryShown;
+
+  static Widget _defaultRoundGameBuilder({
+    required int totalPlayers,
+    required bool isTournamentMode,
+    required void Function(String playerName, int finishPosition) onPlayerFinished,
+    required Map<String, String> tournamentPlayerNameByTableId,
+  }) {
+    return TableScreen(
+      totalPlayers: totalPlayers,
+      isTournamentMode: isTournamentMode,
+      onPlayerFinished: onPlayerFinished,
+      tournamentPlayerNameByTableId: tournamentPlayerNameByTableId,
+    );
+  }
+
+  @override
+  State<TournamentScreen> createState() => _TournamentScreenState();
+}
+
+class _TournamentScreenState extends State<TournamentScreen> {
+  late final TournamentEngine _engine;
+  static const _localPlayerId = OfflineGameState.localId;
+  Map<String, String> _currentRoundPlayerIdByName = const <String, String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _engine = TournamentEngine.offline(
+      players: const [
+        TournamentPlayer(
+          id: _localPlayerId,
+          displayName: 'You',
+          isAi: false,
+        ),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    _engine.dispose();
+    super.dispose();
+  }
+
+  Future<void> _startTournament() async {
+    _engine.startTournament();
+    await _runTournamentLoop();
+  }
+
+  Future<void> _runTournamentLoop() async {
+    while (mounted && !_engine.isComplete) {
+      final expectedRound = _engine.currentRound;
+      final playersInRound = _engine.activePlayerIds.length;
+      final nameByTableId = _buildTournamentNamesByTableId(
+        _engine.activePlayerIds,
+      );
+      _currentRoundPlayerIdByName = _buildPlayerIdByName(_engine.activePlayerIds);
+      final roundResult = await Navigator.push<TournamentRoundGameResult>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => widget.roundGameBuilder(
+            totalPlayers: playersInRound,
+            isTournamentMode: true,
+            onPlayerFinished: _onPlayerFinished,
+            tournamentPlayerNameByTableId: nameByTableId,
+          ),
+        ),
+      );
+      if (!mounted) return;
+      if (roundResult == null) {
+        return;
+      }
+
+      final round = _engine.roundResults
+          .where((r) => r.roundNumber == expectedRound)
+          .firstOrNull;
+      if (round == null) return;
+
+      if (_engine.isComplete) {
+        break;
+      }
+
+      widget.onRoundSummaryShown?.call(round);
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TournamentRoundSummaryScreen(
+            roundNumber: round.roundNumber,
+            advancedPlayerNames: _namesForIds(round.advancedPlayerIds),
+            eliminatedPlayerName: _displayName(round.eliminatedPlayerId),
+            nextRoundPlayerNames: _namesForIds(round.advancedPlayerIds),
+            onReady: () => Navigator.of(context).pop(),
+          ),
+        ),
+      );
+      if (!mounted) return;
+
+      if (!_engine.isComplete) {
+        _engine.startNextRound();
+      }
+    }
+
+    if (!mounted || !_engine.isComplete) {
+      return;
+    }
+
+    await Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TournamentWinnerScreen(
+          winnerName: _displayName(_engine.winnerId!),
+          onPlayAgain: () => Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const TournamentScreen()),
+          ),
+          onReturnToMenu: () => Navigator.of(context).pop(),
+        ),
+      ),
+    );
+  }
+
+  void _onPlayerFinished(String playerName, int finishPosition) {
+    final id = _currentRoundPlayerIdByName[playerName] ?? '';
+    if (id.isEmpty) return;
+    if (_engine.finishingPositionFor(
+          roundNumber: _engine.currentRound,
+          playerId: id,
+        ) !=
+        null) {
+      return;
+    }
+    _engine.recordPlayerFinished(id, finishPosition: finishPosition);
+
+    if (_engine.isRoundInProgress) {
+      return;
+    }
+
+    final round = _engine.roundResults
+        .where((r) => r.roundNumber == _engine.currentRound)
+        .firstOrNull;
+    if (round == null) return;
+    if (!Navigator.of(context).canPop()) return;
+
+    Navigator.of(context).pop(
+      TournamentRoundGameResult(
+        finishedPlayerIds: round.playerIdsInFinishOrder,
+        eliminatedPlayerId: round.eliminatedPlayerId,
+      ),
+    );
+  }
+
+  Map<String, String> _buildTournamentNamesByTableId(List<String> activeIds) {
+    final map = <String, String>{};
+    for (var i = 0; i < activeIds.length; i++) {
+      final tableId = switch (i) {
+        0 => OfflineGameState.localId,
+        1 => 'player-2',
+        2 => 'player-3',
+        _ => 'player-4',
+      };
+      map[tableId] = _displayName(activeIds[i]);
+    }
+    return map;
+  }
+
+  Map<String, String> _buildPlayerIdByName(List<String> activeIds) {
+    final map = <String, String>{};
+    for (final playerId in activeIds) {
+      map[_displayName(playerId)] = playerId;
+    }
+    return map;
+  }
+
+  List<String> _namesForIds(List<String> ids) =>
+      ids.map(_displayName).toList(growable: false);
+
+  String _displayName(String playerId) {
+    final match = _engine.allPlayers.where((p) => p.id == playerId).firstOrNull;
+    return match?.displayName ?? playerId;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Background matches start screen
-          Stack(
-            fit: StackFit.expand,
-            children: [
-              Container(
-                decoration: const BoxDecoration(
-                  image: DecorationImage(
-                    image: AssetImage('assets/images/StackandFlowBackground.png'),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0x99000000),
-                      Color(0xCC000000),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          
-          // Content
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.emoji_events,
-                  color: Color(0xFFFFD700),
-                  size: 80,
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  "Tournament",
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.cinzel(
-                    fontSize: 42,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFFFFD700),
-                    letterSpacing: 5.0,
-                    shadows: const [
-                      Shadow(
-                        color: Color(0x60FFD700),
-                        blurRadius: 24,
-                      ),
-                      Shadow(
-                        color: Color(0x80000000),
-                        blurRadius: 6,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  "Coming Soon",
-                  style: GoogleFonts.outfit(
-                    fontSize: 24,
-                    color: Colors.white,
-                    letterSpacing: 2.0,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Back arrow
-          Positioned(
-            top: 0,
-            left: 0,
-            child: SafeArea(
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
-                onPressed: () => Navigator.pop(context),
-                padding: const EdgeInsets.all(16),
-              ),
-            ),
-          ),
-        ],
-      ),
+    return TournamentLobbyScreen(
+      players: _engine.allPlayers,
+      isOnline: false,
+      isHost: true,
+      onStartTournament: _startTournament,
     );
   }
 }
