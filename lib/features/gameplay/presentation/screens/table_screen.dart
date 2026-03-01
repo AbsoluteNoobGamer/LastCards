@@ -108,6 +108,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   late GameState _offlineState;
 
   bool _aiThinking = false;
+  final math.Random _aiDelayRng = math.Random();
   final List<String> _tournamentFinishedPlayerIds = <String>[];
   bool _tournamentRoundComplete = false;
 
@@ -838,7 +839,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   // ── AI turn ────────────────────────────────────────────────────────
 
-  void _scheduleAiTurn(String aiId) {
+  int _randomAiDelayMs(int min, int max) {
+    if (max <= min) return min;
+    return min + _aiDelayRng.nextInt((max - min) + 1);
+  }
+
+  Future<void> _scheduleAiTurn(String aiId) async {
     if (widget.isTournamentMode && _tournamentFinishedPlayerIds.contains(aiId)) {
       final nextId = _nextTournamentActivePlayerId(
         state: _offlineState,
@@ -854,56 +860,86 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (_aiThinking) return;
     setState(() => _aiThinking = true);
 
-    Future.delayed(const Duration(milliseconds: 1200), () {
+    final aiBefore = _offlineState.playerById(aiId);
+    final handCount = aiBefore?.cardCount ?? 0;
+    final hasPlayable = aiHasPlayableTurn(state: _offlineState, aiPlayerId: aiId);
+    final baseThinkMs = handCount <= 2
+        ? _randomAiDelayMs(800, 1500)
+        : _randomAiDelayMs(1200, 2500);
+
+    // Forced draw pacing: pause before draw and a brief pause after.
+    if (!hasPlayable) {
+      await Future.delayed(const Duration(milliseconds: 1000));
+    } else {
+      await Future.delayed(Duration(milliseconds: baseThinkMs));
+    }
+    if (!mounted) return;
+
+    final result = aiTakeTurn(
+      state: _offlineState,
+      aiPlayerId: aiId,
+      cardFactory: _makeCards,
+    );
+
+    final playedByAi = result.playedCards;
+
+    // Add extra thought time for Ace/Joker declaration turns.
+    if (playedByAi.isNotEmpty &&
+        (playedByAi.first.effectiveRank == Rank.ace || playedByAi.first.isJoker)) {
+      await Future.delayed(Duration(milliseconds: _randomAiDelayMs(1500, 3000)));
+    }
+
+    // Multi-card pacing gap so chained plays are not instantaneous.
+    if (playedByAi.length > 1) {
+      for (int i = 1; i < playedByAi.length; i++) {
+        await Future.delayed(Duration(milliseconds: _randomAiDelayMs(400, 700)));
+        if (!mounted) return;
+      }
+    }
+
+    if (!hasPlayable) {
+      await Future.delayed(const Duration(milliseconds: 600));
       if (!mounted) return;
+    }
 
-      final result = aiTakeTurn(
-        state: _offlineState,
-        aiPlayerId: aiId,
-        cardFactory: _makeCards,
+    // Track AI-played cards into discard pile.
+    if (playedByAi.isNotEmpty) {
+      _discardPile.addAll(playedByAi);
+    }
+
+    final aiPlayerName = _offlineState.playerById(aiId)?.displayName ?? aiId;
+    final aiLastMove = playedByAi.isNotEmpty
+        ? LastMoveInfo(
+            playerName: aiPlayerName,
+            cardLabel: playedByAi.first.shortLabel,
+          )
+        : LastMoveInfo(playerName: aiPlayerName);
+
+    if (_checkWin(aiId, result.state)) return;
+
+    var finalState = result.state;
+    var nextId = finalState.currentPlayerId;
+    nextId = _resolveTournamentNextPlayerId(finalState, nextId);
+    if (nextId != finalState.currentPlayerId) {
+      finalState = finalState.copyWith(currentPlayerId: nextId);
+    }
+    if (nextId != aiId) {
+      finalState = finalState.copyWith(
+        preTurnCentreSuit: finalState.discardTopCard?.effectiveSuit,
       );
+    }
 
-      // Track AI-played card into discard pile
-      final playedByAi = result.playedCards;
-      if (playedByAi.isNotEmpty) {
-        _discardPile.addAll(playedByAi);
-      }
-
-      final aiPlayerName = _offlineState.playerById(aiId)?.displayName ?? aiId;
-      final aiLastMove = playedByAi.isNotEmpty
-          ? LastMoveInfo(
-              playerName: aiPlayerName,
-              cardLabel: playedByAi.first.shortLabel,
-            )
-          : LastMoveInfo(playerName: aiPlayerName); // drew a card
-
-      if (_checkWin(aiId, result.state)) return;
-
-      var finalState = result.state;
-
-      var nextId = finalState.currentPlayerId;
-      nextId = _resolveTournamentNextPlayerId(finalState, nextId);
-      if (nextId != finalState.currentPlayerId) {
-        finalState = finalState.copyWith(currentPlayerId: nextId);
-      }
-      if (nextId != aiId) {
-         // Turn advanced, capture the new centre suit
-         finalState = finalState.copyWith(preTurnCentreSuit: finalState.discardTopCard?.effectiveSuit);
-      }
-
-      setState(() {
-        _offlineState = finalState.copyWith(drawPileCount: _drawPile.length);
-        _aiThinking = false;
-        _lastMove = aiLastMove;
-      });
-
-      if (nextId != OfflineGameState.localId) {
-        _scheduleAiTurn(nextId);
-      } else {
-        // AI turn ended, back to local player
-        _startTimer();
-      }
+    setState(() {
+      _offlineState = finalState.copyWith(drawPileCount: _drawPile.length);
+      _aiThinking = false;
+      _lastMove = aiLastMove;
     });
+
+    if (nextId != OfflineGameState.localId) {
+      _scheduleAiTurn(nextId);
+    } else {
+      _startTimer();
+    }
   }
 
   // ── Reshuffle centre pile → draw pile ─────────────────────────────────────
