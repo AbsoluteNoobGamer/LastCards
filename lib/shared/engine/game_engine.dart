@@ -413,6 +413,23 @@ GameState applyInitialFaceUpEffect({
     case Rank.eight:
       return state.copyWith(activeSkipCount: state.activeSkipCount + 1);
     case Rank.joker:
+      // Startup joker must be resolved so opening plays are not blocked.
+      // Randomize to any non-joker rank and any suit (including specials).
+      final rng = math.Random();
+      final nonJokerRanks = Rank.values
+          .where((rank) => rank != Rank.joker)
+          .toList(growable: false);
+      final randomRank = nonJokerRanks[rng.nextInt(nonJokerRanks.length)];
+      final randomSuit =
+          Suit.values[rng.nextInt(Suit.values.length)];
+      final resolvedTop = top.copyWith(
+        jokerDeclaredRank: randomRank,
+        jokerDeclaredSuit: randomSuit,
+      );
+      return applyInitialFaceUpEffect(state: state.copyWith(
+        discardTopCard: resolvedTop,
+        preTurnCentreSuit: resolvedTop.effectiveSuit,
+      ));
     default:
       return state;
   }
