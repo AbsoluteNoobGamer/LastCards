@@ -24,6 +24,8 @@ class _TableLayout extends StatelessWidget {
     this.lastMove,
     this.reshuffleNotifier,
     this.timeRemainingStream,
+    this.tournamentStatusBadges = const <String, String>{},
+    this.finishedPlayerIds = const <String>{},
   });
 
   final GameState gameState;
@@ -51,6 +53,8 @@ class _TableLayout extends StatelessWidget {
   final ValueNotifier<bool>? reshuffleNotifier;
   /// The stream to consume for turn timers.
   final Stream<int>? timeRemainingStream;
+  final Map<String, String> tournamentStatusBadges;
+  final Set<String> finishedPlayerIds;
 
   @override
   Widget build(BuildContext context) {
@@ -89,9 +93,6 @@ class _TableLayout extends StatelessWidget {
         final isMobile = constraints.maxWidth < AppDimensions.breakpointMobile;
         final horizontalPadding =
             isMobile ? AppDimensions.xs : AppDimensions.md;
-        final drawCardWidth = (constraints.maxWidth * (isMobile ? 0.14 : 0.12))
-            .clamp(54.0, 120.0);
-        final discardCardWidth = (drawCardWidth * 1.1).clamp(60.0, 132.0);
         final handCardWidth =
             (constraints.maxWidth * (isMobile ? 0.12 : 0.1)).clamp(48.0, 82.0);
 
@@ -109,9 +110,12 @@ class _TableLayout extends StatelessWidget {
                         child: Align(
                       alignment: Alignment.topLeft,
                       child: leftOpp != null
-                          ? PlayerZoneWidget(
-                              key: playerZoneKeys[leftOpp.id],
-                              player: leftOpp,
+                          ? _PlayerZoneWithTournamentBadge(
+                              badgeText: tournamentStatusBadges[leftOpp.id],
+                              child: PlayerZoneWidget(
+                                key: playerZoneKeys[leftOpp.id],
+                                player: leftOpp,
+                              ),
                             )
                           : const SizedBox(height: 96),
                     )),
@@ -119,9 +123,12 @@ class _TableLayout extends StatelessWidget {
                       child: Align(
                         alignment: Alignment.topCenter,
                         child: topOpp != null
-                            ? PlayerZoneWidget(
-                                key: playerZoneKeys[topOpp.id],
-                                player: topOpp,
+                            ? _PlayerZoneWithTournamentBadge(
+                                badgeText: tournamentStatusBadges[topOpp.id],
+                                child: PlayerZoneWidget(
+                                  key: playerZoneKeys[topOpp.id],
+                                  player: topOpp,
+                                ),
                               )
                             : const _EmptyOpponentZone(),
                       ),
@@ -130,9 +137,12 @@ class _TableLayout extends StatelessWidget {
                       child: Align(
                         alignment: Alignment.topRight,
                         child: rightOpp != null
-                            ? PlayerZoneWidget(
-                                key: playerZoneKeys[rightOpp.id],
-                                player: rightOpp,
+                            ? _PlayerZoneWithTournamentBadge(
+                                badgeText: tournamentStatusBadges[rightOpp.id],
+                                child: PlayerZoneWidget(
+                                  key: playerZoneKeys[rightOpp.id],
+                                  player: rightOpp,
+                                ),
                               )
                             : const SizedBox(height: 96),
                       ),
@@ -273,17 +283,24 @@ class _TableLayout extends StatelessWidget {
                   key: playerZoneKeys[localPlayer.id],
                   player: localPlayer,
                   isLocalPlayer: true,
-                  child: PlayerHandWidget(
-                    cards: isDealing
-                        ? orderedHand
-                            .take(visibleCardCounts[localPlayer.id] ?? 0)
-                            .toList()
-                        : orderedHand,
-                    selectedCardId: selectedCardId,
-                    onCardTap: onCardTap,
-                    onReorder: onHandReorder,
-                    enabled: isMyTurn && !isDealing,
-                    cardWidth: handCardWidth,
+                  child: _PlayerZoneWithTournamentBadge(
+                    badgeText: tournamentStatusBadges[localPlayer.id],
+                    child: finishedPlayerIds.contains(localPlayer.id)
+                        ? const SizedBox(
+                            height: 72,
+                          )
+                        : PlayerHandWidget(
+                            cards: isDealing
+                                ? orderedHand
+                                    .take(visibleCardCounts[localPlayer.id] ?? 0)
+                                    .toList()
+                                : orderedHand,
+                            selectedCardId: selectedCardId,
+                            onCardTap: onCardTap,
+                            onReorder: onHandReorder,
+                            enabled: isMyTurn && !isDealing,
+                            cardWidth: handCardWidth,
+                          ),
                   ),
                 ),
               ),
@@ -312,5 +329,52 @@ class _TableLayout extends StatelessWidget {
     } catch (_) {
       return null;
     }
+  }
+}
+
+class _PlayerZoneWithTournamentBadge extends StatelessWidget {
+  const _PlayerZoneWithTournamentBadge({
+    required this.child,
+    this.badgeText,
+  });
+
+  final Widget child;
+  final String? badgeText;
+
+  @override
+  Widget build(BuildContext context) {
+    if (badgeText == null) return child;
+
+    final isEliminated = badgeText!.contains('Eliminated');
+    final badgeColor =
+        isEliminated ? AppColors.redSoft : const Color(0xFF4CAF50);
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        Positioned(
+          top: -8,
+          right: -8,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: badgeColor.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: Text(
+              badgeText!,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

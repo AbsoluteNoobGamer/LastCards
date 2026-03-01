@@ -6,11 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:stack_and_flow/features/gameplay/presentation/widgets/dealing_animation_overlay.dart';
 
-import '../../domain/entities/card.dart';
 import '../../domain/usecases/offline_game_engine.dart';
 import 'package:stack_and_flow/shared/rules/win_condition_rules.dart';
 import '../../data/datasources/offline_game_state_datasource.dart';
-import '../../domain/entities/game_state.dart';
 import '../../domain/entities/player.dart';
 import '../../../../shared/engine/game_turn_timer.dart';
 import '../controllers/connection_provider.dart';
@@ -50,10 +48,36 @@ part 'table_screen_sheets.dart';
 /// ```
 class TableScreen extends ConsumerStatefulWidget {
   final int totalPlayers;
-  const TableScreen({this.totalPlayers = 2, super.key});
+  final bool isTournamentMode;
+  final void Function(String playerName, int finishPosition) onPlayerFinished;
+  final Map<String, String> tournamentPlayerNameByTableId;
+  const TableScreen({
+    this.totalPlayers = 2,
+    this.isTournamentMode = false,
+    this.onPlayerFinished = _defaultOnPlayerFinished,
+    this.tournamentPlayerNameByTableId = const <String, String>{},
+    super.key,
+  });
+
+  static void _defaultOnPlayerFinished(String _, int __) {}
 
   @override
   ConsumerState<TableScreen> createState() => _TableScreenState();
+}
+
+class TournamentRoundGameResult {
+  const TournamentRoundGameResult({
+    required this.finishedPlayerIds,
+    required this.eliminatedPlayerId,
+  });
+
+  final List<String> finishedPlayerIds;
+  final String eliminatedPlayerId;
+}
+
+@visibleForTesting
+bool shouldShowStandardWinOverlay({required bool isTournamentMode}) {
+  return !isTournamentMode;
 }
 
 // ── imports extended for engine ───────────────────────────────────────────────
@@ -84,6 +108,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   late GameState _offlineState;
 
   bool _aiThinking = false;
+  final List<String> _tournamentFinishedPlayerIds = <String>[];
+  bool _tournamentRoundComplete = false;
 
   // ── Real shuffled draw pile + discard tracking ────────────────────
   late List<CardModel> _drawPile; // actual remaining cards
@@ -106,8 +132,20 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   void _initNewGame() {
-    final (state, drawPile) =
+    final (initialState, drawPile) =
         OfflineGameState.buildWithDeck(totalPlayers: widget.totalPlayers);
+    final state = widget.isTournamentMode &&
+            widget.tournamentPlayerNameByTableId.isNotEmpty
+        ? initialState.copyWith(
+            players: initialState.players
+                .map((player) => player.copyWith(
+                      displayName:
+                          widget.tournamentPlayerNameByTableId[player.id] ??
+                              player.displayName,
+                    ))
+                .toList(),
+          )
+        : initialState;
     _offlineState = state.copyWith(
       preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
     );
@@ -116,6 +154,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       ..clear()
       ..add(state.discardTopCard!); // seed discard with starting face-up card
     _lastMove = null; // reset on new game
+    _tournamentFinishedPlayerIds.clear();
+    _tournamentRoundComplete = false;
 
     // Assign player keys for animation destinations
     _playerZoneKeys.clear();
@@ -207,6 +247,27 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   void _startTimer() {
     _engineTimer.start(() {
       if (!mounted) return;
+      if (widget.isTournamentMode &&
+          _tournamentFinishedPlayerIds.contains(_offlineState.currentPlayerId)) {
+        final nextId = _nextTournamentActivePlayerId(
+          state: _offlineState,
+          startAfterPlayerId: _offlineState.currentPlayerId,
+        );
+        setState(() {
+          _offlineState = _offlineState.copyWith(
+            currentPlayerId: nextId,
+            actionsThisTurn: 0,
+            cardsPlayedThisTurn: 0,
+            lastPlayedThisTurn: null,
+            activeSkipCount: 0,
+            preTurnCentreSuit: _offlineState.discardTopCard?.effectiveSuit,
+          );
+        });
+        if (nextId != OfflineGameState.localId) {
+          _scheduleAiTurn(nextId);
+        }
+        return;
+      }
       if (_offlineState.currentPlayerId == OfflineGameState.localId &&
           !_aiThinking) {
         if (_offlineState.queenSuitLock != null) {
@@ -234,7 +295,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     );
 
     // End turn automatically
-    final nextId = nextPlayerId(state: newState);
+    var nextId = nextPlayerId(state: newState);
+    nextId = _resolveTournamentNextPlayerId(newState, nextId);
     newState = newState.copyWith(
       currentPlayerId: nextId,
       actionsThisTurn: 0,
@@ -320,7 +382,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       });
     }
 
-    final nextId = nextPlayerId(state: _offlineState);
+    var nextId = nextPlayerId(state: _offlineState);
+    nextId = _resolveTournamentNextPlayerId(_offlineState, nextId);
     setState(() {
       _offlineState = _offlineState.copyWith(
         currentPlayerId: nextId,
@@ -368,7 +431,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final gameState = liveState ?? _offlineState;
     final isMyTurn = isOfflineMode
         ? (_offlineState.currentPlayerId == OfflineGameState.localId &&
-            !_aiThinking)
+            !_aiThinking &&
+            !_tournamentFinishedPlayerIds.contains(OfflineGameState.localId))
         : ref.watch(isLocalTurnProvider);
     final penaltyCount = isOfflineMode
         ? _offlineState.activePenaltyCount
@@ -425,6 +489,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         lastMove: _lastMove,
                         reshuffleNotifier: _reshuffleNotifier,
                         timeRemainingStream: _engineTimer.timeRemainingStream,
+                        tournamentStatusBadges: _buildTournamentStatusBadges(),
+                        finishedPlayerIds:
+                            _tournamentFinishedPlayerIds.toSet(),
                       ),
                     ),
                   ],
@@ -499,6 +566,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       {required String cardId}) async {
     if (_aiThinking) return;
     if (_offlineState.currentPlayerId != playerId) return;
+    if (widget.isTournamentMode &&
+        _tournamentFinishedPlayerIds.contains(playerId)) {
+      return;
+    }
 
     final local = _offlineState.players.firstWhere((p) => p.id == playerId);
     final played = local.hand.where((c) => c.id == cardId).toList();
@@ -621,7 +692,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     // Auto-advance if this play guarantees we get another turn immediately and
     // there are no unresolved obligations (like covering a Queen).
     // This happens when playing a Skip (8) or a King in a 2-player game.
-    final nextId = nextPlayerId(state: newState);
+    var nextId = nextPlayerId(state: newState);
+    nextId = _resolveTournamentNextPlayerId(newState, nextId);
 
     if (nextId == playerId && newState.queenSuitLock == null) {
       _endTurn();
@@ -688,6 +760,19 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   void _offlineDrawCard(String playerId) {
     if (_aiThinking) return;
     if (_offlineState.currentPlayerId != playerId) return;
+    if (widget.isTournamentMode &&
+        _tournamentFinishedPlayerIds.contains(playerId)) {
+      final nextId = _nextTournamentActivePlayerId(
+        state: _offlineState,
+        startAfterPlayerId: playerId,
+      );
+      if (nextId != OfflineGameState.localId) {
+        _scheduleAiTurn(nextId);
+      } else {
+        _startTimer();
+      }
+      return;
+    }
 
     // RULE: A player's turn consists of ONE action — either playing OR drawing.
     // If they have already played a card this turn, the draw action is blocked.
@@ -714,7 +799,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     if (isQueenPenaltyDraw || isPenaltyDraw) {
       final penaltyPlayerName = _offlineState.playerById(playerId)?.displayName ?? playerId;
-      final nextId = nextPlayerId(state: newState);
+      var nextId = nextPlayerId(state: newState);
+      nextId = _resolveTournamentNextPlayerId(newState, nextId);
       newState = newState.copyWith(
           currentPlayerId: nextId, actionsThisTurn: 0, cardsPlayedThisTurn: 0, activeSkipCount: 0, preTurnCentreSuit: newState.discardTopCard?.effectiveSuit);
       if (isQueenPenaltyDraw) {
@@ -731,7 +817,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     } else {
       // Voluntary draw (no valid moves) — auto-end turn per the rules.
       final drawPlayerName = _offlineState.playerById(playerId)?.displayName ?? playerId;
-      final nextId = nextPlayerId(state: newState);
+      var nextId = nextPlayerId(state: newState);
+      nextId = _resolveTournamentNextPlayerId(newState, nextId);
       newState = newState.copyWith(
           currentPlayerId: nextId, actionsThisTurn: 0, cardsPlayedThisTurn: 0, activeSkipCount: 0, preTurnCentreSuit: newState.discardTopCard?.effectiveSuit);
       setState(() {
@@ -752,6 +839,18 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   // ── AI turn ────────────────────────────────────────────────────────
 
   void _scheduleAiTurn(String aiId) {
+    if (widget.isTournamentMode && _tournamentFinishedPlayerIds.contains(aiId)) {
+      final nextId = _nextTournamentActivePlayerId(
+        state: _offlineState,
+        startAfterPlayerId: aiId,
+      );
+      if (nextId != OfflineGameState.localId) {
+        _scheduleAiTurn(nextId);
+      } else {
+        _startTimer();
+      }
+      return;
+    }
     if (_aiThinking) return;
     setState(() => _aiThinking = true);
 
@@ -782,7 +881,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
       var finalState = result.state;
 
-      final nextId = finalState.currentPlayerId;
+      var nextId = finalState.currentPlayerId;
+      nextId = _resolveTournamentNextPlayerId(finalState, nextId);
+      if (nextId != finalState.currentPlayerId) {
+        finalState = finalState.copyWith(currentPlayerId: nextId);
+      }
       if (nextId != aiId) {
          // Turn advanced, capture the new centre suit
          finalState = finalState.copyWith(preTurnCentreSuit: finalState.discardTopCard?.effectiveSuit);
@@ -895,6 +998,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   // ── Win detection ──────────────────────────────────────────────────
 
   bool _checkWin(String lastActorId, GameState state) {
+    if (!shouldShowStandardWinOverlay(isTournamentMode: widget.isTournamentMode)) {
+      return _handleTournamentPlayerFinished(lastActorId, state);
+    }
+
     if (!wouldConfirmWin(state)) return false;
 
     final winner = state.players
@@ -924,6 +1031,128 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       );
     });
     return true;
+  }
+
+  bool _handleTournamentPlayerFinished(String playerId, GameState state) {
+    if (_tournamentFinishedPlayerIds.contains(playerId)) return false;
+
+    final didFinish = _didPlayerFinish(playerId, state);
+    if (!didFinish) return false;
+
+    _tournamentFinishedPlayerIds.add(playerId);
+    final finishPosition = _tournamentFinishedPlayerIds.length;
+    final playerName = state.playerById(playerId)?.displayName ?? playerId;
+    widget.onPlayerFinished(playerName, finishPosition);
+
+    if (_tournamentFinishedPlayerIds.length == state.players.length) {
+      _tournamentRoundComplete = true;
+      final eliminatedPlayerId = _tournamentFinishedPlayerIds.last;
+
+      _engineTimer.cancel();
+      setState(() {
+        _offlineState = state.copyWith(drawPileCount: _drawPile.length);
+        _selectedCardId = null;
+        _aiThinking = false;
+      });
+
+      Future.microtask(() {
+        if (!mounted) return;
+        Navigator.of(context).pop(
+          TournamentRoundGameResult(
+            finishedPlayerIds:
+                List<String>.from(_tournamentFinishedPlayerIds),
+            eliminatedPlayerId: eliminatedPlayerId,
+          ),
+        );
+      });
+      return true;
+    }
+
+    final nextId = _nextTournamentActivePlayerId(
+      state: state,
+      startAfterPlayerId: playerId,
+    );
+
+    _engineTimer.cancel();
+    setState(() {
+      _offlineState = state.copyWith(
+        currentPlayerId: nextId,
+        actionsThisTurn: 0,
+        cardsPlayedThisTurn: 0,
+        lastPlayedThisTurn: null,
+        activeSkipCount: 0,
+        preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
+        drawPileCount: _drawPile.length,
+      );
+      _selectedCardId = null;
+      _aiThinking = false;
+    });
+
+    if (nextId != OfflineGameState.localId) {
+      _scheduleAiTurn(nextId);
+    } else {
+      _startTimer();
+    }
+    return true;
+  }
+
+  bool _didPlayerFinish(String playerId, GameState state) {
+    final player = state.playerById(playerId);
+    if (player == null) return false;
+    if (player.cardCount != 0 || player.hand.isNotEmpty) return false;
+
+    // Keep existing deferred-win semantics from shared win rules.
+    if (state.activePenaltyCount > 0 && playerId == state.currentPlayerId) {
+      return false;
+    }
+    if (state.queenSuitLock != null && playerId == state.currentPlayerId) {
+      return false;
+    }
+    return true;
+  }
+
+  String _nextTournamentActivePlayerId({
+    required GameState state,
+    required String startAfterPlayerId,
+  }) {
+    final players = state.players;
+    if (players.isEmpty) return startAfterPlayerId;
+
+    var index = players.indexWhere((p) => p.id == startAfterPlayerId);
+    if (index < 0) index = 0;
+
+    final step = state.direction == PlayDirection.clockwise ? 1 : -1;
+    for (var i = 0; i < players.length; i++) {
+      index = (index + step) % players.length;
+      if (index < 0) index += players.length;
+      final candidateId = players[index].id;
+      if (!_tournamentFinishedPlayerIds.contains(candidateId)) {
+        return candidateId;
+      }
+    }
+
+    return startAfterPlayerId;
+  }
+
+  String _resolveTournamentNextPlayerId(GameState state, String nextId) {
+    if (!widget.isTournamentMode) return nextId;
+    if (!_tournamentFinishedPlayerIds.contains(nextId)) return nextId;
+    return _nextTournamentActivePlayerId(
+      state: state,
+      startAfterPlayerId: nextId,
+    );
+  }
+
+  Map<String, String> _buildTournamentStatusBadges() {
+    if (!widget.isTournamentMode) return const <String, String>{};
+
+    final badges = <String, String>{};
+    for (final playerId in _tournamentFinishedPlayerIds) {
+      final isEliminated = _tournamentRoundComplete &&
+          playerId == _tournamentFinishedPlayerIds.last;
+      badges[playerId] = isEliminated ? '✗ Eliminated' : '✓ Qualified';
+    }
+    return badges;
   }
 
   // ── Helpers ────────────────────────────────────────────────────────
