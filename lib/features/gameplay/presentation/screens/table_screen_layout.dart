@@ -106,8 +106,7 @@ class _TableLayout extends StatelessWidget {
             children: [
               // ── Top opponents row: P2 left, P3 center, P4 right ─────────
               Padding(
-                padding: EdgeInsets.only(
-                    top: isMobile ? AppDimensions.xs : AppDimensions.md),
+                padding: const EdgeInsets.only(top: 0),
                 child: Row(
                   children: [
                     Expanded(
