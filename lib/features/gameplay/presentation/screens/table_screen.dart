@@ -26,7 +26,6 @@ import '../widgets/floating_action_bar_widget.dart';
 import '../widgets/turn_indicator_overlay.dart';
 import '../controllers/audio_service.dart';
 import '../widgets/last_move_panel_widget.dart';
-import '../../../../features/profile/presentation/screens/profile_screen.dart';
 import '../../../../widgets/turn_timer_bar.dart';
 
 part 'table_screen_background.dart';
@@ -449,6 +448,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         : ref.watch(penaltyCountProvider);
 
     return Scaffold(
+      appBar: null,
+      extendBodyBehindAppBar: true,
+      extendBody: true,
       backgroundColor: AppColors.feltDeep,
       body: LayoutBuilder(
         builder: (context, constraints) {
@@ -508,20 +510,29 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 ),
               ),
 
-              // ── Offline banner ─────────────────────────────────────────
+              // ── Offline floating back control ───────────────────────────
               if (isOfflineMode)
                 Positioned(
-                  top: 0,
+                  bottom: 210,
                   left: 0,
-                  right: 0,
                   child: SafeArea(
-                    bottom: false,
-                    child: _OfflineBanner(
-                      aiThinking: _aiThinking,
-                      onBack: () => Navigator.of(context).pop(),
-                      onProfile: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const ProfileScreen(),
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppDimensions.xs),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.30),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          tooltip: 'Exit game',
+                          icon: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            size: 18,
+                            color: Colors.white,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () => Navigator.of(context).pop(),
                         ),
                       ),
                     ),
