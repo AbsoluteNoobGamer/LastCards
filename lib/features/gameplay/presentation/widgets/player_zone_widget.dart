@@ -190,7 +190,7 @@ class _OpponentAvatarZone extends StatelessWidget {
                   clipBehavior: Clip.none,
                   children: [
                     AnimatedOpacity(
-                      opacity: hasTournamentStatus ? 0.40 : 1.0,
+                      opacity: hasTournamentStatus ? 0.50 : 1.0,
                       duration: const Duration(milliseconds: 250),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 220),
@@ -222,20 +222,6 @@ class _OpponentAvatarZone extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (hasTournamentStatus)
-                      Positioned(
-                        right: 8,
-                        bottom: 8,
-                        child: Icon(
-                          isTournamentEliminated
-                              ? Icons.cancel
-                              : Icons.check_circle,
-                          size: 14,
-                          color: isTournamentEliminated
-                              ? const Color(0xFFFF3333)
-                              : const Color(0xFFFFD700),
-                        ),
-                      ),
                     Positioned(
                       right: -2,
                       bottom: -2,
@@ -280,6 +266,35 @@ class _OpponentAvatarZone extends StatelessWidget {
             ),
           ),
         ),
+        if (hasTournamentStatus) ...[
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: isTournamentEliminated
+                  ? const Color(0x22FF3333)
+                  : const Color(0x22FFD700),
+              border: Border.all(
+                color: isTournamentEliminated
+                    ? const Color(0xFFFF3333)
+                    : const Color(0xFFFFD700),
+                width: 1,
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              isTournamentEliminated ? '✗ Eliminated' : '✓ Qualified',
+              style: TextStyle(
+                color: isTournamentEliminated
+                    ? const Color(0xFFFF3333)
+                    : const Color(0xFFFFD700),
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1,
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
