@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/services/card_back_service.dart';
 import '../../../gameplay/presentation/controllers/audio_service.dart';
 
 // Create a simple provider to manage SharedPreferences settings globally
@@ -104,6 +105,7 @@ class SettingsModal extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
     final audioService = ref.watch(audioServiceProvider);
+    CardBackService.instance.init();
     final media = MediaQuery.of(context);
     final isMobile = media.size.width < 600;
     final initialSize = isMobile ? 0.9 : 0.82;
@@ -194,6 +196,91 @@ class SettingsModal extends ConsumerWidget {
                           value: audioService.soundEffectsEnabled,
                           onChanged: (val) => audioService.setSoundEffectsEnabled(val),
                           activeColor: Colors.amber,
+                        ),
+                        ValueListenableBuilder<bool>(
+                          valueListenable:
+                              CardBackService.instance.animatedEffectsEnabled,
+                          builder: (context, enabled, _) {
+                            return SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              dense: isMobile,
+                              title: const Text('Animated Card Effects'),
+                              value: enabled,
+                              onChanged: (val) => CardBackService.instance
+                                  .setAnimatedEffectsEnabled(val),
+                              activeColor: Colors.amber,
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Card Back Design',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ValueListenableBuilder<String?>(
+                          valueListenable:
+                              CardBackService.instance.uploadedAnimatedAssetPath,
+                          builder: (context, uploadedPath, _) {
+                            return ValueListenableBuilder<String>(
+                              valueListenable:
+                                  CardBackService.instance.selectedDesignId,
+                              builder: (context, selected, _) {
+                                final uploadedLabel = uploadedPath == null
+                                    ? null
+                                    : uploadedPath
+                                        .split('/')
+                                        .last
+                                        .replaceAll(RegExp(r'\.[^.]+$'), '');
+                                final optionDesigns = <CardBackDesign>[
+                                  ...CardBackService.designs,
+                                  if (uploadedPath != null)
+                                    CardBackDesign(
+                                      id: 'uploaded',
+                                      label: uploadedLabel ?? 'Uploaded',
+                                      unlockWins: 0,
+                                    ),
+                                ];
+                                return Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: optionDesigns.map((design) {
+                                    final unlocked = design.id == 'uploaded'
+                                        ? true
+                                        : CardBackService.instance
+                                            .isUnlocked(design.id);
+                                    final label = unlocked
+                                        ? design.label
+                                        : '${design.label} (${design.unlockWins} wins)';
+                                    return ChoiceChip(
+                                      label: Text(label),
+                                      selected: selected == design.id,
+                                      onSelected: (_) async {
+                                        final ok = await CardBackService.instance
+                                            .selectDesign(design.id);
+                                        if (!ok && context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                            ..clearSnackBars()
+                                            ..showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Unlock ${design.label} at ${design.unlockWins} wins.',
+                                                ),
+                                                behavior:
+                                                    SnackBarBehavior.floating,
+                                              ),
+                                            );
+                                        }
+                                      },
+                                    );
+                                  }).toList(),
+                                );
+                              },
+                            );
+                          },
                         ),
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,

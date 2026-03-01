@@ -15,7 +15,14 @@ class AudioService {
   static const Map<GameSound, String> _soundFiles = {
     GameSound.cardDraw: 'Draw-Card.wav',
     GameSound.cardPlace: 'card_place.wav',
-    GameSound.specialCard: 'special_card.wav',
+    GameSound.specialTwo: 'special_two.wav',
+    GameSound.specialBlackJack: 'special_black_jack.wav',
+    GameSound.specialRedJack: 'special_red_jack.wav',
+    GameSound.specialKing: 'special_king.wav',
+    GameSound.specialAce: 'special_ace.wav',
+    GameSound.specialQueen: 'special_queen.wav',
+    GameSound.specialEight: 'special_eight.wav',
+    GameSound.specialJoker: 'special_joker.wav',
     GameSound.penaltyDraw: 'penalty_draw.wav',
     GameSound.turnStart: 'turn_start.wav',
     GameSound.timerWarning: 'timer_warning.wav',
@@ -105,7 +112,14 @@ class AudioService {
         case GameSound.cardPlace:
           await _cardPlacePool?.start(volume: _volume);
           return;
-        case GameSound.specialCard:
+        case GameSound.specialTwo:
+        case GameSound.specialBlackJack:
+        case GameSound.specialRedJack:
+        case GameSound.specialKing:
+        case GameSound.specialAce:
+        case GameSound.specialQueen:
+        case GameSound.specialEight:
+        case GameSound.specialJoker:
         case GameSound.penaltyDraw:
         case GameSound.turnStart:
         case GameSound.timerWarning:

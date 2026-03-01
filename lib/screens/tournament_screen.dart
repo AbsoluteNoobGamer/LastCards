@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stack_and_flow/core/models/offline_game_state.dart';
+import 'package:stack_and_flow/core/services/card_back_service.dart';
 import 'package:stack_and_flow/features/gameplay/presentation/screens/table_screen.dart';
 import 'package:stack_and_flow/screens/tournament/tournament_lobby_screen.dart';
 import 'package:stack_and_flow/screens/tournament/tournament_round_summary_screen.dart';
@@ -131,6 +132,9 @@ class _TournamentScreenState extends State<TournamentScreen> {
       return;
     }
 
+    if (_engine.winnerId == _localPlayerId) {
+      CardBackService.instance.registerWin();
+    }
     AudioService.instance.playSound(GameSound.tournamentWin);
 
     await Navigator.pushReplacement(

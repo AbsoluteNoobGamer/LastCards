@@ -357,8 +357,11 @@ GameState applyPlay({
 
   if (cards.isNotEmpty) {
     unawaited(AudioService.instance.playSound(GameSound.cardPlace));
-    if (cards.any(_isSpecialCard)) {
-      unawaited(AudioService.instance.playSound(GameSound.specialCard));
+    for (final card in cards) {
+      final specialSound = _specialSoundFor(card);
+      if (specialSound != null) {
+        unawaited(AudioService.instance.playSound(specialSound));
+      }
     }
   }
 
@@ -554,18 +557,26 @@ GameState applyDraw({
   );
 }
 
-bool _isSpecialCard(CardModel card) {
+GameSound? _specialSoundFor(CardModel card) {
   switch (card.effectiveRank) {
     case Rank.two:
+      return GameSound.specialTwo;
     case Rank.jack:
+      return card.isBlackJack
+          ? GameSound.specialBlackJack
+          : GameSound.specialRedJack;
     case Rank.king:
+      return GameSound.specialKing;
     case Rank.ace:
+      return GameSound.specialAce;
     case Rank.queen:
+      return GameSound.specialQueen;
     case Rank.eight:
+      return GameSound.specialEight;
     case Rank.joker:
-      return true;
+      return GameSound.specialJoker;
     default:
-      return false;
+      return null;
   }
 }
 
