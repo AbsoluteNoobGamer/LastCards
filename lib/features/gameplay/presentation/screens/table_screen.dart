@@ -147,9 +147,20 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 .toList(),
           )
         : initialState;
-    _offlineState = state.copyWith(
+    var initializedState = state.copyWith(
       preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
     );
+    initializedState = applyInitialFaceUpEffect(state: initializedState);
+    if (initializedState.activeSkipCount > 0) {
+      final nextId = nextPlayerId(state: initializedState);
+      initializedState = initializedState.copyWith(
+        currentPlayerId: nextId,
+        activeSkipCount: 0,
+      );
+    }
+    // During the deal animation, show the dealer pile counting down from the
+    // pre-deal amount (54 total - 1 face-up centre card = 53).
+    _offlineState = initializedState.copyWith(drawPileCount: 53);
     _drawPile = drawPile;
     _discardPile
       ..clear()
@@ -218,7 +229,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         if (mounted) {
           setState(() {
             _visibleCardCounts[p.id] = (_visibleCardCounts[p.id] ?? 0) + 1;
-            // Decrement the draw pile counter in real-time as cards are dealt
             _offlineState = _offlineState.copyWith(
               drawPileCount: math.max(0, _offlineState.drawPileCount - 1),
             );
@@ -231,9 +241,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     setState(() {
       _isDealing = false;
+      // Snap to real remaining pile size after the visual countdown completes.
+      _offlineState = _offlineState.copyWith(drawPileCount: _drawPile.length);
     });
 
     _startTimer();
+    if (_offlineState.currentPlayerId != OfflineGameState.localId) {
+      _scheduleAiTurn(_offlineState.currentPlayerId);
+    }
   }
 
   @override
@@ -271,14 +286,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       }
       if (_offlineState.currentPlayerId == OfflineGameState.localId &&
           !_aiThinking) {
-        if (_offlineState.queenSuitLock != null) {
-          // Timer expired while Queen uncovered -> force 1 draw, keep turn active
-          _showError('Timeout! Drew 1 card to find cover.');
-          _forcedQueenTimeoutDraw();
-        } else {
-          // Normal timeout -> force 1 draw and immediately end turn
-          _forcedTimeoutDrawAndEnd();
-        }
+        // Timeout rule: always force a single draw, end the turn, and pass play.
+        _forcedTimeoutDrawAndEnd();
       }
     });
   }
@@ -642,6 +651,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         playerId: playerId,
         cards: [assignedJoker],
       );
+      _engineTimer.cancel();
 
       _discardPile.add(assignedJoker);
 
@@ -669,6 +679,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     // Apply play + special effects
     var newState =
         applyPlay(state: _offlineState, playerId: playerId, cards: played);
+    _engineTimer.cancel();
 
 
     _discardPile.addAll(played);
@@ -860,12 +871,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (_aiThinking) return;
     setState(() => _aiThinking = true);
 
-    final aiBefore = _offlineState.playerById(aiId);
-    final handCount = aiBefore?.cardCount ?? 0;
     final hasPlayable = aiHasPlayableTurn(state: _offlineState, aiPlayerId: aiId);
-    final baseThinkMs = handCount <= 2
-        ? _randomAiDelayMs(800, 1500)
-        : _randomAiDelayMs(1200, 2500);
+    final baseThinkMs = _randomAiDelayMs(1200, 2500);
 
     // Forced draw pacing: pause before draw and a brief pause after.
     if (!hasPlayable) {

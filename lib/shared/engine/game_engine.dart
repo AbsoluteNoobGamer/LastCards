@@ -382,6 +382,42 @@ GameState applyPlay({
   return gs;
 }
 
+/// Applies the opening face-up discard card effect at game start.
+///
+/// This is used once during initialization before any player action.
+GameState applyInitialFaceUpEffect({
+  required GameState state,
+}) {
+  final top = state.discardTopCard;
+  if (top == null) return state;
+
+  switch (top.effectiveRank) {
+    case Rank.two:
+      return state.copyWith(activePenaltyCount: state.activePenaltyCount + 2);
+    case Rank.jack:
+      if (top.isBlackJack) {
+        return state.copyWith(activePenaltyCount: state.activePenaltyCount + 5);
+      }
+      return state.copyWith(activePenaltyCount: 0);
+    case Rank.king:
+      return state.copyWith(
+        direction: state.direction == PlayDirection.clockwise
+            ? PlayDirection.counterClockwise
+            : PlayDirection.clockwise,
+      );
+    case Rank.queen:
+      return state.copyWith(queenSuitLock: top.effectiveSuit);
+    case Rank.ace:
+      // At startup there is no declaration interaction, so lock to Ace suit.
+      return state.copyWith(suitLock: top.effectiveSuit);
+    case Rank.eight:
+      return state.copyWith(activeSkipCount: state.activeSkipCount + 1);
+    case Rank.joker:
+    default:
+      return state;
+  }
+}
+
 /// Commits a Joker play into state before UI resolution.
 ///
 /// This ensures the Joker is consumed from hand and the turn action is recorded
@@ -503,7 +539,20 @@ String nextPlayerId({
     return state.currentPlayerId;
   }
 
-  final step = state.direction == PlayDirection.clockwise ? 1 : -1;
+  // Effect order: when both skip and reverse are present, skip resolves first.
+  // Since reverse has already updated `state.direction`, use the pre-reverse
+  // direction for this immediate advance, then keep the reversed direction for
+  // subsequent turns.
+  final hasSkip = state.activeSkipCount > 0;
+  final kingPlayedThisTurn =
+      state.lastPlayedThisTurn?.effectiveRank == Rank.king;
+  final directionForAdvance = (hasSkip && kingPlayedThisTurn)
+      ? (state.direction == PlayDirection.clockwise
+          ? PlayDirection.counterClockwise
+          : PlayDirection.clockwise)
+      : state.direction;
+
+  final step = directionForAdvance == PlayDirection.clockwise ? 1 : -1;
   int next = currentIndex;
   final advances = 1 + state.activeSkipCount;
 
