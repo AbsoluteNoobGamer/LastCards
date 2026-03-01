@@ -19,11 +19,15 @@ class PlayerZoneWidget extends ConsumerWidget {
     super.key,
     required this.player,
     this.isLocalPlayer = false,
+    this.isTournamentFinished = false,
+    this.isTournamentEliminated = false,
     this.child,
   });
 
   final PlayerModel player;
   final bool isLocalPlayer;
+  final bool isTournamentFinished;
+  final bool isTournamentEliminated;
 
   /// Override content (e.g. the local PlayerHandWidget). If null, renders
   /// an opponent face-down fan automatically.
@@ -46,6 +50,8 @@ class PlayerZoneWidget extends ConsumerWidget {
     if (!isLocalPlayer && child == null) {
       return _OpponentAvatarZone(
         player: playerWithReactiveCount,
+        isTournamentFinished: isTournamentFinished,
+        isTournamentEliminated: isTournamentEliminated,
       );
     }
 
@@ -54,8 +60,7 @@ class PlayerZoneWidget extends ConsumerWidget {
     final isOffline = !player.isConnected;
 
     // Inactive: 50% opacity gray (unless skipped)
-    final double baseOpacity =
-        isSkipped ? 0.40 : (isActive ? 1.0 : 0.50);
+    final double baseOpacity = isSkipped ? 0.40 : (isActive ? 1.0 : 0.50);
 
     return AnimatedOpacity(
       opacity: baseOpacity,
@@ -146,14 +151,19 @@ class PlayerZoneWidget extends ConsumerWidget {
 class _OpponentAvatarZone extends StatelessWidget {
   const _OpponentAvatarZone({
     required this.player,
+    this.isTournamentFinished = false,
+    this.isTournamentEliminated = false,
   });
 
   final PlayerModel player;
+  final bool isTournamentFinished;
+  final bool isTournamentEliminated;
 
   @override
   Widget build(BuildContext context) {
     final color = PlayerStyles.getColor(player.tablePosition);
     final isActive = player.isActiveTurn;
+    final hasTournamentStatus = isTournamentFinished;
 
     final ringColor = isActive
         ? AppColors.blueAccent
@@ -179,34 +189,53 @@ class _OpponentAvatarZone extends StatelessWidget {
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isActive
-                            ? AppColors.goldPrimary.withValues(alpha: 0.22)
-                            : color.withValues(alpha: 0.2),
-                        border: Border.all(color: ringColor, width: ringWidth),
-                        boxShadow: isActive
-                            ? [
-                                BoxShadow(
-                                  color: ringColor.withValues(alpha: 0.55),
-                                  blurRadius: 14,
-                                  spreadRadius: 2,
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: CircleAvatar(
-                        radius: 30,
-                        backgroundColor: Colors.transparent,
-                        child: Icon(
-                          PlayerStyles.getIcon(player.tablePosition),
-                          color: color,
-                          size: 28,
+                    AnimatedOpacity(
+                      opacity: hasTournamentStatus ? 0.40 : 1.0,
+                      duration: const Duration(milliseconds: 250),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isActive
+                              ? AppColors.goldPrimary.withValues(alpha: 0.22)
+                              : color.withValues(alpha: 0.2),
+                          border:
+                              Border.all(color: ringColor, width: ringWidth),
+                          boxShadow: isActive
+                              ? [
+                                  BoxShadow(
+                                    color: ringColor.withValues(alpha: 0.55),
+                                    blurRadius: 14,
+                                    spreadRadius: 2,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: CircleAvatar(
+                          radius: 30,
+                          backgroundColor: Colors.transparent,
+                          child: Icon(
+                            PlayerStyles.getIcon(player.tablePosition),
+                            color: color,
+                            size: 28,
+                          ),
                         ),
                       ),
                     ),
+                    if (hasTournamentStatus)
+                      Positioned(
+                        right: 8,
+                        bottom: 8,
+                        child: Icon(
+                          isTournamentEliminated
+                              ? Icons.cancel
+                              : Icons.check_circle,
+                          size: 14,
+                          color: isTournamentEliminated
+                              ? const Color(0xFFFF3333)
+                              : const Color(0xFFFFD700),
+                        ),
+                      ),
                     Positioned(
                       right: -2,
                       bottom: -2,
