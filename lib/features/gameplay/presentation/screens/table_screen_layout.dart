@@ -45,12 +45,16 @@ class _TableLayout extends StatelessWidget {
   final void Function(int oldIndex, int newIndex) onHandReorder;
   final VoidCallback onEndTurnTap;
   final bool isOffline;
+
   /// Number of cards in the discard pile for dynamic stacking depth.
   final int discardPileCount;
+
   /// The most recent move made by any player, or null if the game just started.
   final LastMoveInfo? lastMove;
+
   /// Notifier toggled on every reshuffle — forwarded to [DrawPileWidget].
   final ValueNotifier<bool>? reshuffleNotifier;
+
   /// The stream to consume for turn timers.
   final Stream<int>? timeRemainingStream;
   final Map<String, String> tournamentStatusBadges;
@@ -61,9 +65,9 @@ class _TableLayout extends StatelessWidget {
     var players = gameState.players;
 
     // Update player models to accurately reflect `isActiveTurn` BEFORE extracting
-    players = players.map((p) => p.copyWith(
-      isActiveTurn: p.id == gameState.currentPlayerId
-    )).toList();
+    players = players
+        .map((p) => p.copyWith(isActiveTurn: p.id == gameState.currentPlayerId))
+        .toList();
 
     // Create new player models masked by visible counts if dealing is active.
     if (isDealing) {
@@ -110,11 +114,13 @@ class _TableLayout extends StatelessWidget {
                         child: Align(
                       alignment: Alignment.topLeft,
                       child: leftOpp != null
-                          ? _PlayerZoneWithTournamentBadge(
-                              badgeText: tournamentStatusBadges[leftOpp.id],
-                              child: PlayerZoneWidget(
-                                key: playerZoneKeys[leftOpp.id],
-                                player: leftOpp,
+                          ? PlayerZoneWidget(
+                              key: playerZoneKeys[leftOpp.id],
+                              player: leftOpp,
+                              isTournamentFinished:
+                                  tournamentStatusBadges[leftOpp.id] != null,
+                              isTournamentEliminated: _isEliminatedBadge(
+                                tournamentStatusBadges[leftOpp.id],
                               ),
                             )
                           : const SizedBox(height: 96),
@@ -123,11 +129,13 @@ class _TableLayout extends StatelessWidget {
                       child: Align(
                         alignment: Alignment.topCenter,
                         child: topOpp != null
-                            ? _PlayerZoneWithTournamentBadge(
-                                badgeText: tournamentStatusBadges[topOpp.id],
-                                child: PlayerZoneWidget(
-                                  key: playerZoneKeys[topOpp.id],
-                                  player: topOpp,
+                            ? PlayerZoneWidget(
+                                key: playerZoneKeys[topOpp.id],
+                                player: topOpp,
+                                isTournamentFinished:
+                                    tournamentStatusBadges[topOpp.id] != null,
+                                isTournamentEliminated: _isEliminatedBadge(
+                                  tournamentStatusBadges[topOpp.id],
                                 ),
                               )
                             : const _EmptyOpponentZone(),
@@ -137,11 +145,13 @@ class _TableLayout extends StatelessWidget {
                       child: Align(
                         alignment: Alignment.topRight,
                         child: rightOpp != null
-                            ? _PlayerZoneWithTournamentBadge(
-                                badgeText: tournamentStatusBadges[rightOpp.id],
-                                child: PlayerZoneWidget(
-                                  key: playerZoneKeys[rightOpp.id],
-                                  player: rightOpp,
+                            ? PlayerZoneWidget(
+                                key: playerZoneKeys[rightOpp.id],
+                                player: rightOpp,
+                                isTournamentFinished:
+                                    tournamentStatusBadges[rightOpp.id] != null,
+                                isTournamentEliminated: _isEliminatedBadge(
+                                  tournamentStatusBadges[rightOpp.id],
                                 ),
                               )
                             : const SizedBox(height: 96),
@@ -265,7 +275,10 @@ class _TableLayout extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     FloatingActionBarWidget(
-                      activePlayerName: gameState.playerById(gameState.currentPlayerId)?.displayName ?? '',
+                      activePlayerName: gameState
+                              .playerById(gameState.currentPlayerId)
+                              ?.displayName ??
+                          '',
                       direction: gameState.direction,
                       canEndTurn: canEndTurn,
                       onEndTurn: onEndTurnTap,
@@ -279,20 +292,23 @@ class _TableLayout extends StatelessWidget {
                 padding: EdgeInsets.only(
                   bottom: isMobile ? AppDimensions.sm : AppDimensions.md,
                 ),
-                child: PlayerZoneWidget(
-                  key: playerZoneKeys[localPlayer.id],
-                  player: localPlayer,
-                  isLocalPlayer: true,
-                  child: _PlayerZoneWithTournamentBadge(
-                    badgeText: tournamentStatusBadges[localPlayer.id],
+                child: SizedBox(
+                  width: double.infinity,
+                  child: PlayerZoneWidget(
+                    key: playerZoneKeys[localPlayer.id],
+                    player: localPlayer,
+                    isLocalPlayer: true,
                     child: finishedPlayerIds.contains(localPlayer.id)
-                        ? const SizedBox(
-                            height: 72,
+                        ? _TournamentLocalStatusBanner(
+                            isEliminated: _isEliminatedBadge(
+                              tournamentStatusBadges[localPlayer.id],
+                            ),
                           )
                         : PlayerHandWidget(
                             cards: isDealing
                                 ? orderedHand
-                                    .take(visibleCardCounts[localPlayer.id] ?? 0)
+                                    .take(
+                                        visibleCardCounts[localPlayer.id] ?? 0)
                                     .toList()
                                 : orderedHand,
                             selectedCardId: selectedCardId,
@@ -330,51 +346,79 @@ class _TableLayout extends StatelessWidget {
       return null;
     }
   }
+
+  bool _isEliminatedBadge(String? badgeText) {
+    if (badgeText == null) return false;
+    return badgeText.contains('Eliminated');
+  }
 }
 
-class _PlayerZoneWithTournamentBadge extends StatelessWidget {
-  const _PlayerZoneWithTournamentBadge({
-    required this.child,
-    this.badgeText,
-  });
+class _TournamentLocalStatusBanner extends StatelessWidget {
+  const _TournamentLocalStatusBanner({required this.isEliminated});
 
-  final Widget child;
-  final String? badgeText;
+  final bool isEliminated;
 
   @override
   Widget build(BuildContext context) {
-    if (badgeText == null) return child;
+    final accentColor =
+        isEliminated ? const Color(0xFFFF3333) : const Color(0xFFFFD700);
+    final gradientColors = isEliminated
+        ? const [
+            Color(0xFF1A0000),
+            Color(0xFF3A0000),
+            Color(0xFF1A0000),
+          ]
+        : const [
+            Color(0xFF0A1A00),
+            Color(0xFF1A3A00),
+            Color(0xFF0A1A00),
+          ];
 
-    final isEliminated = badgeText!.contains('Eliminated');
-    final badgeColor =
-        isEliminated ? AppColors.redSoft : const Color(0xFF4CAF50);
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        child,
-        Positioned(
-          top: -8,
-          right: -8,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: badgeColor.withValues(alpha: 0.9),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white24),
-            ),
-            child: Text(
-              badgeText!,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.3,
-              ),
+    return Container(
+      width: double.infinity,
+      height: 110,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: gradientColors,
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        border: Border(
+          top: BorderSide(color: accentColor, width: 1.5),
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            isEliminated ? Icons.cancel : Icons.emoji_events,
+            color: accentColor,
+            size: 32,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            isEliminated ? '✗  ELIMINATED' : '✓  QUALIFIED',
+            style: TextStyle(
+              color: accentColor,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 4,
+              fontFamily: 'Cinzel',
             ),
           ),
-        ),
-      ],
+          const SizedBox(height: 4),
+          Text(
+            isEliminated
+                ? 'Better luck next time'
+                : 'Waiting for next round...',
+            style: const TextStyle(
+              color: Color(0x70FFFFFF),
+              fontSize: 12,
+              letterSpacing: 1,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
