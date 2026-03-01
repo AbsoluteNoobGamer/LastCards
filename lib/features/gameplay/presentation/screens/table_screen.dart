@@ -16,6 +16,7 @@ import '../controllers/game_provider.dart';
 import '../../data/datasources/websocket_client.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
+import '../../../../core/services/card_back_service.dart';
 import '../widgets/discard_pile_widget.dart';
 import '../widgets/draw_pile_widget.dart';
 import '../widgets/hud_overlay_widget.dart';
@@ -1078,6 +1079,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final winner = state.players
         .where((p) => p.hand.isEmpty && p.cardCount == 0)
         .firstOrNull!;
+    if (winner.id == OfflineGameState.localId) {
+      CardBackService.instance.registerWin();
+    }
     game_audio.AudioService.instance.playSound(GameSound.playerWin);
 
     Future.microtask(() {

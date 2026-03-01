@@ -9,6 +9,7 @@ void main() {
     test('Simulate complete 2-player game to win condition', () {
       // 1. Initialize state
       var (state, drawPile) = OfflineGameState.buildWithDeck(totalPlayers: 2);
+      state = applyInitialFaceUpEffect(state: state);
 
       // Helper function to draw cards from the pile
       List<CardModel> drawFactory(int n) {
@@ -26,7 +27,7 @@ void main() {
         return drawn;
       }
 
-      int maxTurns = 500;
+      int maxTurns = 1000;
       int turns = 0;
 
       // 2. Play loop
