@@ -3,88 +3,144 @@ import 'package:flutter/material.dart';
 class RulesScreen extends StatelessWidget {
   const RulesScreen({super.key});
 
+  static const Color _gold = Color(0xFFFFD700);
+  static const Color _goldDivider = Color(0x66FFD700);
+  static const Color _bodyWhite = Color(0xFFFFFFFF);
+  static const Color _background = Color(0xFF121212);
+
   @override
   Widget build(BuildContext context) {
+    const sectionSpacing = SizedBox(height: 18);
+
     return Scaffold(
+      backgroundColor: _background,
       appBar: AppBar(
-        title: const Text('Game Rules'),
+        backgroundColor: _background,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: _bodyWhite),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text(
+          'RULES',
+          style: TextStyle(
+            color: _gold,
+            fontSize: 14,
+            letterSpacing: 2,
+            fontFamily: 'Cinzel',
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
       body: Scrollbar(
-        child: ListView(
-          padding: const EdgeInsets.all(24.0),
-          children: [
-            const _SectionHeader('Objective'),
-            const _BodyText(
-                'Be the first player to play all cards in your hand.'),
-            const SizedBox(height: 24),
-            const _SectionHeader('Setup'),
-            const _BulletPoint(
-                'Standard 52-card deck plus 2 Jokers (54 cards total)'),
-            const _BulletPoint('Cards are shuffled before each game'),
-            const _BulletPoint('Each player receives 7 random cards'),
-            const _BulletPoint(
-                'One card is placed face-up to start the discard pile'),
-            const _BulletPoint('Remaining cards form the draw pile'),
-            const _BulletPoint(
-                'Note: The starting face-up card triggers its special ability immediately if applicable',
-                isBold: true),
-            const SizedBox(height: 24),
-            const _SectionHeader('Turn Structure'),
-            const _BodyText(
-                'On a player\'s turn, they may play a card if it matches:'),
-            const _BulletPoint('The suit of the top discard card, OR'),
-            const _BulletPoint('The rank/value of the top discard card, OR'),
-            const _BulletPoint('A valid special override (Ace, Joker, etc.)'),
-            const SizedBox(height: 12),
-            const _BodyText('If a player cannot play:'),
-            const _BulletPoint('They must draw 1 card'),
-            const _BulletPoint('Their turn ends immediately'),
-            const _BulletPoint(
-                'The drawn card cannot be played on that same turn, even if it would be a valid play'),
-            const SizedBox(height: 24),
-            const _SectionHeader('Multi-Card Play — Same-Value Stacking'),
-            const _BodyText(
-                'A player may play multiple cards of the same value in a single turn.'),
-            const _BodyText(
-                'Example: If 4♣ is on top, the player may play 4♦ + 4♠ + 4♥ all at once.',
-                isItalic: true),
-            const SizedBox(height: 24),
-            const _SectionHeader('Numerical Flow Rule (Core Mechanic)'),
-            const _BodyText(
-                'Players may build a numerical sequence ascending or descending, but only within the same suit.'),
-            const _BodyText(
-                'Example: If A♥ is on top, the player may play 2♥ → 3♥ → 4♥.',
-                isItalic: true),
-            const SizedBox(height: 8),
-            const _BodyText(
-                'Once the sequence ends, if the final card matches another card in value (regardless of suit), it may be played to continue the turn.'),
-            const _BodyText(
-                'Example: Sequence ends at 4♥ → player may then play 4♣.',
-                isItalic: true),
-            const SizedBox(height: 8),
-            const _BodyText(
-                'After that cross-suit value match, normal matching rules apply.'),
-            const SizedBox(height: 24),
-            const _SectionHeader('Special Cards'),
-            const _CardTable(),
-            const SizedBox(height: 24),
-            const _SectionHeader('Penalty Resolution Order'),
-            const _BodyText(
-                'When multiple effects are active simultaneously, they resolve in this order:'),
-            const _NumberedPoint('1. Draw penalties (2s / Black Jacks)'),
-            const _NumberedPoint('2. Skip (8)'),
-            const _NumberedPoint('3. Reverse (King)'),
-            const _NumberedPoint('4. Suit lock (Queen)'),
-            const SizedBox(height: 24),
-            const _SectionHeader('Edge Cases'),
-            const _BulletPoint(
-                'If the starting card is a special card, its effect triggers immediately'),
-            const _BulletPoint(
-                'If the draw pile is empty, reshuffle the discard pile (excluding the top card) to form a new draw pile'),
-            const _BulletPoint(
-                'A player cannot win on a forced penalty draw unless a rule explicitly permits it'),
-            const SizedBox(height: 40),
-          ],
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionHeader('OBJECTIVE'),
+              _BodyText('Be the first player to play all cards in your hand.'),
+              _SectionDivider(),
+              sectionSpacing,
+              _SectionHeader('SETUP'),
+              _BulletPoint('Standard 52-card deck plus 2 Jokers (54 cards total)'),
+              _BulletPoint('Each player receives 7 random cards'),
+              _BulletPoint('One card placed face-up starts the discard pile'),
+              _BulletPoint('Remaining cards form the draw pile'),
+              _BulletPoint(
+                  'If the starting face-up card is a special card, its effect triggers immediately'),
+              _SectionDivider(),
+              sectionSpacing,
+              _SectionHeader('TURN STRUCTURE'),
+              _BodyText('On your turn, play a card if it matches:'),
+              _BulletPoint('The suit of the top discard card, or'),
+              _BulletPoint('The rank of the top discard card, or'),
+              _BulletPoint('A valid special override (Ace, Joker)'),
+              _BodyText(
+                  'If you cannot play: draw 1 card and your turn ends immediately. The drawn card cannot be played on that same turn.'),
+              _BodyText(
+                  'A 60 second turn timer is active at all times. If no card is played or drawn within 60 seconds, the turn ends automatically and you must draw 1 card as a penalty.'),
+              _SectionDivider(),
+              sectionSpacing,
+              _SectionHeader('MULTI-CARD & SEQUENCE PLAY'),
+              _BulletPoint('Play multiple cards of the same value in one turn'),
+              _BulletPoint(
+                  'Build a numerical sequence ascending or descending in the same suit'),
+              _BulletPoint(
+                  'After a same-suit sequence ends, continue with a cross-suit card of the same value as the final sequence card'),
+              _SectionDivider(),
+              sectionSpacing,
+              _SectionHeader('SPECIAL CARDS'),
+              _SpecialCardRow(
+                cardName: '2 (any suit)',
+                description:
+                    'Next player draws 2 cards. Stackable with other 2s (penalty accumulates)',
+              ),
+              _SpecialCardRow(
+                cardName: 'Black Jack (♠/♣)',
+                description:
+                    'Next player draws 5 cards. Stackable, and can stack onto an active 2-chain',
+              ),
+              _SpecialCardRow(
+                cardName: 'Red Jack (♥/♦)',
+                description:
+                    'Cancels any active draw penalty (resets draw stack to 0)',
+              ),
+              _SpecialCardRow(
+                cardName: 'King',
+                description: 'Reverses direction of play',
+              ),
+              _SpecialCardRow(
+                cardName: 'Ace',
+                description: 'Change the active suit to any suit',
+              ),
+              _SpecialCardRow(
+                cardName: 'Queen',
+                description: 'Suit lock; next player must follow that suit (no rank bypass)',
+              ),
+              _SpecialCardRow(
+                cardName: '8',
+                description: 'Next player is skipped',
+              ),
+              _SpecialCardRow(
+                cardName: 'Joker',
+                description: 'Wild; declare both suit and rank freely',
+              ),
+              _SectionDivider(),
+              sectionSpacing,
+              _SectionHeader('EFFECT RESOLUTION ORDER'),
+              _BodyText('When multiple effects are active, resolve in this order:'),
+              _BulletPoint('Draw penalties (2 / Black Jack)'),
+              _BulletPoint('Skip (8)'),
+              _BulletPoint('Reverse (King)'),
+              _BulletPoint('Suit lock (Queen)'),
+              _SectionDivider(),
+              sectionSpacing,
+              _SectionHeader('EDGE CASES'),
+              _BulletPoint(
+                  'If the draw pile is empty, reshuffle the discard pile (except the top card) into a new draw pile'),
+              _BulletPoint('A player cannot win on a forced penalty draw'),
+              _SectionDivider(),
+              sectionSpacing,
+              _SectionHeader('GAME MODES'),
+              _BodyText(
+                  'Play with AI — Offline game against AI opponents using all core rules'),
+              _BodyText(
+                  'Practice Mode — Offline against AI. No leaderboard impact'),
+              _BodyText(
+                  'Play Online — Multiplayer using all core rules via lobby/room flow'),
+              _BodyText('Tournament Mode'),
+              _BulletPoint('All core rules apply within each round'),
+              _BulletPoint('Players finish in order by emptying their hand'),
+              _BulletPoint(
+                  'The last player to empty their hand each round is eliminated'),
+              _BulletPoint('Remaining players advance to the next round'),
+              _BulletPoint(
+                  'Rounds continue (4 → 3 → 2 players) until one player remains'),
+              _BulletPoint('The last player standing is the Tournament Winner'),
+              SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );
@@ -102,10 +158,11 @@ class _SectionHeader extends StatelessWidget {
       child: Text(
         title,
         style: const TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-          color: Colors.amber,
-          letterSpacing: 0.5,
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: RulesScreen._gold,
+          letterSpacing: 2,
+          fontFamily: 'Cinzel',
         ),
       ),
     );
@@ -114,8 +171,7 @@ class _SectionHeader extends StatelessWidget {
 
 class _BodyText extends StatelessWidget {
   final String text;
-  final bool isItalic;
-  const _BodyText(this.text, {this.isItalic = false});
+  const _BodyText(this.text);
 
   @override
   Widget build(BuildContext context) {
@@ -123,11 +179,10 @@ class _BodyText extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Text(
         text,
-        style: TextStyle(
-          fontSize: 16,
-          height: 1.5,
-          fontStyle: isItalic ? FontStyle.italic : FontStyle.normal,
-          color: isItalic ? Colors.white70 : Colors.white,
+        style: const TextStyle(
+          fontSize: 13,
+          height: 1.6,
+          color: RulesScreen._bodyWhite,
         ),
       ),
     );
@@ -136,25 +191,28 @@ class _BodyText extends StatelessWidget {
 
 class _BulletPoint extends StatelessWidget {
   final String text;
-  final bool isBold;
-  const _BulletPoint(this.text, {this.isBold = false});
+  const _BulletPoint(this.text);
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6.0, left: 8.0),
+      padding: const EdgeInsets.only(bottom: 6.0, left: 6.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('• ',
-              style: TextStyle(fontSize: 16, height: 1.5, color: Colors.amber)),
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.6,
+                color: RulesScreen._bodyWhite,
+              )),
           Expanded(
             child: Text(
               text,
-              style: TextStyle(
-                fontSize: 16,
-                height: 1.5,
-                fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.6,
+                color: RulesScreen._bodyWhite,
               ),
             ),
           ),
@@ -164,81 +222,51 @@ class _BulletPoint extends StatelessWidget {
   }
 }
 
-class _NumberedPoint extends StatelessWidget {
-  final String text;
-  const _NumberedPoint(this.text);
+class _SpecialCardRow extends StatelessWidget {
+  final String cardName;
+  final String description;
+  const _SpecialCardRow({required this.cardName, required this.description});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6.0, left: 8.0),
-      child: Text(
-        text,
-        style: const TextStyle(fontSize: 16, height: 1.5),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: RichText(
+        text: TextSpan(
+          style: const TextStyle(
+            color: RulesScreen._bodyWhite,
+            fontSize: 13,
+            height: 1.6,
+          ),
+          children: [
+            TextSpan(
+              text: '$cardName',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const TextSpan(text: ' — '),
+            TextSpan(
+              text: description,
+              style: const TextStyle(fontWeight: FontWeight.normal),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _CardTable extends StatelessWidget {
-  const _CardTable();
+class _SectionDivider extends StatelessWidget {
+  const _SectionDivider();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.white24),
-        borderRadius: BorderRadius.circular(8),
+    return const Padding(
+      padding: EdgeInsets.only(top: 6),
+      child: Divider(
+        thickness: 1,
+        height: 1,
+        color: RulesScreen._goldDivider,
       ),
-      child: Table(
-        border: TableBorder.symmetric(
-            inside: const BorderSide(color: Colors.white24)),
-        columnWidths: const {
-          0: FlexColumnWidth(1),
-          1: FlexColumnWidth(2.5),
-        },
-        children: [
-          _buildTableRow('Card', 'Effect', isHeader: true),
-          _buildTableRow('2 (All Suits)',
-              'Next player draws 2 cards. May be stacked with another 2 to pass the penalty. Penalty accumulates (2 → 4 → 6…).'),
-          _buildTableRow('Black Jack (♠/♣)',
-              'Next player draws 5 cards. May be stacked with another Black Jack. Can also stack onto an active 2-chain.'),
-          _buildTableRow('Red Jack (♥/♦)',
-              'Cancels any active draw penalty. Resets the draw stack to 0.'),
-          _buildTableRow('King', 'Reverses the direction of play.'),
-          _buildTableRow('Ace',
-              'Player changes the active suit. Player declares the new suit upon playing.'),
-          _buildTableRow('Queen',
-              'Next player must follow the same suit. Cannot change suit or match by number. Must be covered with the same suit.'),
-          _buildTableRow('8', 'Next player misses their turn (skip).'),
-          _buildTableRow('Joker',
-              'Wild card. Player declares both the suit and rank. Treated as that card until replaced.'),
-        ],
-      ),
-    );
-  }
-
-  TableRow _buildTableRow(String card, String effect, {bool isHeader = false}) {
-    final style = TextStyle(
-      fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
-      color: isHeader ? Colors.amber : Colors.white,
-      fontSize: 15,
-    );
-
-    return TableRow(
-      decoration: isHeader
-          ? BoxDecoration(color: Colors.white.withOpacity(0.05))
-          : null,
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Text(card, style: style),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Text(effect, style: style),
-        ),
-      ],
     );
   }
 }
