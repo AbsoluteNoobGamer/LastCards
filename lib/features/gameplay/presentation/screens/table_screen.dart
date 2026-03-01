@@ -163,7 +163,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _drawPile = drawPile;
     _discardPile
       ..clear()
-      ..add(state.discardTopCard!); // seed discard with starting face-up card
+      ..add(initializedState
+          .discardTopCard!); // seed discard with post-effect starting card
     _lastMove = null; // reset on new game
     _tournamentFinishedPlayerIds.clear();
     _tournamentRoundComplete = false;
@@ -214,7 +215,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       for (final p in orderedPlayers) {
         if (!mounted) return;
 
-        audioService.playClick();
+        await audioService.playDealCard();
         final overlay = _overlayKey.currentState;
         if (overlay != null) {
           await overlay.animateCardDeal(p.id);
