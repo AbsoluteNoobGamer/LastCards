@@ -129,6 +129,29 @@ void main() {
       );
     });
 
+    test(
+        'pickupChainStillDefersWinEvenAfterTurnPointerMoves',
+        () {
+      // Scenario: P1 empties with Black Jack, but turn pointer has advanced to P2.
+      // The chain is still live, so P1 cannot be confirmed yet.
+      var state = buildState(
+        discardTop: c(Rank.three, Suit.spades),
+        p1Hand: [c(Rank.jack, Suit.spades)],
+        p2Hand: [c(Rank.king, Suit.hearts)],
+      );
+
+      state = applyPlay(state: state, playerId: 'p1', cards: [c(Rank.jack, Suit.spades)]);
+      expect(state.activePenaltyCount, 5);
+      expect(state.players.firstWhere((p) => p.id == 'p1').hand, isEmpty);
+
+      final afterTurnAdvance = state.copyWith(currentPlayerId: 'p2');
+      expect(
+        canConfirmPlayerWin(state: afterTurnAdvance, playerId: 'p1'),
+        isFalse,
+        reason: 'Unresolved pick-up chain must still defer confirmation',
+      );
+    });
+
     // ── Test 3 ───────────────────────────────────────────────────────────────
     test(
         'winConfirmedAfterChainResolvesPlayerStillOnZero',
