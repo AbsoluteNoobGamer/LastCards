@@ -15,6 +15,7 @@ import '../../../leaderboard/presentation/screens/leaderboard_screen.dart';
 import '../../../rules/presentation/screens/rules_screen.dart';
 import '../../../settings/presentation/widgets/settings_modal.dart';
 import '../widgets/ai_selector_modal.dart';
+import '../widgets/card_back_selection_menu.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
 import '../../../../core/providers/profile_provider.dart';
 import '../../../../screens/tournament_screen.dart';
@@ -66,7 +67,8 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
               Container(
                 decoration: const BoxDecoration(
                   image: DecorationImage(
-                    image: AssetImage('assets/images/StackandFlowBackground.png'),
+                    image:
+                        AssetImage('assets/images/StackandFlowBackground.png'),
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -153,7 +155,8 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
                                           children: [
                                             _PlayAiButton(),
                                             const SizedBox(width: 24),
@@ -170,11 +173,17 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                         SizedBox(height: isMobile ? 24 : 40),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              Expanded(
-                                child: _SecondaryButton(
+                          child: LayoutBuilder(
+                            builder: (context, buttonConstraints) {
+                              const spacing = 8.0;
+                              final maxWidth = buttonConstraints.maxWidth;
+                              final crossAxisCount = maxWidth < 700 ? 2 : 5;
+                              final itemWidth = crossAxisCount == 5
+                                  ? (maxWidth - (spacing * 4)) / 5
+                                  : (maxWidth - spacing) / 2;
+
+                              final actions = <Widget>[
+                                _SecondaryButton(
                                   "Practice Mode",
                                   Icons.style_rounded,
                                   () => _showAISelector(
@@ -182,10 +191,7 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                                     isPractice: true,
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _SecondaryButton(
+                                _SecondaryButton(
                                   "Leaderboard",
                                   Icons.emoji_events_rounded,
                                   () => _pushWithTransition(
@@ -193,18 +199,17 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                                     const LeaderboardScreen(),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _SecondaryButton(
+                                _SecondaryButton(
+                                  "Card Styles",
+                                  Icons.style_rounded,
+                                  () => _showCardStyles(context),
+                                ),
+                                _SecondaryButton(
                                   "Settings",
                                   Icons.settings_rounded,
                                   () => _showSettings(context),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _SecondaryButton(
+                                _SecondaryButton(
                                   "Rules",
                                   Icons.menu_book_rounded,
                                   () => _pushWithTransition(
@@ -212,8 +217,19 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                                     const RulesScreen(),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ];
+
+                              return Wrap(
+                                spacing: spacing,
+                                runSpacing: spacing,
+                                children: actions
+                                    .map((action) => SizedBox(
+                                          width: itemWidth,
+                                          child: action,
+                                        ))
+                                    .toList(),
+                              );
+                            },
                           ),
                         ),
                         const SizedBox(height: 32),
@@ -222,9 +238,11 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Expanded(child: Divider(color: Color(0x40C9A84C))),
+                              const Expanded(
+                                  child: Divider(color: Color(0x40C9A84C))),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
                                 child: Text(
                                   "STACK & FLOW",
                                   style: GoogleFonts.cinzel(
@@ -235,7 +253,8 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                                   textAlign: TextAlign.center,
                                 ),
                               ),
-                              const Expanded(child: Divider(color: Color(0x40C9A84C))),
+                              const Expanded(
+                                  child: Divider(color: Color(0x40C9A84C))),
                             ],
                           ),
                         ),
@@ -302,6 +321,15 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const ProviderScope(child: SettingsModal()),
+    );
+  }
+
+  void _showCardStyles(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const CardStylesModal(),
     );
   }
 
