@@ -59,5 +59,6 @@ flutter:
     - assets/audio/
     - assets/animated_cards/
     - assets/images/
+    - assets/images/cardbackcover/
 
   # Fonts loaded via google_fonts package at runtime (no local files needed)

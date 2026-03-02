@@ -60,16 +60,55 @@ class CardBackWidget extends StatelessWidget {
     required String selectedDesign,
     required bool animatedEnabled,
   }) {
+    // Cardbackcover (or any asset path) selection
+    if (selectedDesign.startsWith('assets/')) {
+      final covers = CardBackService.instance.cardBackCoverDesigns.value;
+      final fallbackPath = covers.isNotEmpty ? covers.first.assetPath! : null;
+      return Image.asset(
+        selectedDesign,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) {
+          if (fallbackPath != null) {
+            return Image.asset(fallbackPath, fit: BoxFit.cover);
+          }
+          return Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF1D2B50), Color(0xFF2D1B2D)],
+              ),
+            ),
+          );
+        },
+      );
+    }
     if (selectedDesign == 'uploaded') {
       final uploaded = CardBackService.instance.uploadedAnimatedAssetPath.value;
       if (uploaded != null) {
+        final covers = CardBackService.instance.cardBackCoverDesigns.value;
+        final fallbackPath = covers.isNotEmpty ? covers.first.assetPath! : null;
         return Image.asset(
           uploaded,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Image.asset(
-            'assets/images/card_back.jpg',
-            fit: BoxFit.cover,
-          ),
+          errorBuilder: (_, __, ___) {
+            if (fallbackPath != null) {
+              return Image.asset(fallbackPath, fit: BoxFit.cover);
+            }
+            return Image.asset(
+              'assets/images/cardbackcover/two lions.png',
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF1D2B50), Color(0xFF2D1B2D)],
+                  ),
+                ),
+              ),
+            );
+          },
         );
       }
     }
@@ -115,10 +154,19 @@ class CardBackWidget extends StatelessWidget {
         break;
       case 'classic':
       default:
-        fallback = Image.asset(
-          'assets/images/card_back.jpg',
-          fit: BoxFit.cover,
-        );
+        final covers = CardBackService.instance.cardBackCoverDesigns.value;
+        final path = covers.isNotEmpty ? covers.first.assetPath! : null;
+        fallback = path != null
+            ? Image.asset(path, fit: BoxFit.cover)
+            : Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF1D2B50), Color(0xFF2D1B2D)],
+                  ),
+                ),
+              );
         break;
     }
 
