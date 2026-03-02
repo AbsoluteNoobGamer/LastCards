@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stack_and_flow/core/models/card_model.dart';
+import 'package:stack_and_flow/core/models/game_state.dart';
+import 'package:stack_and_flow/core/models/offline_game_state.dart';
+import 'package:stack_and_flow/core/models/player_model.dart';
 import 'package:stack_and_flow/features/gameplay/presentation/screens/table_screen.dart';
+import 'package:stack_and_flow/features/gameplay/presentation/widgets/card_widget.dart';
 import 'package:stack_and_flow/screens/tournament_screen.dart';
 import 'package:stack_and_flow/tournament/tournament_engine.dart';
 
@@ -194,6 +200,85 @@ void main() {
   });
 
   group('Tournament mode flow wiring', () {
+    CardModel c(String id, Rank rank, Suit suit) =>
+        CardModel(id: id, rank: rank, suit: suit);
+
+    testWidgets(
+        'TableScreen tournament mode defers qualification on last-card Black Jack',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 1024));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final finished = <String>[];
+      final initialState = GameState(
+        sessionId: 'tournament-defer-test',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: OfflineGameState.localId,
+            displayName: 'You',
+            tablePosition: TablePosition.bottom,
+            hand: [c('last-bj', Rank.jack, Suit.spades)],
+            cardCount: 1,
+            isConnected: true,
+            isActiveTurn: true,
+            isSkipped: false,
+          ),
+          PlayerModel(
+            id: 'player-2',
+            displayName: 'Player 2',
+            tablePosition: TablePosition.top,
+            hand: [
+              c('p2-1', Rank.jack, Suit.hearts),
+              c('p2-2', Rank.five, Suit.clubs),
+            ],
+            cardCount: 2,
+            isConnected: true,
+            isActiveTurn: false,
+            isSkipped: false,
+          ),
+        ],
+        currentPlayerId: OfflineGameState.localId,
+        direction: PlayDirection.clockwise,
+        discardTopCard: c('discard-3s', Rank.three, Suit.spades),
+        drawPileCount: 6,
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: TableScreen(
+              totalPlayers: 2,
+              isTournamentMode: true,
+              onPlayerFinished: (name, pos) => finished.add('$name:$pos'),
+              tournamentPlayerNameByTableId: const {
+                OfflineGameState.localId: 'You',
+                'player-2': 'Player 2',
+              },
+              debugInitialOfflineState: initialState,
+              debugInitialDrawPile: [
+                c('draw-1', Rank.two, Suit.hearts),
+                c('draw-2', Rank.four, Suit.diamonds),
+                c('draw-3', Rank.six, Suit.spades),
+              ],
+              debugSkipDealAnimation: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final lastBlackJack = find.byWidgetPredicate(
+        (w) => w is CardWidget && w.card.id == 'last-bj',
+      );
+      expect(lastBlackJack, findsOneWidget);
+      await tester.tap(lastBlackJack);
+      await tester.pump();
+
+      expect(finished, isEmpty);
+      expect(find.text('✓ Qualified'), findsNothing);
+    });
+
     testWidgets(
         'onPlayerFinished is called each time a player empties hand in tournament mode',
         (tester) async {

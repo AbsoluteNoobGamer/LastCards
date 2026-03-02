@@ -53,11 +53,17 @@ class TableScreen extends ConsumerStatefulWidget {
   final bool isTournamentMode;
   final void Function(String playerName, int finishPosition) onPlayerFinished;
   final Map<String, String> tournamentPlayerNameByTableId;
+  final GameState? debugInitialOfflineState;
+  final List<CardModel>? debugInitialDrawPile;
+  final bool debugSkipDealAnimation;
   const TableScreen({
     this.totalPlayers = 2,
     this.isTournamentMode = false,
     this.onPlayerFinished = _defaultOnPlayerFinished,
     this.tournamentPlayerNameByTableId = const <String, String>{},
+    this.debugInitialOfflineState,
+    this.debugInitialDrawPile,
+    this.debugSkipDealAnimation = false,
     super.key,
   });
 
@@ -137,38 +143,52 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   void _initNewGame() {
-    final (initialState, drawPile) =
-        OfflineGameState.buildWithDeck(totalPlayers: widget.totalPlayers);
-    final state = widget.isTournamentMode &&
-            widget.tournamentPlayerNameByTableId.isNotEmpty
-        ? initialState.copyWith(
-            players: initialState.players
-                .map((player) => player.copyWith(
-                      displayName:
-                          widget.tournamentPlayerNameByTableId[player.id] ??
-                              player.displayName,
-                    ))
-                .toList(),
-          )
-        : initialState;
-    var initializedState = state.copyWith(
-      preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
-    );
-    initializedState = applyInitialFaceUpEffect(state: initializedState);
-    if (initializedState.activeSkipCount > 0) {
-      final nextId = nextPlayerId(state: initializedState);
-      initializedState = initializedState.copyWith(
-        currentPlayerId: nextId,
-        activeSkipCount: 0,
+    final hasDebugState = widget.debugInitialOfflineState != null &&
+        widget.debugInitialDrawPile != null;
+    GameState state;
+    List<CardModel> drawPile;
+
+    if (hasDebugState) {
+      state = widget.debugInitialOfflineState!;
+      drawPile = List<CardModel>.from(widget.debugInitialDrawPile!);
+    } else {
+      final seeded = OfflineGameState.buildWithDeck(totalPlayers: widget.totalPlayers);
+      state = seeded.$1;
+      drawPile = seeded.$2;
+      if (widget.isTournamentMode &&
+          widget.tournamentPlayerNameByTableId.isNotEmpty) {
+        state = state.copyWith(
+          players: state.players
+              .map((player) => player.copyWith(
+                    displayName:
+                        widget.tournamentPlayerNameByTableId[player.id] ??
+                            player.displayName,
+                  ))
+              .toList(),
+        );
+      }
+      state = state.copyWith(
+        preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
       );
+      state = applyInitialFaceUpEffect(state: state);
+      if (state.activeSkipCount > 0) {
+        final nextId = nextPlayerId(state: state);
+        state = state.copyWith(
+          currentPlayerId: nextId,
+          activeSkipCount: 0,
+        );
+      }
     }
-    // During the deal animation, show the dealer pile counting down from the
-    // pre-deal amount (54 total - 1 face-up centre card = 53).
-    _offlineState = initializedState.copyWith(drawPileCount: 53);
+
+    // During a normal deal animation, show the dealer pile counting down from
+    // the pre-deal amount (54 total - 1 face-up centre card = 53).
+    _offlineState = hasDebugState || widget.debugSkipDealAnimation
+        ? state.copyWith(drawPileCount: drawPile.length)
+        : state.copyWith(drawPileCount: 53);
     _drawPile = drawPile;
     _discardPile
       ..clear()
-      ..add(initializedState
+      ..add(state
           .discardTopCard!); // seed discard with post-effect starting card
     _lastMove = null; // reset on new game
     _tournamentFinishedPlayerIds.clear();
@@ -187,7 +207,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _handOrder = localStart?.hand.map((c) => c.id).toList() ?? [];
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _startDealAnimation();
+      if (!mounted) return;
+      if (hasDebugState || widget.debugSkipDealAnimation) {
+        _startTimer();
+        if (_offlineState.currentPlayerId != OfflineGameState.localId) {
+          _scheduleAiTurn(_offlineState.currentPlayerId);
+        }
+        return;
+      }
+      _startDealAnimation();
     });
   }
 
@@ -1177,18 +1205,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   bool _didPlayerFinish(String playerId, GameState state) {
-    final player = state.playerById(playerId);
-    if (player == null) return false;
-    if (player.cardCount != 0 || player.hand.isNotEmpty) return false;
-
-    // Keep existing deferred-win semantics from shared win rules.
-    if (state.activePenaltyCount > 0 && playerId == state.currentPlayerId) {
-      return false;
-    }
-    if (state.queenSuitLock != null && playerId == state.currentPlayerId) {
-      return false;
-    }
-    return true;
+    return canConfirmPlayerWin(state: state, playerId: playerId);
   }
 
   String _nextTournamentActivePlayerId({
