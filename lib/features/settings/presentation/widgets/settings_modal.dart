@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/services/card_back_service.dart';
-import '../../../../core/theme/app_dimensions.dart';
 import '../../../gameplay/presentation/controllers/audio_service.dart';
 
 // Create a simple provider to manage SharedPreferences settings globally
@@ -195,7 +194,8 @@ class SettingsModal extends ConsumerWidget {
                           dense: isMobile,
                           title: const Text('Sound Effects'),
                           value: audioService.soundEffectsEnabled,
-                          onChanged: (val) => audioService.setSoundEffectsEnabled(val),
+                          onChanged: (val) =>
+                              audioService.setSoundEffectsEnabled(val),
                           activeColor: Colors.amber,
                         ),
                         ValueListenableBuilder<bool>(
@@ -210,186 +210,6 @@ class SettingsModal extends ConsumerWidget {
                               onChanged: (val) => CardBackService.instance
                                   .setAnimatedEffectsEnabled(val),
                               activeColor: Colors.amber,
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Card Back Design',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        ValueListenableBuilder<List<CardBackDesign>>(
-                          valueListenable:
-                              CardBackService.instance.cardBackCoverDesigns,
-                          builder: (context, coverDesigns, _) {
-                            if (coverDesigns.isNotEmpty) {
-                              return ValueListenableBuilder<String>(
-                                valueListenable:
-                                    CardBackService.instance.selectedDesignId,
-                                builder: (context, selected, _) {
-                                  return Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: coverDesigns.map((design) {
-                                      final path = design.assetPath!;
-                                      final isSelected = selected == design.id;
-                                      return Padding(
-                                        padding: const EdgeInsets.only(
-                                            bottom: 8.0),
-                                        child: Material(
-                                          color: isSelected
-                                              ? Colors.amber.withValues(
-                                                  alpha: 0.15)
-                                              : Colors.transparent,
-                                          borderRadius:
-                                              BorderRadius.circular(
-                                                  AppDimensions.radiusCard),
-                                          child: InkWell(
-                                            onTap: () async {
-                                              final ok = await CardBackService
-                                                  .instance
-                                                  .selectDesign(design.id);
-                                              if (!ok && context.mounted) {
-                                                ScaffoldMessenger.of(context)
-                                                  ..clearSnackBars()
-                                                  ..showSnackBar(
-                                                    const SnackBar(
-                                                      content: Text(
-                                                        'Could not select this card back.',
-                                                      ),
-                                                      behavior: SnackBarBehavior
-                                                          .floating,
-                                                    ),
-                                                  );
-                                              }
-                                            },
-                                            borderRadius: BorderRadius
-                                                .circular(
-                                                    AppDimensions.radiusCard),
-                                            child: Padding(
-                                              padding:
-                                                  const EdgeInsets.all(8.0),
-                                              child: Row(
-                                                children: [
-                                                  ClipRRect(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            AppDimensions
-                                                                .radiusCard),
-                                                    child: SizedBox(
-                                                      width: 48,
-                                                      height: AppDimensions
-                                                          .cardHeight(48),
-                                                      child: Image.asset(
-                                                        path,
-                                                        fit: BoxFit.cover,
-                                                        errorBuilder: (_, __,
-                                                                ___) =>
-                                                            const Icon(
-                                                                Icons
-                                                                    .image_not_supported),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 12),
-                                                  Expanded(
-                                                    child: Text(
-                                                      design.label,
-                                                      style: TextStyle(
-                                                        fontWeight: isSelected
-                                                            ? FontWeight.bold
-                                                            : null,
-                                                        color: isSelected
-                                                            ? Colors.amber
-                                                            : null,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  if (isSelected)
-                                                    const Icon(
-                                                      Icons.check_circle,
-                                                      color: Colors.amber,
-                                                      size: 22,
-                                                    ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    }).toList(),
-                                  );
-                                },
-                              );
-                            }
-                            return ValueListenableBuilder<String?>(
-                              valueListenable:
-                                  CardBackService.instance
-                                      .uploadedAnimatedAssetPath,
-                              builder: (context, uploadedPath, _) {
-                                return ValueListenableBuilder<String>(
-                                  valueListenable:
-                                      CardBackService.instance.selectedDesignId,
-                                  builder: (context, selected, _) {
-                                    final uploadedLabel = uploadedPath == null
-                                        ? null
-                                        : uploadedPath
-                                            .split('/')
-                                            .last
-                                            .replaceAll(
-                                                RegExp(r'\.[^.]+$'), '');
-                                    final optionDesigns = <CardBackDesign>[
-                                      ...CardBackService.designs,
-                                      if (uploadedPath != null)
-                                        CardBackDesign(
-                                          id: 'uploaded',
-                                          label: uploadedLabel ?? 'Uploaded',
-                                          unlockWins: 0,
-                                        ),
-                                    ];
-                                    return Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      children: optionDesigns.map((design) {
-                                        final unlocked = design.id == 'uploaded'
-                                            ? true
-                                            : CardBackService.instance
-                                                .isUnlocked(design.id);
-                                        final label = unlocked
-                                            ? design.label
-                                            : '${design.label} (${design.unlockWins} wins)';
-                                        return ChoiceChip(
-                                          label: Text(label),
-                                          selected: selected == design.id,
-                                          onSelected: (_) async {
-                                            final ok = await CardBackService
-                                                .instance
-                                                .selectDesign(design.id);
-                                            if (!ok && context.mounted) {
-                                              ScaffoldMessenger.of(context)
-                                                ..clearSnackBars()
-                                                ..showSnackBar(
-                                                  SnackBar(
-                                                    content: Text(
-                                                      'Unlock ${design.label} at ${design.unlockWins} wins.',
-                                                    ),
-                                                    behavior:
-                                                        SnackBarBehavior
-                                                            .floating,
-                                                  ),
-                                                );
-                                            }
-                                          },
-                                        );
-                                      }).toList(),
-                                    );
-                                  },
-                                );
-                              },
                             );
                           },
                         ),

@@ -13,6 +13,7 @@ class CardBackDesign {
   final String id;
   final String label;
   final int unlockWins;
+
   /// If set, this design is a cardbackcover image at this asset path.
   final String? assetPath;
 }
@@ -27,6 +28,7 @@ class CardBackService {
   static const String _prefsWinsKey = 'card_back_total_wins';
   static const String _prefsAnimatedEffectsKey = 'card_back_animated_effects';
   static const String _cardBackCoverPrefix = 'assets/images/cardbackcover/';
+  static const String _animatedCardsPrefix = 'assets/animated_cards/';
   static const Set<String> _builtInAnimatedNames = {
     'classic.gif',
     'obsidian.gif',
@@ -49,10 +51,13 @@ class CardBackService {
     CardBackDesign(id: 'royal', label: 'Royal', unlockWins: 15),
   ];
 
-  final ValueNotifier<String> selectedDesignId = ValueNotifier<String>('classic');
+  final ValueNotifier<String> selectedDesignId =
+      ValueNotifier<String>('classic');
   final ValueNotifier<bool> animatedEffectsEnabled = ValueNotifier<bool>(true);
   final ValueNotifier<String?> uploadedAnimatedAssetPath =
       ValueNotifier<String?>(null);
+  final ValueNotifier<List<CardBackDesign>> animatedGifDesigns =
+      ValueNotifier<List<CardBackDesign>>([]);
   final ValueNotifier<List<CardBackDesign>> cardBackCoverDesigns =
       ValueNotifier<List<CardBackDesign>>([]);
 
@@ -78,10 +83,11 @@ class CardBackService {
     final selected = prefs.getString(_prefsSelectedKey) ?? 'classic';
     final unlockedRaw = prefs.getString(_prefsUnlockedKey);
     final wins = prefs.getInt(_prefsWinsKey) ?? 0;
-    final animated = prefs.getBool(_prefsAnimatedEffectsKey) ?? true;
+    final animatedEnabled = prefs.getBool(_prefsAnimatedEffectsKey) ?? true;
 
     _totalWins = wins;
-    animatedEffectsEnabled.value = animated;
+    animatedEffectsEnabled.value = animatedEnabled;
+    animatedGifDesigns.value = await _loadAnimatedGifDesigns();
     uploadedAnimatedAssetPath.value = await _findUploadedAnimatedAsset();
     cardBackCoverDesigns.value = await _loadCardBackCoverDesigns();
     _unlocked = unlockedRaw == null || unlockedRaw.trim().isEmpty
@@ -95,8 +101,10 @@ class CardBackService {
     _unlocked.addAll(designs.map((d) => d.id));
 
     final covers = cardBackCoverDesigns.value;
+    final animatedGifs = animatedGifDesigns.value;
     final isValidSelected = _unlocked.contains(selected) ||
-        covers.any((d) => d.id == selected);
+        covers.any((d) => d.id == selected) ||
+        animatedGifs.any((d) => d.id == selected);
     if (isValidSelected) {
       selectedDesignId.value = selected;
     } else {
@@ -118,14 +126,33 @@ class CardBackService {
         return lower.endsWith('.png') ||
             lower.endsWith('.jpg') ||
             lower.endsWith('.jpeg');
-      })
-          .toList()
+      }).toList()
         ..sort();
       return paths
           .map((path) => CardBackDesign(
                 id: path,
                 label: _labelFromFilename(path.split('/').last),
                 assetPath: path,
+              ))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<CardBackDesign>> _loadAnimatedGifDesigns() async {
+    try {
+      final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+      final paths = manifest
+          .listAssets()
+          .where((path) => path.startsWith(_animatedCardsPrefix))
+          .where((path) => path.toLowerCase().endsWith('.gif'))
+          .toList()
+        ..sort();
+      return paths
+          .map((path) => CardBackDesign(
+                id: path,
+                label: _labelFromFilename(path.split('/').last),
               ))
           .toList();
     } catch (_) {
@@ -142,7 +169,8 @@ class CardBackService {
     }
     if (designId != 'uploaded' &&
         !_unlocked.contains(designId) &&
-        !cardBackCoverDesigns.value.any((d) => d.id == designId)) {
+        !cardBackCoverDesigns.value.any((d) => d.id == designId) &&
+        !animatedGifDesigns.value.any((d) => d.id == designId)) {
       return false;
     }
     if (selectedDesignId.value == designId) return true;
@@ -165,7 +193,7 @@ class CardBackService {
       final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
       final allAnimated = manifest
           .listAssets()
-          .where((path) => path.startsWith('assets/animated_cards/'))
+          .where((path) => path.startsWith(_animatedCardsPrefix))
           .where((path) => path.toLowerCase().endsWith('.gif'))
           .toList(growable: false);
       for (final assetPath in allAnimated) {
