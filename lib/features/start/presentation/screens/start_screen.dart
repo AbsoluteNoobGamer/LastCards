@@ -8,13 +8,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../lobby/presentation/screens/lobby_screen.dart';
+
 import '../../../gameplay/presentation/screens/table_screen.dart';
 import '../../../practice/presentation/screens/offline_practice_screen.dart';
 import '../../../leaderboard/presentation/screens/leaderboard_screen.dart';
 import '../../../rules/presentation/screens/rules_screen.dart';
 import '../../../settings/presentation/widgets/settings_modal.dart';
 import '../widgets/ai_selector_modal.dart';
+import '../widgets/online_mode_selector_modal.dart';
 import '../widgets/card_back_selection_menu.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
 import '../../../../core/providers/profile_provider.dart';
@@ -347,6 +348,35 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                       totalPlayers); // Temporarily using TableScreen for demo as well
 
           _pushWithTransition(context, target);
+        },
+      ),
+    );
+  }
+
+  void _showOnlineModeSelector(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => OnlineModeSelectorModal(
+        onSelected: (mode, expectedPlayers) {
+          final profile = ref.read(profileProvider);
+          final displayName = profile.name.trim().isEmpty ? 'You' : profile.name.trim();
+
+          if (mode == OnlineMode.Tournament) {
+            _pushWithTransition(
+              context,
+              TournamentScreen(
+                isOnline: true,
+                onlineLocalDisplayName: displayName,
+              ),
+            );
+          } else {
+            _pushWithTransition(
+              context,
+              TableScreen(totalPlayers: expectedPlayers),
+            );
+          }
         },
       ),
     );

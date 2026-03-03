@@ -69,13 +69,44 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Play with AI'), findsOneWidget);
-    expect(find.text('Play Online'), findsOneWidget);
+    expect(find.text('Online'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     tester.view.physicalSize = const Size(1400, 1800);
     await tester.pumpAndSettle();
     expect(find.text('Play with AI'), findsOneWidget);
-    expect(find.text('Play Online'), findsOneWidget);
+    expect(find.text('Online'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Online selector modal exposes both online modes',
+      (tester) async {
+    tester.view.physicalSize = const Size(412, 915);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: StackFlowStartScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Online'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Up to 3 online players'), findsOneWidget);
+    expect(find.text('Tournament mode'), findsOneWidget);
+    expect(find.text('Back'), findsOneWidget);
+
+    await tester.tap(find.text('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('Up to 3 online players'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
