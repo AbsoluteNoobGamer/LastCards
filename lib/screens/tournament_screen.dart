@@ -12,7 +12,8 @@ import 'package:stack_and_flow/tournament/tournament_engine.dart';
 typedef TournamentRoundGameBuilder = Widget Function({
   required int totalPlayers,
   required bool isTournamentMode,
-  required void Function(String playerName, int finishPosition) onPlayerFinished,
+  required void Function(String playerName, int finishPosition)
+      onPlayerFinished,
   required Map<String, String> tournamentPlayerNameByTableId,
 });
 
@@ -20,16 +21,21 @@ class TournamentScreen extends StatefulWidget {
   const TournamentScreen({
     this.roundGameBuilder = _defaultRoundGameBuilder,
     this.onRoundSummaryShown,
+    this.isOnline = false,
+    this.onlineLocalDisplayName = 'You',
     super.key,
   });
 
   final TournamentRoundGameBuilder roundGameBuilder;
   final void Function(TournamentRoundResult result)? onRoundSummaryShown;
+  final bool isOnline;
+  final String onlineLocalDisplayName;
 
   static Widget _defaultRoundGameBuilder({
     required int totalPlayers,
     required bool isTournamentMode,
-    required void Function(String playerName, int finishPosition) onPlayerFinished,
+    required void Function(String playerName, int finishPosition)
+        onPlayerFinished,
     required Map<String, String> tournamentPlayerNameByTableId,
   }) {
     return TableScreen(
@@ -52,15 +58,40 @@ class _TournamentScreenState extends State<TournamentScreen> {
   @override
   void initState() {
     super.initState();
-    _engine = TournamentEngine.offline(
-      players: const [
-        TournamentPlayer(
-          id: _localPlayerId,
-          displayName: 'You',
-          isAi: false,
-        ),
-      ],
-    );
+    _engine = widget.isOnline
+        ? TournamentEngine.online(
+            players: [
+              TournamentPlayer(
+                id: _localPlayerId,
+                displayName: widget.onlineLocalDisplayName,
+                isAi: false,
+              ),
+              const TournamentPlayer(
+                id: 'online-player-2',
+                displayName: 'Player 2',
+                isAi: false,
+              ),
+              const TournamentPlayer(
+                id: 'online-player-3',
+                displayName: 'Player 3',
+                isAi: false,
+              ),
+              const TournamentPlayer(
+                id: 'online-player-4',
+                displayName: 'Player 4',
+                isAi: false,
+              ),
+            ],
+          )
+        : TournamentEngine.offline(
+            players: const [
+              TournamentPlayer(
+                id: _localPlayerId,
+                displayName: 'You',
+                isAi: false,
+              ),
+            ],
+          );
   }
 
   @override
@@ -81,7 +112,8 @@ class _TournamentScreenState extends State<TournamentScreen> {
       final nameByTableId = _buildTournamentNamesByTableId(
         _engine.activePlayerIds,
       );
-      _currentRoundPlayerIdByName = _buildPlayerIdByName(_engine.activePlayerIds);
+      _currentRoundPlayerIdByName =
+          _buildPlayerIdByName(_engine.activePlayerIds);
       final roundResult = await Navigator.push<TournamentRoundGameResult>(
         context,
         MaterialPageRoute(
@@ -143,7 +175,12 @@ class _TournamentScreenState extends State<TournamentScreen> {
         builder: (_) => TournamentWinnerScreen(
           winnerName: _displayName(_engine.winnerId!),
           onPlayAgain: () => Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const TournamentScreen()),
+            MaterialPageRoute(
+              builder: (_) => TournamentScreen(
+                isOnline: widget.isOnline,
+                onlineLocalDisplayName: widget.onlineLocalDisplayName,
+              ),
+            ),
           ),
           onReturnToMenu: () => Navigator.of(context).pop(),
         ),
@@ -215,7 +252,7 @@ class _TournamentScreenState extends State<TournamentScreen> {
   Widget build(BuildContext context) {
     return TournamentLobbyScreen(
       players: _engine.allPlayers,
-      isOnline: false,
+      isOnline: widget.isOnline,
       isHost: true,
       onStartTournament: _startTournament,
     );

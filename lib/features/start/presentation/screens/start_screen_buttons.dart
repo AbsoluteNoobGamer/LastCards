@@ -104,7 +104,8 @@ class _PlayAiButtonState extends State<_PlayAiButton> {
   Widget build(BuildContext context) {
     return _PrimaryButtonBase(
       label: "Single Player",
-      iconWidget: const Icon(Icons.smart_toy, color: Color(0xFFFFD700), size: 28),
+      iconWidget:
+          const Icon(Icons.smart_toy, color: Color(0xFFFFD700), size: 28),
       isHovered: _isHovered,
       isPressed: _isPressed,
       onHover: (val) => setState(() => _isHovered = val),
@@ -164,7 +165,7 @@ class _PlayOnlineButtonState extends State<_PlayOnlineButton>
         Tween<double>(begin: 1.0, end: 1.05).animate(_pulseController);
 
     return _PrimaryButtonBase(
-      label: "Play Online",
+      label: "Online",
       iconWidget: const Icon(Icons.people, color: Color(0xFFFFD700), size: 28),
       isHovered: _isHovered,
       isPressed: _isPressed,
@@ -175,8 +176,16 @@ class _PlayOnlineButtonState extends State<_PlayOnlineButton>
       },
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: () {
-        Navigator.pushReplacement(
-            context, MaterialPageRoute(builder: (_) => const LobbyScreen()));
+        final parentState =
+            context.findAncestorStateOfType<_StackFlowStartScreenState>();
+        if (parentState != null) {
+          parentState._showOnlineModeSelector(context);
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const TableScreen(totalPlayers: 4)),
+          );
+        }
       },
       subtitle: AnimatedBuilder(
           animation: scaleAnim,
@@ -190,16 +199,15 @@ class _PlayOnlineButtonState extends State<_PlayOnlineButton>
                     width: 8,
                     height: 8,
                     decoration: const BoxDecoration(
-                      color: Color(0xFF00FF88),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Color(0x8000FF88),
-                          blurRadius: 4,
-                          spreadRadius: 1,
-                        )
-                      ]
-                    ),
+                        color: Color(0xFF00FF88),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0x8000FF88),
+                            blurRadius: 4,
+                            spreadRadius: 1,
+                          )
+                        ]),
                   ),
                   const SizedBox(width: 6),
                   const Text(
@@ -230,7 +238,8 @@ class _TournamentButtonState extends State<_TournamentButton> {
   Widget build(BuildContext context) {
     return _PrimaryButtonBase(
       label: "Tournament",
-      iconWidget: const Icon(Icons.emoji_events, color: Color(0xFFFFD700), size: 26),
+      iconWidget:
+          const Icon(Icons.emoji_events, color: Color(0xFFFFD700), size: 26),
       isHovered: _isHovered,
       isPressed: _isPressed,
       onHover: (val) => setState(() => _isHovered = val),
@@ -240,8 +249,8 @@ class _TournamentButtonState extends State<_TournamentButton> {
       },
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: () {
-        Navigator.push(
-            context, MaterialPageRoute(builder: (_) => const TournamentScreen()));
+        Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const TournamentScreen()));
       },
     );
   }
@@ -491,7 +500,8 @@ class _SecondaryButtonState extends State<_SecondaryButton> {
                           mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(widget.icon, color: const Color(0xFFFFD700), size: 22),
+                            Icon(widget.icon,
+                                color: const Color(0xFFFFD700), size: 22),
                             const SizedBox(height: 6),
                             Text(
                               widget.label,
