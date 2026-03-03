@@ -103,7 +103,7 @@ class _PlayAiButtonState extends State<_PlayAiButton> {
   @override
   Widget build(BuildContext context) {
     return _PrimaryButtonBase(
-      label: "Play with AI",
+      label: "Single Player",
       iconWidget: const Icon(Icons.smart_toy, color: Color(0xFFFFD700), size: 28),
       isHovered: _isHovered,
       isPressed: _isPressed,
