@@ -1,24 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-enum OnlineMode { Standard, Tournament }
+import '../../../lobby/presentation/screens/lobby_screen.dart';
 
-class OnlineModeSelectorModal extends StatefulWidget {
+class OnlineModeSelectorModal extends StatelessWidget {
   const OnlineModeSelectorModal({
     required this.onSelected,
     super.key,
   });
 
-  final void Function(OnlineMode mode, int expectedPlayers) onSelected;
-
-  @override
-  State<OnlineModeSelectorModal> createState() =>
-      _OnlineModeSelectorModalState();
-}
-
-class _OnlineModeSelectorModalState extends State<OnlineModeSelectorModal> {
-  int _selectedPlayers = 4;
+  final ValueChanged<OnlineMode> onSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -54,35 +44,32 @@ class _OnlineModeSelectorModalState extends State<OnlineModeSelectorModal> {
                     letterSpacing: 2.0,
                   ),
                 ),
-                const SizedBox(height: 24),
-                _buildPlayerSelector(),
-                const SizedBox(height: 16),
-                _ModalButton(
-                  label: 'Tournament',
+                const SizedBox(height: 20),
+                _OptionButton(
+                  title: 'Up to 3 online players',
+                  subtitle:
+                      '(4 total including me) -> standard 4-player online matchmaking',
                   onTap: () {
                     Navigator.pop(context);
-                    widget.onSelected(OnlineMode.Tournament, _selectedPlayers);
+                    onSelected(OnlineMode.Standard);
                   },
                 ),
-                const SizedBox(height: 16),
-                _ModalButton(
-                  label: 'Continue',
+                const SizedBox(height: 12),
+                _OptionButton(
+                  title: 'Tournament mode',
+                  subtitle:
+                      'Use elimination bracket with online multiplayer flow',
                   onTap: () {
                     Navigator.pop(context);
-                    widget.onSelected(OnlineMode.Standard, _selectedPlayers);
+                    onSelected(OnlineMode.Tournament);
                   },
                 ),
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: Text(
+                  child: const Text(
                     'Back',
-                    style: GoogleFonts.outfit(
-                      color: Colors.white54,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.0,
-                    ),
+                    style: TextStyle(color: Colors.white54, fontSize: 16),
                   ),
                 ),
               ],
@@ -92,165 +79,66 @@ class _OnlineModeSelectorModalState extends State<OnlineModeSelectorModal> {
       ),
     );
   }
-
-  Widget _buildPlayerSelector() {
-    return Container(
-      width: double.infinity,
-      height: 68,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFFD700), Color(0xFF8B6500)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x30FFD700),
-            blurRadius: 20,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(2.0),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: const RadialGradient(
-              colors: [Color(0xFF2B1700), Color(0xFF1A0E00)],
-              radius: 1.5,
-            ),
-            borderRadius: BorderRadius.circular(16.0),
-          ),
-          child: Row(
-            children: [2, 3, 4].map((count) {
-              final isSelected = _selectedPlayers == count;
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    setState(() => _selectedPlayers = count);
-                  },
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14.0),
-                      color: isSelected
-                          ? const Color(0xFFFFD700).withValues(alpha: 0.2)
-                          : Colors.transparent,
-                      border: isSelected
-                          ? Border.all(
-                              color: const Color(0xFFFFD700), width: 1.5)
-                          : Border.all(color: Colors.transparent, width: 1.5),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      '$count Players',
-                      style: GoogleFonts.outfit(
-                        fontSize: isSelected ? 16 : 14,
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.w500,
-                        color: isSelected ? Colors.white : Colors.white60,
-                        letterSpacing: 1.0,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
-class _ModalButton extends StatefulWidget {
-  const _ModalButton({
-    required this.label,
+class _OptionButton extends StatelessWidget {
+  const _OptionButton({
+    required this.title,
+    required this.subtitle,
     required this.onTap,
   });
 
-  final String label;
+  final String title;
+  final String subtitle;
   final VoidCallback onTap;
 
   @override
-  State<_ModalButton> createState() => _ModalButtonState();
-}
-
-class _ModalButtonState extends State<_ModalButton> {
-  bool _isHovered = false;
-  bool _isPressed = false;
-
-  @override
   Widget build(BuildContext context) {
-    final scale = _isPressed ? 0.95 : (_isHovered ? 1.02 : 1.0);
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.click,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutCubic,
-        transform: Matrix4.identity()..scale(scale, scale),
-        transformAlignment: Alignment.center,
-        width: double.infinity,
-        height: 68.0,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFFD700), Color(0xFF8B6500)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Colors.amber, width: 1.5),
           ),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x30FFD700),
-              blurRadius: 20,
-              spreadRadius: 2,
-            ),
-          ],
+          padding: EdgeInsets.zero,
+          elevation: 0,
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(2.0),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: const RadialGradient(
-                colors: [Color(0xFF2B1700), Color(0xFF1A0E00)],
-                radius: 1.5,
-              ),
-              borderRadius: BorderRadius.circular(16.0),
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFFD700), Color(0xFFD4AF37)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16.0),
-                splashColor: const Color(0xFFFFD700).withValues(alpha: 0.3),
-                highlightColor: Colors.transparent,
-                onTapDown: (_) {
-                  HapticFeedback.lightImpact();
-                  setState(() => _isPressed = true);
-                },
-                onTapCancel: () => setState(() => _isPressed = false),
-                onTap: () {
-                  widget.onTap();
-                  Future.delayed(const Duration(milliseconds: 150), () {
-                    if (mounted) setState(() => _isPressed = false);
-                  });
-                },
-                child: Center(
-                  child: Text(
-                    widget.label,
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 2.0,
-                    ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -258,4 +146,3 @@ class _ModalButtonState extends State<_ModalButton> {
     );
   }
 }
-

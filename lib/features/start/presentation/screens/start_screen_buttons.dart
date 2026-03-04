@@ -183,7 +183,7 @@ class _PlayOnlineButtonState extends State<_PlayOnlineButton>
         } else {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const TableScreen(totalPlayers: 4)),
+            MaterialPageRoute(builder: (_) => const LobbyScreen()),
           );
         }
       },
