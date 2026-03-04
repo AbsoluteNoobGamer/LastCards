@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-
+import '../../../lobby/presentation/screens/lobby_screen.dart';
 import '../../../gameplay/presentation/screens/table_screen.dart';
 import '../../../practice/presentation/screens/offline_practice_screen.dart';
 import '../../../leaderboard/presentation/screens/leaderboard_screen.dart';
@@ -359,24 +359,11 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => OnlineModeSelectorModal(
-        onSelected: (mode, expectedPlayers) {
-          final profile = ref.read(profileProvider);
-          final displayName = profile.name.trim().isEmpty ? 'You' : profile.name.trim();
-
-          if (mode == OnlineMode.Tournament) {
-            _pushWithTransition(
-              context,
-              TournamentScreen(
-                isOnline: true,
-                onlineLocalDisplayName: displayName,
-              ),
-            );
-          } else {
-            _pushWithTransition(
-              context,
-              TableScreen(totalPlayers: expectedPlayers),
-            );
-          }
+        onSelected: (mode) {
+          _pushWithTransition(
+            context,
+            LobbyScreen(onlineMode: mode),
+          );
         },
       ),
     );
