@@ -140,15 +140,15 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                                   ),
                                 ),
                               ),
-                              SizedBox(height: isMobile ? 32 : 48),
+                              SizedBox(height: isMobile ? 40 : 56),
                               isMobile
                                   ? Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         _PlayAiButton(),
-                                        const SizedBox(height: 16),
+                                        const SizedBox(height: 20),
                                         _PlayOnlineButton(),
-                                        const SizedBox(height: 16),
+                                        const SizedBox(height: 20),
                                         _TournamentButton(),
                                       ],
                                     )
@@ -171,69 +171,7 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                             ],
                           ),
                         ),
-                        SizedBox(height: isMobile ? 24 : 40),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: LayoutBuilder(
-                            builder: (context, buttonConstraints) {
-                              const spacing = 8.0;
-                              final maxWidth = buttonConstraints.maxWidth;
-                              final crossAxisCount = maxWidth < 700 ? 2 : 5;
-                              final itemWidth = crossAxisCount == 5
-                                  ? (maxWidth - (spacing * 4)) / 5
-                                  : (maxWidth - spacing) / 2;
-
-                              final actions = <Widget>[
-                                _SecondaryButton(
-                                  "Practice Mode",
-                                  Icons.style_rounded,
-                                  () => _showAISelector(
-                                    context,
-                                    isPractice: true,
-                                  ),
-                                ),
-                                _SecondaryButton(
-                                  "Leaderboard",
-                                  Icons.emoji_events_rounded,
-                                  () => _pushWithTransition(
-                                    context,
-                                    const LeaderboardScreen(),
-                                  ),
-                                ),
-                                _SecondaryButton(
-                                  "Card Styles",
-                                  Icons.style_rounded,
-                                  () => _showCardStyles(context),
-                                ),
-                                _SecondaryButton(
-                                  "Settings",
-                                  Icons.settings_rounded,
-                                  () => _showSettings(context),
-                                ),
-                                _SecondaryButton(
-                                  "Rules",
-                                  Icons.menu_book_rounded,
-                                  () => _pushWithTransition(
-                                    context,
-                                    const RulesScreen(),
-                                  ),
-                                ),
-                              ];
-
-                              return Wrap(
-                                spacing: spacing,
-                                runSpacing: spacing,
-                                children: actions
-                                    .map((action) => SizedBox(
-                                          width: itemWidth,
-                                          child: action,
-                                        ))
-                                    .toList(),
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 32),
+                        SizedBox(height: isMobile ? 48 : 64),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 40),
                           child: Row(
@@ -260,6 +198,50 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                           ),
                         ),
                         const SizedBox(height: 20),
+                        // ── Horizontal icon row ──────────────────────────────
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              _IconRowItem(
+                                "Practice",
+                                Icons.style_rounded,
+                                () => _showAISelector(
+                                  context,
+                                  isPractice: true,
+                                ),
+                              ),
+                              _IconRowItem(
+                                "Leaderboard",
+                                Icons.emoji_events_rounded,
+                                () => _pushWithTransition(
+                                  context,
+                                  const LeaderboardScreen(),
+                                ),
+                              ),
+                              _IconRowItem(
+                                "Card Styles",
+                                Icons.style_rounded,
+                                () => _showCardStyles(context),
+                              ),
+                              _IconRowItem(
+                                "Settings",
+                                Icons.settings_rounded,
+                                () => _showSettings(context),
+                              ),
+                              _IconRowItem(
+                                "Rules",
+                                Icons.menu_book_rounded,
+                                () => _pushWithTransition(
+                                  context,
+                                  const RulesScreen(),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 32),
                       ],
                     ),
                   ),
