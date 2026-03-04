@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/game_state.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
+import '../../../../core/providers/theme_provider.dart';
 
-class FloatingActionBarWidget extends StatelessWidget {
+class FloatingActionBarWidget extends ConsumerWidget {
   final String activePlayerName;
   final PlayDirection direction;
   final bool canEndTurn;
@@ -19,7 +20,15 @@ class FloatingActionBarWidget extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(themeProvider).theme;
+    final accent = theme.accentPrimary;
+    final accentLight = theme.accentLight;
+    final accentDark = theme.accentDark;
+    final surface = theme.surfacePanel;
+    final textSec = theme.textSecondary;
+    final bgDeep = theme.backgroundDeep;
+
     final bool isCw = direction == PlayDirection.clockwise;
     final String dirIcon = isCw ? '↻' : '↺';
     final String dirText = isCw ? 'Clockwise' : 'Counter-Clockwise';
@@ -36,16 +45,17 @@ class FloatingActionBarWidget extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: canEndTurn
-                      ? [AppColors.goldLight, AppColors.goldDark]
-                      : [AppColors.surfacePanel, AppColors.surfacePanel],
+                      ? [accentLight, accentDark]
+                      : [surface, surface],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
-                borderRadius: BorderRadius.circular(AppDimensions.radiusButton),
+                borderRadius:
+                    BorderRadius.circular(AppDimensions.radiusButton),
                 boxShadow: canEndTurn
                     ? [
                         BoxShadow(
-                          color: AppColors.goldPrimary.withValues(alpha: 0.4),
+                          color: accent.withValues(alpha: 0.4),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         )
@@ -57,9 +67,8 @@ class FloatingActionBarWidget extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
-                  foregroundColor:
-                      canEndTurn ? AppColors.feltDeep : AppColors.textSecondary,
-                  disabledForegroundColor: AppColors.textSecondary,
+                  foregroundColor: canEndTurn ? bgDeep : textSec,
+                  disabledForegroundColor: textSec,
                   padding: EdgeInsets.symmetric(
                     horizontal: isMobile ? 12 : 20,
                     vertical: isMobile ? 10 : 12,
@@ -85,10 +94,10 @@ class FloatingActionBarWidget extends StatelessWidget {
             vertical: isMobile ? 6 : 8,
           ),
           decoration: BoxDecoration(
-            color: AppColors.surfacePanel.withValues(alpha: 0.95),
+            color: surface.withValues(alpha: 0.95),
             borderRadius: BorderRadius.circular(32),
             border: Border.all(
-              color: AppColors.goldDark.withValues(alpha: 0.6),
+              color: accentDark.withValues(alpha: 0.6),
               width: 1.5,
             ),
             boxShadow: [
@@ -104,12 +113,12 @@ class FloatingActionBarWidget extends StatelessWidget {
             children: [
               // Left: Direction
               SizedBox(
-                width: isMobile ? 90 : 120, // keep widths fixed so center title doesn't jitter
+                width: isMobile ? 90 : 120,
                 child: Row(
                   children: [
                     Icon(
                       isCw ? Icons.rotate_right : Icons.rotate_left,
-                      color: AppColors.goldPrimary,
+                      color: accent,
                       size: isMobile ? 14 : 16,
                     ),
                     const SizedBox(width: 4),
@@ -117,7 +126,7 @@ class FloatingActionBarWidget extends StatelessWidget {
                       child: Text(
                         '$dirIcon $dirText',
                         style: TextStyle(
-                          color: AppColors.textSecondary.withValues(alpha: 0.9),
+                          color: textSec.withValues(alpha: 0.9),
                           fontSize: isMobile ? 10 : 12,
                           fontStyle: FontStyle.italic,
                         ),
@@ -128,21 +137,24 @@ class FloatingActionBarWidget extends StatelessWidget {
                   ],
                 ),
               ),
-              
-              // Center: Whose turn
+
+              // Divider
               Container(
                 width: 1,
                 height: 24,
-                color: AppColors.goldDark.withValues(alpha: 0.3),
+                color: accentDark.withValues(alpha: 0.3),
                 margin: const EdgeInsets.symmetric(horizontal: 8),
               ),
-              
+
+              // Center: Whose turn
               Expanded(
                 child: Text(
-                  activePlayerName == 'You' ? 'Your Turn' : "\${activePlayerName}'s Turn",
+                  activePlayerName == 'You'
+                      ? 'Your Turn'
+                      : "${activePlayerName}'s Turn",
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: AppColors.goldPrimary,
+                    color: accent,
                     fontSize: isMobile ? 14 : 16,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.5,
@@ -151,11 +163,11 @@ class FloatingActionBarWidget extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              
+
               Container(
                 width: 1,
                 height: 24,
-                color: AppColors.goldDark.withValues(alpha: 0.3),
+                color: accentDark.withValues(alpha: 0.3),
                 margin: const EdgeInsets.symmetric(horizontal: 8),
               ),
 
