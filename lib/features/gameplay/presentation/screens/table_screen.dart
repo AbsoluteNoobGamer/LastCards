@@ -17,6 +17,7 @@ import '../../data/datasources/websocket_client.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/services/card_back_service.dart';
+import '../../../../core/providers/theme_provider.dart';
 import '../widgets/discard_pile_widget.dart';
 import '../widgets/draw_pile_widget.dart';
 import '../widgets/hud_overlay_widget.dart';
@@ -492,11 +493,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         ? _offlineState.activePenaltyCount
         : ref.watch(penaltyCountProvider);
 
+    final appTheme = ref.watch(themeProvider).theme;
     return Scaffold(
       appBar: null,
       extendBodyBehindAppBar: true,
       extendBody: true,
-      backgroundColor: AppColors.feltDeep,
+      backgroundColor: appTheme.backgroundDeep,
       body: LayoutBuilder(
         builder: (context, constraints) {
           return Stack(

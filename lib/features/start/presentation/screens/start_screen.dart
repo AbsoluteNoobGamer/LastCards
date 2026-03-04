@@ -17,8 +17,10 @@ import '../../../settings/presentation/widgets/settings_modal.dart';
 import '../widgets/ai_selector_modal.dart';
 import '../widgets/online_mode_selector_modal.dart';
 import '../widgets/card_back_selection_menu.dart';
+import '../../../../core/theme/theme_selector_modal.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
 import '../../../../core/providers/profile_provider.dart';
+import '../../../../core/providers/theme_provider.dart';
 import '../../../../screens/tournament_screen.dart';
 
 part 'start_screen_background.dart';
@@ -75,13 +77,13 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                 ),
               ),
               Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Color(0x99000000),
-                      Color(0xCC000000),
+                      ref.watch(themeProvider).theme.overlayTop,
+                      ref.watch(themeProvider).theme.overlayBottom,
                     ],
                   ),
                 ),
@@ -226,6 +228,11 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                                 () => _showCardStyles(context),
                               ),
                               _IconRowItem(
+                                "Themes",
+                                Icons.palette_rounded,
+                                () => _showThemeSelector(context),
+                              ),
+                              _IconRowItem(
                                 "Settings",
                                 Icons.settings_rounded,
                                 () => _showSettings(context),
@@ -348,6 +355,15 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
           );
         },
       ),
+    );
+  }
+
+  void _showThemeSelector(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const ThemeSelectorModal(),
     );
   }
 }

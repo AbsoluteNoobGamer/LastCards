@@ -3,13 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/player.dart';
 import '../controllers/game_provider.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/player_styles.dart';
+import '../../../../core/providers/theme_provider.dart';
 
 /// Wraps a player's card area with:
-/// - Gold glow ring when [isActiveTurn]
+/// - Accent glow ring when [isActiveTurn]
 /// - 40% opacity dim + pause icon when [isSkipped]
 /// - Opponent hands shown as a condensed face-down fan
 /// - Card count badge
@@ -35,6 +35,7 @@ class PlayerZoneWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final appTheme = ref.watch(themeProvider).theme;
     final liveGameState = ref.watch(gameStateProvider);
     final livePlayers = liveGameState?.players ?? const [];
     var reactiveCardCount = player.cardCount;
@@ -52,6 +53,7 @@ class PlayerZoneWidget extends ConsumerWidget {
         player: playerWithReactiveCount,
         isTournamentFinished: isTournamentFinished,
         isTournamentEliminated: isTournamentEliminated,
+        appTheme: appTheme,
       );
     }
 
@@ -59,7 +61,6 @@ class PlayerZoneWidget extends ConsumerWidget {
     final isSkipped = player.isSkipped;
     final isOffline = !player.isConnected;
 
-    // Inactive: 50% opacity gray (unless skipped)
     final double baseOpacity = isSkipped ? 0.40 : (isActive ? 1.0 : 0.50);
 
     return AnimatedOpacity(
@@ -72,23 +73,15 @@ class PlayerZoneWidget extends ConsumerWidget {
         ),
         duration: const Duration(milliseconds: 1500),
         curve: Curves.easeInOutCubic,
-        onEnd: () {
-          // If we want a continuous pulse, we'd need a StatefulWidget to swap the tween ends.
-          // Since the user requested dropping AnimatedBuilder for TweenAnimationBuilder
-          // for performance, we can just let it sit at 1.0, or quickly wrap in a stateful
-          // just to flip the tween target if requested. For now, pushing to 1.0 is smooth.
-          // Let's actually implement a continuous ping-pong by just rebuilding via a local state
-          // if we strictly need heartbeat, but a static "on" glow is usually better for battery.
-          // I will leave it static-on when active, saving repaints entirely once settled.
-        },
         builder: (context, glowValue, childWrapper) {
           return Container(
             padding: const EdgeInsets.all(AppDimensions.sm),
             decoration: BoxDecoration(
               color: isActive
-                  ? AppColors.goldPrimary.withValues(alpha: glowValue * 0.15)
+                  ? appTheme.accentPrimary.withValues(alpha: glowValue * 0.13)
                   : Colors.transparent,
-              borderRadius: BorderRadius.circular(AppDimensions.radiusCard + 4),
+              borderRadius:
+                  BorderRadius.circular(AppDimensions.radiusCard + 4),
             ),
             child: Stack(
               alignment: Alignment.center,
@@ -101,7 +94,7 @@ class PlayerZoneWidget extends ConsumerWidget {
                     child: Center(
                       child: Icon(
                         Icons.pause_circle_outline_rounded,
-                        color: AppColors.textSecondary.withValues(alpha: 0.8),
+                        color: appTheme.textSecondary.withValues(alpha: 0.8),
                         size: 32,
                       ),
                     ),
@@ -116,10 +109,10 @@ class PlayerZoneWidget extends ConsumerWidget {
                       width: 10,
                       height: 10,
                       decoration: BoxDecoration(
-                        color: AppColors.redSoft,
+                        color: const Color(0xFFE53935),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: AppColors.surfacePanel,
+                          color: appTheme.surfacePanel,
                           width: 1.5,
                         ),
                       ),
@@ -132,14 +125,12 @@ class PlayerZoneWidget extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Player name + card count
             _PlayerLabel(
               player: playerWithReactiveCount,
               isLocalPlayer: isLocalPlayer,
+              appTheme: appTheme,
             ),
             const SizedBox(height: AppDimensions.xs),
-
-            // Content
             child ?? const SizedBox.shrink(),
           ],
         ),
@@ -151,11 +142,13 @@ class PlayerZoneWidget extends ConsumerWidget {
 class _OpponentAvatarZone extends StatelessWidget {
   const _OpponentAvatarZone({
     required this.player,
+    required this.appTheme,
     this.isTournamentFinished = false,
     this.isTournamentEliminated = false,
   });
 
   final PlayerModel player;
+  final dynamic appTheme; // AppThemeData
   final bool isTournamentFinished;
   final bool isTournamentEliminated;
 
@@ -165,9 +158,10 @@ class _OpponentAvatarZone extends StatelessWidget {
     final isActive = player.isActiveTurn;
     final hasTournamentStatus = isTournamentFinished;
 
+    // Use accent for active ring, textSecondary for inactive
     final ringColor = isActive
-        ? AppColors.blueAccent
-        : AppColors.textSecondary.withValues(alpha: 0.35);
+        ? (appTheme.accentPrimary as Color)
+        : (appTheme.textSecondary as Color).withValues(alpha: 0.35);
     final ringWidth = isActive ? 3.0 : 1.5;
 
     return Column(
@@ -197,14 +191,16 @@ class _OpponentAvatarZone extends StatelessWidget {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: isActive
-                              ? AppColors.goldPrimary.withValues(alpha: 0.22)
+                              ? (appTheme.accentPrimary as Color)
+                                  .withValues(alpha: 0.22)
                               : color.withValues(alpha: 0.2),
                           border:
                               Border.all(color: ringColor, width: ringWidth),
                           boxShadow: isActive
                               ? [
                                   BoxShadow(
-                                    color: ringColor.withValues(alpha: 0.55),
+                                    color:
+                                        ringColor.withValues(alpha: 0.55),
                                     blurRadius: 14,
                                     spreadRadius: 2,
                                   ),
@@ -231,9 +227,9 @@ class _OpponentAvatarZone extends StatelessWidget {
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: AppColors.goldDark,
+                          color: appTheme.accentDark as Color,
                           border: Border.all(
-                            color: AppColors.surfacePanel,
+                            color: appTheme.surfacePanel as Color,
                             width: 1.5,
                           ),
                         ),
@@ -261,7 +257,9 @@ class _OpponentAvatarZone extends StatelessWidget {
             textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
             style: AppTypography.labelSmall.copyWith(
-              color: isActive ? color : AppColors.textPrimary,
+              color: isActive
+                  ? color
+                  : (appTheme.textPrimary as Color),
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -273,11 +271,11 @@ class _OpponentAvatarZone extends StatelessWidget {
             decoration: BoxDecoration(
               color: isTournamentEliminated
                   ? const Color(0x22FF3333)
-                  : const Color(0x22FFD700),
+                  : (appTheme.accentPrimary as Color).withValues(alpha: 0.13),
               border: Border.all(
                 color: isTournamentEliminated
                     ? const Color(0xFFFF3333)
-                    : const Color(0xFFFFD700),
+                    : (appTheme.accentPrimary as Color),
                 width: 1,
               ),
               borderRadius: BorderRadius.circular(20),
@@ -287,7 +285,7 @@ class _OpponentAvatarZone extends StatelessWidget {
               style: TextStyle(
                 color: isTournamentEliminated
                     ? const Color(0xFFFF3333)
-                    : const Color(0xFFFFD700),
+                    : (appTheme.accentPrimary as Color),
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1,
@@ -305,15 +303,16 @@ class _OpponentAvatarZone extends StatelessWidget {
 class _PlayerLabel extends StatelessWidget {
   const _PlayerLabel({
     required this.player,
+    required this.appTheme,
     this.isLocalPlayer = false,
   });
 
   final PlayerModel player;
+  final dynamic appTheme; // AppThemeData
   final bool isLocalPlayer;
 
   @override
   Widget build(BuildContext context) {
-    // Determine badge text
     String? badgeText;
     Color? badgeColor;
 
@@ -329,11 +328,13 @@ class _PlayerLabel extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
           color:
-              (badgeColor ?? AppColors.textSecondary).withValues(alpha: 0.15),
+              (badgeColor ?? appTheme.textSecondary as Color)
+                  .withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-              color: (badgeColor ?? AppColors.textSecondary)
-                  .withValues(alpha: 0.5),
+              color:
+                  (badgeColor ?? appTheme.textSecondary as Color)
+                      .withValues(alpha: 0.5),
               width: 1),
         ),
         child: Text(
@@ -368,7 +369,7 @@ class _PlayerLabel extends StatelessWidget {
                 style: AppTypography.labelSmall.copyWith(
                   color: player.isActiveTurn
                       ? PlayerStyles.getColor(player.tablePosition)
-                      : AppColors.textPrimary,
+                      : (appTheme.textPrimary as Color),
                   fontStyle: FontStyle.normal,
                   shadows: player.isActiveTurn
                       ? [
@@ -389,7 +390,7 @@ class _PlayerLabel extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
           decoration: BoxDecoration(
-            color: AppColors.surfacePanel,
+            color: appTheme.surfacePanel as Color,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
                 color: PlayerStyles.getColor(player.tablePosition)
@@ -400,7 +401,7 @@ class _PlayerLabel extends StatelessWidget {
             '${player.cardCount}',
             style: AppTypography.labelSmall.copyWith(
               fontSize: 10,
-              color: AppColors.goldLight,
+              color: appTheme.accentLight as Color,
               fontWeight: FontWeight.w700,
             ),
           ),
