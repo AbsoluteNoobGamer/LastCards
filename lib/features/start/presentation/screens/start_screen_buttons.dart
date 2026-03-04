@@ -405,124 +405,82 @@ class _PrimaryButtonBase extends StatelessWidget {
 }
 
 // -----------------------------------------------------------------------------
-// Secondary Buttons
+// Icon Row Items (bottom of screen — minimal, no borders)
 // -----------------------------------------------------------------------------
 
-class _SecondaryButton extends StatefulWidget {
+/// A borderless, backgroundless icon + label item for the bottom icon row.
+/// Shows a gold icon with a small label underneath. Scales slightly on hover.
+class _IconRowItem extends StatefulWidget {
   final String label;
   final IconData icon;
   final VoidCallback onTap;
 
-  const _SecondaryButton(this.label, this.icon, this.onTap);
+  const _IconRowItem(this.label, this.icon, this.onTap);
 
   @override
-  State<_SecondaryButton> createState() => _SecondaryButtonState();
+  State<_IconRowItem> createState() => _IconRowItemState();
 }
 
-class _SecondaryButtonState extends State<_SecondaryButton> {
+class _IconRowItemState extends State<_IconRowItem> {
   bool _isHovered = false;
+  bool _isPressed = false;
 
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+      onExit: (_) => setState(() {
+            _isHovered = false;
+            _isPressed = false;
+          }),
       cursor: SystemMouseCursors.click,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutCubic,
-        transform: Matrix4.identity()
-          ..scale(_isHovered ? 1.05 : 1.0, _isHovered ? 1.05 : 1.0),
-        transformAlignment: Alignment.center,
-        height: 80.0,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFFD700), Color(0xFF8B6500)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x30FFD700),
-              blurRadius: 20,
-              spreadRadius: 2,
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) {
+          setState(() => _isPressed = false);
+          HapticFeedback.selectionClick();
+          widget.onTap();
+        },
+        onTapCancel: () => setState(() => _isPressed = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          transform: Matrix4.identity()
+            ..scale(
+              _isPressed ? 0.90 : (_isHovered ? 1.12 : 1.0),
+              _isPressed ? 0.90 : (_isHovered ? 1.12 : 1.0),
             ),
-            BoxShadow(
-              color: Color(0x15FFD700),
-              blurRadius: 40,
-              spreadRadius: 4,
-            ),
-            BoxShadow(
-              color: Color(0x80000000),
-              blurRadius: 8,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(2.0),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: const RadialGradient(
-                colors: [Color(0xFF2B1700), Color(0xFF1A0E00)],
-                radius: 1.5,
+          transformAlignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [Color(0xFFFFE566), Color(0xFFC9A84C)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ).createShader(bounds),
+                child: Icon(
+                  widget.icon,
+                  color: Colors.white, // overridden by ShaderMask
+                  size: 26,
+                ),
               ),
-              borderRadius: BorderRadius.circular(12.0),
-            ),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    height: 1,
-                    color: Colors.white.withOpacity(0.05),
-                  ),
+              const SizedBox(height: 6),
+              Text(
+                widget.label,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFC9A84C),
+                  letterSpacing: 0.8,
                 ),
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12.0),
-                    splashColor: const Color(0xFFC9A84C).withOpacity(0.3),
-                    highlightColor: Colors.transparent,
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      widget.onTap();
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(widget.icon,
-                                color: const Color(0xFFFFD700), size: 22),
-                            const SizedBox(height: 6),
-                            Text(
-                              widget.label,
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.outfit(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                letterSpacing: 1.0,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ),
       ),
