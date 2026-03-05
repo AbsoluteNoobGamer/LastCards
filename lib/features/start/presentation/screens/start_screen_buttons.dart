@@ -243,8 +243,12 @@ class _TournamentButtonState extends State<_TournamentButton> {
       },
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: () {
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const TournamentScreen()));
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => const TournamentTypeSheet(),
+        );
       },
     );
   }

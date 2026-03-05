@@ -31,6 +31,7 @@ import '../widgets/last_move_panel_widget.dart';
 import '../../../../widgets/turn_timer_bar.dart';
 import '../../../../services/audio_service.dart' as game_audio;
 import '../../../../services/game_sound.dart';
+import '../../../../features/single_player/providers/single_player_session_provider.dart';
 
 part 'table_screen_background.dart';
 part 'table_screen_layout.dart';
@@ -57,6 +58,8 @@ class TableScreen extends ConsumerStatefulWidget {
   final GameState? debugInitialOfflineState;
   final List<CardModel>? debugInitialDrawPile;
   final bool debugSkipDealAnimation;
+  final AiDifficulty? aiDifficulty;
+
   const TableScreen({
     this.totalPlayers = 2,
     this.isTournamentMode = false,
@@ -65,6 +68,7 @@ class TableScreen extends ConsumerStatefulWidget {
     this.debugInitialOfflineState,
     this.debugInitialDrawPile,
     this.debugSkipDealAnimation = false,
+    this.aiDifficulty,
     super.key,
   });
 
@@ -930,11 +934,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     setState(() => _aiThinking = true);
 
     final hasPlayable = aiHasPlayableTurn(state: _offlineState, aiPlayerId: aiId);
-    final baseThinkMs = _randomAiDelayMs(1200, 2500);
+    final diffMult = widget.aiDifficulty?.delayMultiplier ?? 1.0;
+    final baseThinkMs = (_randomAiDelayMs(1200, 2500) * diffMult).round();
 
     // Forced draw pacing: pause before draw and a brief pause after.
     if (!hasPlayable) {
-      await Future.delayed(const Duration(milliseconds: 1000));
+      final drawPauseMs = (1000 * diffMult).round();
+      await Future.delayed(Duration(milliseconds: drawPauseMs));
     } else {
       await Future.delayed(Duration(milliseconds: baseThinkMs));
     }

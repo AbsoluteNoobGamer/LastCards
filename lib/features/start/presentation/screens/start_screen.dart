@@ -15,6 +15,7 @@ import '../../../leaderboard/presentation/screens/leaderboard_screen.dart';
 import '../../../rules/presentation/screens/rules_screen.dart';
 import '../../../settings/presentation/widgets/settings_modal.dart';
 import '../widgets/ai_selector_modal.dart';
+import '../../../../features/single_player/widgets/difficulty_selection_sheet.dart';
 import '../../../../features/online/widgets/mode_selection_sheet.dart';
 import '../widgets/card_back_selection_menu.dart';
 import '../../../../core/theme/theme_selector_modal.dart';
@@ -22,6 +23,7 @@ import '../../../profile/presentation/screens/profile_screen.dart';
 import '../../../../core/providers/profile_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../screens/tournament_screen.dart';
+import '../../../../features/tournament/widgets/tournament_type_sheet.dart';
 
 part 'start_screen_background.dart';
 part 'start_screen_buttons.dart';
@@ -339,19 +341,28 @@ class _DeckDropStartScreenState extends ConsumerState<DeckDropStartScreen>
   }
 
   void _showAISelector(BuildContext context, {required bool isPractice}) {
+    // Single Player (non-practice) → new premium bottom sheet flow
+    if (!isPractice) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => const DifficultySelectionSheet(),
+      );
+      return;
+    }
+
+    // Practice path — untouched
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => AISelectorModal(
         onSelected: (totalPlayers) {
-          final target = isPractice
-              ? OfflinePracticeScreen(totalPlayers: totalPlayers)
-              : TableScreen(
-                  totalPlayers:
-                      totalPlayers); // Temporarily using TableScreen for demo as well
-
-          _pushWithTransition(context, target);
+          _pushWithTransition(
+            context,
+            OfflinePracticeScreen(totalPlayers: totalPlayers),
+          );
         },
       ),
     );
