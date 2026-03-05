@@ -63,7 +63,7 @@ void main() {
     await tester.pumpWidget(
       const ProviderScope(
         child: MaterialApp(
-          home: StackFlowStartScreen(),
+          home: DeckDropStartScreen(),
         ),
       ),
     );
@@ -91,7 +91,7 @@ void main() {
     await tester.pumpWidget(
       const ProviderScope(
         child: MaterialApp(
-          home: StackFlowStartScreen(),
+          home: DeckDropStartScreen(),
         ),
       ),
     );

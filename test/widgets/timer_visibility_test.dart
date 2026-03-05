@@ -7,12 +7,14 @@ import 'package:deck_drop/features/gameplay/domain/entities/game_state.dart';
 void main() {
   testWidgets('FloatingActionBarWidget does not show timer', (WidgetTester tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: FloatingActionBarWidget(
-            activePlayerName: 'Test Player',
-            direction: PlayDirection.clockwise,
-            canEndTurn: true,
+      const ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: FloatingActionBarWidget(
+              activePlayerName: 'Test Player',
+              direction: PlayDirection.clockwise,
+              canEndTurn: true,
+            ),
           ),
         ),
       ),
