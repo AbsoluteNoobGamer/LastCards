@@ -2,6 +2,38 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../single_player/providers/single_player_session_provider.dart';
 
+enum TournamentFormat {
+  standard,
+  knockouts;
+
+  String get displayName {
+    switch (this) {
+      case TournamentFormat.standard:
+        return 'Standard';
+      case TournamentFormat.knockouts:
+        return 'Knockouts';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case TournamentFormat.standard:
+        return 'First to empty their hand wins the round';
+      case TournamentFormat.knockouts:
+        return 'Elimination format, last one standing is knocked out each round';
+    }
+  }
+
+  String get emoji {
+    switch (this) {
+      case TournamentFormat.standard:
+        return '🃏';
+      case TournamentFormat.knockouts:
+        return '💥';
+    }
+  }
+}
+
 enum TournamentType {
   vsAi,
   localMultiplayer;
@@ -9,9 +41,9 @@ enum TournamentType {
   String get displayName {
     switch (this) {
       case TournamentType.vsAi:
-        return 'vs AI';
+        return 'Single Player';
       case TournamentType.localMultiplayer:
-        return 'Local Multiplayer';
+        return 'Online';
     }
   }
 
@@ -20,16 +52,16 @@ enum TournamentType {
       case TournamentType.vsAi:
         return 'Compete against AI opponents across multiple rounds';
       case TournamentType.localMultiplayer:
-        return 'Pass and play tournament with friends';
+        return 'Play tournament against real players online';
     }
   }
 
   String get emoji {
     switch (this) {
       case TournamentType.vsAi:
-        return '🤖';
+        return '👤';
       case TournamentType.localMultiplayer:
-        return '👥';
+        return '🌐';
     }
   }
 }
@@ -40,18 +72,21 @@ class TournamentSessionState {
     this.difficulty,
     this.playerNames = const ['Noob 1', 'Noob 2', 'Noob 3', 'Noob 4'],
     this.playerCount,
+    this.format,
   });
 
   final TournamentType? type;
   final AiDifficulty? difficulty;
   final List<String> playerNames;
   final int? playerCount;
+  final TournamentFormat? format;
 
   TournamentSessionState copyWith({
     TournamentType? type,
     AiDifficulty? difficulty,
     List<String>? playerNames,
     int? playerCount,
+    TournamentFormat? format,
     bool clearDifficulty = false,
   }) {
     return TournamentSessionState(
@@ -59,6 +94,7 @@ class TournamentSessionState {
       difficulty: clearDifficulty ? null : (difficulty ?? this.difficulty),
       playerNames: playerNames ?? this.playerNames,
       playerCount: playerCount ?? this.playerCount,
+      format: format ?? this.format,
     );
   }
 }
@@ -82,6 +118,10 @@ class TournamentSessionNotifier extends StateNotifier<TournamentSessionState> {
 
   void setPlayerCount(int count) {
     state = state.copyWith(playerCount: count);
+  }
+
+  void setFormat(TournamentFormat format) {
+    state = state.copyWith(format: format);
   }
 
   void reset() {

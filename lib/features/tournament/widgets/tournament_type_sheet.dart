@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../providers/tournament_session_provider.dart';
 import 'difficulty_selection_sheet.dart';
-import 'player_setup_sheet.dart';
+import 'player_count_sheet.dart';
 
 /// Bottom Sheet 1 — Tournament Type Selection
 ///
@@ -96,7 +96,7 @@ class TournamentTypeSheet extends ConsumerWidget {
         if (type == TournamentType.vsAi) {
           return const TournamentDifficultySelectionSheet();
         } else {
-          return const TournamentPlayerSetupSheet();
+          return const TournamentPlayerCountSheet();
         }
       },
     );
