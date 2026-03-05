@@ -1,11 +1,11 @@
 {
-    "name": "stack_and_flow",
-    "short_name": "stack_and_flow",
+    "name": "DeckDrop",
+    "short_name": "DeckDrop",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "DeckDrop — Premium competitive card game.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

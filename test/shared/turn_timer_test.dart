@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:stack_and_flow/shared/engine/game_turn_timer.dart';
-import 'package:stack_and_flow/widgets/turn_timer_bar.dart';
+import 'package:deck_drop/shared/engine/game_turn_timer.dart';
+import 'package:deck_drop/widgets/turn_timer_bar.dart';
 
 void main() {
   group('GameTurnTimer Tests', () {

@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:stack_and_flow/core/models/card_model.dart';
-import 'package:stack_and_flow/core/models/offline_game_engine.dart';
-import 'package:stack_and_flow/core/models/game_state.dart';
-import 'package:stack_and_flow/core/models/player_model.dart';
-import 'package:stack_and_flow/core/models/offline_game_state.dart';
+import 'package:deck_drop/core/models/card_model.dart';
+import 'package:deck_drop/core/models/offline_game_engine.dart';
+import 'package:deck_drop/core/models/game_state.dart';
+import 'package:deck_drop/core/models/player_model.dart';
+import 'package:deck_drop/core/models/offline_game_state.dart';
 
 void main() {
   CardModel c(Rank r, Suit s, {String? id}) {

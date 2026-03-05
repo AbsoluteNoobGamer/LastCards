@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:stack_and_flow/tournament/tournament_engine.dart';
+import 'package:deck_drop/tournament/tournament_engine.dart';
 
 class TournamentLobbyScreen extends StatelessWidget {
   const TournamentLobbyScreen({

@@ -19,10 +19,10 @@ import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:stack_and_flow/core/services/profile_service.dart';
-import 'package:stack_and_flow/core/providers/profile_provider.dart';
-import 'package:stack_and_flow/core/services/nsfw_scan_service.dart';
-import 'package:stack_and_flow/features/profile/presentation/screens/profile_screen.dart';
+import 'package:deck_drop/core/services/profile_service.dart';
+import 'package:deck_drop/core/providers/profile_provider.dart';
+import 'package:deck_drop/core/services/nsfw_scan_service.dart';
+import 'package:deck_drop/features/profile/presentation/screens/profile_screen.dart';
 
 // Generate mocks for NsfwScanService and ImagePicker.
 // Run: flutter pub run build_runner build

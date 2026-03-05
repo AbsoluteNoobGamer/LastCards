@@ -116,7 +116,7 @@ class _PlayAiButtonState extends State<_PlayAiButton> {
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: () {
         final parentState =
-            context.findAncestorStateOfType<_StackFlowStartScreenState>();
+            context.findAncestorStateOfType<_DeckDropStartScreenState>();
         if (parentState != null) {
           parentState._showAISelector(context, isPractice: false);
         } else {
@@ -172,7 +172,7 @@ class _PlayOnlineButtonState extends State<_PlayOnlineButton>
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: () {
         final parentState =
-            context.findAncestorStateOfType<_StackFlowStartScreenState>();
+            context.findAncestorStateOfType<_DeckDropStartScreenState>();
         if (parentState != null) {
           parentState._showOnlineModeSelector(context);
         } else {

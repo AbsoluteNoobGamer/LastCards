@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:stack_and_flow/core/models/card_model.dart';
-import 'package:stack_and_flow/core/models/game_state.dart';
-import 'package:stack_and_flow/core/models/offline_game_engine.dart';
-import 'package:stack_and_flow/core/models/player_model.dart';
-import 'package:stack_and_flow/core/services/audio_service.dart';
-import 'package:stack_and_flow/features/gameplay/presentation/widgets/card_widget.dart';
+import 'package:deck_drop/core/models/card_model.dart';
+import 'package:deck_drop/core/models/game_state.dart';
+import 'package:deck_drop/core/models/offline_game_engine.dart';
+import 'package:deck_drop/core/models/player_model.dart';
+import 'package:deck_drop/core/services/audio_service.dart';
+import 'package:deck_drop/features/gameplay/presentation/widgets/card_widget.dart';
 
 class _SilentAudio extends AudioService {
   @override

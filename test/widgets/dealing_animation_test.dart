@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:stack_and_flow/features/gameplay/presentation/screens/table_screen.dart';
-import 'package:stack_and_flow/features/gameplay/presentation/widgets/card_widget.dart';
-import 'package:stack_and_flow/features/gameplay/presentation/widgets/draw_pile_widget.dart';
-import 'package:stack_and_flow/core/services/audio_service.dart';
+import 'package:deck_drop/features/gameplay/presentation/screens/table_screen.dart';
+import 'package:deck_drop/features/gameplay/presentation/widgets/card_widget.dart';
+import 'package:deck_drop/features/gameplay/presentation/widgets/draw_pile_widget.dart';
+import 'package:deck_drop/core/services/audio_service.dart';
 
 class MockAudioService extends AudioService {
   @override

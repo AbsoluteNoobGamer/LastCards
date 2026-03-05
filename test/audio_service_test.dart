@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:stack_and_flow/core/services/audio_service.dart';
+import 'package:deck_drop/core/services/audio_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

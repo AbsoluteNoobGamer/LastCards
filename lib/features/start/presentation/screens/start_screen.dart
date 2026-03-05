@@ -26,15 +26,15 @@ import '../../../../screens/tournament_screen.dart';
 part 'start_screen_background.dart';
 part 'start_screen_buttons.dart';
 
-class StackFlowStartScreen extends ConsumerStatefulWidget {
-  const StackFlowStartScreen({super.key});
+class DeckDropStartScreen extends ConsumerStatefulWidget {
+  const DeckDropStartScreen({super.key});
 
   @override
-  ConsumerState<StackFlowStartScreen> createState() =>
-      _StackFlowStartScreenState();
+  ConsumerState<DeckDropStartScreen> createState() =>
+      _DeckDropStartScreenState();
 }
 
-class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
+class _DeckDropStartScreenState extends ConsumerState<DeckDropStartScreen>
     with TickerProviderStateMixin {
   late AnimationController _bgController;
 
@@ -121,7 +121,7 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                                   ).createShader(bounds);
                                 },
                                 child: Text(
-                                  "Stack and Flow",
+                                  "DeckDrop",
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.cinzel(
                                     fontSize: 42,
@@ -140,6 +140,21 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                                       ),
                                     ],
                                   ),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                "Play it all. Leave nothing.",
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.cinzel(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w400,
+                                  color: ref
+                                      .watch(themeProvider)
+                                      .theme
+                                      .accentPrimary
+                                      .withValues(alpha: 0.55),
+                                  letterSpacing: 3.0,
                                 ),
                               ),
                               SizedBox(height: isMobile ? 40 : 56),
@@ -185,7 +200,7 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 16),
                                 child: Text(
-                                  "STACK & FLOW",
+                                  "DECKDROP",
                                   style: GoogleFonts.cinzel(
                                     color: const Color(0xFFC9A84C),
                                     fontSize: 13,

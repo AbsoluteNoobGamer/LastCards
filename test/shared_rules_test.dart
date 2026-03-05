@@ -1,14 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:stack_and_flow/core/models/card_model.dart';
-import 'package:stack_and_flow/core/models/game_state.dart';
-import 'package:stack_and_flow/core/models/offline_game_engine.dart';
-import 'package:stack_and_flow/core/models/player_model.dart';
-import 'package:stack_and_flow/core/providers/game_provider.dart';
-import 'package:stack_and_flow/features/practice/presentation/screens/offline_practice_screen.dart';
-import 'package:stack_and_flow/shared/engine/game_engine.dart';
-import 'package:stack_and_flow/shared/rules/card_rules.dart';
-import 'package:stack_and_flow/shared/rules/pickup_chain_rules.dart';
-import 'package:stack_and_flow/shared/rules/win_condition_rules.dart';
+import 'package:deck_drop/core/models/card_model.dart';
+import 'package:deck_drop/core/models/game_state.dart';
+import 'package:deck_drop/core/models/offline_game_engine.dart';
+import 'package:deck_drop/core/models/player_model.dart';
+import 'package:deck_drop/core/providers/game_provider.dart';
+import 'package:deck_drop/features/practice/presentation/screens/offline_practice_screen.dart';
+import 'package:deck_drop/shared/engine/game_engine.dart';
+import 'package:deck_drop/shared/rules/card_rules.dart';
+import 'package:deck_drop/shared/rules/pickup_chain_rules.dart';
+import 'package:deck_drop/shared/rules/win_condition_rules.dart';
 
 // ---------------------------------------------------------------------------
 // Structural tests: verify all modes consume shared logic
