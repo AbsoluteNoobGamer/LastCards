@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../gameplay/presentation/screens/table_screen.dart';
 import '../../../../screens/tournament_screen.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/theme/app_dimensions.dart';
-import '../../../../core/theme/app_typography.dart';
 
 enum OnlineMode { Standard, Tournament }
 
 /// Room entry screen — players enter a room code, see the player list,
 /// and mark themselves ready before the host starts the game.
-class LobbyScreen extends StatefulWidget {
+class LobbyScreen extends ConsumerStatefulWidget {
   const LobbyScreen({
     this.onlineMode = OnlineMode.Standard,
     super.key,
@@ -19,10 +21,10 @@ class LobbyScreen extends StatefulWidget {
   final OnlineMode onlineMode;
 
   @override
-  State<LobbyScreen> createState() => _LobbyScreenState();
+  ConsumerState<LobbyScreen> createState() => _LobbyScreenState();
 }
 
-class _LobbyScreenState extends State<LobbyScreen> {
+class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   final _codeController = TextEditingController();
   final _nameController = TextEditingController();
   bool _isReady = false;
@@ -36,12 +38,14 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = ref.watch(themeProvider).theme;
+
     return Scaffold(
-      backgroundColor: AppColors.feltDeep,
+      backgroundColor: theme.backgroundDeep,
       body: Stack(
         children: [
-          // Felt vignette background
-          const _FeltBackground(),
+          // Theme-aware felt vignette background
+          Positioned.fill(child: _FeltBackground(theme: theme)),
 
           SafeArea(
             child: Center(
@@ -55,20 +59,31 @@ class _LobbyScreenState extends State<LobbyScreen> {
                       // Logo / title
                       Text(
                         'STACK & FLOW',
-                        style: AppTypography.gameTitle,
                         textAlign: TextAlign.center,
+                        style: GoogleFonts.playfairDisplay(
+                          fontSize: 36,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 2,
+                          color: theme.accentPrimary,
+                        ),
                       ),
                       const SizedBox(height: AppDimensions.xs),
                       Text(
                         'Premium Competitive Card Game',
-                        style: AppTypography.labelSmall,
                         textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          letterSpacing: 0.2,
+                          color: theme.textSecondary,
+                        ),
                       ),
 
                       const SizedBox(height: AppDimensions.xxl),
 
                       // Player name
                       _GoldTextField(
+                        theme: theme,
                         controller: _nameController,
                         label: 'Your Name',
                         hintText: 'Enter display name',
@@ -78,6 +93,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
                       // Room code
                       _GoldTextField(
+                        theme: theme,
                         controller: _codeController,
                         label: 'Room Code',
                         hintText: 'e.g. XKCD-42',
@@ -106,11 +122,11 @@ class _LobbyScreenState extends State<LobbyScreen> {
                       ),
 
                       const SizedBox(height: AppDimensions.xxl),
-                      const _Divider(),
+                      _Divider(theme: theme),
                       const SizedBox(height: AppDimensions.lg),
 
                       // Lobby player list placeholder
-                      _LobbyPlayerList(isReady: _isReady),
+                      _LobbyPlayerList(isReady: _isReady, theme: theme),
 
                       const SizedBox(height: AppDimensions.lg),
 
@@ -121,8 +137,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
                           onPressed: _toggleReady,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _isReady
-                                ? AppColors.redAccent
-                                : AppColors.goldPrimary,
+                                ? theme.secondaryAccent
+                                : theme.accentPrimary,
                           ),
                           child: Text(_isReady ? 'NOT READY' : 'READY'),
                         ),
@@ -181,12 +197,14 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
 class _GoldTextField extends StatelessWidget {
   const _GoldTextField({
+    required this.theme,
     required this.controller,
     required this.label,
     required this.hintText,
     this.textCapitalization = TextCapitalization.none,
   });
 
+  final AppThemeData theme;
   final TextEditingController controller;
   final String label;
   final String hintText;
@@ -194,35 +212,47 @@ class _GoldTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final labelStyle = GoogleFonts.inter(
+      fontSize: 12,
+      fontWeight: FontWeight.w400,
+      letterSpacing: 0.2,
+      color: theme.textSecondary,
+    );
+    final inputStyle = GoogleFonts.inter(
+      fontSize: 16,
+      fontWeight: FontWeight.w500,
+      letterSpacing: 0.4,
+      color: theme.textPrimary,
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTypography.labelSmall),
+        Text(label, style: labelStyle),
         const SizedBox(height: AppDimensions.xs),
         TextField(
           controller: controller,
           textCapitalization: textCapitalization,
-          style: AppTypography.labelLarge,
-          cursorColor: AppColors.goldPrimary,
+          style: inputStyle,
+          cursorColor: theme.accentPrimary,
           decoration: InputDecoration(
             hintText: hintText,
-            hintStyle: AppTypography.labelLarge.copyWith(
-              color: AppColors.textSecondary.withValues(alpha: 0.5),
+            hintStyle: inputStyle.copyWith(
+              color: theme.textSecondary.withValues(alpha: 0.5),
             ),
             filled: true,
-            fillColor: AppColors.feltMid,
+            fillColor: theme.backgroundMid,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: AppDimensions.md,
               vertical: AppDimensions.sm + 4,
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppDimensions.radiusButton),
-              borderSide: const BorderSide(color: AppColors.goldDark),
+              borderSide: BorderSide(color: theme.accentDark),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppDimensions.radiusButton),
-              borderSide:
-                  const BorderSide(color: AppColors.goldPrimary, width: 1.5),
+              borderSide: BorderSide(color: theme.accentPrimary, width: 1.5),
             ),
           ),
         ),
@@ -232,36 +262,46 @@ class _GoldTextField extends StatelessWidget {
 }
 
 class _Divider extends StatelessWidget {
-  const _Divider();
+  const _Divider({required this.theme});
+
+  final AppThemeData theme;
 
   @override
   Widget build(BuildContext context) {
+    final labelStyle = GoogleFonts.inter(
+      fontSize: 12,
+      fontWeight: FontWeight.w400,
+      letterSpacing: 0.2,
+      color: theme.textSecondary,
+    );
+
     return Row(
       children: [
-        const Expanded(
-            child: Divider(color: AppColors.goldDark, thickness: 0.5)),
+        Expanded(child: Divider(color: theme.accentDark, thickness: 0.5)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppDimensions.md),
-          child: Text('LOBBY', style: AppTypography.labelSmall),
+          child: Text('LOBBY', style: labelStyle),
         ),
-        const Expanded(
-            child: Divider(color: AppColors.goldDark, thickness: 0.5)),
+        Expanded(child: Divider(color: theme.accentDark, thickness: 0.5)),
       ],
     );
   }
 }
 
 class _LobbyPlayerList extends StatelessWidget {
-  const _LobbyPlayerList({required this.isReady});
+  const _LobbyPlayerList({required this.isReady, required this.theme});
+
   final bool isReady;
+  final AppThemeData theme;
 
   @override
   Widget build(BuildContext context) {
-    // Placeholder entries until ws connection provides real players
     final players = [
-      _PlayerEntry(name: 'You', isReady: isReady),
-      _PlayerEntry(name: 'Waiting...', isReady: false, isPlaceholder: true),
-      _PlayerEntry(name: 'Waiting...', isReady: false, isPlaceholder: true),
+      _PlayerEntry(name: 'You', isReady: isReady, theme: theme),
+      _PlayerEntry(
+          name: 'Waiting...', isReady: false, isPlaceholder: true, theme: theme),
+      _PlayerEntry(
+          name: 'Waiting...', isReady: false, isPlaceholder: true, theme: theme),
     ];
 
     return Column(
@@ -269,7 +309,7 @@ class _LobbyPlayerList extends StatelessWidget {
         for (int i = 0; i < players.length; i++) ...[
           players[i],
           if (i < players.length - 1)
-            const Divider(height: 1, color: AppColors.goldDark, thickness: 0.3),
+            Divider(height: 1, color: theme.accentDark, thickness: 0.3),
         ],
       ],
     );
@@ -279,27 +319,40 @@ class _LobbyPlayerList extends StatelessWidget {
 // ── Felt table background ─────────────────────────────────────────────────────
 
 class _FeltBackground extends StatelessWidget {
-  const _FeltBackground();
+  const _FeltBackground({required this.theme});
+
+  final AppThemeData theme;
 
   @override
   Widget build(BuildContext context) {
-    return Positioned.fill(
-      child: CustomPaint(painter: _LobbyFeltPainter()),
+    return CustomPaint(
+      painter: _LobbyFeltPainter(
+        backgroundDeep: theme.backgroundDeep,
+        backgroundMid: theme.backgroundMid,
+      ),
     );
   }
 }
 
 class _LobbyFeltPainter extends CustomPainter {
+  const _LobbyFeltPainter({
+    required this.backgroundDeep,
+    required this.backgroundMid,
+  });
+
+  final Color backgroundDeep;
+  final Color backgroundMid;
+
   @override
   void paint(Canvas canvas, Size size) {
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = AppColors.feltDeep,
+      Paint()..color = backgroundDeep,
     );
 
     // Subtle dot-grid micro-texture
     final dotPaint = Paint()
-      ..color = AppColors.feltMid.withValues(alpha: 0.07)
+      ..color = backgroundMid.withValues(alpha: 0.07)
       ..style = PaintingStyle.fill;
     for (double x = 0; x < size.width; x += 4) {
       for (double y = 0; y < size.height; y += 4) {
@@ -325,22 +378,49 @@ class _LobbyFeltPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_LobbyFeltPainter _) => false;
+  bool shouldRepaint(_LobbyFeltPainter old) =>
+      old.backgroundDeep != backgroundDeep ||
+      old.backgroundMid != backgroundMid;
 }
 
 class _PlayerEntry extends StatelessWidget {
   const _PlayerEntry({
     required this.name,
     required this.isReady,
+    required this.theme,
     this.isPlaceholder = false,
   });
 
   final String name;
   final bool isReady;
   final bool isPlaceholder;
+  final AppThemeData theme;
+
+  // Semantic status green — not a brand colour, kept as constant.
+  static const Color _readyGreen = Color(0xFF27AE60);
 
   @override
   Widget build(BuildContext context) {
+    final dotColor = isPlaceholder
+        ? theme.accentDark
+        : isReady
+            ? _readyGreen
+            : theme.accentPrimary;
+
+    final nameStyle = GoogleFonts.inter(
+      fontSize: 14,
+      fontWeight: FontWeight.w500,
+      letterSpacing: 0.3,
+      color: isPlaceholder ? theme.textSecondary : theme.textPrimary,
+    );
+
+    final statusStyle = GoogleFonts.inter(
+      fontSize: 12,
+      fontWeight: FontWeight.w400,
+      letterSpacing: 0.2,
+      color: isReady ? _readyGreen : theme.suitRed,
+    );
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppDimensions.sm),
       child: Row(
@@ -350,29 +430,16 @@ class _PlayerEntry extends StatelessWidget {
             height: 8,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isPlaceholder
-                  ? AppColors.goldDark
-                  : isReady
-                      ? const Color(0xFF27AE60)
-                      : AppColors.goldPrimary,
+              color: dotColor,
             ),
           ),
           const SizedBox(width: AppDimensions.sm),
-          Text(
-            name,
-            style: AppTypography.labelMedium.copyWith(
-              color: isPlaceholder
-                  ? AppColors.textSecondary
-                  : AppColors.textPrimary,
-            ),
-          ),
+          Text(name, style: nameStyle),
           const Spacer(),
           if (!isPlaceholder)
             Text(
               isReady ? 'READY' : 'NOT READY',
-              style: AppTypography.labelSmall.copyWith(
-                color: isReady ? const Color(0xFF27AE60) : AppColors.redSoft,
-              ),
+              style: statusStyle,
             ),
         ],
       ),
