@@ -15,7 +15,7 @@ import '../../../leaderboard/presentation/screens/leaderboard_screen.dart';
 import '../../../rules/presentation/screens/rules_screen.dart';
 import '../../../settings/presentation/widgets/settings_modal.dart';
 import '../widgets/ai_selector_modal.dart';
-import '../widgets/online_mode_selector_modal.dart';
+import '../../../../features/online/widgets/mode_selection_sheet.dart';
 import '../widgets/card_back_selection_menu.dart';
 import '../../../../core/theme/theme_selector_modal.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
@@ -362,14 +362,7 @@ class _DeckDropStartScreenState extends ConsumerState<DeckDropStartScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => OnlineModeSelectorModal(
-        onSelected: (mode) {
-          _pushWithTransition(
-            context,
-            LobbyScreen(onlineMode: mode),
-          );
-        },
-      ),
+      builder: (_) => const ModeSelectionSheet(),
     );
   }
 
