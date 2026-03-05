@@ -11,8 +11,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:stack_and_flow/core/models/card_model.dart';
-import 'package:stack_and_flow/features/gameplay/presentation/widgets/player_hand_widget.dart';
+import 'package:deck_drop/core/models/card_model.dart';
+import 'package:deck_drop/features/gameplay/presentation/widgets/player_hand_widget.dart';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 

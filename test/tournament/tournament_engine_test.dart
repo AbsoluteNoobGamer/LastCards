@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:stack_and_flow/core/models/card_model.dart';
-import 'package:stack_and_flow/core/models/game_state.dart';
-import 'package:stack_and_flow/core/models/offline_game_state.dart';
-import 'package:stack_and_flow/core/models/player_model.dart';
-import 'package:stack_and_flow/features/gameplay/presentation/screens/table_screen.dart';
-import 'package:stack_and_flow/features/gameplay/presentation/widgets/card_widget.dart';
-import 'package:stack_and_flow/screens/tournament_screen.dart';
-import 'package:stack_and_flow/tournament/tournament_engine.dart';
+import 'package:deck_drop/core/models/card_model.dart';
+import 'package:deck_drop/core/models/game_state.dart';
+import 'package:deck_drop/core/models/offline_game_state.dart';
+import 'package:deck_drop/core/models/player_model.dart';
+import 'package:deck_drop/features/gameplay/presentation/screens/table_screen.dart';
+import 'package:deck_drop/features/gameplay/presentation/widgets/card_widget.dart';
+import 'package:deck_drop/screens/tournament_screen.dart';
+import 'package:deck_drop/tournament/tournament_engine.dart';
 
 void main() {
   List<TournamentPlayer> buildPlayers() {

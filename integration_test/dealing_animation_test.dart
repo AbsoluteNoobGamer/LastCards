@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:stack_and_flow/main.dart' as app;
-import 'package:stack_and_flow/features/gameplay/presentation/screens/table_screen.dart';
-import 'package:stack_and_flow/features/gameplay/presentation/widgets/card_widget.dart';
-import 'package:stack_and_flow/features/gameplay/presentation/widgets/draw_pile_widget.dart';
+import 'package:deck_drop/main.dart' as app;
+import 'package:deck_drop/features/gameplay/presentation/screens/table_screen.dart';
+import 'package:deck_drop/features/gameplay/presentation/widgets/card_widget.dart';
+import 'package:deck_drop/features/gameplay/presentation/widgets/draw_pile_widget.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

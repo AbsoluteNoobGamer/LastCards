@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
-import 'package:stack_and_flow/shared/models/game_state_model.dart';
+import 'package:deck_drop/shared/models/game_state_model.dart';
 
 enum TournamentMode { offline, online }
 
