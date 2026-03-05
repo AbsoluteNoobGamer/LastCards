@@ -14,7 +14,7 @@ enum OnlineGameMode {
       case OnlineGameMode.privateGame:
         return 'Private Game';
       case OnlineGameMode.tournament:
-        return 'Tournament';
+        return 'Knockouts';
     }
   }
 
@@ -36,7 +36,7 @@ enum OnlineGameMode {
       case OnlineGameMode.privateGame:
         return '🔒';
       case OnlineGameMode.tournament:
-        return '🏆';
+        return '💥';
     }
   }
 }

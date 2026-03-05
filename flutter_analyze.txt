@@ -73,11 +73,6 @@ warning - Unused import: '../../../../screens/tournament_screen.dart' - lib\feat
 warning - The '!' will have no effect because the receiver can't be null - lib\features\start\presentation\widgets\card_back_selection_menu.dart:250:37 - unnecessary_non_null_assertion
    info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\tournament\screens\tournament_lobby_screen.dart:254:24 - use_build_context_synchronously
    info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\tournament\screens\tournament_lobby_screen.dart:267:30 - use_build_context_synchronously
-  error - Undefined name 'tournamentSessionProvider' - lib\features\tournament\widgets\player_count_sheet.dart:29:31 - undefined_identifier
-  error - Undefined name 'TournamentType' - lib\features\tournament\widgets\player_count_sheet.dart:33:41 - undefined_identifier
-  error - Undefined class 'TournamentSessionState' - lib\features\tournament\widgets\player_count_sheet.dart:141:38 - undefined_class
-  error - Undefined name 'TournamentType' - lib\features\tournament\widgets\player_count_sheet.dart:148:29 - undefined_identifier
-  error - Undefined name 'tournamentSessionProvider' - lib\features\tournament\widgets\player_count_sheet.dart:160:15 - undefined_identifier
 warning - Unused import: 'dart:math' - lib\widgets\turn_timer_bar.dart:2:8 - unused_import
    info - The import of 'package:deck_drop/core/models/card_model.dart' is unnecessary because all of the used elements are also provided by the import of 'package:deck_drop/core/models/offline_game_engine.dart' - test\ai\ai_player_test.dart:2:8 - unnecessary_import
    info - The import of 'package:deck_drop/core/models/game_state.dart' is unnecessary because all of the used elements are also provided by the import of 'package:deck_drop/core/models/offline_game_engine.dart' - test\ai\ai_player_test.dart:3:8 - unnecessary_import
@@ -101,3 +96,4 @@ warning - A value for optional parameter 'initialPrefs' isn't ever given - test\
    info - The import of 'package:deck_drop/core/models/card_model.dart' is unnecessary because all of the used elements are also provided by the import of 'package:deck_drop/core/models/offline_game_engine.dart' - test\win_condition_test.dart:2:8 - unnecessary_import
    info - The import of 'package:deck_drop/core/models/game_state.dart' is unnecessary because all of the used elements are also provided by the import of 'package:deck_drop/core/models/offline_game_engine.dart' - test\win_condition_test.dart:4:8 - unnecessary_import
 
+57 issues found. (ran in 4.8s)

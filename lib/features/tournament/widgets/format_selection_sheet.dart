@@ -3,38 +3,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/providers/theme_provider.dart';
+import '../../online/screens/matchmaking_screen.dart';
 import '../providers/tournament_session_provider.dart';
 import '../screens/tournament_lobby_screen.dart';
-import 'difficulty_selection_sheet.dart';
-import 'format_selection_sheet.dart';
-import 'tournament_type_sheet.dart';
+import 'player_count_sheet.dart';
 
-/// Bottom Sheet 3 — Player Count Selection
+/// Bottom Sheet 4 (Single Player) / 3 (Online) — Format Selection
 ///
-/// Shown after difficulty or player setup.
-/// Lets the player pick 3 or 4 players (no 2 player option for tournament).
-class TournamentPlayerCountSheet extends ConsumerStatefulWidget {
-  const TournamentPlayerCountSheet({super.key});
+/// Gives standard or knockouts options.
+/// Routes to either TournamentLobbyScreen or MatchmakingScreen.
+class TournamentFormatSelectionSheet extends ConsumerStatefulWidget {
+  const TournamentFormatSelectionSheet({super.key});
 
   @override
-  ConsumerState<TournamentPlayerCountSheet> createState() =>
-      _TournamentPlayerCountSheetState();
+  ConsumerState<TournamentFormatSelectionSheet> createState() =>
+      _TournamentFormatSelectionSheetState();
 }
 
-class _TournamentPlayerCountSheetState
-    extends ConsumerState<TournamentPlayerCountSheet> {
-  int? _selectedCount;
+class _TournamentFormatSelectionSheetState
+    extends ConsumerState<TournamentFormatSelectionSheet> {
+  TournamentFormat? _selectedFormat;
 
   @override
   Widget build(BuildContext context) {
     final theme = ref.watch(themeProvider).theme;
-    final session = ref.watch(tournamentSessionProvider);
-
-    final typeLabel = session.type?.displayName ?? 'Tournament';
-    final diffLabel = session.difficulty?.displayName;
-    final titlePrefix = session.type == TournamentType.vsAi && diffLabel != null
-        ? '$diffLabel $typeLabel'
-        : typeLabel;
 
     return Container(
       decoration: BoxDecoration(
@@ -71,14 +63,14 @@ class _TournamentPlayerCountSheetState
                         color: theme.accentPrimary,
                         size: 30,
                       ),
-                      onPressed: () => _goBack(context, session),
+                      onPressed: () => _goBack(context),
                       tooltip: 'Back',
                     ),
                   ),
                   Column(
                     children: [
                       Text(
-                        titlePrefix,
+                        'Format',
                         style: GoogleFonts.cinzel(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -87,7 +79,7 @@ class _TournamentPlayerCountSheetState
                         ),
                       ),
                       Text(
-                        'Select Players',
+                        'Choose Format',
                         style: GoogleFonts.inter(
                           fontSize: 11,
                           color: theme.textSecondary,
@@ -101,36 +93,30 @@ class _TournamentPlayerCountSheetState
             ),
             const SizedBox(height: 20),
 
-            // 3 or 4 players cards
+            // Format Cards
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [3, 4].map((count) {
-                  final isSelected = _selectedCount == count;
-                  return Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        left: count == 3 ? 0 : 8,
-                        right: count == 4 ? 0 : 8,
-                      ),
-                      child: _PlayerCountCard(
-                        count: count,
-                        isSelected: isSelected,
-                        onTap: () => setState(() => _selectedCount = count),
-                      ),
+              child: Column(
+                children: TournamentFormat.values.map((format) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _FormatCard(
+                      format: format,
+                      isSelected: _selectedFormat == format,
+                      onTap: () => setState(() => _selectedFormat = format),
                     ),
                   );
                 }).toList(),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
 
-            // Continue CTA
+            // Start CTA
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: _StartButton(
-                isActive: _selectedCount != null,
-                onTap: () => _onContinue(context),
+                isActive: _selectedFormat != null,
+                onTap: () => _onStart(context),
               ),
             ),
             const SizedBox(height: 20),
@@ -140,54 +126,66 @@ class _TournamentPlayerCountSheetState
     );
   }
 
-  void _goBack(BuildContext context, TournamentSessionState session) {
+  void _goBack(BuildContext context) {
     Navigator.of(context).pop();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) {
-        if (session.type == TournamentType.vsAi) {
-          return const TournamentDifficultySelectionSheet();
-        } else {
-          return const TournamentTypeSheet();
-        }
-      },
+      builder: (_) => const TournamentPlayerCountSheet(),
     );
   }
 
-  void _onContinue(BuildContext context) {
-    if (_selectedCount == null) return;
-    ref
-        .read(tournamentSessionProvider.notifier)
-        .setPlayerCount(_selectedCount!);
-    Navigator.of(context).pop();
+  void _onStart(BuildContext context) {
+    if (_selectedFormat == null) return;
+    ref.read(tournamentSessionProvider.notifier).setFormat(_selectedFormat!);
+    final session = ref.read(tournamentSessionProvider);
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const TournamentFormatSelectionSheet(),
+    Navigator.of(context).pop(); // dismiss sheet
+
+    // Route to correct destination based on tournament type
+    final destination = session.type == TournamentType.vsAi
+        ? const TournamentLobbyScreen()
+        : const MatchmakingScreen();
+
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => destination,
+        transitionDuration: const Duration(milliseconds: 400),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.06),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                  parent: animation, curve: Curves.easeOutCubic)),
+              child: child,
+            ),
+          );
+        },
+      ),
     );
   }
 }
 
-class _PlayerCountCard extends ConsumerStatefulWidget {
-  const _PlayerCountCard({
-    required this.count,
+class _FormatCard extends ConsumerStatefulWidget {
+  const _FormatCard({
+    required this.format,
     required this.isSelected,
     required this.onTap,
   });
 
-  final int count;
+  final TournamentFormat format;
   final bool isSelected;
   final VoidCallback onTap;
 
   @override
-  ConsumerState<_PlayerCountCard> createState() => _PlayerCountCardState();
+  ConsumerState<_FormatCard> createState() => _FormatCardState();
 }
 
-class _PlayerCountCardState extends ConsumerState<_PlayerCountCard> {
+class _FormatCardState extends ConsumerState<_FormatCard> {
   bool _isHovered = false;
 
   @override
@@ -202,18 +200,21 @@ class _PlayerCountCardState extends ConsumerState<_PlayerCountCard> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: const Duration(milliseconds: 180),
           curve: Curves.easeOutCubic,
-          height: 100,
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
           decoration: BoxDecoration(
             color: widget.isSelected
                 ? theme.accentPrimary.withValues(alpha: 0.15)
-                : theme.backgroundMid,
-            borderRadius: BorderRadius.circular(14),
+                : (_isHovered
+                    ? theme.accentPrimary.withValues(alpha: 0.08)
+                    : theme.backgroundMid),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isActive
                   ? theme.accentPrimary
-                  : theme.accentDark.withValues(alpha: 0.3),
+                  : theme.accentDark.withValues(alpha: 0.4),
               width: widget.isSelected ? 2 : 1.5,
             ),
             boxShadow: widget.isSelected
@@ -224,35 +225,74 @@ class _PlayerCountCardState extends ConsumerState<_PlayerCountCard> {
                       spreadRadius: 0,
                     ),
                   ]
-                : [],
+                : (_isHovered
+                    ? [
+                        BoxShadow(
+                          color: theme.accentPrimary.withValues(alpha: 0.06),
+                          blurRadius: 12,
+                          spreadRadius: 0,
+                        ),
+                      ]
+                    : []),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Row(
             children: [
-              AnimatedDefaultTextStyle(
-                duration: const Duration(milliseconds: 200),
-                style: GoogleFonts.outfit(
-                  fontSize: 36,
-                  fontWeight: FontWeight.w800,
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
                   color: widget.isSelected
-                      ? theme.accentPrimary
-                      : theme.textSecondary.withValues(alpha: 0.5),
+                      ? theme.accentPrimary.withValues(alpha: 0.2)
+                      : theme.accentPrimary.withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: widget.isSelected
+                        ? theme.accentPrimary
+                        : theme.accentPrimary.withValues(alpha: 0.25),
+                    width: 1,
+                  ),
                 ),
-                child: Text('${widget.count}'),
-              ),
-              const SizedBox(height: 2),
-              AnimatedDefaultTextStyle(
-                duration: const Duration(milliseconds: 200),
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: widget.isSelected
-                      ? theme.accentPrimary.withValues(alpha: 0.8)
-                      : theme.textSecondary.withValues(alpha: 0.4),
-                  letterSpacing: 0.5,
+                child: Center(
+                  child: Text(
+                    widget.format.emoji,
+                    style: const TextStyle(fontSize: 22),
+                  ),
                 ),
-                child: const Text('Players'),
               ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.format.displayName,
+                      style: GoogleFonts.outfit(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: widget.isSelected
+                            ? theme.accentPrimary
+                            : theme.textPrimary,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      widget.format.description,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: theme.textSecondary,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (widget.isSelected)
+                Icon(
+                  Icons.check_circle_rounded,
+                  color: theme.accentPrimary,
+                  size: 24,
+                ),
             ],
           ),
         ),
@@ -319,7 +359,7 @@ class _StartButton extends ConsumerWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Continue',
+                  'Start Tournament',
                   style: GoogleFonts.outfit(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
