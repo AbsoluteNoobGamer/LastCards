@@ -3,13 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../single_player/providers/single_player_session_provider.dart';
 
 enum TournamentFormat {
-  standard,
   knockouts;
 
   String get displayName {
     switch (this) {
-      case TournamentFormat.standard:
-        return 'Standard';
       case TournamentFormat.knockouts:
         return 'Knockouts';
     }
@@ -17,8 +14,6 @@ enum TournamentFormat {
 
   String get description {
     switch (this) {
-      case TournamentFormat.standard:
-        return 'First to empty their hand wins the round';
       case TournamentFormat.knockouts:
         return 'Elimination format, last one standing is knocked out each round';
     }
@@ -26,8 +21,6 @@ enum TournamentFormat {
 
   String get emoji {
     switch (this) {
-      case TournamentFormat.standard:
-        return '🃏';
       case TournamentFormat.knockouts:
         return '💥';
     }

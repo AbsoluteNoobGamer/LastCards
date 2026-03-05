@@ -4,8 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum OnlineGameMode {
   quickMatch,
-  privateGame,
-  tournament;
+  privateGame;
 
   String get displayName {
     switch (this) {
@@ -13,8 +12,6 @@ enum OnlineGameMode {
         return 'Quick Match';
       case OnlineGameMode.privateGame:
         return 'Private Game';
-      case OnlineGameMode.tournament:
-        return 'Knockouts';
     }
   }
 
@@ -24,8 +21,6 @@ enum OnlineGameMode {
         return 'Jump straight into a game';
       case OnlineGameMode.privateGame:
         return 'Invite friends with a code';
-      case OnlineGameMode.tournament:
-        return 'Elimination format, last one standing wins';
     }
   }
 
@@ -35,8 +30,6 @@ enum OnlineGameMode {
         return '⚡';
       case OnlineGameMode.privateGame:
         return '🔒';
-      case OnlineGameMode.tournament:
-        return '💥';
     }
   }
 }

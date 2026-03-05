@@ -22,7 +22,7 @@ class TournamentFormatSelectionSheet extends ConsumerStatefulWidget {
 
 class _TournamentFormatSelectionSheetState
     extends ConsumerState<TournamentFormatSelectionSheet> {
-  TournamentFormat? _selectedFormat;
+  TournamentFormat? _selectedFormat = TournamentFormat.knockouts;
 
   @override
   Widget build(BuildContext context) {
