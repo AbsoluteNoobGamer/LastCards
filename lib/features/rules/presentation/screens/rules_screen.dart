@@ -32,114 +32,117 @@ class RulesScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: Scrollbar(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SectionHeader('OBJECTIVE'),
-              _BodyText('Be the first player to play all cards in your hand.'),
-              _SectionDivider(),
-              sectionSpacing,
-              _SectionHeader('SETUP'),
-              _BulletPoint('Standard 52-card deck plus 2 Jokers (54 cards total)'),
-              _BulletPoint('Each player receives 7 random cards'),
-              _BulletPoint('One card placed face-up starts the discard pile'),
-              _BulletPoint('Remaining cards form the draw pile'),
-              _BulletPoint(
-                  'If the starting face-up card is a special card, its effect triggers immediately'),
-              _SectionDivider(),
-              sectionSpacing,
-              _SectionHeader('TURN STRUCTURE'),
-              _BodyText('On your turn, play a card if it matches:'),
-              _BulletPoint('The suit of the top discard card, or'),
-              _BulletPoint('The rank of the top discard card, or'),
-              _BulletPoint('A valid special override (Ace, Joker)'),
-              _BodyText(
-                  'If you cannot play: draw 1 card and your turn ends immediately. The drawn card cannot be played on that same turn.'),
-              _BodyText(
-                  'A 60 second turn timer is active at all times. If no card is played or drawn within 60 seconds, the turn ends automatically and you must draw 1 card as a penalty.'),
-              _SectionDivider(),
-              sectionSpacing,
-              _SectionHeader('MULTI-CARD & SEQUENCE PLAY'),
-              _BulletPoint('Play multiple cards of the same value in one turn'),
-              _BulletPoint(
-                  'Build a numerical sequence ascending or descending in the same suit'),
-              _BulletPoint(
-                  'After a same-suit sequence ends, continue with a cross-suit card of the same value as the final sequence card'),
-              _SectionDivider(),
-              sectionSpacing,
-              _SectionHeader('SPECIAL CARDS'),
-              _SpecialCardRow(
-                cardName: '2 (any suit)',
-                description:
-                    'Next player draws 2 cards. Stackable with other 2s (penalty accumulates)',
-              ),
-              _SpecialCardRow(
-                cardName: 'Black Jack (♠/♣)',
-                description:
-                    'Next player draws 5 cards. Stackable, and can stack onto an active 2-chain',
-              ),
-              _SpecialCardRow(
-                cardName: 'Red Jack (♥/♦)',
-                description:
-                    'Cancels any active draw penalty (resets draw stack to 0)',
-              ),
-              _SpecialCardRow(
-                cardName: 'King',
-                description: 'Reverses direction of play',
-              ),
-              _SpecialCardRow(
-                cardName: 'Ace',
-                description: 'Change the active suit to any suit',
-              ),
-              _SpecialCardRow(
-                cardName: 'Queen',
-                description: 'Suit lock; next player must follow that suit (no rank bypass)',
-              ),
-              _SpecialCardRow(
-                cardName: '8',
-                description: 'Next player is skipped',
-              ),
-              _SpecialCardRow(
-                cardName: 'Joker',
-                description: 'Wild; declare both suit and rank freely',
-              ),
-              _SectionDivider(),
-              sectionSpacing,
-              _SectionHeader('EFFECT RESOLUTION ORDER'),
-              _BodyText('When multiple effects are active, resolve in this order:'),
-              _BulletPoint('Draw penalties (2 / Black Jack)'),
-              _BulletPoint('Skip (8)'),
-              _BulletPoint('Reverse (King)'),
-              _BulletPoint('Suit lock (Queen)'),
-              _SectionDivider(),
-              sectionSpacing,
-              _SectionHeader('EDGE CASES'),
-              _BulletPoint(
-                  'If the draw pile is empty, reshuffle the discard pile (except the top card) into a new draw pile'),
-              _BulletPoint('A player cannot win on a forced penalty draw'),
-              _SectionDivider(),
-              sectionSpacing,
-              _SectionHeader('GAME MODES'),
-              _BodyText(
-                  'Play with AI — Offline game against AI opponents using all core rules'),
-              _BodyText(
-                  'Practice Mode — Offline against AI. No leaderboard impact'),
-              _BodyText(
-                  'Play Online — Multiplayer using all core rules via lobby/room flow'),
-              _BodyText('Tournament Mode'),
-              _BulletPoint('All core rules apply within each round'),
-              _BulletPoint('Players finish in order by emptying their hand'),
-              _BulletPoint(
-                  'The last player to empty their hand each round is eliminated'),
-              _BulletPoint('Remaining players advance to the next round'),
-              _BulletPoint(
-                  'Rounds continue (4 → 3 → 2 players) until one player remains'),
-              _BulletPoint('The last player standing is the Tournament Winner'),
-              SizedBox(height: 16),
-            ],
+      body: SafeArea(
+        bottom: true,
+        child: Scrollbar(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SectionHeader('OBJECTIVE'),
+                _BodyText('Be the first player to play all cards in your hand.'),
+                _SectionDivider(),
+                sectionSpacing,
+                _SectionHeader('SETUP'),
+                _BulletPoint('Standard 52-card deck plus 2 Jokers (54 cards total)'),
+                _BulletPoint('Each player receives 7 random cards'),
+                _BulletPoint('One card placed face-up starts the discard pile'),
+                _BulletPoint('Remaining cards form the draw pile'),
+                _BulletPoint(
+                    'If the starting face-up card is a special card, its effect triggers immediately'),
+                _SectionDivider(),
+                sectionSpacing,
+                _SectionHeader('TURN STRUCTURE'),
+                _BodyText('On your turn, play a card if it matches:'),
+                _BulletPoint('The suit of the top discard card, or'),
+                _BulletPoint('The rank of the top discard card, or'),
+                _BulletPoint('A valid special override (Ace, Joker)'),
+                _BodyText(
+                    'If you cannot play: draw 1 card and your turn ends immediately. The drawn card cannot be played on that same turn.'),
+                _BodyText(
+                    'A 60 second turn timer is active at all times. If no card is played or drawn within 60 seconds, the turn ends automatically and you must draw 1 card as a penalty.'),
+                _SectionDivider(),
+                sectionSpacing,
+                _SectionHeader('MULTI-CARD & SEQUENCE PLAY'),
+                _BulletPoint('Play multiple cards of the same value in one turn'),
+                _BulletPoint(
+                    'Build a numerical sequence ascending or descending in the same suit'),
+                _BulletPoint(
+                    'After a same-suit sequence ends, continue with a cross-suit card of the same value as the final sequence card'),
+                _SectionDivider(),
+                sectionSpacing,
+                _SectionHeader('SPECIAL CARDS'),
+                _SpecialCardRow(
+                  cardName: '2 (any suit)',
+                  description:
+                      'Next player draws 2 cards. Stackable with other 2s (penalty accumulates)',
+                ),
+                _SpecialCardRow(
+                  cardName: 'Black Jack (♠/♣)',
+                  description:
+                      'Next player draws 5 cards. Stackable, and can stack onto an active 2-chain',
+                ),
+                _SpecialCardRow(
+                  cardName: 'Red Jack (♥/♦)',
+                  description:
+                      'Cancels any active draw penalty (resets draw stack to 0)',
+                ),
+                _SpecialCardRow(
+                  cardName: 'King',
+                  description: 'Reverses direction of play',
+                ),
+                _SpecialCardRow(
+                  cardName: 'Ace',
+                  description: 'Change the active suit to any suit',
+                ),
+                _SpecialCardRow(
+                  cardName: 'Queen',
+                  description: 'Suit lock; next player must follow that suit (no rank bypass)',
+                ),
+                _SpecialCardRow(
+                  cardName: '8',
+                  description: 'Next player is skipped',
+                ),
+                _SpecialCardRow(
+                  cardName: 'Joker',
+                  description: 'Wild; declare both suit and rank freely',
+                ),
+                _SectionDivider(),
+                sectionSpacing,
+                _SectionHeader('EFFECT RESOLUTION ORDER'),
+                _BodyText('When multiple effects are active, resolve in this order:'),
+                _BulletPoint('Draw penalties (2 / Black Jack)'),
+                _BulletPoint('Skip (8)'),
+                _BulletPoint('Reverse (King)'),
+                _BulletPoint('Suit lock (Queen)'),
+                _SectionDivider(),
+                sectionSpacing,
+                _SectionHeader('EDGE CASES'),
+                _BulletPoint(
+                    'If the draw pile is empty, reshuffle the discard pile (except the top card) into a new draw pile'),
+                _BulletPoint('A player cannot win on a forced penalty draw'),
+                _SectionDivider(),
+                sectionSpacing,
+                _SectionHeader('GAME MODES'),
+                _BodyText(
+                    'Play with AI — Offline game against AI opponents using all core rules'),
+                _BodyText(
+                    'Practice Mode — Offline against AI. No leaderboard impact'),
+                _BodyText(
+                    'Play Online — Multiplayer using all core rules via lobby/room flow'),
+                _BodyText('Tournament Mode'),
+                _BulletPoint('All core rules apply within each round'),
+                _BulletPoint('Players finish in order by emptying their hand'),
+                _BulletPoint(
+                    'The last player to empty their hand each round is eliminated'),
+                _BulletPoint('Remaining players advance to the next round'),
+                _BulletPoint(
+                    'Rounds continue (4 → 3 → 2 players) until one player remains'),
+                _BulletPoint('The last player standing is the Tournament Winner'),
+                SizedBox(height: 16),
+              ],
+            ),
           ),
         ),
       ),
