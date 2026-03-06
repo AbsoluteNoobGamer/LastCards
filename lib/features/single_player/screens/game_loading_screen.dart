@@ -135,7 +135,7 @@ class _GameLoadingScreenState extends ConsumerState<GameLoadingScreen>
                   children: [
                     const SizedBox(height: 56),
 
-                    // ── DeckDrop title ──────────────────────────────────
+                    // ── Last Cards title ────────────────────────────────
                     ShaderMask(
                       shaderCallback: (bounds) => LinearGradient(
                         colors: [theme.accentLight, theme.accentPrimary],
@@ -143,7 +143,7 @@ class _GameLoadingScreenState extends ConsumerState<GameLoadingScreen>
                         end: Alignment.bottomRight,
                       ).createShader(bounds),
                       child: Text(
-                        'DeckDrop',
+                        'Last Cards',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.cinzel(
                           fontSize: 30,

@@ -1,7 +1,7 @@
-# DeckDrop — Architecture
+# Last Cards — Architecture
 
 ## Overview
-DeckDrop is a 4-player card game built in Flutter. All core game rules and engine
+Last Cards is a 4-player card game built in Flutter. All core game rules and engine
 logic live in a centralised shared module. Game modes consume shared logic and must not
 implement their own rule logic.
 

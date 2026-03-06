@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:deck_drop/core/models/offline_game_state.dart';
-import 'package:deck_drop/core/services/card_back_service.dart';
-import 'package:deck_drop/features/gameplay/presentation/screens/table_screen.dart';
-import 'package:deck_drop/screens/tournament/tournament_lobby_screen.dart';
-import 'package:deck_drop/screens/tournament/tournament_round_summary_screen.dart';
-import 'package:deck_drop/screens/tournament/tournament_winner_screen.dart';
-import 'package:deck_drop/services/audio_service.dart';
-import 'package:deck_drop/services/game_sound.dart';
-import 'package:deck_drop/tournament/tournament_engine.dart';
+import 'package:last_cards/core/models/offline_game_state.dart';
+import 'package:last_cards/core/services/card_back_service.dart';
+import 'package:last_cards/features/gameplay/presentation/screens/table_screen.dart';
+import 'package:last_cards/screens/tournament/tournament_lobby_screen.dart';
+import 'package:last_cards/screens/tournament/tournament_round_summary_screen.dart';
+import 'package:last_cards/screens/tournament/tournament_winner_screen.dart';
+import 'package:last_cards/services/audio_service.dart';
+import 'package:last_cards/services/game_sound.dart';
+import 'package:last_cards/tournament/tournament_engine.dart';
 
 typedef TournamentRoundGameBuilder = Widget Function({
   required int totalPlayers,

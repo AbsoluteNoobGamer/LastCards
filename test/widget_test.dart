@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:deck_drop/app/app.dart';
+import 'package:last_cards/app/app.dart';
 
 void main() {
   testWidgets('App smoke test', (WidgetTester tester) async {

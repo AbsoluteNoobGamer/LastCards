@@ -166,7 +166,7 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
 
                   const SizedBox(height: 28),
 
-                  // ── DeckDrop title ─────────────────────────────────────
+                  // ── Last Cards title ────────────────────────────────────
                   ShaderMask(
                     shaderCallback: (bounds) => LinearGradient(
                       colors: [theme.accentLight, theme.accentPrimary],
@@ -174,7 +174,7 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
                       end: Alignment.bottomRight,
                     ).createShader(bounds),
                     child: Text(
-                      'DeckDrop',
+                      'Last Cards',
                       style: GoogleFonts.cinzel(
                         fontSize: 28,
                         fontWeight: FontWeight.w800,

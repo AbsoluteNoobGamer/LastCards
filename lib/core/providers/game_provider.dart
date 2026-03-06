@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:deck_drop/shared/rules/win_condition_rules.dart';
+import 'package:last_cards/shared/rules/win_condition_rules.dart';
 
 import '../models/card_model.dart';
 import '../models/game_event.dart';

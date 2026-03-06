@@ -28,15 +28,15 @@ import '../../../../features/tournament/widgets/tournament_type_sheet.dart';
 part 'start_screen_background.dart';
 part 'start_screen_buttons.dart';
 
-class DeckDropStartScreen extends ConsumerStatefulWidget {
-  const DeckDropStartScreen({super.key});
+class LastCardsStartScreen extends ConsumerStatefulWidget {
+  const LastCardsStartScreen({super.key});
 
   @override
-  ConsumerState<DeckDropStartScreen> createState() =>
-      _DeckDropStartScreenState();
+  ConsumerState<LastCardsStartScreen> createState() =>
+      _LastCardsStartScreenState();
 }
 
-class _DeckDropStartScreenState extends ConsumerState<DeckDropStartScreen>
+class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
     with TickerProviderStateMixin {
   late AnimationController _bgController;
 
@@ -123,7 +123,7 @@ class _DeckDropStartScreenState extends ConsumerState<DeckDropStartScreen>
                                   ).createShader(bounds);
                                 },
                                 child: Text(
-                                  "DeckDrop",
+                                  "Last Cards",
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.cinzel(
                                     fontSize: 42,
@@ -202,7 +202,7 @@ class _DeckDropStartScreenState extends ConsumerState<DeckDropStartScreen>
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 16),
                                 child: Text(
-                                  "DECKDROP",
+                                  "LAST CARDS",
                                   style: GoogleFonts.cinzel(
                                     color: const Color(0xFFC9A84C),
                                     fontSize: 13,

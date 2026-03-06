@@ -279,7 +279,7 @@ class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
                 child: Column(
                   children: [
                     Text(
-                      'DECKDROP',
+                      'LAST CARDS',
                       style: GoogleFonts.outfit(
                         fontSize: 32,
                         fontWeight: FontWeight.w900,

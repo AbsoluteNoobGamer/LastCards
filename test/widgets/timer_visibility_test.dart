@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:deck_drop/features/gameplay/presentation/widgets/floating_action_bar_widget.dart';
-import 'package:deck_drop/features/gameplay/domain/entities/game_state.dart';
+import 'package:last_cards/features/gameplay/presentation/widgets/floating_action_bar_widget.dart';
+import 'package:last_cards/features/gameplay/domain/entities/game_state.dart';
 
 void main() {
   testWidgets('FloatingActionBarWidget does not show timer', (WidgetTester tester) async {
