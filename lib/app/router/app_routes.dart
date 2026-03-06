@@ -9,6 +9,6 @@ abstract final class AppRoutes {
 }
 
 final Map<String, WidgetBuilder> appRoutes = {
-  AppRoutes.start: (_) => const DeckDropStartScreen(),
+  AppRoutes.start: (_) => const StackFlowStartScreen(),
   AppRoutes.game: (_) => const TableScreen(),
 };
