@@ -15,20 +15,19 @@ class _ProfileBadge extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider);
-    final theme = ref.watch(themeProvider).theme;
     final avatarPath = profile.avatarPath;
 
     final Widget avatarWidget = avatarPath != null
         ? CircleAvatar(
             radius: 22,
             backgroundImage: FileImage(File(avatarPath)),
-            backgroundColor: theme.surfacePanel,
+            backgroundColor: const Color(0xFF1C1C1C),
           )
-        : CircleAvatar(
+        : const CircleAvatar(
             radius: 22,
-            backgroundColor: theme.surfacePanel,
-            child: Icon(Icons.person_rounded,
-                size: 24, color: theme.accentPrimary),
+            backgroundColor: Color(0xFF1C1C1C),
+            child:
+                Icon(Icons.person_rounded, size: 24, color: Color(0xFFC9A84C)),
           );
 
     return GestureDetector(
@@ -40,7 +39,7 @@ class _ProfileBadge extends ConsumerWidget {
           color: Colors.black.withValues(alpha: 0.55),
           borderRadius: BorderRadius.circular(40),
           border: Border.all(
-            color: theme.accentPrimary.withValues(alpha: 0.7),
+            color: const Color(0xFFC9A84C).withValues(alpha: 0.7),
             width: 1.5,
           ),
         ),
@@ -52,7 +51,7 @@ class _ProfileBadge extends ConsumerWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: theme.accentPrimary,
+                  color: const Color(0xFFC9A84C),
                   width: 2,
                 ),
               ),
@@ -76,9 +75,9 @@ class _ProfileBadge extends ConsumerWidget {
             ),
             const SizedBox(width: 4),
             // Edit pencil icon
-            Icon(
+            const Icon(
               Icons.edit_rounded,
-              color: theme.accentPrimary,
+              color: Color(0xFFC9A84C),
               size: 14,
             ),
           ],
@@ -105,7 +104,8 @@ class _PlayAiButtonState extends State<_PlayAiButton> {
   Widget build(BuildContext context) {
     return _PrimaryButtonBase(
       label: "Single Player",
-      iconKey: 'bot',
+      iconWidget:
+          const Icon(Icons.smart_toy, color: Color(0xFFFFD700), size: 28),
       isHovered: _isHovered,
       isPressed: _isPressed,
       onHover: (val) => setState(() => _isHovered = val),
@@ -113,13 +113,18 @@ class _PlayAiButtonState extends State<_PlayAiButton> {
         HapticFeedback.lightImpact();
         setState(() => _isPressed = true);
       },
+      // onTapUp intentionally removed for InkWell compatibility
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: () {
+        // Find the _StackFlowStartScreenState to trigger the modal
+        // A bit of a hack since _PlayAiButton is not passed a callback directly,
+        // we can look up the state in the widget tree.
         final parentState =
-            context.findAncestorStateOfType<_DeckDropStartScreenState>();
+            context.findAncestorStateOfType<_StackFlowStartScreenState>();
         if (parentState != null) {
           parentState._showAISelector(context, isPractice: false);
         } else {
+          // Fallback if not found
           Navigator.push(
               context, MaterialPageRoute(builder: (_) => const TableScreen()));
         }
@@ -161,7 +166,7 @@ class _PlayOnlineButtonState extends State<_PlayOnlineButton>
 
     return _PrimaryButtonBase(
       label: "Online",
-      iconKey: 'online',
+      iconWidget: const Icon(Icons.people, color: Color(0xFFFFD700), size: 28),
       isHovered: _isHovered,
       isPressed: _isPressed,
       onHover: (val) => setState(() => _isHovered = val),
@@ -172,7 +177,7 @@ class _PlayOnlineButtonState extends State<_PlayOnlineButton>
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: () {
         final parentState =
-            context.findAncestorStateOfType<_DeckDropStartScreenState>();
+            context.findAncestorStateOfType<_StackFlowStartScreenState>();
         if (parentState != null) {
           parentState._showOnlineModeSelector(context);
         } else {
@@ -209,7 +214,7 @@ class _PlayOnlineButtonState extends State<_PlayOnlineButton>
                     "12/24 online",
                     style: TextStyle(
                         fontSize: 12,
-                        color: Colors.white70,
+                        color: Color(0xFFC9A84C),
                         fontWeight: FontWeight.bold),
                   ),
                 ],
@@ -233,7 +238,8 @@ class _TournamentButtonState extends State<_TournamentButton> {
   Widget build(BuildContext context) {
     return _PrimaryButtonBase(
       label: "Tournament",
-      iconKey: 'trophy',
+      iconWidget:
+          const Icon(Icons.emoji_events, color: Color(0xFFFFD700), size: 26),
       isHovered: _isHovered,
       isPressed: _isPressed,
       onHover: (val) => setState(() => _isHovered = val),
@@ -243,24 +249,16 @@ class _TournamentButtonState extends State<_TournamentButton> {
       },
       onTapCancel: () => setState(() => _isPressed = false),
       onTap: () {
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (_) => const TournamentTypeSheet(),
-        );
+        Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const TournamentScreen()));
       },
     );
   }
 }
 
-// -----------------------------------------------------------------------------
-// _PrimaryButtonBase — theme-aware
-// -----------------------------------------------------------------------------
-
-class _PrimaryButtonBase extends ConsumerWidget {
+class _PrimaryButtonBase extends StatelessWidget {
   final String label;
-  final String iconKey; // 'bot' | 'online' | 'trophy'
+  final Widget iconWidget;
   final Widget? subtitle;
   final bool isHovered;
   final bool isPressed;
@@ -271,7 +269,7 @@ class _PrimaryButtonBase extends ConsumerWidget {
 
   const _PrimaryButtonBase({
     required this.label,
-    required this.iconKey,
+    required this.iconWidget,
     this.subtitle,
     required this.isHovered,
     required this.isPressed,
@@ -282,14 +280,7 @@ class _PrimaryButtonBase extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = ref.watch(themeProvider).theme;
-    final accent = theme.accentPrimary;
-    final accentLight = theme.accentLight;
-    final accentDark = theme.accentDark;
-    final bg = theme.backgroundDeep;
-    final bgMid = theme.backgroundMid;
-
+  Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
     final buttonWidth = isMobile
@@ -299,12 +290,6 @@ class _PrimaryButtonBase extends ConsumerWidget {
 
     final scale = isPressed ? 0.95 : (isHovered ? 1.05 : 1.0);
 
-    final IconData iconData = iconKey == 'bot'
-        ? Icons.smart_toy
-        : iconKey == 'online'
-            ? Icons.people
-            : Icons.emoji_events;
-
     return MouseRegion(
       onEnter: (_) => onHover(true),
       onExit: (_) => onHover(false),
@@ -312,29 +297,29 @@ class _PrimaryButtonBase extends ConsumerWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,
-        transform: Matrix4.identity()..scale(scale, scale, 1.0),
+        transform: Matrix4.identity()..scale(scale, scale),
         transformAlignment: Alignment.center,
         width: buttonWidth,
         height: buttonHeight,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
-          gradient: LinearGradient(
-            colors: [accentLight, accentDark],
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFFD700), Color(0xFF8B6500)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          boxShadow: [
+          boxShadow: const [
             BoxShadow(
-              color: accent.withValues(alpha: 0.30),
+              color: Color(0x30FFD700),
               blurRadius: 20,
               spreadRadius: 2,
             ),
             BoxShadow(
-              color: accent.withValues(alpha: 0.14),
+              color: Color(0x15FFD700),
               blurRadius: 40,
               spreadRadius: 4,
             ),
-            const BoxShadow(
+            BoxShadow(
               color: Color(0x80000000),
               blurRadius: 8,
               offset: Offset(0, 4),
@@ -345,13 +330,9 @@ class _PrimaryButtonBase extends ConsumerWidget {
           padding: const EdgeInsets.all(2.0),
           child: Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  bg.withValues(alpha: 0.95),
-                  bgMid.withValues(alpha: 0.98),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+              gradient: const RadialGradient(
+                colors: [Color(0xFF2B1700), Color(0xFF1A0E00)],
+                radius: 1.5,
               ),
               borderRadius: BorderRadius.circular(16.0),
             ),
@@ -364,14 +345,14 @@ class _PrimaryButtonBase extends ConsumerWidget {
                   right: 0,
                   child: Container(
                     height: 1,
-                    color: Colors.white.withValues(alpha: 0.05),
+                    color: Colors.white.withOpacity(0.05),
                   ),
                 ),
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(16.0),
-                    splashColor: accent.withValues(alpha: 0.25),
+                    splashColor: const Color(0xFFFFD700).withOpacity(0.3),
                     highlightColor: Colors.transparent,
                     onTapDown: onTapDown,
                     onTapCancel: onTapCancel,
@@ -384,7 +365,7 @@ class _PrimaryButtonBase extends ConsumerWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(iconData, color: accent, size: 28),
+                        iconWidget,
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -428,8 +409,8 @@ class _PrimaryButtonBase extends ConsumerWidget {
 // -----------------------------------------------------------------------------
 
 /// A borderless, backgroundless icon + label item for the bottom icon row.
-/// Shows a themed-accent icon with a small label underneath.
-class _IconRowItem extends ConsumerStatefulWidget {
+/// Shows a gold icon with a small label underneath. Scales slightly on hover.
+class _IconRowItem extends StatefulWidget {
   final String label;
   final IconData icon;
   final VoidCallback onTap;
@@ -437,19 +418,15 @@ class _IconRowItem extends ConsumerStatefulWidget {
   const _IconRowItem(this.label, this.icon, this.onTap);
 
   @override
-  ConsumerState<_IconRowItem> createState() => _IconRowItemState();
+  State<_IconRowItem> createState() => _IconRowItemState();
 }
 
-class _IconRowItemState extends ConsumerState<_IconRowItem> {
+class _IconRowItemState extends State<_IconRowItem> {
   bool _isHovered = false;
   bool _isPressed = false;
 
   @override
   Widget build(BuildContext context) {
-    final theme = ref.watch(themeProvider).theme;
-    final accent = theme.accentPrimary;
-    final accentLight = theme.accentLight;
-
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() {
@@ -472,7 +449,6 @@ class _IconRowItemState extends ConsumerState<_IconRowItem> {
             ..scale(
               _isPressed ? 0.90 : (_isHovered ? 1.12 : 1.0),
               _isPressed ? 0.90 : (_isHovered ? 1.12 : 1.0),
-              1.0,
             ),
           transformAlignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -480,8 +456,8 @@ class _IconRowItemState extends ConsumerState<_IconRowItem> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ShaderMask(
-                shaderCallback: (bounds) => LinearGradient(
-                  colors: [accentLight, accent],
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [Color(0xFFFFE566), Color(0xFFC9A84C)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ).createShader(bounds),
@@ -498,7 +474,7 @@ class _IconRowItemState extends ConsumerState<_IconRowItem> {
                 style: GoogleFonts.outfit(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color: accent,
+                  color: const Color(0xFFC9A84C),
                   letterSpacing: 0.8,
                 ),
                 maxLines: 1,

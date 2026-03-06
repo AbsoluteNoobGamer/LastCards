@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:deck_drop/shared/rules/win_condition_rules.dart';
 
+import '../../services/audio_service.dart';
+import '../../services/game_sound.dart';
 import '../models/card_model.dart';
 import '../models/game_event.dart';
 import '../models/game_state.dart';
@@ -36,6 +38,13 @@ class GameNotifier extends StateNotifier<GameState?> {
           discardSecondCard: state!.discardTopCard,
           discardTopCard: e.newDiscardTop,
         );
+        AudioService.instance.playSound(GameSound.cardPlace);
+        for (final card in e.cards) {
+          final special = _specialSoundFor(card);
+          if (special != null) {
+            AudioService.instance.playSound(special);
+          }
+        }
       }),
     );
 
@@ -46,6 +55,7 @@ class GameNotifier extends StateNotifier<GameState?> {
           drawPileCount:
               (state!.drawPileCount - 1).clamp(0, double.infinity).toInt(),
         );
+        AudioService.instance.playSound(GameSound.cardDraw);
       }),
     );
 
@@ -56,6 +66,7 @@ class GameNotifier extends StateNotifier<GameState?> {
           currentPlayerId: e.newCurrentPlayerId,
           direction: e.direction,
         );
+        AudioService.instance.playSound(GameSound.turnStart);
       }),
     );
 
@@ -63,6 +74,15 @@ class GameNotifier extends StateNotifier<GameState?> {
       _eventHandler.penalties.listen((e) {
         if (state == null) return;
         state = state!.copyWith(activePenaltyCount: e.newPenaltyStack);
+        if (e.cardsDrawn > 0) {
+          AudioService.instance.playSound(GameSound.penaltyDraw);
+        }
+      }),
+    );
+
+    _subs.add(
+      _eventHandler.gameEnded.listen((_) {
+        AudioService.instance.playSound(GameSound.playerWin);
       }),
     );
   }
@@ -122,3 +142,26 @@ final isLocalTurnProvider = Provider<bool>((ref) {
 final penaltyCountProvider = Provider<int>((ref) {
   return ref.watch(gameStateProvider)?.activePenaltyCount ?? 0;
 });
+
+// ── Audio helpers ─────────────────────────────────────────────────────────────
+
+GameSound? _specialSoundFor(CardModel card) {
+  switch (card.effectiveRank) {
+    case Rank.two:
+      return GameSound.specialTwo;
+    case Rank.jack:
+      return card.isBlackJack ? GameSound.specialBlackJack : GameSound.specialRedJack;
+    case Rank.king:
+      return GameSound.specialKing;
+    case Rank.ace:
+      return GameSound.specialAce;
+    case Rank.queen:
+      return GameSound.specialQueen;
+    case Rank.eight:
+      return GameSound.specialEight;
+    case Rank.joker:
+      return GameSound.specialJoker;
+    default:
+      return null;
+  }
+}

@@ -12,6 +12,7 @@ class AudioService {
   static final AudioService instance = AudioService._();
 
   static const String _prefsKeySfxEnabled = 'sound_effects_enabled';
+  static const String _prefsKeySoundVolume = 'soundVolume';
   static const Map<GameSound, String> _soundFiles = {
     GameSound.cardDraw: 'Draw-Card.wav',
     GameSound.cardPlace: 'card_place.wav',
@@ -61,6 +62,8 @@ class AudioService {
     try {
       _prefs = await SharedPreferences.getInstance();
       _soundEffectsEnabled = _prefs?.getBool(_prefsKeySfxEnabled) ?? true;
+      final savedVolume = _prefs?.getDouble(_prefsKeySoundVolume) ?? 100.0;
+      _volume = (savedVolume / 100.0).clamp(0.0, 1.0);
       _availableAssets = await _loadAudioAssets();
       _oneShotPlayer = AudioPlayer();
 

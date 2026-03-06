@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/services/card_back_service.dart';
+import '../../../../services/audio_service.dart' as singleton_audio;
 import '../../../gameplay/presentation/controllers/audio_service.dart';
 
 // Create a simple provider to manage SharedPreferences settings globally
@@ -69,6 +70,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   void updateSound(double val) {
     state = state.copyWith(soundVolume: val);
     _prefs?.setDouble('soundVolume', val);
+    singleton_audio.AudioService.instance.setVolume(val / 100.0);
   }
 
   void updateMusic(double val) {
