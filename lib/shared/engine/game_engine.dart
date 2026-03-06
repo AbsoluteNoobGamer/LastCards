@@ -598,18 +598,11 @@ String nextPlayerId({
     return state.currentPlayerId;
   }
 
-  // Skips only apply when the turn ends on an Eight.
-  // Exception: if the player followed up Eight(s) with a valid non-Eight card,
-  // the skip counter is cancelled and no players are skipped.
-  final lastPlayedWasEight =
-      state.lastPlayedThisTurn?.effectiveRank == Rank.eight;
-  final effectiveSkipCount = lastPlayedWasEight ? state.activeSkipCount : 0;
-
   // Effect order: when both skip and reverse are present, skip resolves first.
   // Since reverse has already updated `state.direction`, use the pre-reverse
   // direction for this immediate advance, then keep the reversed direction for
   // subsequent turns.
-  final hasSkip = effectiveSkipCount > 0;
+  final hasSkip = state.activeSkipCount > 0;
   final kingPlayedThisTurn =
       state.lastPlayedThisTurn?.effectiveRank == Rank.king;
   final directionForAdvance = (hasSkip && kingPlayedThisTurn)
@@ -620,10 +613,7 @@ String nextPlayerId({
 
   final step = directionForAdvance == PlayDirection.clockwise ? 1 : -1;
   int next = currentIndex;
-  // Advance by (effectiveSkipCount + 1): each Eight adds one extra step.
-  // If effectiveSkipCount >= (playerCount - 1) the modulo naturally wraps
-  // the turn back to the current player.
-  final advances = 1 + effectiveSkipCount;
+  final advances = 1 + state.activeSkipCount;
 
   for (int i = 0; i < advances; i++) {
     next = (next + step) % players.length;

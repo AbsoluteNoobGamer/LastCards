@@ -763,21 +763,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _reshuffleCentrePileIntoDrawPile();
     if (_checkWin(playerId, newState)) return;
 
-    // Auto-advance when the current play guarantees we get another turn
-    // immediately (e.g. King in a 2-player game) and there are no unresolved
-    // obligations (like covering a Queen).
-    // Exception: do NOT auto-advance when the last card was an Eight — the
-    // player must end their turn manually so they have the opportunity to
-    // chain more Eights or play a valid follow-up card (which cancels the
-    // accumulated skips per the Eight exception rule).
+    // Auto-advance if this play guarantees we get another turn immediately and
+    // there are no unresolved obligations (like covering a Queen).
+    // This happens when playing a Skip (8) or a King in a 2-player game.
     var nextId = nextPlayerId(state: newState);
     nextId = _resolveTournamentNextPlayerId(newState, nextId);
 
-    final lastWasEight =
-        newState.lastPlayedThisTurn?.effectiveRank == Rank.eight;
-    if (nextId == playerId &&
-        newState.queenSuitLock == null &&
-        !lastWasEight) {
+    if (nextId == playerId && newState.queenSuitLock == null) {
       _endTurn();
     }
   }
