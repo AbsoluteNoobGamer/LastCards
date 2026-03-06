@@ -384,6 +384,13 @@ GameState applyPlay({
     gs = gs.copyWith(activePenaltyCount: 0);
   }
 
+  // Eight Skip Cancellation: if the last card played is not an Eight, any skip
+  // count accumulated by Eights earlier this turn is reset to zero.
+  // A valid non-Eight follow-up after Eight(s) cancels the skip effect entirely.
+  if (lastCard.effectiveRank != Rank.eight && gs.activeSkipCount > 0) {
+    gs = gs.copyWith(activeSkipCount: 0);
+  }
+
   // Count this as a valid action for the current player, and record the last
   // card played this turn for same-turn sequential adjacency enforcement.
   gs = gs.copyWith(

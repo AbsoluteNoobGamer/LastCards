@@ -631,6 +631,149 @@ void main() {
       expect(next, equals('p1'));
     });
 
+    test('eightSkipTurn (stacked sequential - two eights one at a time)', () {
+      // 4 players: P1 plays two Eights individually across two separate actions.
+      // Each Eight increments activeSkipCount, resulting in 2 players being skipped.
+      var state = buildState(discardTop: c(Rank.five, Suit.diamonds));
+      final p2 = PlayerModel(
+          id: 'p2',
+          displayName: 'P2',
+          tablePosition: TablePosition.top,
+          hand: [],
+          cardCount: 0,
+          isConnected: true,
+          isActiveTurn: false,
+          isSkipped: false);
+      final p3 = PlayerModel(
+          id: 'p3',
+          displayName: 'P3',
+          tablePosition: TablePosition.left,
+          hand: [],
+          cardCount: 0,
+          isConnected: true,
+          isActiveTurn: false,
+          isSkipped: false);
+      final p4 = PlayerModel(
+          id: 'p4',
+          displayName: 'P4',
+          tablePosition: TablePosition.right,
+          hand: [],
+          cardCount: 0,
+          isConnected: true,
+          isActiveTurn: false,
+          isSkipped: false);
+      state = state.copyWith(players: [...state.players, p2, p3, p4]);
+
+      // First Eight — skip count becomes 1
+      state = applyPlay(
+          state: state, playerId: 'p1', cards: [c(Rank.eight, Suit.diamonds)]);
+      expect(state.activeSkipCount, 1,
+          reason: 'First Eight should set activeSkipCount to 1');
+
+      // Second Eight played sequentially — skip count must stack to 2
+      state = applyPlay(
+          state: state, playerId: 'p1', cards: [c(Rank.eight, Suit.hearts)]);
+      expect(state.activeSkipCount, 2,
+          reason: 'Second Eight must increment skip counter to 2');
+
+      final next = nextPlayerId(state: state);
+      expect(next, equals('p4'),
+          reason: 'Two stacked Eights must skip p2 and p3, advancing to p4');
+    });
+
+    test('eightFollowedByNonEight_resetsSkipToZero', () {
+      // EXCEPTION rule: if an Eight is played and the player follows up with a
+      // valid adjacent non-Eight card, the skip counter must reset to 0 and no
+      // players are skipped when the turn ends.
+      var state = buildState(discardTop: c(Rank.five, Suit.diamonds));
+      final p2 = PlayerModel(
+          id: 'p2',
+          displayName: 'P2',
+          tablePosition: TablePosition.top,
+          hand: [],
+          cardCount: 0,
+          isConnected: true,
+          isActiveTurn: false,
+          isSkipped: false);
+      final p3 = PlayerModel(
+          id: 'p3',
+          displayName: 'P3',
+          tablePosition: TablePosition.left,
+          hand: [],
+          cardCount: 0,
+          isConnected: true,
+          isActiveTurn: false,
+          isSkipped: false);
+      state = state.copyWith(players: [...state.players, p2, p3]);
+
+      // Play Eight — skip count becomes 1
+      state = applyPlay(
+          state: state, playerId: 'p1', cards: [c(Rank.eight, Suit.diamonds)]);
+      expect(state.activeSkipCount, 1,
+          reason: 'Eight should set skip count to 1');
+
+      // Follow up with adjacent non-Eight (9♦) — skip must reset to 0
+      state = applyPlay(
+          state: state, playerId: 'p1', cards: [c(Rank.nine, Suit.diamonds)]);
+      expect(state.activeSkipCount, 0,
+          reason: 'Non-Eight follow-up must reset skip counter to 0');
+
+      final next = nextPlayerId(state: state);
+      expect(next, equals('p2'),
+          reason: 'With skip reset, turn advances normally to p2 — no one is skipped');
+    });
+
+    test('multipleEightsFollowedByNonEight_resetsSkipToZero', () {
+      // EXCEPTION rule: multiple Eights followed by a non-Eight — skip resets.
+      var state = buildState(discardTop: c(Rank.five, Suit.diamonds));
+      final p2 = PlayerModel(
+          id: 'p2',
+          displayName: 'P2',
+          tablePosition: TablePosition.top,
+          hand: [],
+          cardCount: 0,
+          isConnected: true,
+          isActiveTurn: false,
+          isSkipped: false);
+      final p3 = PlayerModel(
+          id: 'p3',
+          displayName: 'P3',
+          tablePosition: TablePosition.left,
+          hand: [],
+          cardCount: 0,
+          isConnected: true,
+          isActiveTurn: false,
+          isSkipped: false);
+      final p4 = PlayerModel(
+          id: 'p4',
+          displayName: 'P4',
+          tablePosition: TablePosition.right,
+          hand: [],
+          cardCount: 0,
+          isConnected: true,
+          isActiveTurn: false,
+          isSkipped: false);
+      state = state.copyWith(players: [...state.players, p2, p3, p4]);
+
+      // Play two Eights — skip count becomes 2
+      state = applyPlay(state: state, playerId: 'p1', cards: [
+        c(Rank.eight, Suit.diamonds),
+        c(Rank.eight, Suit.hearts),
+      ]);
+      expect(state.activeSkipCount, 2,
+          reason: 'Two Eights should set skip count to 2');
+
+      // Follow up with 9♦ — skip must reset to 0 regardless of how many Eights preceded
+      state = applyPlay(
+          state: state, playerId: 'p1', cards: [c(Rank.nine, Suit.diamonds)]);
+      expect(state.activeSkipCount, 0,
+          reason: 'Non-Eight follow-up must reset even a stacked skip count');
+
+      final next = nextPlayerId(state: state);
+      expect(next, equals('p2'),
+          reason: 'With skip fully reset, turn advances normally to p2');
+    });
+
     test('kingSkipTwoPlayerRule', () {
       var state = buildState(discardTop: c(Rank.five, Suit.spades));
 
