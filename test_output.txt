@@ -379,12 +379,12 @@ DEBUG FLOW: prev=2♦ next=A♦ sameSuit=true rankDiff=12 isTwoAndAce=true
     void _goBack(BuildContext context, TournamentSessionState session) {
                                        ^^^^^^^^^^^^^^^^^^^^^^
   lib/features/tournament/widgets/player_count_sheet.dart:29:31: Error: The getter 'tournamentSessionProvider' isn't defined for the type '_TournamentPlayerCountSheetState'.
-   - '_TournamentPlayerCountSheetState' is from 'package:deck_drop/features/tournament/widgets/player_count_sheet.dart' ('lib/features/tournament/widgets/player_count_sheet.dart').
+   - '_TournamentPlayerCountSheetState' is from 'package:last_cards/features/tournament/widgets/player_count_sheet.dart' ('lib/features/tournament/widgets/player_count_sheet.dart').
   Try correcting the name to the name of an existing getter, or defining a getter or field named 'tournamentSessionProvider'.
       final session = ref.watch(tournamentSessionProvider);
                                 ^^^^^^^^^^^^^^^^^^^^^^^^^
   lib/features/tournament/widgets/player_count_sheet.dart:33:41: Error: The getter 'TournamentType' isn't defined for the type '_TournamentPlayerCountSheetState'.
-   - '_TournamentPlayerCountSheetState' is from 'package:deck_drop/features/tournament/widgets/player_count_sheet.dart' ('lib/features/tournament/widgets/player_count_sheet.dart').
+   - '_TournamentPlayerCountSheetState' is from 'package:last_cards/features/tournament/widgets/player_count_sheet.dart' ('lib/features/tournament/widgets/player_count_sheet.dart').
   Try correcting the name to the name of an existing getter, or defining a getter or field named 'TournamentType'.
       final titlePrefix = session.type == TournamentType.vsAi && diffLabel != null
                                           ^^^^^^^^^^^^^^
@@ -392,12 +392,12 @@ DEBUG FLOW: prev=2♦ next=A♦ sameSuit=true rankDiff=12 isTwoAndAce=true
     void _goBack(BuildContext context, TournamentSessionState session) {
                                        ^^^^^^^^^^^^^^^^^^^^^^
   lib/features/tournament/widgets/player_count_sheet.dart:148:29: Error: The getter 'TournamentType' isn't defined for the type '_TournamentPlayerCountSheetState'.
-   - '_TournamentPlayerCountSheetState' is from 'package:deck_drop/features/tournament/widgets/player_count_sheet.dart' ('lib/features/tournament/widgets/player_count_sheet.dart').
+   - '_TournamentPlayerCountSheetState' is from 'package:last_cards/features/tournament/widgets/player_count_sheet.dart' ('lib/features/tournament/widgets/player_count_sheet.dart').
   Try correcting the name to the name of an existing getter, or defining a getter or field named 'TournamentType'.
           if (session.type == TournamentType.vsAi) {
                               ^^^^^^^^^^^^^^
   lib/features/tournament/widgets/player_count_sheet.dart:160:15: Error: The getter 'tournamentSessionProvider' isn't defined for the type '_TournamentPlayerCountSheetState'.
-   - '_TournamentPlayerCountSheetState' is from 'package:deck_drop/features/tournament/widgets/player_count_sheet.dart' ('lib/features/tournament/widgets/player_count_sheet.dart').
+   - '_TournamentPlayerCountSheetState' is from 'package:last_cards/features/tournament/widgets/player_count_sheet.dart' ('lib/features/tournament/widgets/player_count_sheet.dart').
   Try correcting the name to the name of an existing getter, or defining a getter or field named 'tournamentSessionProvider'.
           .read(tournamentSessionProvider.notifier)
                 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -445,12 +445,12 @@ DEBUG FLOW: prev=2♦ next=A♦ sameSuit=true rankDiff=12 isTwoAndAce=true
     void _goBack(BuildContext context, TournamentSessionState session) {
                                        ^^^^^^^^^^^^^^^^^^^^^^
   lib/features/tournament/widgets/player_count_sheet.dart:29:31: Error: The getter 'tournamentSessionProvider' isn't defined for the type '_TournamentPlayerCountSheetState'.
-   - '_TournamentPlayerCountSheetState' is from 'package:deck_drop/features/tournament/widgets/player_count_sheet.dart' ('lib/features/tournament/widgets/player_count_sheet.dart').
+   - '_TournamentPlayerCountSheetState' is from 'package:last_cards/features/tournament/widgets/player_count_sheet.dart' ('lib/features/tournament/widgets/player_count_sheet.dart').
   Try correcting the name to the name of an existing getter, or defining a getter or field named 'tournamentSessionProvider'.
       final session = ref.watch(tournamentSessionProvider);
                                 ^^^^^^^^^^^^^^^^^^^^^^^^^
   lib/features/tournament/widgets/player_count_sheet.dart:33:41: Error: The getter 'TournamentType' isn't defined for the type '_TournamentPlayerCountSheetState'.
-   - '_TournamentPlayerCountSheetState' is from 'package:deck_drop/features/tournament/widgets/player_count_sheet.dart' ('lib/features/tournament/widgets/player_count_sheet.dart').
+   - '_TournamentPlayerCountSheetState' is from 'package:last_cards/features/tournament/widgets/player_count_sheet.dart' ('lib/features/tournament/widgets/player_count_sheet.dart').
   Try correcting the name to the name of an existing getter, or defining a getter or field named 'TournamentType'.
       final titlePrefix = session.type == TournamentType.vsAi && diffLabel != null
                                           ^^^^^^^^^^^^^^
@@ -458,12 +458,12 @@ DEBUG FLOW: prev=2♦ next=A♦ sameSuit=true rankDiff=12 isTwoAndAce=true
     void _goBack(BuildContext context, TournamentSessionState session) {
                                        ^^^^^^^^^^^^^^^^^^^^^^
   lib/features/tournament/widgets/player_count_sheet.dart:148:29: Error: The getter 'TournamentType' isn't defined for the type '_TournamentPlayerCountSheetState'.
-   - '_TournamentPlayerCountSheetState' is from 'package:deck_drop/features/tournament/widgets/player_count_sheet.dart' ('lib/features/tournament/widgets/player_count_sheet.dart').
+   - '_TournamentPlayerCountSheetState' is from 'package:last_cards/features/tournament/widgets/player_count_sheet.dart' ('lib/features/tournament/widgets/player_count_sheet.dart').
   Try correcting the name to the name of an existing getter, or defining a getter or field named 'TournamentType'.
           if (session.type == TournamentType.vsAi) {
                               ^^^^^^^^^^^^^^
   lib/features/tournament/widgets/player_count_sheet.dart:160:15: Error: The getter 'tournamentSessionProvider' isn't defined for the type '_TournamentPlayerCountSheetState'.
-   - '_TournamentPlayerCountSheetState' is from 'package:deck_drop/features/tournament/widgets/player_count_sheet.dart' ('lib/features/tournament/widgets/player_count_sheet.dart').
+   - '_TournamentPlayerCountSheetState' is from 'package:last_cards/features/tournament/widgets/player_count_sheet.dart' ('lib/features/tournament/widgets/player_count_sheet.dart').
   Try correcting the name to the name of an existing getter, or defining a getter or field named 'tournamentSessionProvider'.
           .read(tournamentSessionProvider.notifier)
                 ^^^^^^^^^^^^^^^^^^^^^^^^^

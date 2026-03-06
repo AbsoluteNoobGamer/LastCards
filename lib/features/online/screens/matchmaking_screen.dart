@@ -132,7 +132,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                 children: [
                   const SizedBox(height: 32),
 
-                  // ── DeckDrop logo ───────────────────────────────────────
+                  // ── Last Cards logo ─────────────────────────────────────
                   ShaderMask(
                     shaderCallback: (bounds) => LinearGradient(
                       colors: [theme.accentLight, theme.accentPrimary],
@@ -140,7 +140,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                       end: Alignment.bottomRight,
                     ).createShader(bounds),
                     child: Text(
-                      'DeckDrop',
+                      'Last Cards',
                       style: GoogleFonts.cinzel(
                         fontSize: 32,
                         fontWeight: FontWeight.w800,

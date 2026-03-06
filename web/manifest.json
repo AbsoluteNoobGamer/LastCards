@@ -1,11 +1,11 @@
 {
-    "name": "DeckDrop",
-    "short_name": "DeckDrop",
+    "name": "Last Cards",
+    "short_name": "Last Cards",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "DeckDrop — Premium competitive card game.",
+    "description": "Last Cards — Premium competitive card game.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

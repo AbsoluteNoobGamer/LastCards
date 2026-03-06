@@ -4,10 +4,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:deck_drop/features/gameplay/presentation/widgets/dealing_animation_overlay.dart';
+import 'package:last_cards/features/gameplay/presentation/widgets/dealing_animation_overlay.dart';
 
 import '../../domain/usecases/offline_game_engine.dart';
-import 'package:deck_drop/shared/rules/win_condition_rules.dart';
+import 'package:last_cards/shared/rules/win_condition_rules.dart';
 import '../../data/datasources/offline_game_state_datasource.dart';
 import '../../domain/entities/player.dart';
 import '../../../../shared/engine/game_turn_timer.dart';

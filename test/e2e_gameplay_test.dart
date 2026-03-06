@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:deck_drop/core/models/card_model.dart';
-import 'package:deck_drop/core/models/offline_game_engine.dart';
-import 'package:deck_drop/core/models/offline_game_state.dart';
-import 'package:deck_drop/core/models/game_state.dart';
+import 'package:last_cards/core/models/card_model.dart';
+import 'package:last_cards/core/models/offline_game_engine.dart';
+import 'package:last_cards/core/models/offline_game_state.dart';
+import 'package:last_cards/core/models/game_state.dart';
 
 void main() {
   group('E2E Gameplay Flow Engine Test', () {

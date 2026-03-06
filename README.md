@@ -1,4 +1,4 @@
-# deck_drop
+# last_cards
 
 A new Flutter project.
 
