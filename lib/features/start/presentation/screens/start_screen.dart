@@ -15,24 +15,28 @@ import '../../../leaderboard/presentation/screens/leaderboard_screen.dart';
 import '../../../rules/presentation/screens/rules_screen.dart';
 import '../../../settings/presentation/widgets/settings_modal.dart';
 import '../widgets/ai_selector_modal.dart';
-import '../widgets/online_mode_selector_modal.dart';
+import '../../../../features/single_player/widgets/difficulty_selection_sheet.dart';
+import '../../../../features/online/widgets/mode_selection_sheet.dart';
 import '../widgets/card_back_selection_menu.dart';
+import '../../../../core/theme/theme_selector_modal.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
 import '../../../../core/providers/profile_provider.dart';
+import '../../../../core/providers/theme_provider.dart';
 import '../../../../screens/tournament_screen.dart';
+import '../../../../features/tournament/widgets/tournament_type_sheet.dart';
 
 part 'start_screen_background.dart';
 part 'start_screen_buttons.dart';
 
-class StackFlowStartScreen extends ConsumerStatefulWidget {
-  const StackFlowStartScreen({super.key});
+class DeckDropStartScreen extends ConsumerStatefulWidget {
+  const DeckDropStartScreen({super.key});
 
   @override
-  ConsumerState<StackFlowStartScreen> createState() =>
-      _StackFlowStartScreenState();
+  ConsumerState<DeckDropStartScreen> createState() =>
+      _DeckDropStartScreenState();
 }
 
-class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
+class _DeckDropStartScreenState extends ConsumerState<DeckDropStartScreen>
     with TickerProviderStateMixin {
   late AnimationController _bgController;
 
@@ -75,13 +79,13 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                 ),
               ),
               Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Color(0x99000000),
-                      Color(0xCC000000),
+                      ref.watch(themeProvider).theme.overlayTop,
+                      ref.watch(themeProvider).theme.overlayBottom,
                     ],
                   ),
                 ),
@@ -119,7 +123,7 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                                   ).createShader(bounds);
                                 },
                                 child: Text(
-                                  "Stack and Flow",
+                                  "DeckDrop",
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.cinzel(
                                     fontSize: 42,
@@ -138,6 +142,21 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                                       ),
                                     ],
                                   ),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                "Play it all. Leave nothing.",
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.cinzel(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w400,
+                                  color: ref
+                                      .watch(themeProvider)
+                                      .theme
+                                      .accentPrimary
+                                      .withValues(alpha: 0.55),
+                                  letterSpacing: 3.0,
                                 ),
                               ),
                               SizedBox(height: isMobile ? 40 : 56),
@@ -183,7 +202,7 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 16),
                                 child: Text(
-                                  "STACK & FLOW",
+                                  "DECKDROP",
                                   style: GoogleFonts.cinzel(
                                     color: const Color(0xFFC9A84C),
                                     fontSize: 13,
@@ -224,6 +243,11 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
                                 "Card Styles",
                                 Icons.style_rounded,
                                 () => _showCardStyles(context),
+                              ),
+                              _IconRowItem(
+                                "Themes",
+                                Icons.palette_rounded,
+                                () => _showThemeSelector(context),
                               ),
                               _IconRowItem(
                                 "Settings",
@@ -317,19 +341,28 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
   }
 
   void _showAISelector(BuildContext context, {required bool isPractice}) {
+    // Single Player (non-practice) → new premium bottom sheet flow
+    if (!isPractice) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => const DifficultySelectionSheet(),
+      );
+      return;
+    }
+
+    // Practice path — untouched
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => AISelectorModal(
         onSelected: (totalPlayers) {
-          final target = isPractice
-              ? OfflinePracticeScreen(totalPlayers: totalPlayers)
-              : TableScreen(
-                  totalPlayers:
-                      totalPlayers); // Temporarily using TableScreen for demo as well
-
-          _pushWithTransition(context, target);
+          _pushWithTransition(
+            context,
+            OfflinePracticeScreen(totalPlayers: totalPlayers),
+          );
         },
       ),
     );
@@ -340,14 +373,16 @@ class _StackFlowStartScreenState extends ConsumerState<StackFlowStartScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => OnlineModeSelectorModal(
-        onSelected: (mode) {
-          _pushWithTransition(
-            context,
-            LobbyScreen(onlineMode: mode),
-          );
-        },
-      ),
+      builder: (_) => const ModeSelectionSheet(),
+    );
+  }
+
+  void _showThemeSelector(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const ThemeSelectorModal(),
     );
   }
 }

@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:stack_and_flow/features/gameplay/data/datasources/offline_game_state_datasource.dart';
-import 'package:stack_and_flow/features/gameplay/domain/entities/card.dart';
-import 'package:stack_and_flow/features/gameplay/domain/entities/game_state.dart';
-import 'package:stack_and_flow/features/gameplay/domain/usecases/offline_game_engine.dart';
-import 'package:stack_and_flow/features/gameplay/presentation/screens/table_screen.dart';
-import 'package:stack_and_flow/features/gameplay/presentation/widgets/draw_pile_widget.dart';
-import 'package:stack_and_flow/features/gameplay/presentation/widgets/player_hand_widget.dart';
-import 'package:stack_and_flow/features/start/presentation/screens/start_screen.dart';
+import 'package:deck_drop/features/gameplay/data/datasources/offline_game_state_datasource.dart';
+import 'package:deck_drop/features/gameplay/domain/entities/card.dart';
+import 'package:deck_drop/features/gameplay/domain/entities/game_state.dart';
+import 'package:deck_drop/features/gameplay/domain/usecases/offline_game_engine.dart';
+import 'package:deck_drop/features/gameplay/presentation/screens/table_screen.dart';
+import 'package:deck_drop/features/gameplay/presentation/widgets/draw_pile_widget.dart';
+import 'package:deck_drop/features/gameplay/presentation/widgets/player_hand_widget.dart';
+import 'package:deck_drop/features/start/presentation/screens/start_screen.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -63,7 +63,7 @@ void main() {
     await tester.pumpWidget(
       const ProviderScope(
         child: MaterialApp(
-          home: StackFlowStartScreen(),
+          home: DeckDropStartScreen(),
         ),
       ),
     );
@@ -91,7 +91,7 @@ void main() {
     await tester.pumpWidget(
       const ProviderScope(
         child: MaterialApp(
-          home: StackFlowStartScreen(),
+          home: DeckDropStartScreen(),
         ),
       ),
     );

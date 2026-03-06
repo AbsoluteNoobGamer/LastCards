@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/theme/app_theme_data.dart';
 import '../../../lobby/presentation/screens/lobby_screen.dart';
 
-class OnlineModeSelectorModal extends StatelessWidget {
+class OnlineModeSelectorModal extends ConsumerWidget {
   const OnlineModeSelectorModal({
     required this.onSelected,
     super.key,
@@ -11,15 +15,16 @@ class OnlineModeSelectorModal extends StatelessWidget {
   final ValueChanged<OnlineMode> onSelected;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(themeProvider).theme;
     final media = MediaQuery.of(context);
     final isMobile = media.size.width < 600;
     final sidePadding = isMobile ? 16.0 : 24.0;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF1E1E1E),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: theme.surfacePanel,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: SafeArea(
         top: false,
@@ -37,8 +42,8 @@ class OnlineModeSelectorModal extends StatelessWidget {
               children: [
                 Text(
                   '┌─ Online Mode ─┐',
-                  style: TextStyle(
-                    color: Colors.amber,
+                  style: GoogleFonts.inter(
+                    color: theme.accentPrimary,
                     fontSize: isMobile ? 16 : 18,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 2.0,
@@ -46,9 +51,10 @@ class OnlineModeSelectorModal extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 _OptionButton(
+                  theme: theme,
                   title: 'Up to 3 online players',
                   subtitle:
-                      '(4 total including me) -> standard 4-player online matchmaking',
+                      '(4 total including me) → standard 4-player online matchmaking',
                   onTap: () {
                     Navigator.pop(context);
                     onSelected(OnlineMode.Standard);
@@ -56,6 +62,7 @@ class OnlineModeSelectorModal extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 _OptionButton(
+                  theme: theme,
                   title: 'Tournament mode',
                   subtitle:
                       'Use elimination bracket with online multiplayer flow',
@@ -67,9 +74,12 @@ class OnlineModeSelectorModal extends StatelessWidget {
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text(
+                  child: Text(
                     'Back',
-                    style: TextStyle(color: Colors.white54, fontSize: 16),
+                    style: GoogleFonts.inter(
+                      color: theme.textSecondary.withValues(alpha: 0.7),
+                      fontSize: 16,
+                    ),
                   ),
                 ),
               ],
@@ -83,11 +93,13 @@ class OnlineModeSelectorModal extends StatelessWidget {
 
 class _OptionButton extends StatelessWidget {
   const _OptionButton({
+    required this.theme,
     required this.title,
     required this.subtitle,
     required this.onTap,
   });
 
+  final AppThemeData theme;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
@@ -102,15 +114,15 @@ class _OptionButton extends StatelessWidget {
           backgroundColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Colors.amber, width: 1.5),
+            side: BorderSide(color: theme.accentPrimary, width: 1.5),
           ),
           padding: EdgeInsets.zero,
           elevation: 0,
         ),
         child: Ink(
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFFFFD700), Color(0xFFD4AF37)],
+            gradient: LinearGradient(
+              colors: [theme.accentLight, theme.accentPrimary],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -123,8 +135,8 @@ class _OptionButton extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.black87,
+                  style: GoogleFonts.inter(
+                    color: theme.backgroundDeep,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
@@ -132,8 +144,8 @@ class _OptionButton extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    color: Colors.black87,
+                  style: GoogleFonts.inter(
+                    color: theme.backgroundDeep,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),

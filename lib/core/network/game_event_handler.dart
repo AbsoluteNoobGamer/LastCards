@@ -34,8 +34,6 @@ class GameEventHandler {
       events.where((e) => e is TurnChangedEvent).cast<TurnChangedEvent>();
   Stream<PenaltyAppliedEvent> get penalties =>
       events.where((e) => e is PenaltyAppliedEvent).cast<PenaltyAppliedEvent>();
-  Stream<GameEndedEvent> get gameEnded =>
-      events.where((e) => e is GameEndedEvent).cast<GameEndedEvent>();
 
   // ── Outgoing helpers ───────────────────────────────────────────────────────
 
