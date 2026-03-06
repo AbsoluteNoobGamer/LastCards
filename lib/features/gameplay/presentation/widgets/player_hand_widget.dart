@@ -52,8 +52,8 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget> {
   /// Where the dragged card would be inserted if dropped now.
   int? _insertIndex;
 
-  /// Minimum visible horizontal strip per card before Option B takes over.
-  static const double _minStripDp = 20.0;
+  /// Fixed horizontal offset between successive cards in the fan.
+  static const double _fixedSpread = 45.0;
 
   // ── insert-index calculation ─────────────────────────────────────────────
 
@@ -132,14 +132,9 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget> {
           spread = 0;
           useScroll = false;
         } else {
-          final computedSpread = (maxWidth - targetWidth) / (n - 1);
-          if (computedSpread >= _minStripDp) {
-            spread = computedSpread;
-            useScroll = false;
-          } else {
-            spread = _minStripDp;
-            useScroll = true;
-          }
+          spread = _fixedSpread;
+          final totalContentWidth = targetWidth + (n - 1) * _fixedSpread;
+          useScroll = totalContentWidth > maxWidth;
         }
 
         final totalWidth =
@@ -286,10 +281,13 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget> {
           return SizedBox(
             width: maxWidth,
             height: cardH,
-            child: SizedBox(
-              width: stackWidth,
-              height: cardH,
-              child: cardStack,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                width: stackWidth,
+                height: cardH,
+                child: cardStack,
+              ),
             ),
           );
         }
