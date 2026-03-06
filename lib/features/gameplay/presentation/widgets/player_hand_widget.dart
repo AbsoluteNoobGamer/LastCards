@@ -52,8 +52,8 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget> {
   /// Where the dragged card would be inserted if dropped now.
   int? _insertIndex;
 
-  /// Fixed horizontal offset between consecutive cards (fans from the left).
-  static const double _fixedSpreadDp = 45.0;
+  /// Minimum visible horizontal strip per card before Option B takes over.
+  static const double _minStripDp = 20.0;
 
   // ── insert-index calculation ─────────────────────────────────────────────
 
@@ -125,9 +125,6 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget> {
         final n = cards.length;
 
         // ── Spread calculation ─────────────────────────────────────────
-        // Fixed offset per card so the hand fans from the left edge.
-        // Scroll activates only when the natural hand width exceeds the
-        // available container width (Option B).
         final double spread;
         final bool useScroll;
 
@@ -135,9 +132,14 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget> {
           spread = 0;
           useScroll = false;
         } else {
-          spread = _fixedSpreadDp;
-          final naturalWidth = targetWidth + (n - 1) * spread;
-          useScroll = naturalWidth > maxWidth;
+          final computedSpread = (maxWidth - targetWidth) / (n - 1);
+          if (computedSpread >= _minStripDp) {
+            spread = computedSpread;
+            useScroll = false;
+          } else {
+            spread = _minStripDp;
+            useScroll = true;
+          }
         }
 
         final totalWidth =
