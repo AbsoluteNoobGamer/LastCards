@@ -16,7 +16,7 @@ class AudioService {
     GameSound.cardDraw: 'Draw-Card.wav',
     GameSound.cardPlace: 'card_place.wav',
     GameSound.specialTwo: 'special_two.wav',
-    GameSound.specialBlackJack: 'special_black_jack.wav',
+    GameSound.specialBlackJack: 'special-black_jack.wav',
     GameSound.specialRedJack: 'special_red_jack.wav',
     GameSound.specialKing: 'special_king.wav',
     GameSound.specialAce: 'special_ace.wav',
