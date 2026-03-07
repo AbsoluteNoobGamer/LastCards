@@ -63,6 +63,9 @@ const _carbon = AppThemeData(
   overlayTop:      Color(0xCC0C0C0C),   // heavy dark overlay
   overlayBottom:   Color(0xEE080808),   // near-opaque black
   swatchPreview: [Color(0xFF0C0C0C), Color(0xFF1C1C1F), Color(0xFFB0B8C1)],
+  jokerBackgroundColors: [Color(0xFF0C0C0C), Color(0xFF080808)],
+  jokerBorderColor: Color(0xFF6E7880),
+  jokerAccentColor: Color(0xFFB0B8C1),
 );
 
 // ── 3. Gold ──────────────────────────────────────────────────────────────────
@@ -87,6 +90,9 @@ const _gold = AppThemeData(
   overlayBottom: Color(0xD9000000),
   swatchPreview: [Color(0xFF0C0900), Color(0xFF1A1300), Color(0xFFFFD700)],
   headingFontFamily: 'cinzel',
+  jokerBackgroundColors: [Color(0xFF1A1300), Color(0xFF0C0900)],
+  jokerBorderColor: Color(0xFFB8960C),
+  jokerAccentColor: Color(0xFFFFD700),
 );
 
 // ── 4. Midnight Navy ─────────────────────────────────────────────────────────
@@ -110,6 +116,9 @@ const _midnightNavy = AppThemeData(
   overlayTop: Color(0x99000014),
   overlayBottom: Color(0xCC00000E),
   swatchPreview: [Color(0xFF050D20), Color(0xFF0D1A38), Color(0xFF4A90E2)],
+  jokerBackgroundColors: [Color(0xFF050D20), Color(0xFF020810)],
+  jokerBorderColor: Color(0xFF2E5B9A),
+  jokerAccentColor: Color(0xFF4A90E2),
 );
 
 // ── 5. Crimson Velvet ────────────────────────────────────────────────────────
@@ -133,6 +142,9 @@ const _crimsonVelvet = AppThemeData(
   overlayTop: Color(0x991A0000),
   overlayBottom: Color(0xCC0E0000),
   swatchPreview: [Color(0xFF1A0408), Color(0xFF2E0912), Color(0xFFE8A0A0)],
+  jokerBackgroundColors: [Color(0xFF1A0408), Color(0xFF0E0205)],
+  jokerBorderColor: Color(0xFFA05050),
+  jokerAccentColor: Color(0xFFE8A0A0),
 );
 
 // ── 6. Obsidian ──────────────────────────────────────────────────────────────
@@ -156,6 +168,9 @@ const _obsidian = AppThemeData(
   overlayTop: Color(0xA6000000),
   overlayBottom: Color(0xD9000000),
   swatchPreview: [Color(0xFF0D0D0F), Color(0xFF18181C), Color(0xFFC0C0C0)],
+  jokerBackgroundColors: [Color(0xFF0D0D0F), Color(0xFF080808)],
+  jokerBorderColor: Color(0xFF808080),
+  jokerAccentColor: Color(0xFFC0C0C0),
 );
 
 // ── 7. Emerald Royale ────────────────────────────────────────────────────────
@@ -179,6 +194,9 @@ const _emeraldRoyale = AppThemeData(
   overlayTop: Color(0x99001A0A),
   overlayBottom: Color(0xCC000E05),
   swatchPreview: [Color(0xFF062010), Color(0xFF0E3620), Color(0xFFD4AF37)],
+  jokerBackgroundColors: [Color(0xFF062010), Color(0xFF031208)],
+  jokerBorderColor: Color(0xFF997C1D),
+  jokerAccentColor: Color(0xFFD4AF37),
 );
 
 // ── 8. Sapphire ──────────────────────────────────────────────────────────────
@@ -203,6 +221,9 @@ const _sapphire = AppThemeData(
   overlayBottom: Color(0xD9000020),
   swatchPreview: [Color(0xFF050820), Color(0xFF0A1040), Color(0xFFE8F4FD)],
   headingFontFamily: 'cinzel',
+  jokerBackgroundColors: [Color(0xFF050820), Color(0xFF020412)],
+  jokerBorderColor: Color(0xFF9BB8D4),
+  jokerAccentColor: Color(0xFFE8F4FD),
 );
 
 // ── 9. Copper Noir ───────────────────────────────────────────────────────────
@@ -226,6 +247,9 @@ const _copperNoir = AppThemeData(
   overlayTop: Color(0x99100400),
   overlayBottom: Color(0xCC080200),
   swatchPreview: [Color(0xFF100804), Color(0xFF1E1008), Color(0xFFB87333)],
+  jokerBackgroundColors: [Color(0xFF100804), Color(0xFF0A0502)],
+  jokerBorderColor: Color(0xFF7A4B1F),
+  jokerAccentColor: Color(0xFFB87333),
 );
 
 // ── 10. Arctic ───────────────────────────────────────────────────────────────
@@ -249,4 +273,7 @@ const _arctic = AppThemeData(
   overlayTop: Color(0xA6000000),
   overlayBottom: Color(0xCC000000),
   swatchPreview: [Color(0xFF0A0E14), Color(0xFF141C24), Color(0xFFE8CC7A)],
+  jokerBackgroundColors: [Color(0xFF0A0E14), Color(0xFF060A10)],
+  jokerBorderColor: Color(0xFFA08840),
+  jokerAccentColor: Color(0xFFE8CC7A),
 );

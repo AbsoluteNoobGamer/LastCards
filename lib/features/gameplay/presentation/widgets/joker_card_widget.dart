@@ -1,14 +1,23 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
+import '../../../../core/theme/app_theme_data.dart';
 
-/// Dramatic Joker card — dark inverted background, gold foil "JOKER" text,
+/// Dramatic Joker card — dark inverted background, themed accent text,
 /// geometric jester motif, iridescent shimmer animation.
-class JokerCardWidget extends StatefulWidget {
+///
+/// Visual colours are driven by the active [AppThemeData] via [themeProvider].
+/// When a theme defines [AppThemeData.jokerAccentColor] /
+/// [AppThemeData.jokerBackgroundColors] / [AppThemeData.jokerBorderColor],
+/// those values are used; otherwise the widget falls back to its original
+/// dark-navy / gold appearance so themes without overrides remain unchanged.
+class JokerCardWidget extends ConsumerStatefulWidget {
   const JokerCardWidget({
     super.key,
     this.width = AppDimensions.cardWidthMedium,
@@ -19,12 +28,16 @@ class JokerCardWidget extends StatefulWidget {
   final VoidCallback? onTap;
 
   @override
-  State<JokerCardWidget> createState() => _JokerCardWidgetState();
+  ConsumerState<JokerCardWidget> createState() => _JokerCardWidgetState();
 }
 
-class _JokerCardWidgetState extends State<JokerCardWidget>
+class _JokerCardWidgetState extends ConsumerState<JokerCardWidget>
     with SingleTickerProviderStateMixin {
   late final AnimationController _shimmerController;
+
+  // Default values used when the active theme has no Joker override.
+  static const _defaultBg1 = Color(0xFF1A1A2E);
+  static const _defaultBg2 = Color(0xFF0D0D1A);
 
   @override
   void initState() {
@@ -43,7 +56,15 @@ class _JokerCardWidgetState extends State<JokerCardWidget>
 
   @override
   Widget build(BuildContext context) {
+    final theme = ref.watch(themeProvider).theme;
     final height = AppDimensions.cardHeight(widget.width);
+
+    final bgColors = theme.jokerBackgroundColors ?? [_defaultBg1, _defaultBg2];
+    final borderColor = theme.jokerBorderColor ?? AppColors.goldDark;
+    final accentColor = theme.jokerAccentColor ?? AppColors.goldPrimary;
+    final accentLight = theme.jokerAccentColor != null
+        ? Color.lerp(theme.jokerAccentColor!, Colors.white, 0.25)!
+        : AppColors.goldLight;
 
     return GestureDetector(
       onTap: widget.onTap,
@@ -51,15 +72,15 @@ class _JokerCardWidgetState extends State<JokerCardWidget>
         width: widget.width,
         height: height,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF1A1A2E), Color(0xFF0D0D1A)],
+            colors: bgColors,
           ),
           borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
           boxShadow: [
             BoxShadow(
-              color: AppColors.goldPrimary.withValues(alpha: 0.45),
+              color: accentColor.withValues(alpha: 0.45),
               blurRadius: 18,
               spreadRadius: 1,
             ),
@@ -69,7 +90,7 @@ class _JokerCardWidgetState extends State<JokerCardWidget>
               offset: const Offset(0, 4),
             ),
           ],
-          border: Border.all(color: AppColors.goldDark, width: 1),
+          border: Border.all(color: borderColor, width: 1),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
@@ -86,9 +107,9 @@ class _JokerCardWidgetState extends State<JokerCardWidget>
                     shaderCallback: (bounds) => LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: const [
+                      colors: [
                         Colors.transparent,
-                        Color(0x55E8CC7A),
+                        accentColor.withValues(alpha: 0.33),
                         Colors.transparent,
                       ],
                       stops: [
@@ -107,7 +128,10 @@ class _JokerCardWidgetState extends State<JokerCardWidget>
               // Geometric jester motif
               CustomPaint(
                 size: Size(widget.width * 0.58, widget.width * 0.58),
-                painter: _JesterMotifPainter(),
+                painter: _JesterMotifPainter(
+                  strokeColor: borderColor,
+                  fillColor: accentColor.withValues(alpha: 0.75),
+                ),
               ),
 
               // "JOKER" label
@@ -119,10 +143,10 @@ class _JokerCardWidgetState extends State<JokerCardWidget>
                     fontSize: widget.width * 0.16,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
-                    color: AppColors.goldLight,
+                    color: accentLight,
                     shadows: [
                       Shadow(
-                        color: AppColors.goldPrimary.withValues(alpha: 0.9),
+                        color: accentColor.withValues(alpha: 0.9),
                         blurRadius: 10,
                       ),
                     ],
@@ -140,15 +164,23 @@ class _JokerCardWidgetState extends State<JokerCardWidget>
 // ── Geometric Jester Motif ─────────────────────────────────────────────────────
 
 class _JesterMotifPainter extends CustomPainter {
+  const _JesterMotifPainter({
+    required this.strokeColor,
+    required this.fillColor,
+  });
+
+  final Color strokeColor;
+  final Color fillColor;
+
   @override
   void paint(Canvas canvas, Size size) {
     final stroke = Paint()
-      ..color = AppColors.goldDark
+      ..color = strokeColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
 
     final fill = Paint()
-      ..color = AppColors.goldPrimary.withValues(alpha: 0.75)
+      ..color = fillColor
       ..style = PaintingStyle.fill;
 
     final cx = size.width / 2;
@@ -193,5 +225,6 @@ class _JesterMotifPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_JesterMotifPainter old) => false;
+  bool shouldRepaint(_JesterMotifPainter old) =>
+      old.strokeColor != strokeColor || old.fillColor != fillColor;
 }

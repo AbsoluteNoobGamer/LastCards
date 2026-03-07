@@ -43,6 +43,12 @@ class AppThemeData {
 
     // ── Optional: font family override ('playfair', 'cinzel', etc.) ─
     this.headingFontFamily = 'playfair',
+
+    // ── Optional: Joker card face overrides ─────────────────────────
+    // If null, JokerCardWidget uses its built-in dark-navy / gold defaults.
+    this.jokerBackgroundColors,
+    this.jokerBorderColor,
+    this.jokerAccentColor,
   });
 
   final String id;
@@ -72,6 +78,18 @@ class AppThemeData {
   final List<Color> swatchPreview; // 2-3 colors for the swatch tile gradient
 
   final String headingFontFamily;
+
+  /// Two-stop gradient colors for the Joker card background.
+  /// Null means use the default dark-navy gradient.
+  final List<Color>? jokerBackgroundColors;
+
+  /// Border color for the Joker card.
+  /// Null means use [AppColors.goldDark].
+  final Color? jokerBorderColor;
+
+  /// Accent color used for the Joker emblem, shimmer, glow and label.
+  /// Null means use [AppColors.goldPrimary].
+  final Color? jokerAccentColor;
 }
 
 // ── Builder ──────────────────────────────────────────────────────────────────
