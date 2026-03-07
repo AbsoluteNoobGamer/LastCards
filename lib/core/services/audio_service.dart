@@ -11,6 +11,7 @@ final audioServiceProvider = ChangeNotifierProvider<AudioService>((ref) {
 class AudioService extends ChangeNotifier {
   static const _prefsKeyMuted = 'audio_muted';
   static const _prefsKeySfxEnabled = 'sound_effects_enabled';
+  static const _prefsKeySoundVolume = 'soundVolume';
 
   AudioService() {
     _init();
@@ -25,10 +26,21 @@ class AudioService extends ChangeNotifier {
   Future<void> _init() async {
     await app_audio.AudioService.instance.init();
     final prefs = await SharedPreferences.getInstance();
-    final hasLegacyMute = prefs.containsKey(_prefsKeyMuted);
-    final enabled = hasLegacyMute
-        ? !(prefs.getBool(_prefsKeyMuted) ?? false)
-        : app_audio.AudioService.instance.soundEffectsEnabled;
+
+    // Restore persisted volume (0–100 stored, 0.0–1.0 used by the player).
+    final savedVolume = prefs.getDouble(_prefsKeySoundVolume) ?? 100.0;
+    app_audio.AudioService.instance.setVolume(savedVolume / 100.0);
+
+    // Resolve enabled/disabled state.
+    // Priority: new key → legacy key → default true.
+    final bool enabled;
+    if (prefs.containsKey(_prefsKeySfxEnabled)) {
+      enabled = prefs.getBool(_prefsKeySfxEnabled) ?? true;
+    } else if (prefs.containsKey(_prefsKeyMuted)) {
+      enabled = !(prefs.getBool(_prefsKeyMuted) ?? false);
+    } else {
+      enabled = true;
+    }
     await setSoundEffectsEnabled(enabled);
   }
 

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/services/card_back_service.dart';
 import '../../../gameplay/presentation/controllers/audio_service.dart';
+import '../../../../services/audio_service.dart' as game_audio;
 
 // Create a simple provider to manage SharedPreferences settings globally
 final settingsProvider =
@@ -69,6 +70,9 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   void updateSound(double val) {
     state = state.copyWith(soundVolume: val);
     _prefs?.setDouble('soundVolume', val);
+    // Propagate to the low-level audio singleton immediately so sounds
+    // reflect the new volume without requiring an app restart.
+    game_audio.AudioService.instance.setVolume(val / 100.0);
   }
 
   void updateMusic(double val) {
