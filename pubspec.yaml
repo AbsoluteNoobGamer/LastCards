@@ -57,6 +57,7 @@ flutter:
 
   assets:
     - assets/audio/
+    - assets/audio/sfx/
     - assets/animated_cards/
     - assets/images/
     - assets/images/cardbackcover/
