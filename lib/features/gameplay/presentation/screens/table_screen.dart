@@ -595,7 +595,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         onEndTurnTap: isOfflineMode ? _endTurn : () {},
                         isOffline: isOfflineMode,
                         discardPileCount: _discardPile.length,
-                        moveLogEntries: _moveLogEntries,
                         reshuffleNotifier: _reshuffleNotifier,
                         timeRemainingStream: _engineTimer.timeRemainingStream,
                         tournamentStatusBadges: _buildTournamentStatusBadges(),
@@ -611,6 +610,28 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   ],
                 ),
               ),
+
+              // ── Game log panel (centred, below player avatars) ───────────
+              if (_moveLogEntries.isNotEmpty)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 175,
+                  left: MediaQuery.of(context).size.width * 0.08,
+                  right: MediaQuery.of(context).size.width * 0.08,
+                  child: IgnorePointer(
+                    child: Container(
+                      constraints: const BoxConstraints(maxHeight: 140),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      child: LastMovePanelWidget(entries: _moveLogEntries),
+                    ),
+                  ),
+                ),
 
               // ── AI chat notification banner ─────────────────────────────
               if (isOfflineMode)
