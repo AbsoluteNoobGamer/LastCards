@@ -137,6 +137,21 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   /// Toggled (not set) each time a reshuffle fires so DrawPileWidget can
   /// play the shuffle animation even on repeated reshuffles.
   final ValueNotifier<bool> _reshuffleNotifier = ValueNotifier<bool>(false);
+
+  /// AI opponent configurations for this game session (names, personality,
+  /// avatar colors). Regenerated each time [_initNewGame] is called.
+  List<AiPlayerConfig> _aiPlayerConfigs = [];
+
+  /// The chat notification currently shown in the center of the screen.
+  /// Null when no notification is active.
+  ({AiPlayerConfig config, String message})? _activeChatItem;
+
+  /// Keeps the last chat item alive so the fade-out animation can finish
+  /// before the widget disappears.
+  ({AiPlayerConfig config, String message})? _lastChatItem;
+
+  static const _chatBubbleDuration = Duration(milliseconds: 4000);
+  final math.Random _chatRng = math.Random();
   @override
   void initState() {
     super.initState();
@@ -158,8 +173,27 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       state = widget.debugInitialOfflineState!;
       drawPile = List<CardModel>.from(widget.debugInitialDrawPile!);
     } else {
-      final seeded =
-          OfflineGameState.buildWithDeck(totalPlayers: widget.totalPlayers);
+      // Generate fresh AI player configs for this session (names + personalities).
+      // Tournament mode provides its own player names, so skip for that case.
+      if (!widget.isTournamentMode) {
+        _aiPlayerConfigs = AiPlayerConfig.generateForGame(
+          count: widget.totalPlayers - 1,
+          seed: DateTime.now().millisecondsSinceEpoch,
+        );
+      } else {
+        _aiPlayerConfigs = [];
+      }
+      _activeChatItem = null;
+      _lastChatItem = null;
+
+      final aiNameMap = {
+        for (final c in _aiPlayerConfigs) c.playerId: c.name,
+      };
+
+      final seeded = OfflineGameState.buildWithDeck(
+        totalPlayers: widget.totalPlayers,
+        aiNames: aiNameMap,
+      );
       state = seeded.$1;
       drawPile = seeded.$2;
       if (widget.isTournamentMode &&
@@ -566,11 +600,46 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         timeRemainingStream: _engineTimer.timeRemainingStream,
                         tournamentStatusBadges: _buildTournamentStatusBadges(),
                         finishedPlayerIds: _tournamentFinishedPlayerIds.toSet(),
+                        aiConfigs: widget.isTournamentMode
+                            ? const {}
+                            : {
+                                for (final c in _aiPlayerConfigs)
+                                  c.playerId: c,
+                              },
                       ),
                     ),
                   ],
                 ),
               ),
+
+              // ── AI chat notification banner ─────────────────────────────
+              if (isOfflineMode)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 108,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: Center(
+                      child: AnimatedOpacity(
+                        opacity: _activeChatItem != null ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 350),
+                        child: AnimatedSlide(
+                          offset: _activeChatItem != null
+                              ? Offset.zero
+                              : const Offset(0, -0.4),
+                          duration: const Duration(milliseconds: 350),
+                          curve: Curves.easeOutBack,
+                          child: _lastChatItem != null
+                              ? _AiChatBanner(
+                                  config: _lastChatItem!.config,
+                                  message: _lastChatItem!.message,
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
 
               // ── Offline floating back control ───────────────────────────
               if (isOfflineMode)
@@ -987,10 +1056,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (!mounted) return;
 
     final stateBeforeAiTurn = _offlineState;
+    final aiConfig =
+        _aiPlayerConfigs.where((c) => c.playerId == aiId).firstOrNull;
     final result = aiTakeTurn(
       state: _offlineState,
       aiPlayerId: aiId,
       cardFactory: _makeCards,
+      personality: aiConfig?.personality,
     );
 
     final playedByAi = result.playedCards;
@@ -1035,6 +1107,16 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (nextId != aiId) {
       finalState = finalState.copyWith(
         preTurnCentreSuit: finalState.discardTopCard?.effectiveSuit,
+      );
+    }
+
+    // Chat bubble: trigger on special plays or at random (30% base chance).
+    if (aiConfig != null && playedByAi.isNotEmpty) {
+      _maybeTriggerChatBubble(
+        aiId: aiId,
+        config: aiConfig,
+        playedCards: playedByAi,
+        resultState: result.state,
       );
     }
 
@@ -1483,6 +1565,161 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         backgroundColor: AppColors.redAccent,
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  // ── AI chat bubbles ────────────────────────────────────────────────────────
+
+  void _maybeTriggerChatBubble({
+    required String aiId,
+    required AiPlayerConfig config,
+    required List<CardModel> playedCards,
+    required GameState resultState,
+  }) {
+    bool shouldChat = false;
+
+    // Last card — AI is about to win.
+    final aiAfter = resultState.players.where((p) => p.id == aiId).firstOrNull;
+    if (aiAfter != null && aiAfter.cardCount <= 1) {
+      shouldChat = true;
+    }
+
+    // Aggressive personality fires on penalty cards.
+    if (!shouldChat &&
+        config.personality == AiPersonality.aggressive &&
+        playedCards.any((c) => c.isBlackJack || c.effectiveRank == Rank.two)) {
+      shouldChat = true;
+    }
+
+    // Tricky personality fires on skips / kings / jokers.
+    if (!shouldChat &&
+        config.personality == AiPersonality.tricky &&
+        playedCards.any((c) =>
+            c.effectiveRank == Rank.eight ||
+            c.effectiveRank == Rank.king ||
+            c.isJoker)) {
+      shouldChat = true;
+    }
+
+    // 20% random chance for any remaining plays.
+    if (!shouldChat && _chatRng.nextDouble() < 0.20) shouldChat = true;
+
+    if (shouldChat) {
+      _triggerChatBubble(aiId, config.randomChatLine(_chatRng));
+    }
+  }
+
+  void _triggerChatBubble(String aiId, String message) {
+    final config =
+        _aiPlayerConfigs.where((c) => c.playerId == aiId).firstOrNull;
+    if (config == null) return;
+    final item = (config: config, message: message);
+    setState(() {
+      _activeChatItem = item;
+      _lastChatItem = item;
+    });
+    Future.delayed(_chatBubbleDuration, () {
+      if (mounted) {
+        setState(() => _activeChatItem = null);
+        // Keep _lastChatItem alive for the fade-out, then clear it.
+        Future.delayed(const Duration(milliseconds: 400), () {
+          if (mounted) setState(() => _lastChatItem = null);
+        });
+      }
+    });
+  }
+}
+
+// ── AI chat notification banner ───────────────────────────────────────────────
+
+class _AiChatBanner extends StatelessWidget {
+  const _AiChatBanner({required this.config, required this.message});
+
+  final AiPlayerConfig config;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.90),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: config.nameColor.withValues(alpha: 0.85),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: config.nameColor.withValues(alpha: 0.35),
+            blurRadius: 18,
+            spreadRadius: 2,
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Mini avatar circle
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: config.avatarColor,
+              boxShadow: [
+                BoxShadow(
+                  color: config.avatarColor.withValues(alpha: 0.5),
+                  blurRadius: 6,
+                ),
+              ],
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              config.initials,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  config.name,
+                  style: TextStyle(
+                    color: config.nameColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  '"$message"',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
