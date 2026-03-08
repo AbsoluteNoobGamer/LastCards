@@ -1,140 +1,105 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/models/card_model.dart';
 import '../../../../core/models/move_log_entry.dart';
 import '../../../../core/providers/theme_provider.dart';
-
-String formatMoveLogEntry(MoveLogEntry entry) {
-  switch (entry.type) {
-    case MoveLogEntryType.timeoutDraw:
-      return '${entry.playerName} timed out and drew ${_cardCountLabel(entry.drawCount)}';
-    case MoveLogEntryType.draw:
-      return '${entry.playerName} drew ${_cardCountLabel(entry.drawCount)}';
-    case MoveLogEntryType.play:
-      final cards = entry.cardActions;
-      if (cards.isEmpty) return '${entry.playerName} played a card';
-      final skipped = entry.skippedPlayerNames;
-      final allEights = cards.every((a) => a.card.effectiveRank == Rank.eight);
-
-      if (allEights && skipped.isNotEmpty) {
-        return '${entry.playerName} played ${cards.length} ${cards.length == 1 ? 'Eight' : 'Eights'} and skipped ${_joinNames(skipped)}';
-      }
-
-      if (cards.length == 1) {
-        final cardText = _describeCardAction(cards.first);
-        if (skipped.length == 1) {
-          return '${entry.playerName} played $cardText, so ${skipped.first} missed their turn';
-        }
-        if (skipped.isNotEmpty) {
-          return '${entry.playerName} played $cardText and skipped ${_joinNames(skipped)}';
-        }
-        return '${entry.playerName} played $cardText';
-      }
-
-      final ordered = cards.map(_describeCardAction).join(', ');
-      var text = '${entry.playerName} played ${cards.length} cards: $ordered';
-      if (skipped.isNotEmpty) {
-        text = '$text and skipped ${_joinNames(skipped)}';
-      }
-      return text;
-  }
-}
-
-String _describeCardAction(MoveCardAction action) {
-  final card = action.card;
-  if (card.isJoker) {
-    final rank = card.jokerDeclaredRank;
-    final suit = card.jokerDeclaredSuit;
-    if (rank != null && suit != null) {
-      return 'Joker as ${_rankName(rank)} of ${suit.displayName}';
-    }
-    return 'Joker';
-  }
-
-  if (card.effectiveRank == Rank.ace && action.aceDeclaredSuit != null) {
-    return 'Ace and changed suit to ${action.aceDeclaredSuit!.displayName}';
-  }
-
-  return '${_rankName(card.effectiveRank)} of ${card.effectiveSuit.displayName}';
-}
-
-String _rankName(Rank rank) {
-  return switch (rank) {
-    Rank.jack => 'Jack',
-    Rank.queen => 'Queen',
-    Rank.king => 'King',
-    Rank.ace => 'Ace',
-    Rank.joker => 'Joker',
-    _ => rank.numericValue.toString(),
-  };
-}
-
-String _joinNames(List<String> names) {
-  if (names.length <= 1) return names.first;
-  if (names.length == 2) return '${names.first} and ${names.last}';
-  return '${names.sublist(0, names.length - 1).join(', ')}, and ${names.last}';
-}
-
-String _cardCountLabel(int count) {
-  return '$count ${count == 1 ? 'card' : 'cards'}';
-}
+import '../../../../services/game_log_formatter.dart';
 
 /// Displays the latest three move log entries (newest first).
+///
+/// Player names are shortened to their first word so long names never crowd
+/// the move text. Each name is tinted with a deterministic accent colour.
+/// Move text uses hybrid formatting: compact icons for normal cards, full
+/// descriptive text for Joker / Ace / Eight-skip plays.
 class LastMovePanelWidget extends StatelessWidget {
   const LastMovePanelWidget({super.key, required this.entries});
+
+  final List<MoveLogEntry> entries;
 
   @override
   Widget build(BuildContext context) {
     final visibleEntries = entries.take(3).toList(growable: false);
     if (visibleEntries.isEmpty) return const SizedBox.shrink();
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 108),
-      child: SingleChildScrollView(
-        physics: const NeverScrollableScrollPhysics(),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final entry in visibleEntries)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: _MoveLabel(text: formatMoveLogEntry(entry)),
-              ),
-          ],
-        ),
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final entry in visibleEntries)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: _MoveLabel(entry: entry),
+          ),
+      ],
     );
   }
-
-  final List<MoveLogEntry> entries;
 }
 
 class _MoveLabel extends ConsumerWidget {
-  const _MoveLabel({required this.text});
-  final String text;
+  const _MoveLabel({required this.entry});
+
+  final MoveLogEntry entry;
+
+  /// A palette of distinct, readable colours for player name highlights.
+  static const _nameColors = <Color>[
+    Color(0xFF64B5F6), // sky blue
+    Color(0xFF81C784), // mint green
+    Color(0xFFFFB74D), // amber
+    Color(0xFFCE93D8), // lavender
+    Color(0xFFFF8A65), // coral
+    Color(0xFF4DD0E1), // teal
+  ];
+
+  Color _playerColor(String playerId) {
+    final hash = playerId.codeUnits.fold(0, (sum, c) => sum + c);
+    return _nameColors[hash % _nameColors.length];
+  }
+
+  /// Shortens a display name to its first word, capped at 10 characters.
+  /// "Omar Al-Rashid" → "Omar", "Christopherr" → "Christoph…"
+  static String _shortName(String fullName) {
+    final first = fullName.split(' ').first;
+    return first.length > 10 ? '${first.substring(0, 9)}…' : first;
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(themeProvider).theme;
+    final actionText = GameLogFormatter.formatMove(entry);
+    final isSpecial = GameLogFormatter.isSpecialEntry(entry);
+    final nameColor = _playerColor(entry.playerId);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: theme.surfacePanel.withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.black.withValues(alpha: 0.40),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: theme.accentDark.withValues(alpha: 0.55),
+          color: theme.accentDark.withValues(alpha: 0.45),
           width: 1,
         ),
       ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: theme.accentLight,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.4,
-        ),
-        maxLines: 1,
+      child: RichText(
+        maxLines: isSpecial ? 2 : 1,
         overflow: TextOverflow.ellipsis,
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: _shortName(entry.playerName),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: nameColor,
+              ),
+            ),
+            TextSpan(
+              text: ' $actionText',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
