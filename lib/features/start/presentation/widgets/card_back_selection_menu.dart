@@ -247,7 +247,7 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
           SnackBar(
             content: Text(
               isLockedAnimated
-                  ? 'Unlock ${design!.label} at ${design.unlockWins} wins.'
+                  ? 'Unlock ${design.label} at ${design.unlockWins} wins.'
                   : 'Could not select this card style.',
             ),
             behavior: SnackBarBehavior.floating,

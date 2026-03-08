@@ -57,7 +57,7 @@ class OnlineModeSelectorModal extends ConsumerWidget {
                       '(4 total including me) → standard 4-player online matchmaking',
                   onTap: () {
                     Navigator.pop(context);
-                    onSelected(OnlineMode.Standard);
+                    onSelected(OnlineMode.standard);
                   },
                 ),
                 const SizedBox(height: 12),
@@ -68,7 +68,7 @@ class OnlineModeSelectorModal extends ConsumerWidget {
                       'Use elimination bracket with online multiplayer flow',
                   onTap: () {
                     Navigator.pop(context);
-                    onSelected(OnlineMode.Tournament);
+                    onSelected(OnlineMode.tournament);
                   },
                 ),
                 const SizedBox(height: 8),

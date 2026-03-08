@@ -1,9 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:last_cards/core/models/card_model.dart';
 import 'package:last_cards/core/models/offline_game_engine.dart';
-import 'package:last_cards/core/models/game_state.dart';
 import 'package:last_cards/core/models/player_model.dart';
-import 'package:last_cards/core/models/offline_game_state.dart';
+
 
 void main() {
   CardModel c(Rank r, Suit s, {String? id}) {
@@ -1199,24 +1197,24 @@ void main() {
 
     test('drawPileReshuffle', () {
       expect(true, isTrue);
-    });
+    }, skip: 'not yet implemented');
     test('cannotWinOnPenaltyDraw', () {
       expect(true, isTrue);
-    });
+    }, skip: 'not yet implemented');
     test('turnTimer30Seconds', () {
       expect(true, isTrue);
-    });
+    }, skip: 'not yet implemented');
     test('dealerNoHandDemoMode', () {
       expect(true, isTrue);
-    });
+    }, skip: 'not yet implemented');
     test('aiPlayer2Logic', () {
       expect(true, isTrue);
-    });
+    }, skip: 'not yet implemented');
     test('serverValidatesAllPlays', () {
       expect(true, isTrue);
-    });
+    }, skip: 'not yet implemented');
     test('reconnectionPreservesState', () {
       expect(true, isTrue);
-    });
+    }, skip: 'not yet implemented');
   });
 }

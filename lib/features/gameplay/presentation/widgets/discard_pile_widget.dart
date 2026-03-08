@@ -68,7 +68,7 @@ class _DiscardPileWidgetState extends State<DiscardPileWidget> {
     // When disguised, create a synthetic card that displays the declared face.
     // We keep the original id so AnimatedSwitcher key/Hero tag remain stable.
     final displayCard = isJokerDisguised
-        ? topCard!.copyWith(
+        ? topCard.copyWith(
             rank: topCard.jokerDeclaredRank!,
             suit: topCard.jokerDeclaredSuit!,
             // Clear declaration fields so CardWidget renders it as a normal card,

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:last_cards/core/models/card_model.dart';
-import 'package:last_cards/core/models/game_state.dart';
 import 'package:last_cards/core/models/offline_game_engine.dart';
 import 'package:last_cards/core/models/player_model.dart';
 import 'package:last_cards/core/services/audio_service.dart';

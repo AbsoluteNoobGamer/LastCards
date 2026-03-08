@@ -159,9 +159,6 @@ String? validatePlay({
         }
       }
 
-      print(
-          'DEBUG FLOW: prev=${prev.shortLabel} next=${next.shortLabel} sameSuit=$sameSuit rankDiff=$rankDiff isTwoAndAce=$isTwoAndAce');
-
       // Valid follow-ups after a card has been played this turn:
       //   1. Same-suit, adjacent rank (±1 or Ace-2): continuing the numerical sequence.
       //   2. Same-rank, any suit (value chain): e.g. sequence ends at 5♠ → 5♥.
@@ -563,6 +560,7 @@ GameState applyDraw({
     }).toList(),
     drawPileCount: math.max(0, state.drawPileCount - count),
     activePenaltyCount: 0,
+    actionsThisTurn: state.actionsThisTurn + 1,
   );
 }
 

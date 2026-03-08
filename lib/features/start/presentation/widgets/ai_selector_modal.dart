@@ -184,7 +184,7 @@ class _AISelectorModalState extends State<AISelectorModal> {
         width: 60,
         height: 60,
         transform:
-            isSelected ? (Matrix4.identity()..scale(1.1)) : Matrix4.identity(),
+            isSelected ? Matrix4.diagonal3Values(1.1, 1.1, 1.0) : Matrix4.identity(),
         transformAlignment: Alignment.center,
         decoration: BoxDecoration(
           color: isSelected

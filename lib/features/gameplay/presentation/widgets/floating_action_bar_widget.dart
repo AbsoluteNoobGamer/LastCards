@@ -151,7 +151,7 @@ class FloatingActionBarWidget extends ConsumerWidget {
                 child: Text(
                   activePlayerName == 'You'
                       ? 'Your Turn'
-                      : "${activePlayerName}'s Turn",
+                      : "$activePlayerName's Turn",
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: accent,

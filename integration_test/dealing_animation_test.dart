@@ -1,7 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:last_cards/main.dart' as app;
 import 'package:last_cards/features/gameplay/presentation/screens/table_screen.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/card_widget.dart';

@@ -399,6 +399,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       lastPlayedThisTurn: null,
       activeSkipCount: 0,
       preTurnCentreSuit: newState.discardTopCard?.effectiveSuit,
+      queenSuitLock: null,
     );
 
     final localAfter = newState.players
@@ -426,25 +427,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
   }
 
-  void _forcedQueenTimeoutDraw() {
-    // Similar to demoDrawCard but explicitly just 1 card penalty for timeout
-    // Turn DOES NOT advance because they still must cover the Queen!
-    if (_aiThinking) return;
 
-    var newState = applyDraw(
-      state: _offlineState,
-      playerId: OfflineGameState.localId,
-      count: 1,
-      cardFactory: _makeCards,
-    );
-
-    setState(() {
-      _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
-    });
-
-    // Restart timer to give them a chance to play the drawn card or draw again explicitly
-    _startTimer();
-  }
 
   Future<void> _endTurn() async {
     if (_aiThinking) return;
@@ -1028,7 +1011,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         ));
       });
       _engineTimer.cancel();
-      if (nextId != OfflineGameState.localId) _scheduleAiTurn(nextId);
+      if (nextId != OfflineGameState.localId) {
+        _scheduleAiTurn(nextId);
+      } else {
+        _startTimer();
+      }
     } else {
       // Voluntary draw (no valid moves) — auto-end turn per the rules.
       final drawPlayerName =
@@ -1240,19 +1227,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _drawPile.addAll(toShuffle);
     game_audio.AudioService.instance.playSound(GameSound.shuffleDeck);
 
-    // ── 7. Console confirmation ─────────────────────────────────────────────
-    // ignore: avoid_print
-    print("Draw pile counter after reshuffle: ${_drawPile.length}");
-
-    // Add verification print
-    int totalHandCount = 0;
-    for (var player in _offlineState.players) {
-      totalHandCount += player.hand.length;
-    }
-    // ignore: avoid_print
-    print(
-        "Total cards in circulation: ${_drawPile.length + _discardPile.length + totalHandCount}");
-
     if (!mounted) return;
 
     // ── 4 & 5. Update counter + trigger animation ────────────────────────────
@@ -1315,9 +1289,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           onPlayAgain: () {
             Navigator.of(context).pop();
             setState(() {
-              _initNewGame();
-              _selectedCardId = null;
-              _aiThinking = false;
               _initNewGame();
               _selectedCardId = null;
               _aiThinking = false;
