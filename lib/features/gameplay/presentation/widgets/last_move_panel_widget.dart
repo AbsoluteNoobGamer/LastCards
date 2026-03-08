@@ -86,18 +86,21 @@ class LastMovePanelWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visibleEntries = entries.take(3).toList(growable: false);
-    if (visibleEntries.isEmpty) return const SizedBox(height: 72);
-    return SizedBox(
-      height: 72,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          for (final entry in visibleEntries)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: _MoveLabel(text: formatMoveLogEntry(entry)),
-            ),
-        ],
+    if (visibleEntries.isEmpty) return const SizedBox.shrink();
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 108),
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final entry in visibleEntries)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: _MoveLabel(text: formatMoveLogEntry(entry)),
+              ),
+          ],
+        ),
       ),
     );
   }
