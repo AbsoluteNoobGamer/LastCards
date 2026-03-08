@@ -13,8 +13,8 @@ class TournamentWinnerScreen extends ConsumerStatefulWidget {
   });
 
   final String winnerName;
-  final VoidCallback onPlayAgain;
-  final VoidCallback onReturnToMenu;
+  final void Function(BuildContext context) onPlayAgain;
+  final void Function(BuildContext context) onReturnToMenu;
 
   @override
   ConsumerState<TournamentWinnerScreen> createState() =>
@@ -122,7 +122,7 @@ class _TournamentWinnerScreenState extends ConsumerState<TournamentWinnerScreen>
                       width: double.infinity,
                       height: 56,
                       child: ElevatedButton(
-                        onPressed: widget.onPlayAgain,
+                        onPressed: () => widget.onPlayAgain(context),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: theme.accentPrimary,
                           foregroundColor: theme.backgroundDeep,
@@ -147,7 +147,7 @@ class _TournamentWinnerScreenState extends ConsumerState<TournamentWinnerScreen>
                       width: double.infinity,
                       height: 56,
                       child: OutlinedButton(
-                        onPressed: widget.onReturnToMenu,
+                        onPressed: () => widget.onReturnToMenu(context),
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(color: theme.accentDark, width: 1.5),
                           shape: RoundedRectangleBorder(

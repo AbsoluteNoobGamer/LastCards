@@ -161,9 +161,8 @@ class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
           .firstOrNull;
       if (round == null) return;
 
-      if (_engine.isComplete) break;
-
-      // Show elimination screen after each round
+      // Always show elimination screen so the player sees who was knocked out,
+      // even on the final round before the winner screen.
       await Navigator.push(
         context,
         PageRouteBuilder(
@@ -181,26 +180,27 @@ class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
 
       if (!mounted || _isDisposed) return;
 
-      await Navigator.push(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (_, __, ___) => TournamentRoundSummaryScreen(
-            roundNumber: round.roundNumber,
-            advancedPlayerNames:
-                round.advancedPlayerIds.map(_displayName).toList(),
-            eliminatedPlayerName: _displayName(round.eliminatedPlayerId),
-            nextRoundPlayerNames:
-                round.advancedPlayerIds.map(_displayName).toList(),
-            onReady: () => Navigator.of(context).pop(),
-          ),
-          transitionsBuilder: (_, animation, __, child) =>
-              FadeTransition(opacity: animation, child: child),
-        ),
-      );
-
-      if (!mounted || _isDisposed) return;
-
+      // Only show the "Next Round" summary when there is actually a next round.
       if (!_engine.isComplete) {
+        await Navigator.push(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => TournamentRoundSummaryScreen(
+              roundNumber: round.roundNumber,
+              advancedPlayerNames:
+                  round.advancedPlayerIds.map(_displayName).toList(),
+              eliminatedPlayerName: _displayName(round.eliminatedPlayerId),
+              nextRoundPlayerNames:
+                  round.advancedPlayerIds.map(_displayName).toList(),
+              onReady: () => Navigator.of(context).pop(),
+            ),
+            transitionsBuilder: (_, animation, __, child) =>
+                FadeTransition(opacity: animation, child: child),
+          ),
+        );
+
+        if (!mounted || _isDisposed) return;
+
         _engine.startNextRound();
       }
     }
@@ -216,16 +216,16 @@ class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
       context,
       PageRouteBuilder(
         pageBuilder: (_, __, ___) => TournamentWinnerScreen(
-          winnerName: _displayName(_engine.winnerId!),
-          onPlayAgain: () {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => const TournamentLobbyScreen()),
-              (route) => route.isFirst,
-            );
-          },
-          onReturnToMenu: () {
-            Navigator.of(context).popUntil((route) => route.isFirst);
-          },
+      winnerName: _displayName(_engine.winnerId!),
+      onPlayAgain: (ctx) {
+        Navigator.of(ctx).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const TournamentLobbyScreen()),
+          (route) => route.isFirst,
+        );
+      },
+      onReturnToMenu: (ctx) {
+        Navigator.of(ctx).popUntil((route) => route.isFirst);
+      },
         ),
         transitionsBuilder: (_, animation, __, child) =>
             FadeTransition(opacity: animation, child: child),

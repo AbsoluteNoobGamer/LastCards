@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:last_cards/core/models/offline_game_state.dart';
 import 'package:last_cards/core/services/card_back_service.dart';
 import 'package:last_cards/features/gameplay/presentation/screens/table_screen.dart';
+import 'package:last_cards/features/tournament/screens/elimination_screen.dart';
 import 'package:last_cards/features/tournament/screens/round_summary_screen.dart';
 import 'package:last_cards/features/tournament/screens/winner_screen.dart';
 import 'package:last_cards/screens/tournament/tournament_lobby_screen.dart';
@@ -135,27 +136,38 @@ class _TournamentScreenState extends State<TournamentScreen> {
           .firstOrNull;
       if (round == null) return;
 
-      if (_engine.isComplete) {
-        break;
-      }
-
-      widget.onRoundSummaryShown?.call(round);
-
+      // Always show elimination screen so the player sees who was knocked out,
+      // even on the final round before the winner screen.
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => TournamentRoundSummaryScreen(
+          builder: (_) => TournamentEliminationScreen(
+            eliminatedPlayer: _displayName(round.eliminatedPlayerId),
+            remainingPlayers: _namesForIds(round.advancedPlayerIds),
             roundNumber: round.roundNumber,
-            advancedPlayerNames: _namesForIds(round.advancedPlayerIds),
-            eliminatedPlayerName: _displayName(round.eliminatedPlayerId),
-            nextRoundPlayerNames: _namesForIds(round.advancedPlayerIds),
-            onReady: () => Navigator.of(context).pop(),
           ),
         ),
       );
       if (!mounted) return;
 
+      // Only show the "Next Round" summary when there is actually a next round.
       if (!_engine.isComplete) {
+        widget.onRoundSummaryShown?.call(round);
+
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TournamentRoundSummaryScreen(
+              roundNumber: round.roundNumber,
+              advancedPlayerNames: _namesForIds(round.advancedPlayerIds),
+              eliminatedPlayerName: _displayName(round.eliminatedPlayerId),
+              nextRoundPlayerNames: _namesForIds(round.advancedPlayerIds),
+              onReady: () => Navigator.of(context).pop(),
+            ),
+          ),
+        );
+        if (!mounted) return;
+
         _engine.startNextRound();
       }
     }
@@ -174,7 +186,7 @@ class _TournamentScreenState extends State<TournamentScreen> {
       MaterialPageRoute(
         builder: (_) => TournamentWinnerScreen(
           winnerName: _displayName(_engine.winnerId!),
-          onPlayAgain: () => Navigator.of(context).pushReplacement(
+          onPlayAgain: (ctx) => Navigator.of(ctx).pushReplacement(
             MaterialPageRoute(
               builder: (_) => TournamentScreen(
                 isOnline: widget.isOnline,
@@ -182,7 +194,7 @@ class _TournamentScreenState extends State<TournamentScreen> {
               ),
             ),
           ),
-          onReturnToMenu: () => Navigator.of(context).pop(),
+          onReturnToMenu: (ctx) => Navigator.of(ctx).pop(),
         ),
       ),
     );
