@@ -41,6 +41,23 @@ class AudioService {
   // AudioPool / single-player ReleaseMode.stop re-prepare race condition that
   // causes IllegalStateException (prepareAsync called on wrong state) on Android.
   AudioPlayer? _bgmPlayer;
+
+  // Category players: each owns a single AudioPlayer that is stopped then
+  // replayed for every new sound in that category.  Separating categories
+  // prevents a rapid-fire turnStart (produced by tournament skip chains) from
+  // silently dropping UI or special-card sounds and vice-versa.
+  //
+  // Using explicit stop() → play() (rather than fire-and-forget) is intentional:
+  // within each category only the most-recent sound matters, so earlier sounds
+  // are cleanly cut and not left dangling.  The Android
+  // prepareAsync-race-condition guard (the reason _playOneShotAsset still exists
+  // for cardDraw/cardPlace) does NOT apply here because we call stop() ourselves
+  // before play(); the problematic race only occurs when stop() is called from
+  // the onPlayerComplete callback after the next play() has already started.
+  AudioPlayer? _turnPlayer;
+  AudioPlayer? _specialPlayer;
+  AudioPlayer? _uiPlayer;
+
   SharedPreferences? _prefs;
   Set<String> _availableAssets = const <String>{};
 
@@ -74,6 +91,9 @@ class AudioService {
       _soundEffectsEnabled = _prefs?.getBool(_prefsKeySfxEnabled) ?? true;
       _availableAssets = await _loadAudioAssets();
       _bgmPlayer = AudioPlayer();
+      _turnPlayer = AudioPlayer();
+      _specialPlayer = AudioPlayer();
+      _uiPlayer = AudioPlayer();
     } catch (_) {
       // Fail silently: missing assets or audio init should never crash gameplay.
     }
@@ -96,6 +116,9 @@ class AudioService {
 
   void setVolume(double value) {
     _volume = value.clamp(0.0, 1.0);
+    _turnPlayer?.setVolume(_volume);
+    _specialPlayer?.setVolume(_volume);
+    _uiPlayer?.setVolume(_volume);
   }
 
   /// Starts looping background music. Safe to call multiple times — re-entrant
@@ -155,7 +178,79 @@ class AudioService {
     if (!_initialized) await init();
     if (!_soundEffectsEnabled) return;
     if (!_hasAssetFor(sound)) return;
-    await _playOneShotAsset(_assetSubpathFor(sound));
+
+    final assetSubpath = _assetSubpathFor(sound);
+
+    switch (sound) {
+      // ── Turn-start: isolated so rapid skip-chains don't stack ──────────────
+      case GameSound.turnStart:
+        await _playCategorySound(_turnPlayer, assetSubpath);
+
+      // ── Special card sounds: their own lane so they survive turnStart ───────
+      case GameSound.specialTwo:
+      case GameSound.specialBlackJack:
+      case GameSound.specialRedJack:
+      case GameSound.specialKing:
+      case GameSound.specialAce:
+      case GameSound.specialQueen:
+      case GameSound.specialEight:
+      case GameSound.specialJoker:
+        await _playCategorySound(_specialPlayer, assetSubpath);
+
+      // ── UI / tournament sounds ──────────────────────────────────────────────
+      case GameSound.tournamentQualify:
+      case GameSound.tournamentEliminate:
+      case GameSound.tournamentWin:
+      case GameSound.timerWarning:
+      case GameSound.timerExpired:
+      case GameSound.shuffleDeck:
+      case GameSound.penaltyDraw:
+        await _playCategorySound(_uiPlayer, assetSubpath);
+
+      // ── High-frequency / burst sounds: fire-and-forget to avoid cut-offs ───
+      case GameSound.cardDraw:
+      case GameSound.cardPlace:
+      case GameSound.playerWin:
+        await _playOneShotAsset(assetSubpath);
+    }
+  }
+
+  /// Plays a sound on a shared, persistent [AudioPlayer].
+  ///
+  /// Calls [AudioPlayer.stop] first to cleanly cancel any in-progress playback
+  /// on that player before starting the new sound.  This is intentionally
+  /// different from [_playOneShotAsset]: within a category only the latest
+  /// sound matters, so earlier ones are cut.  Categories are kept separate so
+  /// that, e.g., a tournamentQualify sound is never cut by turnStart.
+  Future<void> _playCategorySound(
+      AudioPlayer? player, String assetSubpath) async {
+    if (player == null) return;
+    try {
+      await player.stop();
+      await player.setVolume(_volume);
+      await player.play(AssetSource(assetSubpath));
+    } catch (e) {
+      debugPrint('AudioService._playCategorySound($assetSubpath) error: $e');
+    }
+  }
+
+  /// Releases all native audio resources.  Call when the owning widget tree is
+  /// torn down (e.g. in [State.dispose]).
+  Future<void> dispose() async {
+    try {
+      await _bgmPlayer?.dispose();
+      await _turnPlayer?.dispose();
+      await _specialPlayer?.dispose();
+      await _uiPlayer?.dispose();
+    } catch (e) {
+      debugPrint('AudioService.dispose error: $e');
+    }
+    _bgmPlayer = null;
+    _turnPlayer = null;
+    _specialPlayer = null;
+    _uiPlayer = null;
+    _bgmActive = false;
+    _initialized = false;
   }
 
   /// Creates a fresh [AudioPlayer] for every SFX play and disposes it after
