@@ -128,8 +128,6 @@ class RulesScreen extends StatelessWidget {
                 _BodyText(
                     'Play with AI — Offline game against AI opponents using all core rules'),
                 _BodyText(
-                    'Practice Mode — Offline against AI. No leaderboard impact'),
-                _BodyText(
                     'Play Online — Multiplayer using all core rules via lobby/room flow'),
                 _BodyText('Tournament Mode'),
                 _BulletPoint('All core rules apply within each round'),

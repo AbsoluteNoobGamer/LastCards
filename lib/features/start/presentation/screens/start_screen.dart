@@ -10,11 +10,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../lobby/presentation/screens/lobby_screen.dart';
 import '../../../gameplay/presentation/screens/table_screen.dart';
-import '../../../practice/presentation/screens/offline_practice_screen.dart';
 import '../../../leaderboard/presentation/screens/leaderboard_screen.dart';
 import '../../../rules/presentation/screens/rules_screen.dart';
 import '../../../settings/presentation/widgets/settings_modal.dart';
-import '../widgets/ai_selector_modal.dart';
 import '../../../../features/single_player/widgets/difficulty_selection_sheet.dart';
 import '../../../../features/online/widgets/mode_selection_sheet.dart';
 import '../widgets/card_back_selection_menu.dart';
@@ -224,14 +222,6 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
                               _IconRowItem(
-                                "Practice",
-                                Icons.style_rounded,
-                                () => _showAISelector(
-                                  context,
-                                  isPractice: true,
-                                ),
-                              ),
-                              _IconRowItem(
                                 "Leaderboard",
                                 Icons.emoji_events_rounded,
                                 () => _pushWithTransition(
@@ -340,31 +330,12 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
     );
   }
 
-  void _showAISelector(BuildContext context, {required bool isPractice}) {
-    // Single Player (non-practice) → new premium bottom sheet flow
-    if (!isPractice) {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => const DifficultySelectionSheet(),
-      );
-      return;
-    }
-
-    // Practice path — untouched
+  void _showAISelector(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => AISelectorModal(
-        onSelected: (totalPlayers) {
-          _pushWithTransition(
-            context,
-            OfflinePracticeScreen(totalPlayers: totalPlayers),
-          );
-        },
-      ),
+      builder: (_) => const DifficultySelectionSheet(),
     );
   }
 
