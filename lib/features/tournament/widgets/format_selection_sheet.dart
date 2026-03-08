@@ -22,7 +22,7 @@ class TournamentFormatSelectionSheet extends ConsumerStatefulWidget {
 
 class _TournamentFormatSelectionSheetState
     extends ConsumerState<TournamentFormatSelectionSheet> {
-  TournamentFormat? _selectedFormat = TournamentFormat.knockouts;
+  TournamentFormat? _selectedFormat = TournamentFormat.knockout;
 
   @override
   Widget build(BuildContext context) {
@@ -103,7 +103,9 @@ class _TournamentFormatSelectionSheetState
                     child: _FormatCard(
                       format: format,
                       isSelected: _selectedFormat == format,
-                      onTap: () => setState(() => _selectedFormat = format),
+                      onTap: format.isComingSoon
+                          ? null
+                          : () => setState(() => _selectedFormat = format),
                     ),
                   );
                 }).toList(),
@@ -179,7 +181,7 @@ class _FormatCard extends ConsumerStatefulWidget {
 
   final TournamentFormat format;
   final bool isSelected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   ConsumerState<_FormatCard> createState() => _FormatCardState();
@@ -191,109 +193,139 @@ class _FormatCardState extends ConsumerState<_FormatCard> {
   @override
   Widget build(BuildContext context) {
     final theme = ref.watch(themeProvider).theme;
-    final isActive = widget.isSelected || _isHovered;
+    final isComingSoon = widget.format.isComingSoon;
+    final isActive = !isComingSoon && (widget.isSelected || _isHovered);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-          decoration: BoxDecoration(
-            color: widget.isSelected
-                ? theme.accentPrimary.withValues(alpha: 0.15)
-                : (_isHovered
-                    ? theme.accentPrimary.withValues(alpha: 0.08)
-                    : theme.backgroundMid),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isActive
-                  ? theme.accentPrimary
-                  : theme.accentDark.withValues(alpha: 0.4),
-              width: widget.isSelected ? 2 : 1.5,
+      cursor:
+          isComingSoon ? SystemMouseCursors.basic : SystemMouseCursors.click,
+      child: Opacity(
+        opacity: isComingSoon ? 0.5 : 1.0,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            decoration: BoxDecoration(
+              color: widget.isSelected
+                  ? theme.accentPrimary.withValues(alpha: 0.15)
+                  : (_isHovered && !isComingSoon
+                      ? theme.accentPrimary.withValues(alpha: 0.08)
+                      : theme.backgroundMid),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isActive
+                    ? theme.accentPrimary
+                    : theme.accentDark.withValues(alpha: 0.4),
+                width: widget.isSelected ? 2 : 1.5,
+              ),
+              boxShadow: widget.isSelected
+                  ? [
+                      BoxShadow(
+                        color: theme.accentPrimary.withValues(alpha: 0.25),
+                        blurRadius: 16,
+                        spreadRadius: 0,
+                      ),
+                    ]
+                  : (_isHovered && !isComingSoon
+                      ? [
+                          BoxShadow(
+                            color: theme.accentPrimary.withValues(alpha: 0.06),
+                            blurRadius: 12,
+                            spreadRadius: 0,
+                          ),
+                        ]
+                      : []),
             ),
-            boxShadow: widget.isSelected
-                ? [
-                    BoxShadow(
-                      color: theme.accentPrimary.withValues(alpha: 0.25),
-                      blurRadius: 16,
-                      spreadRadius: 0,
-                    ),
-                  ]
-                : (_isHovered
-                    ? [
-                        BoxShadow(
-                          color: theme.accentPrimary.withValues(alpha: 0.06),
-                          blurRadius: 12,
-                          spreadRadius: 0,
-                        ),
-                      ]
-                    : []),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: widget.isSelected
-                      ? theme.accentPrimary.withValues(alpha: 0.2)
-                      : theme.accentPrimary.withValues(alpha: 0.10),
-                  shape: BoxShape.circle,
-                  border: Border.all(
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
                     color: widget.isSelected
-                        ? theme.accentPrimary
-                        : theme.accentPrimary.withValues(alpha: 0.25),
-                    width: 1,
+                        ? theme.accentPrimary.withValues(alpha: 0.2)
+                        : theme.accentPrimary.withValues(alpha: 0.10),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: widget.isSelected
+                          ? theme.accentPrimary
+                          : theme.accentPrimary.withValues(alpha: 0.25),
+                      width: 1,
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      widget.format.emoji,
+                      style: const TextStyle(fontSize: 22),
+                    ),
                   ),
                 ),
-                child: Center(
-                  child: Text(
-                    widget.format.emoji,
-                    style: const TextStyle(fontSize: 22),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            widget.format.displayName,
+                            style: GoogleFonts.outfit(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: widget.isSelected
+                                  ? theme.accentPrimary
+                                  : theme.textPrimary,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          if (isComingSoon) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color:
+                                    theme.accentDark.withValues(alpha: 0.25),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'COMING SOON',
+                                style: GoogleFonts.inter(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: theme.textSecondary,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        widget.format.description,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: theme.textSecondary,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.format.displayName,
-                      style: GoogleFonts.outfit(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: widget.isSelected
-                            ? theme.accentPrimary
-                            : theme.textPrimary,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      widget.format.description,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: theme.textSecondary,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (widget.isSelected)
-                Icon(
-                  Icons.check_circle_rounded,
-                  color: theme.accentPrimary,
-                  size: 24,
-                ),
-            ],
+                if (widget.isSelected)
+                  Icon(
+                    Icons.check_circle_rounded,
+                    color: theme.accentPrimary,
+                    size: 24,
+                  ),
+              ],
+            ),
           ),
         ),
       ),
