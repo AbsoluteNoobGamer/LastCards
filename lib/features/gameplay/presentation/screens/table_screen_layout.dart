@@ -58,7 +58,7 @@ class _TableLayout extends StatelessWidget {
   final Set<String> finishedPlayerIds;
 
   /// Per-AI player configurations (name, personality, avatar color).
-  /// Empty in tournament mode where players have their own names.
+  /// Populated for all modes — drives avatars, personality scoring, and chat.
   final Map<String, AiPlayerConfig> aiConfigs;
 
   @override

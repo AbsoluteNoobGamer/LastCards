@@ -424,20 +424,30 @@ void main() {
         (tester) async {
       TournamentRoundResult? summaryResult;
       await tester.pumpWidget(
-        MaterialApp(
-          home: TournamentScreen(
-            onRoundSummaryShown: (result) => summaryResult = result,
-            roundGameBuilder: ({
-              required totalPlayers,
-              required isTournamentMode,
-              required onPlayerFinished,
-              required tournamentPlayerNameByTableId,
-            }) {
-              return _AutoFinishRoundGameScreen(
-                finishOrderNames: const ['You', 'Player 2', 'Player 3', 'Player 4'],
-                onPlayerFinished: onPlayerFinished,
-              );
-            },
+        ProviderScope(
+          child: MaterialApp(
+            home: TournamentScreen(
+              onRoundSummaryShown: (result) => summaryResult = result,
+              roundGameBuilder: ({
+                required totalPlayers,
+                required isTournamentMode,
+                required onPlayerFinished,
+                required tournamentPlayerNameByTableId,
+              }) {
+                // Use actual display names from the engine so _onPlayerFinished
+                // can resolve them to player IDs (AI names are now randomised).
+                final names = [
+                  tournamentPlayerNameByTableId['player-local'] ?? 'You',
+                  tournamentPlayerNameByTableId['player-2'] ?? 'Player 2',
+                  tournamentPlayerNameByTableId['player-3'] ?? 'Player 3',
+                  tournamentPlayerNameByTableId['player-4'] ?? 'Player 4',
+                ];
+                return _AutoFinishRoundGameScreen(
+                  finishOrderNames: names,
+                  onPlayerFinished: onPlayerFinished,
+                );
+              },
+            ),
           ),
         ),
       );
@@ -457,24 +467,32 @@ void main() {
       final finishCalls = <String>[];
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: TournamentScreen(
-            onRoundSummaryShown: (result) => summaryResult = result,
-            roundGameBuilder: ({
-              required totalPlayers,
-              required isTournamentMode,
-              required onPlayerFinished,
-              required tournamentPlayerNameByTableId,
-            }) {
-              return _AutoFinishRoundGameScreen(
-                finishOrderNames: const ['You', 'Player 2', 'Player 3'],
-                autoPopAfterCallbacks: false,
-                onPlayerFinished: (name, pos) {
-                  finishCalls.add('$name:$pos');
-                  onPlayerFinished(name, pos);
-                },
-              );
-            },
+        ProviderScope(
+          child: MaterialApp(
+            home: TournamentScreen(
+              onRoundSummaryShown: (result) => summaryResult = result,
+              roundGameBuilder: ({
+                required totalPlayers,
+                required isTournamentMode,
+                required onPlayerFinished,
+                required tournamentPlayerNameByTableId,
+              }) {
+                // 3 players finish; the 4th (tournament-ai-4) is auto-eliminated.
+                final names = [
+                  tournamentPlayerNameByTableId['player-local'] ?? 'You',
+                  tournamentPlayerNameByTableId['player-2'] ?? 'Player 2',
+                  tournamentPlayerNameByTableId['player-3'] ?? 'Player 3',
+                ];
+                return _AutoFinishRoundGameScreen(
+                  finishOrderNames: names,
+                  autoPopAfterCallbacks: false,
+                  onPlayerFinished: (name, pos) {
+                    finishCalls.add('$name:$pos');
+                    onPlayerFinished(name, pos);
+                  },
+                );
+              },
+            ),
           ),
         ),
       );
@@ -483,7 +501,11 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
 
-      expect(finishCalls, ['You:1', 'Player 2:2', 'Player 3:3']);
+      // 3 callbacks fired; verify positions without depending on random AI names.
+      expect(finishCalls.length, 3);
+      expect(finishCalls[0], endsWith(':1'));
+      expect(finishCalls[1], endsWith(':2'));
+      expect(finishCalls[2], endsWith(':3'));
       expect(summaryResult, isNotNull);
       expect(summaryResult!.eliminatedPlayerId, 'tournament-ai-4');
     });
@@ -491,20 +513,29 @@ void main() {
     testWidgets('eliminated player is correctly the last to finish', (tester) async {
       TournamentRoundResult? summaryResult;
       await tester.pumpWidget(
-        MaterialApp(
-          home: TournamentScreen(
-            onRoundSummaryShown: (result) => summaryResult = result,
-            roundGameBuilder: ({
-              required totalPlayers,
-              required isTournamentMode,
-              required onPlayerFinished,
-              required tournamentPlayerNameByTableId,
-            }) {
-              return _AutoFinishRoundGameScreen(
-                finishOrderNames: const ['Player 2', 'You', 'Player 3', 'Player 4'],
-                onPlayerFinished: onPlayerFinished,
-              );
-            },
+        ProviderScope(
+          child: MaterialApp(
+            home: TournamentScreen(
+              onRoundSummaryShown: (result) => summaryResult = result,
+              roundGameBuilder: ({
+                required totalPlayers,
+                required isTournamentMode,
+                required onPlayerFinished,
+                required tournamentPlayerNameByTableId,
+              }) {
+                // player-2 finishes 1st, local ('You') 2nd; player-4 finishes last.
+                final names = [
+                  tournamentPlayerNameByTableId['player-2'] ?? 'Player 2',
+                  tournamentPlayerNameByTableId['player-local'] ?? 'You',
+                  tournamentPlayerNameByTableId['player-3'] ?? 'Player 3',
+                  tournamentPlayerNameByTableId['player-4'] ?? 'Player 4',
+                ];
+                return _AutoFinishRoundGameScreen(
+                  finishOrderNames: names,
+                  onPlayerFinished: onPlayerFinished,
+                );
+              },
+            ),
           ),
         ),
       );
@@ -556,10 +587,13 @@ class _AutoFinishRoundGameScreenState extends State<_AutoFinishRoundGameScreen> 
       }
       if (!widget.autoPopAfterCallbacks) return;
       if (!mounted) return;
+      // Guard against double-pop: _onPlayerFinished may have already popped
+      // this route when the round completed (all players recorded).
+      if (!Navigator.of(context).canPop()) return;
       Navigator.of(context).pop(
         const TournamentRoundGameResult(
-          finishedPlayerIds: ['player-local', 'tournament-ai-1', 'tournament-ai-2', 'tournament-ai-3'],
-          eliminatedPlayerId: 'tournament-ai-3',
+          finishedPlayerIds: ['player-local', 'tournament-ai-2', 'tournament-ai-3', 'tournament-ai-4'],
+          eliminatedPlayerId: 'tournament-ai-4',
         ),
       );
     });
