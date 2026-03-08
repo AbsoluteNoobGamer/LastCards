@@ -17,6 +17,7 @@ import '../../data/datasources/websocket_client.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/services/card_back_service.dart';
+import '../../../../core/models/move_log_entry.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../widgets/discard_pile_widget.dart';
 import '../widgets/draw_pile_widget.dart';
@@ -99,8 +100,8 @@ bool shouldShowStandardWinOverlay({required bool isTournamentMode}) {
 class _TableScreenState extends ConsumerState<TableScreen> {
   String? _selectedCardId;
 
-  /// The most recent move made by any player (null until the first move).
-  LastMoveInfo? _lastMove;
+  /// Latest move log entries (newest first, max 3).
+  final List<MoveLogEntry> _moveLogEntries = <MoveLogEntry>[];
 
   /// Local display order of the player's hand (card IDs).
   /// New cards are appended to the right; drag-and-drop updates this list.
@@ -157,7 +158,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       state = widget.debugInitialOfflineState!;
       drawPile = List<CardModel>.from(widget.debugInitialDrawPile!);
     } else {
-      final seeded = OfflineGameState.buildWithDeck(totalPlayers: widget.totalPlayers);
+      final seeded =
+          OfflineGameState.buildWithDeck(totalPlayers: widget.totalPlayers);
       state = seeded.$1;
       drawPile = seeded.$2;
       if (widget.isTournamentMode &&
@@ -193,9 +195,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _drawPile = drawPile;
     _discardPile
       ..clear()
-      ..add(state
-          .discardTopCard!); // seed discard with post-effect starting card
-    _lastMove = null; // reset on new game
+      ..add(
+          state.discardTopCard!); // seed discard with post-effect starting card
+    _moveLogEntries.clear();
     _tournamentFinishedPlayerIds.clear();
     _tournamentRoundComplete = false;
 
@@ -312,7 +314,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _engineTimer.start(() {
       if (!mounted) return;
       if (widget.isTournamentMode &&
-          _tournamentFinishedPlayerIds.contains(_offlineState.currentPlayerId)) {
+          _tournamentFinishedPlayerIds
+              .contains(_offlineState.currentPlayerId)) {
         final nextId = _nextTournamentActivePlayerId(
           state: _offlineState,
           startAfterPlayerId: _offlineState.currentPlayerId,
@@ -373,10 +376,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
       _selectedCardId = null;
       if (localAfter != null) _syncHandOrder(localAfter.hand);
-      _lastMove = LastMoveInfo(
-          playerName: _offlineState.playerById(OfflineGameState.localId)?.displayName ?? OfflineGameState.localId,
-          cardLabel: 'Timeout Draw'
-      );
+      _pushMoveLog(MoveLogEntry.timeoutDraw(
+        playerId: OfflineGameState.localId,
+        playerName:
+            _offlineState.playerById(OfflineGameState.localId)?.displayName ??
+                OfflineGameState.localId,
+        drawCount: 1,
+      ));
     });
 
     _engineTimer.cancel();
@@ -420,30 +426,36 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _engineTimer.cancel();
     setState(() => _selectedCardId = null);
 
+    Suit? chosenAceSuit;
     // Rule 1: Ace played alone triggers the suit selector at End Turn
     if (_offlineState.discardTopCard?.effectiveRank == Rank.ace &&
         _offlineState.cardsPlayedThisTurn == 1 &&
         mounted) {
-      final chosenSuit = await showModalBottomSheet<Suit>(
+      chosenAceSuit = await showModalBottomSheet<Suit>(
         context: context,
         backgroundColor: Colors.transparent,
         builder: (_) => const _AceSuitPickerSheet(),
       );
       if (!mounted) return;
 
-      if (chosenSuit == null) {
+      if (chosenAceSuit == null) {
         _startTimer(); // Resume the timer if they dismissed the sheet
         return; // Don't end turn yet
       }
 
       setState(() {
-        _offlineState = _offlineState.copyWith(suitLock: chosenSuit);
+        _offlineState = _offlineState.copyWith(suitLock: chosenAceSuit);
+        _applyAceDeclarationToLatestPlay(
+          playerId: OfflineGameState.localId,
+          chosenSuit: chosenAceSuit!,
+        );
       });
     }
 
     var nextId = nextPlayerId(state: _offlineState);
     nextId = _resolveTournamentNextPlayerId(_offlineState, nextId);
     setState(() {
+      _finalizeTurnLogForPlayer(OfflineGameState.localId);
       _offlineState = _offlineState.copyWith(
         currentPlayerId: nextId,
         actionsThisTurn: 0,
@@ -549,12 +561,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         onEndTurnTap: isOfflineMode ? _endTurn : () {},
                         isOffline: isOfflineMode,
                         discardPileCount: _discardPile.length,
-                        lastMove: _lastMove,
+                        moveLogEntries: _moveLogEntries,
                         reshuffleNotifier: _reshuffleNotifier,
                         timeRemainingStream: _engineTimer.timeRemainingStream,
                         tournamentStatusBadges: _buildTournamentStatusBadges(),
-                        finishedPlayerIds:
-                            _tournamentFinishedPlayerIds.toSet(),
+                        finishedPlayerIds: _tournamentFinishedPlayerIds.toSet(),
                       ),
                     ),
                   ],
@@ -589,8 +600,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     ),
                   ),
                 ),
-
-
 
               // ── Dealing Animation Overlay ──────────────────────────────
               Positioned.fill(
@@ -668,9 +677,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           ? (_offlineState.lastPlayedThisTurn ?? _offlineState.discardTopCard!)
           : _offlineState.discardTopCard!;
 
-      final activeSequenceSuit = jokerContext == JokerPlayContext.midTurnContinuance
-          ? jokerAnchor.effectiveSuit
-          : null;
+      final activeSequenceSuit =
+          jokerContext == JokerPlayContext.midTurnContinuance
+              ? jokerAnchor.effectiveSuit
+              : null;
 
       final validOptions = getValidJokerOptions(
         state: _offlineState,
@@ -708,6 +718,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         jokerDeclaredSuit: chosenCard.suit,
       );
 
+      final previousState = _offlineState;
       var newState = applyPlay(
         state: _offlineState,
         playerId: playerId,
@@ -720,14 +731,18 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final localInNew = newState.players
           .where((p) => p.tablePosition == TablePosition.bottom)
           .firstOrNull;
-      final jokerPlayerName = _offlineState.playerById(playerId)?.displayName ?? playerId;
+      final jokerPlayerName =
+          _offlineState.playerById(playerId)?.displayName ?? playerId;
       setState(() {
         _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
         _selectedCardId = null;
         if (localInNew != null) _syncHandOrder(localInNew.hand);
-        _lastMove = LastMoveInfo(
+        _recordPlayMove(
+          playerId: playerId,
           playerName: jokerPlayerName,
-          cardLabel: assignedJoker.shortLabel,
+          playedCards: [assignedJoker],
+          beforeState: previousState,
+          afterState: newState,
         );
       });
 
@@ -739,24 +754,28 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
 
     // Apply play + special effects
+    final previousState = _offlineState;
     var newState =
         applyPlay(state: _offlineState, playerId: playerId, cards: played);
     _engineTimer.cancel();
-
 
     _discardPile.addAll(played);
 
     final localInNew = newState.players
         .where((p) => p.tablePosition == TablePosition.bottom)
         .firstOrNull;
-    final playPlayerName = _offlineState.playerById(playerId)?.displayName ?? playerId;
+    final playPlayerName =
+        _offlineState.playerById(playerId)?.displayName ?? playerId;
     setState(() {
       _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
       _selectedCardId = null;
       if (localInNew != null) _syncHandOrder(localInNew.hand);
-      _lastMove = LastMoveInfo(
+      _recordPlayMove(
+        playerId: playerId,
         playerName: playPlayerName,
-        cardLabel: played.first.shortLabel,
+        playedCards: played,
+        beforeState: previousState,
+        afterState: newState,
       );
     });
 
@@ -782,7 +801,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   ///   1. Return card to hand   — already satisfied: [applyPlay] was never called.
   ///   2. Draw up to 2 cards from the draw pile.
   ///   3. End the player's turn immediately.
-  void _applyInvalidPlayPenalty(String playerId, List<CardModel> attemptedCards) {
+  void _applyInvalidPlayPenalty(
+      String playerId, List<CardModel> attemptedCards) {
     _showError('Invalid play! Drawing 2 cards as penalty.');
 
     // Step 2: draw up to 2 cards (respects remaining pile size).
@@ -872,11 +892,16 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         .firstOrNull;
 
     if (isQueenPenaltyDraw || isPenaltyDraw) {
-      final penaltyPlayerName = _offlineState.playerById(playerId)?.displayName ?? playerId;
+      final penaltyPlayerName =
+          _offlineState.playerById(playerId)?.displayName ?? playerId;
       var nextId = nextPlayerId(state: newState);
       nextId = _resolveTournamentNextPlayerId(newState, nextId);
       newState = newState.copyWith(
-          currentPlayerId: nextId, actionsThisTurn: 0, cardsPlayedThisTurn: 0, activeSkipCount: 0, preTurnCentreSuit: newState.discardTopCard?.effectiveSuit);
+          currentPlayerId: nextId,
+          actionsThisTurn: 0,
+          cardsPlayedThisTurn: 0,
+          activeSkipCount: 0,
+          preTurnCentreSuit: newState.discardTopCard?.effectiveSuit);
       if (isQueenPenaltyDraw) {
         newState = newState.copyWith(queenSuitLock: null);
       }
@@ -884,22 +909,35 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
         _selectedCardId = null;
         if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
-        _lastMove = LastMoveInfo(playerName: penaltyPlayerName);
+        _pushMoveLog(MoveLogEntry.draw(
+          playerId: playerId,
+          playerName: penaltyPlayerName,
+          drawCount: drawCount,
+        ));
       });
       _engineTimer.cancel();
       if (nextId != OfflineGameState.localId) _scheduleAiTurn(nextId);
     } else {
       // Voluntary draw (no valid moves) — auto-end turn per the rules.
-      final drawPlayerName = _offlineState.playerById(playerId)?.displayName ?? playerId;
+      final drawPlayerName =
+          _offlineState.playerById(playerId)?.displayName ?? playerId;
       var nextId = nextPlayerId(state: newState);
       nextId = _resolveTournamentNextPlayerId(newState, nextId);
       newState = newState.copyWith(
-          currentPlayerId: nextId, actionsThisTurn: 0, cardsPlayedThisTurn: 0, activeSkipCount: 0, preTurnCentreSuit: newState.discardTopCard?.effectiveSuit);
+          currentPlayerId: nextId,
+          actionsThisTurn: 0,
+          cardsPlayedThisTurn: 0,
+          activeSkipCount: 0,
+          preTurnCentreSuit: newState.discardTopCard?.effectiveSuit);
       setState(() {
         _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
         _selectedCardId = null;
         if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
-        _lastMove = LastMoveInfo(playerName: drawPlayerName);
+        _pushMoveLog(MoveLogEntry.draw(
+          playerId: playerId,
+          playerName: drawPlayerName,
+          drawCount: drawCount,
+        ));
       });
       _engineTimer.cancel();
       if (nextId != OfflineGameState.localId) {
@@ -918,7 +956,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   Future<void> _scheduleAiTurn(String aiId) async {
-    if (widget.isTournamentMode && _tournamentFinishedPlayerIds.contains(aiId)) {
+    if (widget.isTournamentMode &&
+        _tournamentFinishedPlayerIds.contains(aiId)) {
       final nextId = _nextTournamentActivePlayerId(
         state: _offlineState,
         startAfterPlayerId: aiId,
@@ -933,7 +972,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (_aiThinking) return;
     setState(() => _aiThinking = true);
 
-    final hasPlayable = aiHasPlayableTurn(state: _offlineState, aiPlayerId: aiId);
+    final hasPlayable =
+        aiHasPlayableTurn(state: _offlineState, aiPlayerId: aiId);
     final diffMult = widget.aiDifficulty?.delayMultiplier ?? 1.0;
     final baseThinkMs = (_randomAiDelayMs(1200, 2500) * diffMult).round();
 
@@ -946,6 +986,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
     if (!mounted) return;
 
+    final stateBeforeAiTurn = _offlineState;
     final result = aiTakeTurn(
       state: _offlineState,
       aiPlayerId: aiId,
@@ -956,14 +997,17 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     // Add extra thought time for Ace/Joker declaration turns.
     if (playedByAi.isNotEmpty &&
-        (playedByAi.first.effectiveRank == Rank.ace || playedByAi.first.isJoker)) {
-      await Future.delayed(Duration(milliseconds: _randomAiDelayMs(1500, 3000)));
+        (playedByAi.first.effectiveRank == Rank.ace ||
+            playedByAi.first.isJoker)) {
+      await Future.delayed(
+          Duration(milliseconds: _randomAiDelayMs(1500, 3000)));
     }
 
     // Multi-card pacing gap so chained plays are not instantaneous.
     if (playedByAi.length > 1) {
       for (int i = 1; i < playedByAi.length; i++) {
-        await Future.delayed(Duration(milliseconds: _randomAiDelayMs(400, 700)));
+        await Future.delayed(
+            Duration(milliseconds: _randomAiDelayMs(400, 700)));
         if (!mounted) return;
       }
     }
@@ -979,12 +1023,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
 
     final aiPlayerName = _offlineState.playerById(aiId)?.displayName ?? aiId;
-    final aiLastMove = playedByAi.isNotEmpty
-        ? LastMoveInfo(
-            playerName: aiPlayerName,
-            cardLabel: playedByAi.first.shortLabel,
-          )
-        : LastMoveInfo(playerName: aiPlayerName);
 
     if (_checkWin(aiId, result.state)) return;
 
@@ -1003,7 +1041,24 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     setState(() {
       _offlineState = finalState.copyWith(drawPileCount: _drawPile.length);
       _aiThinking = false;
-      _lastMove = aiLastMove;
+      if (playedByAi.isNotEmpty) {
+        _recordPlayMove(
+          playerId: aiId,
+          playerName: aiPlayerName,
+          playedCards: playedByAi,
+          beforeState: stateBeforeAiTurn,
+          afterState: result.preTurnAdvanceState,
+          turnContinuesOverride: false,
+        );
+      } else {
+        _pushMoveLog(MoveLogEntry.draw(
+          playerId: aiId,
+          playerName: aiPlayerName,
+          drawCount: stateBeforeAiTurn.activePenaltyCount > 0
+              ? stateBeforeAiTurn.activePenaltyCount
+              : 1,
+        ));
+      }
     });
 
     if (nextId != OfflineGameState.localId) {
@@ -1060,21 +1115,21 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     // ── 7. Console confirmation ─────────────────────────────────────────────
     // ignore: avoid_print
     print("Draw pile counter after reshuffle: ${_drawPile.length}");
-    
+
     // Add verification print
     int totalHandCount = 0;
     for (var player in _offlineState.players) {
       totalHandCount += player.hand.length;
     }
     // ignore: avoid_print
-    print("Total cards in circulation: ${_drawPile.length + _discardPile.length + totalHandCount}");
+    print(
+        "Total cards in circulation: ${_drawPile.length + _discardPile.length + totalHandCount}");
 
     if (!mounted) return;
 
     // ── 4 & 5. Update counter + trigger animation ────────────────────────────
     setState(() {
-      _offlineState =
-          _offlineState.copyWith(drawPileCount: _drawPile.length);
+      _offlineState = _offlineState.copyWith(drawPileCount: _drawPile.length);
       _reshuffleNotifier.value = !_reshuffleNotifier.value;
     });
 
@@ -1106,7 +1161,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   // ── Win detection ──────────────────────────────────────────────────
 
   bool _checkWin(String lastActorId, GameState state) {
-    if (!shouldShowStandardWinOverlay(isTournamentMode: widget.isTournamentMode)) {
+    if (!shouldShowStandardWinOverlay(
+        isTournamentMode: widget.isTournamentMode)) {
       return _handleTournamentPlayerFinished(lastActorId, state);
     }
 
@@ -1175,8 +1231,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         if (!mounted) return;
         Navigator.of(context).pop(
           TournamentRoundGameResult(
-            finishedPlayerIds:
-                List<String>.from(_tournamentFinishedPlayerIds),
+            finishedPlayerIds: List<String>.from(_tournamentFinishedPlayerIds),
             eliminatedPlayerId: eliminatedPlayerId,
           ),
         );
@@ -1316,6 +1371,108 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       currentOrder.insert(newIndex, id);
       _handOrder = currentOrder;
     });
+  }
+
+  void _recordPlayMove({
+    required String playerId,
+    required String playerName,
+    required List<CardModel> playedCards,
+    required GameState beforeState,
+    required GameState afterState,
+    bool? turnContinuesOverride,
+  }) {
+    final actions = <MoveCardAction>[];
+    for (var i = 0; i < playedCards.length; i++) {
+      final card = playedCards[i];
+      final declaredAceSuit = (card.effectiveRank == Rank.ace &&
+              i == 0 &&
+              beforeState.actionsThisTurn == 0 &&
+              afterState.suitLock != null)
+          ? afterState.suitLock
+          : null;
+      actions.add(MoveCardAction(card: card, aceDeclaredSuit: declaredAceSuit));
+    }
+
+    final entry = MoveLogEntry.play(
+      playerId: playerId,
+      playerName: playerName,
+      cardActions: actions,
+      skippedPlayerNames: _skippedPlayersForCurrentTurn(afterState),
+      turnContinues:
+          turnContinuesOverride ?? (afterState.currentPlayerId == playerId),
+    );
+
+    if (_moveLogEntries.isNotEmpty) {
+      final top = _moveLogEntries.first;
+      if (top.type == MoveLogEntryType.play &&
+          top.playerId == playerId &&
+          top.turnContinues) {
+        _moveLogEntries[0] = top.copyWith(
+          cardActions: [...top.cardActions, ...entry.cardActions],
+          skippedPlayerNames: entry.skippedPlayerNames,
+          turnContinues: entry.turnContinues,
+        );
+        return;
+      }
+    }
+    _pushMoveLog(entry);
+  }
+
+  void _applyAceDeclarationToLatestPlay({
+    required String playerId,
+    required Suit chosenSuit,
+  }) {
+    if (_moveLogEntries.isEmpty) return;
+    final top = _moveLogEntries.first;
+    if (top.type != MoveLogEntryType.play || top.playerId != playerId) return;
+
+    final updatedActions = [...top.cardActions];
+    for (var i = updatedActions.length - 1; i >= 0; i--) {
+      if (updatedActions[i].card.effectiveRank == Rank.ace) {
+        updatedActions[i] =
+            updatedActions[i].copyWith(aceDeclaredSuit: chosenSuit);
+        _moveLogEntries[0] = top.copyWith(cardActions: updatedActions);
+        return;
+      }
+    }
+  }
+
+  void _finalizeTurnLogForPlayer(String playerId) {
+    if (_moveLogEntries.isEmpty) return;
+    final top = _moveLogEntries.first;
+    if (top.type == MoveLogEntryType.play && top.playerId == playerId) {
+      _moveLogEntries[0] = top.copyWith(turnContinues: false);
+    }
+  }
+
+  List<String> _skippedPlayersForCurrentTurn(GameState state) {
+    final skipCount = state.activeSkipCount;
+    if (skipCount <= 0) return const <String>[];
+    if (state.lastPlayedThisTurn?.effectiveRank != Rank.eight) {
+      return const <String>[];
+    }
+
+    final players = state.players;
+    final currentIndex =
+        players.indexWhere((p) => p.id == state.currentPlayerId);
+    if (currentIndex < 0) return const <String>[];
+
+    final step = state.direction == PlayDirection.clockwise ? 1 : -1;
+    var cursor = currentIndex;
+    final skipped = <String>[];
+    for (var i = 0; i < skipCount; i++) {
+      cursor = (cursor + step) % players.length;
+      if (cursor < 0) cursor += players.length;
+      skipped.add(players[cursor].displayName);
+    }
+    return skipped;
+  }
+
+  void _pushMoveLog(MoveLogEntry entry) {
+    _moveLogEntries.insert(0, entry);
+    if (_moveLogEntries.length > 3) {
+      _moveLogEntries.removeRange(3, _moveLogEntries.length);
+    }
   }
 
   void _showError(String msg) {
