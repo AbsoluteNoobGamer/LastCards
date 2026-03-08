@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../features/gameplay/presentation/screens/table_screen.dart';
+import '../../../../features/tournament/providers/tournament_session_provider.dart';
+import '../../../../screens/tournament_screen.dart';
 import '../providers/online_session_provider.dart';
 
 /// Full-screen lobby ready screen.
@@ -69,15 +71,17 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
   }
 
   void _launchGame() {
-    final playerCount =
-        ref.read(onlineSessionProvider).playerCount ?? 4;
+    final playerCount = ref.read(onlineSessionProvider).playerCount ?? 4;
+    final isTournament = ref.read(tournamentSessionProvider).format != null;
+
     ref.read(onlineSessionProvider.notifier).reset();
 
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) =>
-            TableScreen(totalPlayers: playerCount),
+        pageBuilder: (_, __, ___) => isTournament
+            ? const TournamentScreen(isOnline: true)
+            : TableScreen(totalPlayers: playerCount),
         transitionDuration: const Duration(milliseconds: 600),
         transitionsBuilder: (_, animation, __, child) => FadeTransition(
           opacity: animation,
