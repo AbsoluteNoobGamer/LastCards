@@ -170,11 +170,10 @@ class _TableLayout extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      HudOverlayWidget(
-                        activeSuit: gameState.suitLock,
-                        queenSuitLock: gameState.queenSuitLock,
-                        penaltyCount: penaltyCount,
-                      ),
+                      // HudOverlayWidget is rendered as a Positioned overlay
+                      // in the outer Stack (above the game log). This SizedBox
+                      // preserves the vertical spacing for the draw/discard piles.
+                      const SizedBox(height: 72),
                       SizedBox(
                           height:
                               isMobile ? AppDimensions.sm : AppDimensions.md),
