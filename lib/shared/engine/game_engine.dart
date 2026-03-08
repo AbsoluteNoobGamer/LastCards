@@ -151,7 +151,9 @@ String? validatePlay({
       // Scenario 2 (Sequential Ace play):
       // If the player played an Ace as their first card this turn, and is now trying
       // to continue the sequence, the Ace *must* have matched the pre-turn centre suit.
-      if (prev.effectiveRank == Rank.ace && state.cardsPlayedThisTurn == 1) {
+      if (prev.effectiveRank == Rank.ace &&
+          state.cardsPlayedThisTurn == 1 &&
+          next.effectiveRank != Rank.ace) {
         if (prev.effectiveSuit != state.preTurnCentreSuit) {
           return 'Invalid sequence: The Ace (${prev.shortLabel}) must match the original centre card (${state.preTurnCentreSuit?.displayName}) to continue a sequence.';
         }
