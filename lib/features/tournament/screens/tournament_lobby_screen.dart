@@ -10,7 +10,9 @@ import '../../../../services/game_sound.dart';
 import '../../../../tournament/tournament_engine.dart';
 import '../../gameplay/presentation/screens/table_screen.dart';
 import '../providers/tournament_session_provider.dart';
+import 'elimination_screen.dart';
 import 'round_summary_screen.dart';
+import 'waiting_screen.dart';
 import 'winner_screen.dart';
 
 class TournamentLobbyScreen extends ConsumerStatefulWidget {
@@ -79,6 +81,22 @@ class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
       final expectedRound = _engine.currentRound;
       final playersInRound = _engine.activePlayerIds.length;
 
+      // Show waiting screen before each round
+      await Navigator.push(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => TournamentWaitingScreen(
+            roundNumber: _engine.currentRound,
+            players: _engine.activePlayerIds.map(_displayName).toList(),
+          ),
+          transitionDuration: const Duration(milliseconds: 400),
+          transitionsBuilder: (_, animation, __, child) =>
+              FadeTransition(opacity: animation, child: child),
+        ),
+      );
+
+      if (!mounted || _isDisposed) return;
+
       _playerIdByName = {
         for (final id in _engine.activePlayerIds) _displayName(id): id
       };
@@ -145,14 +163,34 @@ class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
 
       if (_engine.isComplete) break;
 
+      // Show elimination screen after each round
+      await Navigator.push(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => TournamentEliminationScreen(
+            eliminatedPlayer: _displayName(round.eliminatedPlayerId),
+            remainingPlayers:
+                round.advancedPlayerIds.map(_displayName).toList(),
+            roundNumber: round.roundNumber,
+          ),
+          transitionDuration: const Duration(milliseconds: 400),
+          transitionsBuilder: (_, animation, __, child) =>
+              FadeTransition(opacity: animation, child: child),
+        ),
+      );
+
+      if (!mounted || _isDisposed) return;
+
       await Navigator.push(
         context,
         PageRouteBuilder(
           pageBuilder: (_, __, ___) => TournamentRoundSummaryScreen(
             roundNumber: round.roundNumber,
-            advancedPlayerNames: round.advancedPlayerIds.map(_displayName).toList(),
+            advancedPlayerNames:
+                round.advancedPlayerIds.map(_displayName).toList(),
             eliminatedPlayerName: _displayName(round.eliminatedPlayerId),
-            nextRoundPlayerNames: round.advancedPlayerIds.map(_displayName).toList(),
+            nextRoundPlayerNames:
+                round.advancedPlayerIds.map(_displayName).toList(),
             onReady: () => Navigator.of(context).pop(),
           ),
           transitionsBuilder: (_, animation, __, child) =>
