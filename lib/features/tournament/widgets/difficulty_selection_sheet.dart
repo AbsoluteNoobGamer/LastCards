@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../single_player/providers/single_player_session_provider.dart';
 import '../providers/tournament_session_provider.dart';
-import 'player_count_sheet.dart';
+import 'format_selection_sheet.dart';
 import 'tournament_type_sheet.dart';
 
 /// Bottom Sheet 2a — Difficulty Selection (vs AI)
@@ -116,12 +116,13 @@ class TournamentDifficultySelectionSheet extends ConsumerWidget {
   void _onDifficultySelected(
       BuildContext context, WidgetRef ref, AiDifficulty difficulty) {
     ref.read(tournamentSessionProvider.notifier).setDifficulty(difficulty);
+    ref.read(tournamentSessionProvider.notifier).setPlayerCount(4);
     Navigator.of(context).pop();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const TournamentPlayerCountSheet(),
+      builder: (_) => const TournamentFormatSelectionSheet(),
     );
   }
 }

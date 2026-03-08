@@ -136,9 +136,13 @@ class _TournamentFormatSelectionSheetState
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => session.type == TournamentType.vsAi
-          ? const TournamentPlayerCountSheet()
-          : const TournamentTypeSheet(),
+      builder: (_) {
+        if (session.type == TournamentType.vsAi) {
+          return const TournamentTypeSheet();
+        } else {
+          return const TournamentPlayerCountSheet();
+        }
+      },
     );
   }
 

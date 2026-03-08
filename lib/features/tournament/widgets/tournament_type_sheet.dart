@@ -4,9 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/providers/theme_provider.dart';
 import '../providers/tournament_session_provider.dart';
-import 'difficulty_selection_sheet.dart';
+import '../../single_player/providers/single_player_session_provider.dart';
 import 'format_selection_sheet.dart';
-import 'player_count_sheet.dart';
 
 /// Bottom Sheet 1 — Tournament Type Selection
 ///
@@ -90,21 +89,15 @@ class TournamentTypeSheet extends ConsumerWidget {
     Navigator.of(context).pop();
 
     if (type == TournamentType.vsAi) {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => const TournamentDifficultySelectionSheet(),
-      );
-    } else {
+      ref.read(tournamentSessionProvider.notifier).setDifficulty(AiDifficulty.hard);
       ref.read(tournamentSessionProvider.notifier).setPlayerCount(4);
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => const TournamentFormatSelectionSheet(),
-      );
     }
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const TournamentFormatSelectionSheet(),
+    );
   }
 }
 
