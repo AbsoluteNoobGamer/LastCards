@@ -7,6 +7,7 @@ import '../../online/screens/matchmaking_screen.dart';
 import '../providers/tournament_session_provider.dart';
 import '../screens/tournament_lobby_screen.dart';
 import 'player_count_sheet.dart';
+import 'tournament_type_sheet.dart';
 
 /// Bottom Sheet 4 (Single Player) / 3 (Online) — Format Selection
 ///
@@ -129,12 +130,15 @@ class _TournamentFormatSelectionSheetState
   }
 
   void _goBack(BuildContext context) {
+    final session = ref.read(tournamentSessionProvider);
     Navigator.of(context).pop();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const TournamentPlayerCountSheet(),
+      builder: (_) => session.type == TournamentType.vsAi
+          ? const TournamentPlayerCountSheet()
+          : const TournamentTypeSheet(),
     );
   }
 
