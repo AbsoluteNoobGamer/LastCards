@@ -88,7 +88,7 @@ class TournamentSessionState {
   const TournamentSessionState({
     this.type,
     this.difficulty,
-    this.playerNames = const ['Noob 1', 'Noob 2', 'Noob 3', 'Noob 4'],
+    this.playerNames = const [],
     this.playerCount,
     this.format,
   });

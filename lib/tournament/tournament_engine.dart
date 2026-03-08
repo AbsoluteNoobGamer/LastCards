@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:last_cards/core/models/ai_player_config.dart';
 import 'package:last_cards/shared/models/game_state_model.dart';
 
 enum TournamentMode { offline, online }
@@ -10,11 +11,16 @@ class TournamentPlayer {
     required this.id,
     required this.displayName,
     this.isAi = false,
+    this.aiConfig,
   });
 
   final String id;
   final String displayName;
   final bool isAi;
+
+  /// Full AI configuration (personality, avatar, chat lines) for AI players.
+  /// Null for human players.
+  final AiPlayerConfig? aiConfig;
 }
 
 class PlayerAdvancedEvent {
@@ -91,14 +97,24 @@ class TournamentEngine {
   }) {
     final seeded = List<TournamentPlayer>.from(players);
     final aiNeeded = requiredPlayers - seeded.length;
-    for (var i = 0; i < aiNeeded; i++) {
-      final index = seeded.length + 1;
-      seeded.add(TournamentPlayer(
-        id: 'tournament-ai-$index',
-        displayName: 'Player $index',
-        isAi: true,
-      ));
+
+    if (aiNeeded > 0) {
+      final aiConfigs = AiPlayerConfig.generateForGame(
+        count: aiNeeded,
+        seed: DateTime.now().millisecondsSinceEpoch,
+      );
+      for (var i = 0; i < aiNeeded; i++) {
+        final index = seeded.length + 1;
+        final config = aiConfigs[i];
+        seeded.add(TournamentPlayer(
+          id: 'tournament-ai-$index',
+          displayName: config.name,
+          isAi: true,
+          aiConfig: config,
+        ));
+      }
     }
+
     return TournamentEngine._(players: seeded.take(requiredPlayers).toList(), mode: TournamentMode.offline);
   }
 

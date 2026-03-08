@@ -173,16 +173,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       state = widget.debugInitialOfflineState!;
       drawPile = List<CardModel>.from(widget.debugInitialDrawPile!);
     } else {
-      // Generate fresh AI player configs for this session (names + personalities).
-      // Tournament mode provides its own player names, so skip for that case.
-      if (!widget.isTournamentMode) {
-        _aiPlayerConfigs = AiPlayerConfig.generateForGame(
-          count: widget.totalPlayers - 1,
-          seed: DateTime.now().millisecondsSinceEpoch,
-        );
-      } else {
-        _aiPlayerConfigs = [];
-      }
+      // Generate fresh AI player configs for this session (names, personalities,
+      // avatar colours). Always generated — tournament mode uses them for
+      // personality scoring, avatars, and chat bubbles.
+      _aiPlayerConfigs = AiPlayerConfig.generateForGame(
+        count: widget.totalPlayers - 1,
+        seed: DateTime.now().millisecondsSinceEpoch,
+      );
       _activeChatItem = null;
       _lastChatItem = null;
 
@@ -599,12 +596,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         timeRemainingStream: _engineTimer.timeRemainingStream,
                         tournamentStatusBadges: _buildTournamentStatusBadges(),
                         finishedPlayerIds: _tournamentFinishedPlayerIds.toSet(),
-                        aiConfigs: widget.isTournamentMode
-                            ? const {}
-                            : {
-                                for (final c in _aiPlayerConfigs)
-                                  c.playerId: c,
-                              },
+                        aiConfigs: {
+                          for (final c in _aiPlayerConfigs) c.playerId: c,
+                        },
                       ),
                     ),
                   ],
