@@ -681,6 +681,53 @@ void main() {
           reason: 'Two stacked Eights must skip p2 and p3, advancing to p4');
     });
 
+    test('eightSkipTurn (sequence ending on Eight - mixed cards)', () {
+      // Regression: ♠7 ♣7 ♣8 played as sequential individual taps.
+      // The Eight is the LAST card, so activeSkipCount must be 1 and p2 must be skipped.
+      var state = buildState(discardTop: c(Rank.six, Suit.spades));
+      final p2 = PlayerModel(
+          id: 'p2',
+          displayName: 'P2',
+          tablePosition: TablePosition.top,
+          hand: [],
+          cardCount: 0,
+          isConnected: true,
+          isActiveTurn: false,
+          isSkipped: false);
+      final p3 = PlayerModel(
+          id: 'p3',
+          displayName: 'P3',
+          tablePosition: TablePosition.left,
+          hand: [],
+          cardCount: 0,
+          isConnected: true,
+          isActiveTurn: false,
+          isSkipped: false);
+      state = state.copyWith(players: [...state.players, p2, p3]);
+
+      // Play ♠7 — matches discard suit (spades)
+      state = applyPlay(
+          state: state, playerId: 'p1', cards: [c(Rank.seven, Suit.spades)]);
+      expect(state.activeSkipCount, 0,
+          reason: '7 has no skip effect');
+
+      // Play ♣7 — value chain (same rank)
+      state = applyPlay(
+          state: state, playerId: 'p1', cards: [c(Rank.seven, Suit.clubs)]);
+      expect(state.activeSkipCount, 0,
+          reason: '7 has no skip effect');
+
+      // Play ♣8 — adjacent rank same suit, Eight activates skip
+      state = applyPlay(
+          state: state, playerId: 'p1', cards: [c(Rank.eight, Suit.clubs)]);
+      expect(state.activeSkipCount, 1,
+          reason: 'Eight as final card of mixed sequence must set activeSkipCount to 1');
+
+      final next = nextPlayerId(state: state);
+      expect(next, equals('p3'),
+          reason: 'p2 must be skipped; turn must advance to p3');
+    });
+
     test('eightFollowedByNonEight_resetsSkipToZero', () {
       // EXCEPTION rule: if an Eight is played and the player follows up with a
       // valid adjacent non-Eight card, the skip counter must reset to 0 and no
