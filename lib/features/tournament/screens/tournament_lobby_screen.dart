@@ -161,25 +161,6 @@ class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
           .firstOrNull;
       if (round == null) return;
 
-      // Always show elimination screen so the player sees who was knocked out,
-      // even on the final round before the winner screen.
-      await Navigator.push(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (_, __, ___) => TournamentEliminationScreen(
-            eliminatedPlayer: _displayName(round.eliminatedPlayerId),
-            remainingPlayers:
-                round.advancedPlayerIds.map(_displayName).toList(),
-            roundNumber: round.roundNumber,
-          ),
-          transitionDuration: const Duration(milliseconds: 400),
-          transitionsBuilder: (_, animation, __, child) =>
-              FadeTransition(opacity: animation, child: child),
-        ),
-      );
-
-      if (!mounted || _isDisposed) return;
-
       // Only show the "Next Round" summary when there is actually a next round.
       if (!_engine.isComplete) {
         await Navigator.push(
