@@ -332,7 +332,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     super.dispose();
   }
 
-  void _startTimer() {
+  void _startTimer({bool playTurnSound = true}) {
     _timerWarningPlayed = false;
     _timerWarningSub?.cancel();
     _timerWarningSub = _engineTimer.timeRemainingStream.listen((secondsLeft) {
@@ -341,7 +341,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         game_audio.AudioService.instance.playSound(GameSound.timerWarning);
       }
     });
-    game_audio.AudioService.instance.playSound(GameSound.turnStart);
+    if (playTurnSound) {
+      game_audio.AudioService.instance.playSound(GameSound.turnStart);
+    }
     _engineTimer.start(() {
       if (!mounted) return;
       if (widget.isTournamentMode &&
@@ -1075,7 +1077,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (nextId != OfflineGameState.localId) {
         _scheduleAiTurn(nextId);
       } else {
-        _startTimer();
+        // The active player's turn is reached via a skip chain — suppress the
+        // redundant turnStart here; the sound will play when the turn genuinely
+        // begins through a non-skip path (e.g. end of a real AI turn).
+        _startTimer(playTurnSound: false);
       }
       return;
     }
