@@ -288,7 +288,8 @@ class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         final shouldPop = await _onWillPop();
-        if (shouldPop && mounted) {
+        if (!context.mounted) return;
+        if (shouldPop) {
           Navigator.of(context).pop();
         }
       },
@@ -301,7 +302,9 @@ class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
             icon: Icon(Icons.arrow_back_ios_new_rounded,
                 color: theme.textPrimary),
             onPressed: () async {
-              if (await _onWillPop() && mounted) {
+              final shouldPop = await _onWillPop();
+              if (!context.mounted) return;
+              if (shouldPop) {
                 Navigator.of(context).pop();
               }
             },

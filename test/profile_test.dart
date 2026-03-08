@@ -1,15 +1,14 @@
 // @dart=3.0
 // ignore_for_file: lines_longer_than_80_chars
-
-/// Comprehensive profile feature tests.
-///
-/// Uses:
-/// - [SharedPreferences.setMockInitialValues] for SharedPreferences stubbing
-/// - Mockito for [NsfwScanService] and [ImagePicker] mocking
-/// - No real file system, camera, or network calls are made.
-///
-/// Run with:
-///   flutter test test/profile_test.dart --reporter=expanded
+// Comprehensive profile feature tests.
+//
+// Uses:
+// - SharedPreferences.setMockInitialValues for SharedPreferences stubbing
+// - Mockito for NsfwScanService and ImagePicker mocking
+// - No real file system, camera, or network calls are made.
+//
+// Run with:
+//   flutter test test/profile_test.dart --reporter=expanded
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -20,7 +19,6 @@ import 'package:mockito/mockito.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:last_cards/core/services/profile_service.dart';
-import 'package:last_cards/core/providers/profile_provider.dart';
 import 'package:last_cards/core/services/nsfw_scan_service.dart';
 import 'package:last_cards/features/profile/presentation/screens/profile_screen.dart';
 
@@ -33,24 +31,9 @@ import 'profile_test.mocks.dart';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-/// Returns a [ProviderContainer] with shared prefs already stubbed and the
-/// [nsfwScanServiceProvider] overridden with [nsfwMock].
-ProviderContainer _makeContainer({
-  Map<String, Object> initialPrefs = const {},
-  NsfwScanService? nsfwMock,
-}) {
-  return ProviderContainer(
-    overrides: [
-      if (nsfwMock != null)
-        nsfwScanServiceProvider.overrideWithValue(nsfwMock),
-    ],
-  );
-}
-
 /// Pumps a [ProfileScreen] inside a [ProviderScope] with the given overrides.
 Future<void> _pumpProfileScreen(
   WidgetTester tester, {
-  Map<String, Object> initialPrefs = const {},
   NsfwScanService? nsfwMock,
   List<Override> extraOverrides = const [],
 }) async {

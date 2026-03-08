@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/providers/theme_provider.dart';
 import '../providers/tournament_session_provider.dart';
-import '../screens/tournament_lobby_screen.dart';
 import 'difficulty_selection_sheet.dart';
 import 'format_selection_sheet.dart';
 import 'tournament_type_sheet.dart';

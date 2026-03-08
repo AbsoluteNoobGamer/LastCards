@@ -86,6 +86,4 @@ class AudioService extends ChangeNotifier {
     await app_audio.AudioService.instance.playSound(GameSound.cardDraw);
   }
 
-  @override
-  void dispose() => super.dispose();
 }

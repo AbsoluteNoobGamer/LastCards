@@ -5,25 +5,11 @@ import 'package:last_cards/core/services/audio_service.dart';
 import 'package:last_cards/services/audio_service.dart' as low_level;
 import 'package:last_cards/services/game_sound.dart';
 import 'package:last_cards/shared/engine/game_engine.dart';
-import 'package:last_cards/core/models/card_model.dart';
-import 'package:last_cards/core/models/game_state.dart';
 import 'package:last_cards/core/models/player_model.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/// Minimal mock channel handler that records method calls.
-class _MethodCallRecorder {
-  final List<MethodCall> calls = [];
-
-  Future<dynamic> handler(MethodCall call) async {
-    calls.add(call);
-    return 1;
-  }
-
-  void clear() => calls.clear();
-}
 
 void _mockAudioChannels() {
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger

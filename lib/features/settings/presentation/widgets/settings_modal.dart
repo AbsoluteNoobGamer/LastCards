@@ -200,7 +200,7 @@ class SettingsModal extends ConsumerWidget {
                           value: audioService.soundEffectsEnabled,
                           onChanged: (val) =>
                               audioService.setSoundEffectsEnabled(val),
-                          activeColor: Colors.amber,
+                          activeThumbColor: Colors.amber,
                         ),
                         ValueListenableBuilder<bool>(
                           valueListenable:
@@ -213,7 +213,7 @@ class SettingsModal extends ConsumerWidget {
                               value: enabled,
                               onChanged: (val) => CardBackService.instance
                                   .setAnimatedEffectsEnabled(val),
-                              activeColor: Colors.amber,
+                              activeThumbColor: Colors.amber,
                             );
                           },
                         ),
@@ -223,7 +223,7 @@ class SettingsModal extends ConsumerWidget {
                           title: const Text('Vibration Feedback'),
                           value: settings.vibrateEnabled,
                           onChanged: notifier.toggleVibrate,
-                          activeColor: Colors.amber,
+                          activeThumbColor: Colors.amber,
                         ),
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
@@ -231,7 +231,7 @@ class SettingsModal extends ConsumerWidget {
                           title: const Text('Show Tooltips'),
                           value: settings.tooltipsEnabled,
                           onChanged: notifier.toggleTooltips,
-                          activeColor: Colors.amber,
+                          activeThumbColor: Colors.amber,
                         ),
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
@@ -239,7 +239,7 @@ class SettingsModal extends ConsumerWidget {
                           title: const Text('Dark Mode'),
                           value: settings.darkMode,
                           onChanged: notifier.toggleDarkMode,
-                          activeColor: Colors.amber,
+                          activeThumbColor: Colors.amber,
                         ),
                       ],
                     ),

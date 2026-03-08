@@ -11,8 +11,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:last_cards/core/models/card_model.dart';
-import 'package:last_cards/core/models/game_state.dart';
 import 'package:last_cards/core/models/offline_game_state.dart';
 import 'package:last_cards/features/gameplay/domain/usecases/offline_game_engine.dart';
 import 'package:last_cards/features/gameplay/presentation/screens/table_screen.dart';
@@ -58,12 +56,6 @@ void main() {
         await tester.pumpAndSettle();
       }
     }
-  }
-
-  /// Returns true if any RenderFlex/overflow exception is pending.
-  bool hasOverflowException(WidgetTester tester) {
-    final ex = tester.takeException();
-    return ex != null;
   }
 
   // ── Scenario 1: Normal play down to 5 cards ──────────────────────────────────

@@ -8,13 +8,13 @@ import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/theme/app_dimensions.dart';
 
-enum OnlineMode { Standard, Tournament }
+enum OnlineMode { standard, tournament }
 
 /// Room entry screen — players enter a room code, see the player list,
 /// and mark themselves ready before the host starts the game.
 class LobbyScreen extends ConsumerStatefulWidget {
   const LobbyScreen({
-    this.onlineMode = OnlineMode.Standard,
+    this.onlineMode = OnlineMode.standard,
     super.key,
   });
 
@@ -173,7 +173,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     final displayName = _nameController.text.trim();
     final effectiveName = displayName.isEmpty ? 'You' : displayName;
 
-    if (widget.onlineMode == OnlineMode.Tournament) {
+    if (widget.onlineMode == OnlineMode.tournament) {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => TournamentScreen(

@@ -124,8 +124,7 @@ class DealingAnimationOverlayState extends State<DealingAnimationOverlay>
                 top: currentY - (cardH / 2),
                 child: Transform(
                   alignment: Alignment.center,
-                  transform: Matrix4.identity()
-                    ..scale(scale)
+                  transform: Matrix4.diagonal3Values(scale, scale, 1.0)
                     ..rotateZ(rotation),
                   child: Container(
                     decoration: BoxDecoration(

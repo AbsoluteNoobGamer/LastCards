@@ -20,7 +20,6 @@ import '../../../../core/theme/theme_selector_modal.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
 import '../../../../core/providers/profile_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
-import '../../../../screens/tournament_screen.dart';
 import '../../../../features/tournament/widgets/tournament_type_sheet.dart';
 
 part 'start_screen_background.dart';

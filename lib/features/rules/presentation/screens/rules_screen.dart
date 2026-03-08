@@ -241,7 +241,7 @@ class _SpecialCardRow extends StatelessWidget {
           ),
           children: [
             TextSpan(
-              text: '$cardName',
+              text: cardName,
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const TextSpan(text: ' — '),

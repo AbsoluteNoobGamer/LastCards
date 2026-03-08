@@ -312,7 +312,7 @@ class _PrimaryButtonBase extends ConsumerWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,
-        transform: Matrix4.identity()..scale(scale, scale, 1.0),
+        transform: Matrix4.diagonal3Values(scale, scale, 1.0),
         transformAlignment: Alignment.center,
         width: buttonWidth,
         height: buttonHeight,
@@ -468,12 +468,11 @@ class _IconRowItemState extends ConsumerState<_IconRowItem> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOutCubic,
-          transform: Matrix4.identity()
-            ..scale(
-              _isPressed ? 0.90 : (_isHovered ? 1.12 : 1.0),
-              _isPressed ? 0.90 : (_isHovered ? 1.12 : 1.0),
-              1.0,
-            ),
+          transform: Matrix4.diagonal3Values(
+            _isPressed ? 0.90 : (_isHovered ? 1.12 : 1.0),
+            _isPressed ? 0.90 : (_isHovered ? 1.12 : 1.0),
+            1.0,
+          ),
           transformAlignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: Column(

@@ -30,8 +30,9 @@ class TurnIndicatorOverlay extends StatelessWidget {
               duration: const Duration(seconds: 1),
               curve: Curves.easeOutCubic,
               builder: (context, val, child) {
-                if (val >= 1.0)
+                if (val >= 1.0) {
                   return const SizedBox.shrink(); // Hide when done
+                }
 
                 // Fade out towards the end
                 final opacity = (1.0 - val).clamp(0.0, 1.0);

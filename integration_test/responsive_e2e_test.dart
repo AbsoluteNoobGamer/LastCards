@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:last_cards/features/gameplay/data/datasources/offline_game_state_datasource.dart';
-import 'package:last_cards/features/gameplay/domain/entities/card.dart';
-import 'package:last_cards/features/gameplay/domain/entities/game_state.dart';
 import 'package:last_cards/features/gameplay/domain/usecases/offline_game_engine.dart';
 import 'package:last_cards/features/gameplay/presentation/screens/table_screen.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/draw_pile_widget.dart';

@@ -42,7 +42,7 @@ class ParticleStarfieldPainter extends CustomPainter {
       final double x = startX + sin(progress * pi * 2 * speed + i) * 10;
 
       final double opacityFunc = (sin(progress * pi * 4 * speed + i) + 1) / 2;
-      particlePaint.color = Colors.cyan.withOpacity(0.1 + 0.6 * opacityFunc);
+      particlePaint.color = Colors.cyan.withValues(alpha: 0.1 + 0.6 * opacityFunc);
 
       canvas.drawCircle(Offset(x, y), sizeScale, particlePaint);
     }
