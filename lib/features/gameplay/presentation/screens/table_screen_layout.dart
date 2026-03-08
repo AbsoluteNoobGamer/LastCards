@@ -21,7 +21,7 @@ class _TableLayout extends StatelessWidget {
     required this.onEndTurnTap,
     required this.isOffline,
     this.discardPileCount = 0,
-    this.lastMove,
+    this.moveLogEntries = const <MoveLogEntry>[],
     this.reshuffleNotifier,
     this.timeRemainingStream,
     this.tournamentStatusBadges = const <String, String>{},
@@ -49,8 +49,8 @@ class _TableLayout extends StatelessWidget {
   /// Number of cards in the discard pile for dynamic stacking depth.
   final int discardPileCount;
 
-  /// The most recent move made by any player, or null if the game just started.
-  final LastMoveInfo? lastMove;
+  /// The latest move log entries, newest first.
+  final List<MoveLogEntry> moveLogEntries;
 
   /// Notifier toggled on every reshuffle — forwarded to [DrawPileWidget].
   final ValueNotifier<bool>? reshuffleNotifier;
@@ -164,7 +164,7 @@ class _TableLayout extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Center(
-                  child: LastMovePanelWidget(lastMove: lastMove),
+                  child: LastMovePanelWidget(entries: moveLogEntries),
                 ),
               ),
 

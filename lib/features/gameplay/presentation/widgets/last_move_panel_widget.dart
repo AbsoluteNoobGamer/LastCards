@@ -1,118 +1,108 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/models/card_model.dart';
+import '../../../../core/models/move_log_entry.dart';
 import '../../../../core/providers/theme_provider.dart';
 
-/// Data class representing the most recent move made by any player.
-class LastMoveInfo {
-  const LastMoveInfo({required this.playerName, this.cardLabel});
+String formatMoveLogEntry(MoveLogEntry entry) {
+  switch (entry.type) {
+    case MoveLogEntryType.timeoutDraw:
+      return '${entry.playerName} timed out and drew ${_cardCountLabel(entry.drawCount)}';
+    case MoveLogEntryType.draw:
+      return '${entry.playerName} drew ${_cardCountLabel(entry.drawCount)}';
+    case MoveLogEntryType.play:
+      final cards = entry.cardActions;
+      if (cards.isEmpty) return '${entry.playerName} played a card';
+      final skipped = entry.skippedPlayerNames;
+      final allEights = cards.every((a) => a.card.effectiveRank == Rank.eight);
 
-  /// The display name of the player who made the move.
-  final String playerName;
+      if (allEights && skipped.isNotEmpty) {
+        return '${entry.playerName} played ${cards.length} ${cards.length == 1 ? 'Eight' : 'Eights'} and skipped ${_joinNames(skipped)}';
+      }
 
-  /// If a card was played, e.g. "7♠". Null means the player drew a card.
-  final String? cardLabel;
+      if (cards.length == 1) {
+        final cardText = _describeCardAction(cards.first);
+        if (skipped.length == 1) {
+          return '${entry.playerName} played $cardText, so ${skipped.first} missed their turn';
+        }
+        if (skipped.isNotEmpty) {
+          return '${entry.playerName} played $cardText and skipped ${_joinNames(skipped)}';
+        }
+        return '${entry.playerName} played $cardText';
+      }
 
-  /// Human-readable description shown in the panel.
-  String get description {
-    if (cardLabel != null) {
-      return '$playerName played $cardLabel';
-    }
-    return '$playerName drew a card';
+      final ordered = cards.map(_describeCardAction).join(', ');
+      var text = '${entry.playerName} played ${cards.length} cards: $ordered';
+      if (skipped.isNotEmpty) {
+        text = '$text and skipped ${_joinNames(skipped)}';
+      }
+      return text;
   }
-
-  @override
-  bool operator ==(Object other) =>
-      other is LastMoveInfo &&
-      other.playerName == playerName &&
-      other.cardLabel == cardLabel;
-
-  @override
-  int get hashCode => Object.hash(playerName, cardLabel);
 }
 
-/// Displays the single most recent move in the game with a fade+slide animation.
-class LastMovePanelWidget extends StatefulWidget {
-  const LastMovePanelWidget({super.key, required this.lastMove});
+String _describeCardAction(MoveCardAction action) {
+  final card = action.card;
+  if (card.isJoker) {
+    final rank = card.jokerDeclaredRank;
+    final suit = card.jokerDeclaredSuit;
+    if (rank != null && suit != null) {
+      return 'Joker as ${_rankName(rank)} of ${suit.displayName}';
+    }
+    return 'Joker';
+  }
 
-  final LastMoveInfo? lastMove;
+  if (card.effectiveRank == Rank.ace && action.aceDeclaredSuit != null) {
+    return 'Ace and changed suit to ${action.aceDeclaredSuit!.displayName}';
+  }
 
-  @override
-  State<LastMovePanelWidget> createState() => _LastMovePanelWidgetState();
+  return '${_rankName(card.effectiveRank)} of ${card.effectiveSuit.displayName}';
 }
 
-class _LastMovePanelWidgetState extends State<LastMovePanelWidget>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fadeAnim;
-  late Animation<Offset> _slideAnim;
+String _rankName(Rank rank) {
+  return switch (rank) {
+    Rank.jack => 'Jack',
+    Rank.queen => 'Queen',
+    Rank.king => 'King',
+    Rank.ace => 'Ace',
+    Rank.joker => 'Joker',
+    _ => rank.numericValue.toString(),
+  };
+}
 
-  LastMoveInfo? _displayed;
-  bool _firstBuild = true;
+String _joinNames(List<String> names) {
+  if (names.length <= 1) return names.first;
+  if (names.length == 2) return '${names.first} and ${names.last}';
+  return '${names.sublist(0, names.length - 1).join(', ')}, and ${names.last}';
+}
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    );
-    _fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(3 / 7, 1.0, curve: Curves.easeOut),
-      ),
-    );
-    _slideAnim = Tween<Offset>(
-      begin: const Offset(0.0, 0.4),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(3 / 7, 1.0, curve: Curves.easeOut),
-      ),
-    );
-    _displayed = widget.lastMove;
-  }
+String _cardCountLabel(int count) {
+  return '$count ${count == 1 ? 'card' : 'cards'}';
+}
 
-  @override
-  void didUpdateWidget(LastMovePanelWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.lastMove == oldWidget.lastMove) return;
-    if (_firstBuild || _displayed == null) {
-      setState(() {
-        _displayed = widget.lastMove;
-        _firstBuild = false;
-      });
-      return;
-    }
-    _firstBuild = false;
-    _controller.reset();
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (!mounted) return;
-      setState(() => _displayed = widget.lastMove);
-    });
-    _controller.forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+/// Displays the latest three move log entries (newest first).
+class LastMovePanelWidget extends StatelessWidget {
+  const LastMovePanelWidget({super.key, required this.entries});
 
   @override
   Widget build(BuildContext context) {
-    if (_displayed == null) return const SizedBox(height: 36);
-    final isAnimating = _controller.isAnimating;
-    Widget label = _MoveLabel(text: _displayed!.description);
-    if (isAnimating) {
-      label = FadeTransition(
-        opacity: _fadeAnim,
-        child: SlideTransition(position: _slideAnim, child: label),
-      );
-    }
-    return SizedBox(height: 36, child: Center(child: label));
+    final visibleEntries = entries.take(3).toList(growable: false);
+    if (visibleEntries.isEmpty) return const SizedBox(height: 72);
+    return SizedBox(
+      height: 72,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (final entry in visibleEntries)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: _MoveLabel(text: formatMoveLogEntry(entry)),
+            ),
+        ],
+      ),
+    );
   }
+
+  final List<MoveLogEntry> entries;
 }
 
 class _MoveLabel extends ConsumerWidget {

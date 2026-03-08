@@ -19,11 +19,13 @@ bool aiHasPlayableTurn({
   required String aiPlayerId,
 }) {
   final ai = state.players.firstWhere((p) => p.id == aiPlayerId);
-  final choices = _generateAiChoices(state: state, ai: ai, aiPlayerId: aiPlayerId);
+  final choices =
+      _generateAiChoices(state: state, ai: ai, aiPlayerId: aiPlayerId);
   return choices.isNotEmpty;
 }
 
-({GameState state, List<CardModel> playedCards}) aiTakeTurn({
+({GameState state, List<CardModel> playedCards, GameState preTurnAdvanceState})
+    aiTakeTurn({
   required GameState state,
   required String aiPlayerId,
   required List<CardModel> Function(int n) cardFactory,
@@ -34,7 +36,8 @@ bool aiHasPlayableTurn({
 
   // Win awareness: if only one card remains and it's playable, take the win now.
   if (ai.hand.length == 1 &&
-      validatePlay(cards: [ai.hand.first], discardTop: discardTop, state: state) ==
+      validatePlay(
+              cards: [ai.hand.first], discardTop: discardTop, state: state) ==
           null) {
     final oneCardChoice = _buildSingleCardChoice(
       state: state,
@@ -50,10 +53,12 @@ bool aiHasPlayableTurn({
     return _finalizeAiTurn(state: result, playedCards: playedCards);
   }
 
-  final choices = _generateAiChoices(state: state, ai: ai, aiPlayerId: aiPlayerId);
+  final choices =
+      _generateAiChoices(state: state, ai: ai, aiPlayerId: aiPlayerId);
 
   if (choices.isEmpty) {
-    final drawCount = state.activePenaltyCount > 0 ? state.activePenaltyCount : 1;
+    final drawCount =
+        state.activePenaltyCount > 0 ? state.activePenaltyCount : 1;
     final afterDraw = applyDraw(
       state: state,
       playerId: aiPlayerId,
@@ -111,7 +116,8 @@ bool aiHasPlayableTurn({
   int coverAttempts = 0;
   while (afterPlay.queenSuitLock != null && coverAttempts < 5) {
     coverAttempts++;
-    final cover = _findAnyImmediateFollowUp(state: afterPlay, aiPlayerId: aiPlayerId);
+    final cover =
+        _findAnyImmediateFollowUp(state: afterPlay, aiPlayerId: aiPlayerId);
     if (cover != null) {
       afterPlay = applyPlay(
         state: afterPlay,
@@ -133,7 +139,8 @@ bool aiHasPlayableTurn({
   return _finalizeAiTurn(state: afterPlay, playedCards: playedCards);
 }
 
-({GameState state, List<CardModel> playedCards}) _finalizeAiTurn({
+({GameState state, List<CardModel> playedCards, GameState preTurnAdvanceState})
+    _finalizeAiTurn({
   required GameState state,
   required List<CardModel> playedCards,
 }) {
@@ -147,6 +154,7 @@ bool aiHasPlayableTurn({
       activeSkipCount: 0,
     ),
     playedCards: playedCards,
+    preTurnAdvanceState: state,
   );
 }
 
@@ -176,10 +184,12 @@ List<_AiPlayChoice> _generateAiChoices({
 
   // Single-card candidates (including Ace/Joker declarations).
   for (final card in ai.hand) {
-    final err = validatePlay(cards: [card], discardTop: discardTop, state: state);
+    final err =
+        validatePlay(cards: [card], discardTop: discardTop, state: state);
     if (err != null) continue;
     final choice = _buildSingleCardChoice(state: state, ai: ai, card: card);
-    choices.add(_scoreChoice(state: state, aiPlayerId: aiPlayerId, ai: ai, choice: choice));
+    choices.add(_scoreChoice(
+        state: state, aiPlayerId: aiPlayerId, ai: ai, choice: choice));
   }
 
   // Multi-card same-rank stacks (no jokers).
@@ -189,7 +199,8 @@ List<_AiPlayChoice> _generateAiChoices({
   }
   byRank.forEach((_, cards) {
     if (cards.length < 2) return;
-    if (validatePlay(cards: cards, discardTop: discardTop, state: state) == null) {
+    if (validatePlay(cards: cards, discardTop: discardTop, state: state) ==
+        null) {
       choices.add(
         _scoreChoice(
           state: state,
@@ -291,7 +302,9 @@ _AiPlayChoice _scoreChoice({
   }
 
   // Priority 2: if hand has 2 cards, prefer leaving one playable.
-  if (handSize == 2 && _leavesOnePlayable(state: state, aiPlayerId: aiPlayerId, choice: choice)) {
+  if (handSize == 2 &&
+      _leavesOnePlayable(
+          state: state, aiPlayerId: aiPlayerId, choice: choice)) {
     score += 700000;
   }
 
@@ -324,8 +337,9 @@ _AiPlayChoice _scoreChoice({
       break;
     case Rank.queen:
       final suit = lead.effectiveSuit;
-      final int inSuit =
-          ai.hand.where((c) => c.id != lead.id && c.effectiveSuit == suit).length;
+      final int inSuit = ai.hand
+          .where((c) => c.id != lead.id && c.effectiveSuit == suit)
+          .length;
       score += 60000 + (inSuit * 4000);
       break;
     case Rank.eight:
@@ -343,7 +357,8 @@ _AiPlayChoice _scoreChoice({
       final int continuation = suit == null
           ? 0
           : ai.hand
-              .where((c) => c.id != lead.id && !c.isJoker && c.effectiveSuit == suit)
+              .where((c) =>
+                  c.id != lead.id && !c.isJoker && c.effectiveSuit == suit)
               .length;
       score += 75000 + (continuation * 6000);
       break;
@@ -394,7 +409,8 @@ CardModel? _findImmediateSuitFollowUp({
   final ai = state.players.firstWhere((p) => p.id == aiPlayerId);
   for (final card in ai.hand) {
     if (card.isJoker || card.effectiveSuit != suit) continue;
-    if (validatePlay(cards: [card], discardTop: state.discardTopCard!, state: state) ==
+    if (validatePlay(
+            cards: [card], discardTop: state.discardTopCard!, state: state) ==
         null) {
       return card;
     }
@@ -408,10 +424,12 @@ CardModel? _findAnyImmediateFollowUp({
 }) {
   final ai = state.players.firstWhere((p) => p.id == aiPlayerId);
   for (final card in ai.hand) {
-    if (validatePlay(cards: [card], discardTop: state.discardTopCard!, state: state) ==
+    if (validatePlay(
+            cards: [card], discardTop: state.discardTopCard!, state: state) ==
         null) {
       if (!card.isJoker) return card;
-      return _resolveJokerStrategically(state: state, aiHand: ai.hand, joker: card);
+      return _resolveJokerStrategically(
+          state: state, aiHand: ai.hand, joker: card);
     }
   }
   return null;
@@ -446,8 +464,8 @@ CardModel _resolveJokerStrategically({
   final nonJoker = aiHand.where((c) => c.id != joker.id).toList();
   if (nonJoker.length == 1) {
     final last = nonJoker.first;
-    final direct = options.where((o) =>
-        o.rank == last.effectiveRank && o.suit == last.effectiveSuit);
+    final direct = options.where(
+        (o) => o.rank == last.effectiveRank && o.suit == last.effectiveSuit);
     if (direct.isNotEmpty) {
       return joker.copyWith(
         jokerDeclaredRank: direct.first.rank,
@@ -456,7 +474,8 @@ CardModel _resolveJokerStrategically({
     }
   }
 
-  final preferredSuit = _chooseBestAceSuit(hand: aiHand, excludingCardId: joker.id);
+  final preferredSuit =
+      _chooseBestAceSuit(hand: aiHand, excludingCardId: joker.id);
   final suitCounts = <Suit, int>{for (final s in Suit.values) s: 0};
   for (final card in nonJoker) {
     if (card.isJoker) continue;
@@ -524,7 +543,8 @@ int _followUpCountAfterJoker({
   var count = 0;
   for (final card in remaining) {
     if (card.effectiveSuit != declared.suit) continue;
-    if (validatePlay(cards: [card], discardTop: after.discardTopCard!, state: after) ==
+    if (validatePlay(
+            cards: [card], discardTop: after.discardTopCard!, state: after) ==
         null) {
       count++;
     }
