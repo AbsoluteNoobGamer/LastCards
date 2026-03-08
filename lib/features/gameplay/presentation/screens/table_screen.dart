@@ -691,6 +691,32 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   ),
                 ),
 
+              // ── HUD overlay (suit badge, penalty, queen lock) ───────────
+              // Placed at ~63 % of screen height — the empty gap between the
+              // draw/discard pile area and the gold TurnTimerBar.
+              // Placed last (before the deal overlay) for highest z-index.
+              Positioned(
+                top: MediaQuery.of(context).size.height * 0.63,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: Center(
+                    child: HudOverlayWidget(
+                      activeSuit: gameState.suitLock,
+                      queenSuitLock: gameState.queenSuitLock,
+                      penaltyCount: penaltyCount,
+                      penaltyTargetPosition: penaltyCount > 0
+                          ? gameState.players
+                              .where((p) =>
+                                  p.id == nextPlayerId(state: gameState))
+                              .firstOrNull
+                              ?.tablePosition
+                          : null,
+                    ),
+                  ),
+                ),
+              ),
+
               // ── Dealing Animation Overlay ──────────────────────────────
               Positioned.fill(
                 child: DealingAnimationOverlay(
