@@ -40,9 +40,10 @@ class GameLogFormatter {
       (a) =>
           a.card.effectiveRank == Rank.ace && a.aceDeclaredSuit != null,
     );
-    final isEightSkip = cards.every(
-          (a) => a.card.effectiveRank == Rank.eight,
-        ) &&
+    // Skip applies when the LAST card played was an Eight (regardless of what
+    // came before it). A non-Eight played after an Eight cancels the skip, so
+    // checking the last card is both necessary and sufficient.
+    final isEightSkip = cards.last.card.effectiveRank == Rank.eight &&
         entry.skippedPlayerNames.isNotEmpty;
     return hasJoker || hasAceDeclaration || isEightSkip;
   }
@@ -79,9 +80,10 @@ class GameLogFormatter {
     }
 
     // EIGHT SKIP: always full text to preserve who was skipped.
-    final allEights =
-        cards.every((a) => a.card.effectiveRank == Rank.eight);
-    if (allEights && skipped.isNotEmpty) {
+    // The skip applies whenever the LAST card played was an Eight —
+    // whether it was a solo Eight or the tail of a mixed sequence.
+    final endsOnEight = cards.last.card.effectiveRank == Rank.eight;
+    if (endsOnEight && skipped.isNotEmpty) {
       final icons = cards.map((a) => cardToIcon(a.card)).join(' ');
       return 'played $icons, skipped ${_joinNames(skipped)}';
     }
