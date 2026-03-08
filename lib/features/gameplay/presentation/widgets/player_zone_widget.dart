@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/player.dart';
 import '../controllers/game_provider.dart';
+import '../../../../core/models/ai_player_config.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/player_styles.dart';
@@ -21,6 +22,7 @@ class PlayerZoneWidget extends ConsumerWidget {
     this.isLocalPlayer = false,
     this.isTournamentFinished = false,
     this.isTournamentEliminated = false,
+    this.aiConfig,
     this.child,
   });
 
@@ -28,6 +30,10 @@ class PlayerZoneWidget extends ConsumerWidget {
   final bool isLocalPlayer;
   final bool isTournamentFinished;
   final bool isTournamentEliminated;
+
+  /// AI player config for randomised name / avatar / personality display.
+  /// Null for the local human player and in tournament mode.
+  final AiPlayerConfig? aiConfig;
 
   /// Override content (e.g. the local PlayerHandWidget). If null, renders
   /// an opponent face-down fan automatically.
@@ -54,6 +60,7 @@ class PlayerZoneWidget extends ConsumerWidget {
         isTournamentFinished: isTournamentFinished,
         isTournamentEliminated: isTournamentEliminated,
         appTheme: appTheme,
+        aiConfig: aiConfig,
       );
     }
 
@@ -145,28 +152,52 @@ class _OpponentAvatarZone extends StatelessWidget {
     required this.appTheme,
     this.isTournamentFinished = false,
     this.isTournamentEliminated = false,
+    this.aiConfig,
   });
 
   final PlayerModel player;
-  final dynamic appTheme; // AppThemeData
+  final dynamic appTheme;
   final bool isTournamentFinished;
   final bool isTournamentEliminated;
+  final AiPlayerConfig? aiConfig;
 
   @override
   Widget build(BuildContext context) {
-    final color = PlayerStyles.getColor(player.tablePosition);
+    final positionColor = PlayerStyles.getColor(player.tablePosition);
     final isActive = player.isActiveTurn;
     final hasTournamentStatus = isTournamentFinished;
 
-    // Use accent for active ring, textSecondary for inactive
+    final avatarBaseColor = aiConfig?.avatarColor ?? positionColor;
+
     final ringColor = isActive
         ? (appTheme.accentPrimary as Color)
         : (appTheme.textSecondary as Color).withValues(alpha: 0.35);
     final ringWidth = isActive ? 3.0 : 1.5;
 
+    // Aggressive AI gets a subtle persistent red glow even when idle.
+    final isAggressive = aiConfig?.personality == AiPersonality.aggressive;
+    final List<BoxShadow>? boxShadows = isActive
+        ? [
+            BoxShadow(
+              color: ringColor.withValues(alpha: 0.55),
+              blurRadius: 14,
+              spreadRadius: 2,
+            ),
+          ]
+        : isAggressive
+            ? [
+                BoxShadow(
+                  color: const Color(0xFFFF5252).withValues(alpha: 0.30),
+                  blurRadius: 8,
+                  spreadRadius: 0,
+                ),
+              ]
+            : null;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // ── Avatar circle ──────────────────────────────────────────────────
         Material(
           color: Colors.transparent,
           child: InkWell(
@@ -193,31 +224,37 @@ class _OpponentAvatarZone extends StatelessWidget {
                           color: isActive
                               ? (appTheme.accentPrimary as Color)
                                   .withValues(alpha: 0.22)
-                              : color.withValues(alpha: 0.2),
+                              : avatarBaseColor.withValues(
+                                  alpha: aiConfig != null ? 0.35 : 0.20),
                           border:
                               Border.all(color: ringColor, width: ringWidth),
-                          boxShadow: isActive
-                              ? [
-                                  BoxShadow(
-                                    color:
-                                        ringColor.withValues(alpha: 0.55),
-                                    blurRadius: 14,
-                                    spreadRadius: 2,
-                                  ),
-                                ]
-                              : null,
+                          boxShadow: boxShadows,
                         ),
                         child: CircleAvatar(
                           radius: 30,
                           backgroundColor: Colors.transparent,
-                          child: Icon(
-                            PlayerStyles.getIcon(player.tablePosition),
-                            color: color,
-                            size: 28,
-                          ),
+                          child: aiConfig != null
+                              ? Text(
+                                  aiConfig!.initials,
+                                  style: TextStyle(
+                                    color: isActive
+                                        ? Colors.white
+                                        : Colors.white
+                                            .withValues(alpha: 0.85),
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                )
+                              : Icon(
+                                  PlayerStyles.getIcon(player.tablePosition),
+                                  color: positionColor,
+                                  size: 28,
+                                ),
                         ),
                       ),
                     ),
+                    // Card count badge
                     Positioned(
                       right: -2,
                       bottom: -2,
@@ -249,7 +286,10 @@ class _OpponentAvatarZone extends StatelessWidget {
             ),
           ),
         ),
+
         const SizedBox(height: 8),
+
+        // ── Player name ────────────────────────────────────────────────────
         SizedBox(
           width: 96,
           child: Text(
@@ -258,12 +298,14 @@ class _OpponentAvatarZone extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: AppTypography.labelSmall.copyWith(
               color: isActive
-                  ? color
+                  ? (aiConfig?.nameColor ?? positionColor)
                   : (appTheme.textPrimary as Color),
               fontWeight: FontWeight.w700,
             ),
           ),
         ),
+
+        // ── Tournament status badge ────────────────────────────────────────
         if (hasTournamentStatus) ...[
           const SizedBox(height: 4),
           Container(
@@ -308,7 +350,7 @@ class _PlayerLabel extends StatelessWidget {
   });
 
   final PlayerModel player;
-  final dynamic appTheme; // AppThemeData
+  final dynamic appTheme;
   final bool isLocalPlayer;
 
   @override
@@ -327,14 +369,12 @@ class _PlayerLabel extends StatelessWidget {
         margin: const EdgeInsets.only(right: AppDimensions.xs),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
-          color:
-              (badgeColor ?? appTheme.textSecondary as Color)
-                  .withValues(alpha: 0.15),
+          color: (badgeColor ?? appTheme.textSecondary as Color)
+              .withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-              color:
-                  (badgeColor ?? appTheme.textSecondary as Color)
-                      .withValues(alpha: 0.5),
+              color: (badgeColor ?? appTheme.textSecondary as Color)
+                  .withValues(alpha: 0.5),
               width: 1),
         ),
         child: Text(

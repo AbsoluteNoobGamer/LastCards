@@ -29,6 +29,7 @@ bool aiHasPlayableTurn({
   required GameState state,
   required String aiPlayerId,
   required List<CardModel> Function(int n) cardFactory,
+  AiPersonality? personality,
 }) {
   final ai = state.players.firstWhere((p) => p.id == aiPlayerId);
   final List<CardModel> playedCards = [];
@@ -53,8 +54,12 @@ bool aiHasPlayableTurn({
     return _finalizeAiTurn(state: result, playedCards: playedCards);
   }
 
-  final choices =
-      _generateAiChoices(state: state, ai: ai, aiPlayerId: aiPlayerId);
+  final choices = _generateAiChoices(
+    state: state,
+    ai: ai,
+    aiPlayerId: aiPlayerId,
+    personality: personality,
+  );
 
   if (choices.isEmpty) {
     final drawCount =
@@ -178,6 +183,7 @@ List<_AiPlayChoice> _generateAiChoices({
   required GameState state,
   required PlayerModel ai,
   required String aiPlayerId,
+  AiPersonality? personality,
 }) {
   final discardTop = state.discardTopCard!;
   final choices = <_AiPlayChoice>[];
@@ -189,7 +195,12 @@ List<_AiPlayChoice> _generateAiChoices({
     if (err != null) continue;
     final choice = _buildSingleCardChoice(state: state, ai: ai, card: card);
     choices.add(_scoreChoice(
-        state: state, aiPlayerId: aiPlayerId, ai: ai, choice: choice));
+      state: state,
+      aiPlayerId: aiPlayerId,
+      ai: ai,
+      choice: choice,
+      personality: personality,
+    ));
   }
 
   // Multi-card same-rank stacks (no jokers).
@@ -207,6 +218,7 @@ List<_AiPlayChoice> _generateAiChoices({
           aiPlayerId: aiPlayerId,
           ai: ai,
           choice: _AiPlayChoice(cards: cards, declaredSuit: null, score: 0),
+          personality: personality,
         ),
       );
     }
@@ -241,6 +253,7 @@ List<_AiPlayChoice> _generateAiChoices({
                   declaredSuit: null,
                   score: 0,
                 ),
+                personality: personality,
               ),
             );
           }
@@ -288,6 +301,7 @@ _AiPlayChoice _scoreChoice({
   required String aiPlayerId,
   required PlayerModel ai,
   required _AiPlayChoice choice,
+  AiPersonality? personality,
 }) {
   int score = 0;
   final handSize = ai.hand.length;
@@ -371,6 +385,30 @@ _AiPlayChoice _scoreChoice({
 
   // Priority 5: regular cards reduce hand weight by shedding higher ranks.
   score += lead.effectiveRank.numericValue * 100;
+
+  // Personality modifier — subtle nudge, never overrides critical plays.
+  if (personality != null) {
+    switch (personality) {
+      case AiPersonality.aggressive:
+        // Prefers Black Jack and 2 when penalties are active; likes kings.
+        if (containsBlackJack && state.activePenaltyCount > 0) score += 35000;
+        if (containsTwo && state.activePenaltyCount > 0) score += 30000;
+        if (lead.effectiveRank == Rank.king) score += 20000;
+        break;
+      case AiPersonality.safe:
+        // Avoids specials unless forced; favours shedding high regular cards.
+        if (_isSpecial(lead) && state.activePenaltyCount == 0) score -= 20000;
+        score += lead.effectiveRank.numericValue * 50;
+        break;
+      case AiPersonality.tricky:
+        // Loves skips, kings, queens, and jokers.
+        if (lead.effectiveRank == Rank.eight) score += 45000;
+        if (lead.effectiveRank == Rank.king) score += 35000;
+        if (lead.effectiveRank == Rank.queen) score += 25000;
+        if (lead.isJoker) score += 30000;
+        break;
+    }
+  }
 
   return _AiPlayChoice(
     cards: choice.cards,

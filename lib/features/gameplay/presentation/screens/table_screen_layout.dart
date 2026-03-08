@@ -26,6 +26,7 @@ class _TableLayout extends StatelessWidget {
     this.timeRemainingStream,
     this.tournamentStatusBadges = const <String, String>{},
     this.finishedPlayerIds = const <String>{},
+    this.aiConfigs = const <String, AiPlayerConfig>{},
   });
 
   final GameState gameState;
@@ -59,6 +60,10 @@ class _TableLayout extends StatelessWidget {
   final Stream<int>? timeRemainingStream;
   final Map<String, String> tournamentStatusBadges;
   final Set<String> finishedPlayerIds;
+
+  /// Per-AI player configurations (name, personality, avatar color).
+  /// Empty in tournament mode where players have their own names.
+  final Map<String, AiPlayerConfig> aiConfigs;
 
   @override
   Widget build(BuildContext context) {
@@ -121,6 +126,7 @@ class _TableLayout extends StatelessWidget {
                               isTournamentEliminated: _isEliminatedBadge(
                                 tournamentStatusBadges[leftOpp.id],
                               ),
+                              aiConfig: aiConfigs[leftOpp.id],
                             )
                           : const SizedBox(height: 96),
                     )),
@@ -136,6 +142,7 @@ class _TableLayout extends StatelessWidget {
                                 isTournamentEliminated: _isEliminatedBadge(
                                   tournamentStatusBadges[topOpp.id],
                                 ),
+                                aiConfig: aiConfigs[topOpp.id],
                               )
                             : const _EmptyOpponentZone(),
                       ),
@@ -152,6 +159,7 @@ class _TableLayout extends StatelessWidget {
                                 isTournamentEliminated: _isEliminatedBadge(
                                   tournamentStatusBadges[rightOpp.id],
                                 ),
+                                aiConfig: aiConfigs[rightOpp.id],
                               )
                             : const SizedBox(height: 96),
                       ),
