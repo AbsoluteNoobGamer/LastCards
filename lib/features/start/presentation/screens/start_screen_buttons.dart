@@ -118,7 +118,7 @@ class _PlayAiButtonState extends State<_PlayAiButton> {
         final parentState =
             context.findAncestorStateOfType<_LastCardsStartScreenState>();
         if (parentState != null) {
-          parentState._showAISelector(context, isPractice: false);
+          parentState._showAISelector(context);
         } else {
           Navigator.push(
               context, MaterialPageRoute(builder: (_) => const TableScreen()));

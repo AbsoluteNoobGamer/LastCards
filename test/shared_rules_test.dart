@@ -4,9 +4,7 @@ import 'package:last_cards/core/models/game_state.dart';
 import 'package:last_cards/core/models/offline_game_engine.dart';
 import 'package:last_cards/core/models/player_model.dart';
 import 'package:last_cards/core/providers/game_provider.dart';
-import 'package:last_cards/features/practice/presentation/screens/offline_practice_screen.dart';
 import 'package:last_cards/shared/engine/game_engine.dart';
-import 'package:last_cards/shared/rules/card_rules.dart';
 import 'package:last_cards/shared/rules/pickup_chain_rules.dart';
 import 'package:last_cards/shared/rules/win_condition_rules.dart';
 
@@ -90,21 +88,6 @@ void main() {
       // Pick-up chain rules
       expect(isFirstCardValidUnderPenalty(c(Rank.two, Suit.spades)), isTrue);
       expect(areAllCardsPenaltyAddressing([c(Rank.two, Suit.hearts)]), isTrue);
-    });
-
-    test('Practice mode correctly consumes shared card rules', () {
-      // Practice mode uses TableScreen which uses offline_game_engine (shared)
-      const screen = OfflinePracticeScreen(totalPlayers: 2);
-      expect(screen, isNotNull);
-      // Joker context from card_rules
-      expect(
-        jokerPlayContextFromCardsPlayed(0),
-        JokerPlayContext.turnStarter,
-      );
-      expect(
-        jokerPlayContextFromCardsPlayed(1),
-        JokerPlayContext.midTurnContinuance,
-      );
     });
 
     test('Pick-up chain logic produces identical results across all modes', () {
