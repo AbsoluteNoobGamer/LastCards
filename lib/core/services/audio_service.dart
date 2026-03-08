@@ -58,9 +58,21 @@ class AudioService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> startBgm() async {}
+  Future<void> startBgm() async {
+    try {
+      await app_audio.AudioService.instance.startBgm();
+    } catch (e) {
+      debugPrint('AudioService.startBgm error: $e');
+    }
+  }
 
-  Future<void> stopBgm() async {}
+  Future<void> stopBgm() async {
+    try {
+      await app_audio.AudioService.instance.stopBgm();
+    } catch (e) {
+      debugPrint('AudioService.stopBgm error: $e');
+    }
+  }
 
   Future<void> playDealCard() async {
     await app_audio.AudioService.instance.playSound(GameSound.cardDraw);

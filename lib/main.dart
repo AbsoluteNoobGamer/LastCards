@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +9,19 @@ import 'services/audio_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Swallow audio platform errors globally so they can never hard-crash the app.
+  // All other Flutter framework errors are forwarded to the default handler.
+  FlutterError.onError = (FlutterErrorDetails details) {
+    final description = details.toString();
+    if (description.contains('AudioError') ||
+        description.contains('PlatformException') ||
+        description.contains('AndroidAudioError')) {
+      debugPrint('Non-fatal audio error (swallowed): ${details.exception}');
+      return;
+    }
+    FlutterError.presentError(details);
+  };
 
   // Initialise default profile ("Noob 1") on first launch.
   // This is a no-op on all subsequent launches.
