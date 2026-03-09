@@ -3,20 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/providers/theme_provider.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../single_player/providers/single_player_session_provider.dart';
 import '../../tournament/widgets/tournament_type_sheet.dart';
 import '../screens/bust_game_screen.dart';
 
-class BustSetupSheet extends ConsumerStatefulWidget {
+class BustSetupSheet extends ConsumerWidget {
   const BustSetupSheet({super.key});
-
-  @override
-  ConsumerState<BustSetupSheet> createState() => _BustSetupSheetState();
-}
-
-class _BustSetupSheetState extends ConsumerState<BustSetupSheet> {
-  int _playerCount = 10;
-  AiDifficulty _difficulty = AiDifficulty.medium;
 
   void _goBack(BuildContext context) {
     Navigator.of(context).pop();
@@ -32,9 +25,9 @@ class _BustSetupSheetState extends ConsumerState<BustSetupSheet> {
     Navigator.of(context).pop();
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => BustGameScreen(
-          totalPlayers: _playerCount,
-          aiDifficulty: _difficulty,
+        pageBuilder: (_, __, ___) => const BustGameScreen(
+          totalPlayers: 10,
+          aiDifficulty: AiDifficulty.hard,
         ),
         transitionDuration: const Duration(milliseconds: 400),
         transitionsBuilder: (_, animation, __, child) {
@@ -57,7 +50,7 @@ class _BustSetupSheetState extends ConsumerState<BustSetupSheet> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(themeProvider).theme;
 
     return Container(
@@ -112,7 +105,7 @@ class _BustSetupSheetState extends ConsumerState<BustSetupSheet> {
                         ),
                       ),
                       Text(
-                        'Setup',
+                        'Last one standing wins',
                         style: GoogleFonts.inter(
                           fontSize: 11,
                           color: theme.textSecondary,
@@ -126,64 +119,13 @@ class _BustSetupSheetState extends ConsumerState<BustSetupSheet> {
             ),
             const SizedBox(height: 24),
 
-            // Player count stepper
+            // Mode info card
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                decoration: BoxDecoration(
-                  color: theme.backgroundMid,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: theme.accentDark.withValues(alpha: 0.4),
-                    width: 1.5,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Players',
-                            style: GoogleFonts.outfit(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: theme.textPrimary,
-                              letterSpacing: 0.4,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Including you',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: theme.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    _StepperControl(
-                      value: _playerCount,
-                      min: 5,
-                      max: 10,
-                      onChanged: (v) => setState(() => _playerCount = v),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Difficulty chips
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 20),
                 decoration: BoxDecoration(
                   color: theme.backgroundMid,
                   borderRadius: BorderRadius.circular(16),
@@ -195,75 +137,43 @@ class _BustSetupSheetState extends ConsumerState<BustSetupSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'AI Difficulty',
-                      style: GoogleFonts.outfit(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: theme.textPrimary,
-                        letterSpacing: 0.4,
-                      ),
+                    _InfoRow(
+                      icon: Icons.group_rounded,
+                      label: '10 players',
+                      theme: theme,
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      children: AiDifficulty.values.map((d) {
-                        final isSelected = _difficulty == d;
-                        return Expanded(
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              right: d != AiDifficulty.values.last ? 8 : 0,
-                            ),
-                            child: GestureDetector(
-                              onTap: () => setState(() => _difficulty = d),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 180),
-                                curve: Curves.easeOutCubic,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? theme.accentPrimary
-                                          .withValues(alpha: 0.18)
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? theme.accentPrimary
-                                        : theme.accentDark
-                                            .withValues(alpha: 0.35),
-                                    width: isSelected ? 2 : 1.5,
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    d.displayName,
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: isSelected
-                                          ? theme.accentPrimary
-                                          : theme.textSecondary,
-                                      letterSpacing: 0.3,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                    _InfoRow(
+                      icon: Icons.rotate_right_rounded,
+                      label: '2 rotations per round',
+                      theme: theme,
+                    ),
+                    const SizedBox(height: 12),
+                    _InfoRow(
+                      icon: Icons.cancel_rounded,
+                      label: '2 players eliminated each round',
+                      theme: theme,
+                      color: AppColors.redAccent,
+                    ),
+                    const SizedBox(height: 12),
+                    _InfoRow(
+                      icon: Icons.emoji_events_rounded,
+                      label: 'Last player standing wins',
+                      theme: theme,
+                      color: AppColors.goldPrimary,
                     ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
             // Start CTA
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: _StartButton(
                 onTap: () => _onStart(context),
+                theme: theme,
               ),
             ),
             const SizedBox(height: 20),
@@ -274,113 +184,60 @@ class _BustSetupSheetState extends ConsumerState<BustSetupSheet> {
   }
 }
 
-// ── Stepper Control ────────────────────────────────────────────────────────────
+// ── Info row ───────────────────────────────────────────────────────────────────
 
-class _StepperControl extends ConsumerWidget {
-  const _StepperControl({
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.onChanged,
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.theme,
+    this.color,
   });
 
-  final int value;
-  final int min;
-  final int max;
-  final ValueChanged<int> onChanged;
+  final IconData icon;
+  final String label;
+  final dynamic theme;
+  final Color? color;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = ref.watch(themeProvider).theme;
-
+  Widget build(BuildContext context) {
+    final c = color ?? theme.accentPrimary;
     return Row(
       children: [
-        _StepButton(
-          icon: Icons.remove_rounded,
-          enabled: value > min,
-          onTap: () => onChanged(value - 1),
-          theme: theme,
-        ),
-        SizedBox(
-          width: 40,
-          child: Center(
-            child: Text(
-              '$value',
-              style: GoogleFonts.outfit(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: theme.accentPrimary,
-              ),
-            ),
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: c.withValues(alpha: 0.12),
+            shape: BoxShape.circle,
           ),
+          child: Icon(icon, size: 16, color: c),
         ),
-        _StepButton(
-          icon: Icons.add_rounded,
-          enabled: value < max,
-          onTap: () => onChanged(value + 1),
-          theme: theme,
+        const SizedBox(width: 12),
+        Text(
+          label,
+          style: GoogleFonts.outfit(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: theme.textPrimary,
+            letterSpacing: 0.2,
+          ),
         ),
       ],
     );
   }
 }
 
-class _StepButton extends StatelessWidget {
-  const _StepButton({
-    required this.icon,
-    required this.enabled,
-    required this.onTap,
-    required this.theme,
-  });
+// ── Start button ───────────────────────────────────────────────────────────────
 
-  final IconData icon;
-  final bool enabled;
+class _StartButton extends StatelessWidget {
+  const _StartButton({required this.onTap, required this.theme});
+
   final VoidCallback onTap;
   final dynamic theme;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: enabled
-              ? theme.accentPrimary.withValues(alpha: 0.15)
-              : theme.backgroundMid,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: enabled
-                ? theme.accentPrimary.withValues(alpha: 0.6)
-                : theme.accentDark.withValues(alpha: 0.25),
-            width: 1.5,
-          ),
-        ),
-        child: Icon(
-          icon,
-          size: 18,
-          color: enabled
-              ? theme.accentPrimary
-              : theme.textSecondary.withValues(alpha: 0.3),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Start Button ───────────────────────────────────────────────────────────────
-
-class _StartButton extends ConsumerWidget {
-  const _StartButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = ref.watch(themeProvider).theme;
-
     return Container(
       width: double.infinity,
       height: 52,
@@ -419,7 +276,7 @@ class _StartButton extends ConsumerWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Start Bust Game',
+                  'Start Bust',
                   style: GoogleFonts.outfit(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
