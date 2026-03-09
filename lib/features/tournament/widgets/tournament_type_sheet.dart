@@ -6,6 +6,7 @@ import '../../../../core/providers/theme_provider.dart';
 import '../providers/tournament_session_provider.dart';
 import '../../single_player/providers/single_player_session_provider.dart';
 import 'format_selection_sheet.dart';
+import 'package:last_cards/features/bust/widgets/bust_setup_sheet.dart';
 
 /// Bottom Sheet 1 — Tournament Type Selection
 ///
@@ -87,6 +88,16 @@ class TournamentTypeSheet extends ConsumerWidget {
       BuildContext context, WidgetRef ref, TournamentType type) {
     ref.read(tournamentSessionProvider.notifier).setType(type);
     Navigator.of(context).pop();
+
+    if (type == TournamentType.bust) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => const BustSetupSheet(),
+      );
+      return;
+    }
 
     if (type == TournamentType.vsAi) {
       ref.read(tournamentSessionProvider.notifier).setDifficulty(AiDifficulty.hard);
