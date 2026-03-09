@@ -54,34 +54,29 @@ enum TournamentFormat {
 
 enum TournamentType {
   vsAi,
-  localMultiplayer;
+  localMultiplayer,
+  bust;
 
-  String get displayName {
-    switch (this) {
-      case TournamentType.vsAi:
-        return 'Single Player';
-      case TournamentType.localMultiplayer:
-        return 'Online';
-    }
-  }
+  String get displayName => switch (this) {
+        TournamentType.vsAi => 'Single Player',
+        TournamentType.localMultiplayer => 'Online',
+        TournamentType.bust => 'Bust Mode',
+      };
 
-  String get description {
-    switch (this) {
-      case TournamentType.vsAi:
-        return 'Compete against AI opponents across multiple rounds';
-      case TournamentType.localMultiplayer:
-        return 'Play tournament against real players online';
-    }
-  }
+  String get description => switch (this) {
+        TournamentType.vsAi =>
+          'Compete against AI opponents across multiple rounds',
+        TournamentType.localMultiplayer =>
+          'Play tournament against real players online',
+        TournamentType.bust =>
+          'Last player holding cards loses — up to 10 players',
+      };
 
-  String get emoji {
-    switch (this) {
-      case TournamentType.vsAi:
-        return '👤';
-      case TournamentType.localMultiplayer:
-        return '🌐';
-    }
-  }
+  String get emoji => switch (this) {
+        TournamentType.vsAi => '👤',
+        TournamentType.localMultiplayer => '🌐',
+        TournamentType.bust => '💥',
+      };
 }
 
 class TournamentSessionState {

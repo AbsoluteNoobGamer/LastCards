@@ -96,7 +96,7 @@ class AiPlayerConfig {
   /// Pass a [seed] (e.g. `DateTime.now().millisecondsSinceEpoch`) to get a
   /// fresh set each game while keeping them stable for the whole session.
   static List<AiPlayerConfig> generateForGame({int count = 3, int? seed}) {
-    assert(count >= 1 && count <= 3);
+    assert(count >= 1 && count <= 9);
     final rng = Random(seed);
     final shuffledNames = List<String>.from(_namePool)..shuffle(rng);
     final shuffledColors = List<Color>.from(_avatarColors)..shuffle(rng);
