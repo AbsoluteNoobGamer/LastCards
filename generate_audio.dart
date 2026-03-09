@@ -8,9 +8,6 @@ void main() {
   // Soft pop for click (short duration, low volume, sine)
   writeWav('assets/audio/click.wav', 0.05, 400, 'pop', 0.1);
 
-  // Swoosh for card play (fast decay, noise + sweep down)
-  writeWav('assets/audio/swoosh.wav', 0.15, 600, 'swoosh', 0.25);
-
   // Soft, lower pop for drag (very short, lower pitch)
   writeWav('assets/audio/drag.wav', 0.08, 200, 'pop', 0.08);
 
