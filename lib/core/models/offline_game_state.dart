@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:last_cards/shared/engine/game_engine.dart' show buildShuffledDeck;
+
 import '../models/card_model.dart';
 import '../models/game_state.dart';
 import '../models/player_model.dart';
@@ -16,56 +18,6 @@ import '../models/player_model.dart';
 abstract final class OfflineGameState {
   static const localId = 'player-local';
   static const aiId = 'player-2';
-
-  // ── Full 54-card deck builder ────────────────────────────────────────────────
-
-  static const _ranks = [
-    Rank.two,
-    Rank.three,
-    Rank.four,
-    Rank.five,
-    Rank.six,
-    Rank.seven,
-    Rank.eight,
-    Rank.nine,
-    Rank.ten,
-    Rank.jack,
-    Rank.queen,
-    Rank.king,
-    Rank.ace,
-  ];
-  static const _suits = [Suit.spades, Suit.hearts, Suit.clubs, Suit.diamonds];
-
-  /// Returns a freshly shuffled 54-card deck.
-  static List<CardModel> buildShuffledDeck() {
-    final rng = math.Random();
-    final deck = <CardModel>[];
-
-    for (final suit in _suits) {
-      for (final rank in _ranks) {
-        deck.add(CardModel(
-          id: '${rank.name}_${suit.name}',
-          rank: rank,
-          suit: suit,
-        ));
-      }
-    }
-    // Two Jokers
-    deck.add(
-        const CardModel(id: 'joker_r', rank: Rank.joker, suit: Suit.hearts));
-    deck.add(
-        const CardModel(id: 'joker_b', rank: Rank.joker, suit: Suit.spades));
-
-    // Fisher-Yates shuffle
-    for (int i = deck.length - 1; i > 0; i--) {
-      final j = rng.nextInt(i + 1);
-      final tmp = deck[i];
-      deck[i] = deck[j];
-      deck[j] = tmp;
-    }
-
-    return deck;
-  }
 
   /// Builds the initial [GameState] and the remaining [drawPile] from a single
   /// fresh shuffled deck, dealing cards to each of [totalPlayers] (2 to 10).

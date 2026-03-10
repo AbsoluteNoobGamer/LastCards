@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
-import 'package:last_cards/core/models/player_model.dart';
 import 'package:last_cards/shared/engine/game_engine.dart';
 import 'package:last_cards/shared/rules/win_condition_rules.dart';
 
@@ -149,7 +148,7 @@ class GameSession {
     _started = true;
     _gameOver = false;
 
-    final deck = _buildShuffledDeck();
+    final deck = buildShuffledDeck();
     int idx = 0;
     final entries = _players.entries.toList();
     final totalPlayers = entries.length;
@@ -476,20 +475,11 @@ class GameSession {
 
   /// Advances to the next player, broadcasts turn_changed, resets timer.
   void _advanceTurn() {
-    final nextId = nextPlayerId(state: _state);
-    _state = _state.copyWith(
-      currentPlayerId: nextId,
-      actionsThisTurn: 0,
-      cardsPlayedThisTurn: 0,
-      lastPlayedThisTurn: null,
-      activeSkipCount: 0,
-      preTurnCentreSuit: _state.discardTopCard?.effectiveSuit,
-      queenSuitLock: null,
-    );
+    _state = advanceTurn(_state);
 
     _broadcast({
       'type': 'turn_changed',
-      'currentPlayerId': nextId,
+      'currentPlayerId': _state.currentPlayerId,
       'direction': _state.direction.name,
     });
 
@@ -560,22 +550,16 @@ class GameSession {
   /// Draws 2 cards for [playerId] as punishment for an invalid play attempt,
   /// then ends their turn.
   void _applyInvalidPlayPenalty(String playerId) {
-    final savedPenalty = _state.activePenaltyCount;
     final drawnCards = <CardModel>[];
-    _state = applyDraw(
+    _state = applyInvalidPlayPenalty(
       state: _state,
       playerId: playerId,
-      count: 2,
       cardFactory: (n) {
         final cards = _drawCards(n);
         drawnCards.addAll(cards);
         return cards;
       },
     );
-
-    // Restore any active penalty that applyDraw cleared — the invalid play
-    // should not cancel an ongoing 2/Jack chain.
-    _state = _state.copyWith(activePenaltyCount: savedPenalty);
 
     for (final card in drawnCards) {
       _sendTo(playerId, {
@@ -719,38 +703,6 @@ class GameSession {
 
   void _sendError(String playerId, String code, String message) {
     _sendTo(playerId, {'type': 'error', 'code': code, 'message': message});
-  }
-
-  // ── Deck builder ──────────────────────────────────────────────────────────
-
-  /// Returns a freshly shuffled 54-card deck with stable, human-readable IDs
-  /// that match the client's [OfflineGameState.buildShuffledDeck] format.
-  List<CardModel> _buildShuffledDeck() {
-    const ranks = [
-      Rank.two, Rank.three, Rank.four, Rank.five, Rank.six, Rank.seven,
-      Rank.eight, Rank.nine, Rank.ten, Rank.jack, Rank.queen, Rank.king,
-      Rank.ace,
-    ];
-    const suits = [Suit.spades, Suit.hearts, Suit.clubs, Suit.diamonds];
-
-    final deck = <CardModel>[];
-    for (final suit in suits) {
-      for (final rank in ranks) {
-        deck.add(CardModel(id: '${rank.name}_${suit.name}', rank: rank, suit: suit));
-      }
-    }
-    deck.add(const CardModel(id: 'joker_r', rank: Rank.joker, suit: Suit.hearts));
-    deck.add(const CardModel(id: 'joker_b', rank: Rank.joker, suit: Suit.spades));
-
-    // Fisher-Yates shuffle
-    final rng = math.Random();
-    for (int i = deck.length - 1; i > 0; i--) {
-      final j = rng.nextInt(i + 1);
-      final tmp = deck[i];
-      deck[i] = deck[j];
-      deck[j] = tmp;
-    }
-    return deck;
   }
 
   // ── Position helper ───────────────────────────────────────────────────────

@@ -5,7 +5,6 @@ import 'package:last_cards/core/services/audio_service.dart';
 import 'package:last_cards/services/audio_service.dart' as low_level;
 import 'package:last_cards/services/game_sound.dart';
 import 'package:last_cards/shared/engine/game_engine.dart';
-import 'package:last_cards/core/models/player_model.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers

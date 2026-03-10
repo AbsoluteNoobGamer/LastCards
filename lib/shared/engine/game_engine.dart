@@ -8,6 +8,7 @@ import '../rules/pickup_chain_rules.dart';
 
 export '../models/card_model.dart';
 export '../models/game_state_model.dart';
+export '../models/player_model.dart';
 export '../rules/card_rules.dart' show JokerPlayContext, jokerPlayContextFromCardsPlayed;
 
 // ── Play validation ────────────────────────────────────────────────────────────
@@ -586,4 +587,89 @@ String nextPlayerId({
   }
 
   return players[next].id;
+}
+
+// ── Shared deck builder ───────────────────────────────────────────────────────
+
+/// Returns a freshly shuffled 54-card deck with stable, human-readable IDs.
+///
+/// Contains 52 standard cards (all suits × all non-joker ranks) plus two
+/// Jokers (`joker_r` hearts, `joker_b` spades). Used by both the offline
+/// client and the multiplayer server so card IDs are always in sync.
+List<CardModel> buildShuffledDeck() {
+  const ranks = [
+    Rank.two, Rank.three, Rank.four, Rank.five, Rank.six, Rank.seven,
+    Rank.eight, Rank.nine, Rank.ten, Rank.jack, Rank.queen, Rank.king,
+    Rank.ace,
+  ];
+  const suits = [Suit.spades, Suit.hearts, Suit.clubs, Suit.diamonds];
+
+  final deck = <CardModel>[];
+  for (final suit in suits) {
+    for (final rank in ranks) {
+      deck.add(CardModel(
+        id: '${rank.name}_${suit.name}',
+        rank: rank,
+        suit: suit,
+      ));
+    }
+  }
+  deck.add(const CardModel(id: 'joker_r', rank: Rank.joker, suit: Suit.hearts));
+  deck.add(const CardModel(id: 'joker_b', rank: Rank.joker, suit: Suit.spades));
+
+  // Fisher-Yates shuffle
+  final rng = math.Random();
+  for (int i = deck.length - 1; i > 0; i--) {
+    final j = rng.nextInt(i + 1);
+    final tmp = deck[i];
+    deck[i] = deck[j];
+    deck[j] = tmp;
+  }
+  return deck;
+}
+
+// ── Shared turn advancement ───────────────────────────────────────────────────
+
+/// Advances to the next player and resets all per-turn state fields.
+///
+/// Supply [nextId] to override the auto-computed next player — useful when
+/// callers need to apply tournament or session-specific override logic
+/// (e.g. `_resolveTournamentNextPlayerId`) before invoking this function.
+///
+/// Resets: [currentPlayerId], [actionsThisTurn], [cardsPlayedThisTurn],
+/// [lastPlayedThisTurn], [activeSkipCount], [preTurnCentreSuit],
+/// and [queenSuitLock].
+GameState advanceTurn(GameState state, {String? nextId}) {
+  final id = nextId ?? nextPlayerId(state: state);
+  return state.copyWith(
+    currentPlayerId: id,
+    actionsThisTurn: 0,
+    cardsPlayedThisTurn: 0,
+    lastPlayedThisTurn: null,
+    activeSkipCount: 0,
+    preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
+    queenSuitLock: null,
+  );
+}
+
+// ── Shared invalid-play penalty ───────────────────────────────────────────────
+
+/// Draws 2 cards as an invalid-play penalty for [playerId] and restores any
+/// [GameState.activePenaltyCount] that [applyDraw] would otherwise clear.
+///
+/// An invalid play must not cancel an ongoing 2/Jack penalty chain.
+/// Does NOT advance the turn — callers should call [advanceTurn] afterwards.
+GameState applyInvalidPlayPenalty({
+  required GameState state,
+  required String playerId,
+  required List<CardModel> Function(int n) cardFactory,
+}) {
+  final savedPenalty = state.activePenaltyCount;
+  final after = applyDraw(
+    state: state,
+    playerId: playerId,
+    count: 2,
+    cardFactory: cardFactory,
+  );
+  return after.copyWith(activePenaltyCount: savedPenalty);
 }
