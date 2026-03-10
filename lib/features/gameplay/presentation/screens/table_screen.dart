@@ -256,6 +256,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (!mounted) return;
       game_audio.AudioService.instance.playSound(GameSound.shuffleDeck);
       setState(() {
+        _onlineDiscardCount = 1;
         _reshuffleNotifier.value = !_reshuffleNotifier.value;
       });
       ScaffoldMessenger.of(context)

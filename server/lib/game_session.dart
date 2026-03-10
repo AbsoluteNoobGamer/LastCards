@@ -340,6 +340,14 @@ class GameSession {
       return;
     }
 
+    // A player's turn consists of ONE action — either playing OR drawing.
+    // If they have already played a card this turn, the draw action is blocked.
+    // EXCEPTION: If there is a Queen suit lock, they MUST draw if they cannot play.
+    if (_state.actionsThisTurn > 0 && _state.queenSuitLock == null) {
+      _sendError(playerId, 'already_acted', 'You have already acted this turn.');
+      return;
+    }
+
     final count =
         _state.activePenaltyCount > 0 ? _state.activePenaltyCount : 1;
 
