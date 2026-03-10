@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/models/game_event.dart';
+import '../../../../core/providers/connection_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../providers/online_session_provider.dart';
 import 'lobby_ready_screen.dart';
@@ -26,7 +28,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
   late AnimationController _rotateController;
   late AnimationController _pulseController;
   late List<bool> _slotsJoined;
-  Timer? _fillTimer;
+  StreamSubscription<GameEvent>? _eventSub;
 
   @override
   void initState() {
@@ -48,32 +50,31 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     // Slot 0 = local player (always joined)
     _slotsJoined = List.generate(playerCount, (i) => i == 0);
 
-    // Simulate other players joining every 1.5 s for demo
+    // Listen for real player_joined events from the server
+    final handler = ref.read(gameEventHandlerProvider);
     int nextSlot = 1;
-    _fillTimer = Timer.periodic(const Duration(milliseconds: 1500), (t) {
-      if (!mounted) {
-        t.cancel();
-        return;
-      }
-      if (nextSlot < playerCount) {
+    _eventSub = handler.events.listen((event) {
+      if (!mounted) return;
+      if (event is PlayerJoinedEvent && nextSlot < playerCount) {
         setState(() => _slotsJoined[nextSlot] = true);
         nextSlot++;
-      }
-      if (nextSlot >= playerCount) {
-        t.cancel();
-        Future.delayed(const Duration(milliseconds: 600), () {
-          if (!mounted) return;
-          Navigator.of(context).pushReplacement(
-            PageRouteBuilder(
-              pageBuilder: (_, __, ___) => const LobbyReadyScreen(),
-              transitionDuration: const Duration(milliseconds: 500),
-              transitionsBuilder: (_, animation, __, child) => FadeTransition(
-                opacity: animation,
-                child: child,
+        if (nextSlot >= playerCount) {
+          _eventSub?.cancel();
+          _eventSub = null;
+          Future.delayed(const Duration(milliseconds: 600), () {
+            if (!mounted) return;
+            Navigator.of(context).pushReplacement(
+              PageRouteBuilder(
+                pageBuilder: (_, __, ___) => const LobbyReadyScreen(),
+                transitionDuration: const Duration(milliseconds: 500),
+                transitionsBuilder: (_, animation, __, child) => FadeTransition(
+                  opacity: animation,
+                  child: child,
+                ),
               ),
-            ),
-          );
-        });
+            );
+          });
+        }
       }
     });
   }
@@ -82,7 +83,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
   void dispose() {
     _rotateController.dispose();
     _pulseController.dispose();
-    _fillTimer?.cancel();
+    _eventSub?.cancel();
     super.dispose();
   }
 

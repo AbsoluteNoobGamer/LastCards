@@ -8,10 +8,12 @@ import 'player_model.dart';
 ///
 /// Incoming (server → client): [StateSnapshotEvent], [CardPlayedEvent],
 ///   [CardDrawnEvent], [TurnChangedEvent], [PenaltyAppliedEvent],
-///   [PlayerJoinedEvent], [PlayerLeftEvent], [GameEndedEvent], [ErrorEvent]
+///   [PlayerJoinedEvent], [PlayerLeftEvent], [GameEndedEvent], [ErrorEvent],
+///   [SuitChoiceRequiredEvent], [JokerChoiceRequiredEvent],
+///   [TurnTimeoutEvent], [ReshuffleEvent]
 ///
 /// Outgoing (client → server): [PlayCardsAction], [DrawCardAction],
-///   [DeclareJokerAction], [DeclareSuitAction]
+///   [DeclareJokerAction], [SuitChoiceAction], [EndTurnAction]
 sealed class GameEvent {
   const GameEvent();
 
@@ -121,6 +123,62 @@ final class ErrorEvent extends GameEvent {
   String get type => 'error';
 }
 
+/// Room was created; server sends the room code to the creator.
+final class RoomCreatedEvent extends GameEvent {
+  final String roomCode;
+  const RoomCreatedEvent(this.roomCode);
+
+  @override
+  String get type => 'room_created';
+}
+
+/// Server requires the local player to choose a suit after playing an Ace.
+///
+/// The client should show a suit picker and respond with [SuitChoiceAction].
+final class SuitChoiceRequiredEvent extends GameEvent {
+  /// The card ID of the Ace that triggered this choice.
+  final String cardId;
+  const SuitChoiceRequiredEvent({required this.cardId});
+
+  @override
+  String get type => 'suit_choice_required';
+}
+
+/// Server requires the local player to declare a suit and rank for a Joker.
+///
+/// The client should show a joker picker and respond with [DeclareJokerAction].
+final class JokerChoiceRequiredEvent extends GameEvent {
+  /// The card ID of the Joker that triggered this choice.
+  final String jokerCardId;
+  const JokerChoiceRequiredEvent({required this.jokerCardId});
+
+  @override
+  String get type => 'joker_choice_required';
+}
+
+/// Server forced a draw and ended the current player's turn due to a timeout.
+final class TurnTimeoutEvent extends GameEvent {
+  /// The player whose turn timed out.
+  final String playerId;
+
+  /// Number of cards drawn as a timeout penalty (may be 0).
+  final int cardsDrawn;
+  const TurnTimeoutEvent({required this.playerId, required this.cardsDrawn});
+
+  @override
+  String get type => 'turn_timeout';
+}
+
+/// Server reshuffled the discard pile back into the draw pile.
+final class ReshuffleEvent extends GameEvent {
+  /// New draw pile size after reshuffle.
+  final int newDrawPileCount;
+  const ReshuffleEvent({required this.newDrawPileCount});
+
+  @override
+  String get type => 'reshuffle';
+}
+
 // ── Outgoing actions (client → server) ───────────────────────────────────────
 
 /// Play one or more cards (same-rank stack allowed).
@@ -175,6 +233,27 @@ final class DeclareJokerAction extends GameEvent {
       });
 }
 
+/// End the current turn and pass to the next player.
+final class EndTurnAction extends GameEvent {
+  const EndTurnAction();
+
+  @override
+  String get type => 'end_turn';
+
+  String toJsonString() => jsonEncode({'type': type});
+}
+
+/// Respond to a [SuitChoiceRequiredEvent] — declare which suit the Ace locks.
+final class SuitChoiceAction extends GameEvent {
+  final Suit suit;
+  const SuitChoiceAction({required this.suit});
+
+  @override
+  String get type => 'suit_choice';
+
+  String toJsonString() => jsonEncode({'type': type, 'suit': suit.name});
+}
+
 // ── Event parsing ─────────────────────────────────────────────────────────────
 
 /// Parse a raw JSON string from the server into a [GameEvent].
@@ -219,6 +298,21 @@ GameEvent parseServerEvent(String raw) {
         ),
       'player_left' => PlayerLeftEvent(json['playerId'] as String),
       'game_ended' => GameEndedEvent(json['winnerId'] as String),
+      'room_created' => RoomCreatedEvent(
+          json['roomCode'] as String? ?? ''),
+      'suit_choice_required' => SuitChoiceRequiredEvent(
+          cardId: json['cardId'] as String? ?? '',
+        ),
+      'joker_choice_required' => JokerChoiceRequiredEvent(
+          jokerCardId: json['jokerCardId'] as String? ?? '',
+        ),
+      'turn_timeout' => TurnTimeoutEvent(
+          playerId: json['playerId'] as String? ?? '',
+          cardsDrawn: json['cardsDrawn'] as int? ?? 0,
+        ),
+      'reshuffle' => ReshuffleEvent(
+          newDrawPileCount: json['newDrawPileCount'] as int? ?? 0,
+        ),
       'error' => ErrorEvent(
           code: json['code'] as String? ?? 'unknown',
           message: json['message'] as String? ?? 'An error occurred.',

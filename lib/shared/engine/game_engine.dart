@@ -5,8 +5,6 @@ import '../models/card_model.dart';
 import '../models/game_state_model.dart';
 import '../rules/card_rules.dart';
 import '../rules/pickup_chain_rules.dart';
-import '../../services/audio_service.dart';
-import '../../services/game_sound.dart';
 
 export '../models/card_model.dart';
 export '../models/game_state_model.dart';
@@ -354,18 +352,7 @@ GameState applyPlay({
     queenSuitLock: null,
   );
 
-  if (cards.isNotEmpty) {
-    unawaited(AudioService.instance.playSound(GameSound.cardPlace));
-    for (final card in cards) {
-      final specialSound = _specialSoundFor(card);
-      if (specialSound != null) {
-        unawaited(AudioService.instance.playSound(specialSound));
-      }
-    }
-  }
-
-  // A declaredSuit is only honored if the Ace was played as a Wild Card
-  // (i.e., it's the very first card of the turn and the first card of this play).
+  // Ace declaration and special effects (sound is played by the UI layer).
   final isWildAcePlay =
       state.actionsThisTurn == 0 && cards.first.effectiveRank == Rank.ace;
 
@@ -546,12 +533,6 @@ GameState applyDraw({
   required List<CardModel> Function(int n) cardFactory,
 }) {
   final drawn = cardFactory(count);
-  if (drawn.isNotEmpty) {
-    unawaited(AudioService.instance.playSound(GameSound.cardDraw));
-    if (state.activePenaltyCount > 0) {
-      unawaited(AudioService.instance.playSound(GameSound.penaltyDraw));
-    }
-  }
   return state.copyWith(
     players: state.players.map((p) {
       if (p.id != playerId) return p;
@@ -562,29 +543,6 @@ GameState applyDraw({
     activePenaltyCount: 0,
     actionsThisTurn: state.actionsThisTurn + 1,
   );
-}
-
-GameSound? _specialSoundFor(CardModel card) {
-  switch (card.effectiveRank) {
-    case Rank.two:
-      return GameSound.specialTwo;
-    case Rank.jack:
-      return card.isBlackJack
-          ? GameSound.specialBlackJack
-          : GameSound.specialRedJack;
-    case Rank.king:
-      return GameSound.specialKing;
-    case Rank.ace:
-      return GameSound.specialAce;
-    case Rank.queen:
-      return GameSound.specialQueen;
-    case Rank.eight:
-      return GameSound.specialEight;
-    case Rank.joker:
-      return GameSound.specialJoker;
-    default:
-      return null;
-  }
 }
 
 // ── Turn advancement ──────────────────────────────────────────────────────────

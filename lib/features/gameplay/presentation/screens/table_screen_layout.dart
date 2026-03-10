@@ -82,7 +82,8 @@ class _TableLayout extends StatelessWidget {
       }).toList();
     }
 
-    // Local player is always at TablePosition.bottom
+    // Local player is always at TablePosition.bottom (in online mode the server
+    // sends each client with themselves at bottom).
     final localPlayer = players.firstWhere(
       (p) => p.tablePosition == TablePosition.bottom,
       orElse: () => players.isNotEmpty ? players.first : _emptyLocal,
