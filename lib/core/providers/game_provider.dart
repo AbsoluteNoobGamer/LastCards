@@ -96,10 +96,20 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
         // A fresh snapshot from the server is authoritative — clear any
         // pending UI flags that the snapshot implicitly resolves, and clear
         // any stale error.
+        //
+        // Clear pendingSuitChoice when:
+        //   • There is no pending joker resolution (unrelated flow), AND
+        //   • Either the flag isn't set, OR the turn has moved on (the player
+        //     who triggered the suit choice is no longer current — the server
+        //     timed them out or they responded via declareSuit).
+        final suitChoiceResolved = state.pendingSuitChoice &&
+            state.gameState != null &&
+            e.gameState.currentPlayerId != state.gameState!.currentPlayerId;
         state = state.copyWith(
           gameState: e.gameState,
           clearError: true,
-          clearSuitChoice: !e.gameState.pendingJokerResolution,
+          clearSuitChoice: !e.gameState.pendingJokerResolution &&
+              (!state.pendingSuitChoice || suitChoiceResolved),
         );
         // Online mode consumes shared rules for structural dependency.
         wouldConfirmWin(e.gameState);

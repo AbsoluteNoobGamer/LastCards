@@ -92,7 +92,14 @@ class RoomManager {
     final roomCode = _playerRooms.remove(ws);
     final playerId = _playerIds.remove(ws);
     if (roomCode != null && playerId != null) {
-      _rooms[roomCode]?.removePlayer(playerId);
+      final session = _rooms[roomCode];
+      session?.removePlayer(playerId);
+
+      // Clean up empty rooms to prevent memory leaks on long-running servers.
+      if (session != null &&
+          !_playerRooms.containsValue(roomCode)) {
+        _rooms.remove(roomCode);
+      }
     }
   }
 }

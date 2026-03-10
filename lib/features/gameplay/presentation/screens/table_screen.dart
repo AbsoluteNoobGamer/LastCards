@@ -1013,6 +1013,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   /// Online play: same rules as single-player — validate, then Joker/Ace flows or send play.
   Future<void> _onPlayTap({required String cardId}) async {
+    if (!ref.read(isLocalTurnProvider)) return;
     final gameState = ref.read(gameStateProvider);
     if (gameState == null) return;
     final local = gameState.localPlayer;
