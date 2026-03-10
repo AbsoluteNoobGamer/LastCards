@@ -446,6 +446,7 @@ class GameSession {
       lastPlayedThisTurn: null,
       activeSkipCount: 0,
       preTurnCentreSuit: _state.discardTopCard?.effectiveSuit,
+      queenSuitLock: null,
     );
 
     _broadcast({
