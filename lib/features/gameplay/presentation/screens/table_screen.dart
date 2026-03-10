@@ -204,7 +204,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           .map((c) => MoveCardAction(card: c))
           .toList();
       setState(() {
-        _onlineDiscardCount++;
+        _onlineDiscardCount += e.cards.length;
         _pushMoveLog(MoveLogEntry.play(
           playerId: e.playerId,
           playerName: name,

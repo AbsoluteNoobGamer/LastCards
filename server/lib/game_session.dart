@@ -396,6 +396,10 @@ class GameSession {
     }
 
     _broadcastStateSnapshots();
+
+    // A draw always ends the turn — mirrors offline mode where every draw
+    // (voluntary or penalty) immediately advances to the next player.
+    _advanceTurn();
   }
 
   // ── declare_joker ─────────────────────────────────────────────────────────
