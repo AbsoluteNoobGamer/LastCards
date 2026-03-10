@@ -33,33 +33,16 @@ class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
     super.initState();
     final session = ref.read(tournamentSessionProvider);
 
-    if (session.type == TournamentType.vsAi) {
-      _engine = TournamentEngine.offline(
-        players: [
-          const TournamentPlayer(
-            id: OfflineGameState.localId,
-            displayName: 'You',
-            isAi: false,
-          )
-        ],
-        requiredPlayers: session.playerCount ?? 4,
-      );
-    } else {
-      // Local Multiplayer
-      final names = session.playerNames.take(session.playerCount ?? 4).toList();
-      final players = List.generate(
-        names.length,
-        (i) => TournamentPlayer(
-          id: i == 0 ? OfflineGameState.localId : 'local-player-${i + 1}',
-          displayName: names[i],
+    _engine = TournamentEngine.offline(
+      players: [
+        const TournamentPlayer(
+          id: OfflineGameState.localId,
+          displayName: 'You',
           isAi: false,
-        ),
-      );
-      _engine = TournamentEngine.offline(
-        players: players,
-        requiredPlayers: session.playerCount ?? 4,
-      );
-    }
+        )
+      ],
+      requiredPlayers: session.playerCount ?? 4,
+    );
   }
 
   @override
