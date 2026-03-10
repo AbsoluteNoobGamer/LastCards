@@ -100,11 +100,17 @@ class TournamentSubModeSheet extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 children: GameSubMode.values.map((subMode) {
+                  // Online Bust isn't wired up yet — gate it behind Coming Soon.
+                  final isComingSoon = subMode == GameSubMode.bust &&
+                      type == TournamentType.localMultiplayer;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _SubModeCard(
                       subMode: subMode,
-                      onTap: () => _onSubModeSelected(context, ref, subMode),
+                      isComingSoon: isComingSoon,
+                      onTap: isComingSoon
+                          ? null
+                          : () => _onSubModeSelected(context, ref, subMode),
                     ),
                   );
                 }).toList(),
@@ -166,10 +172,15 @@ class TournamentSubModeSheet extends ConsumerWidget {
 // ── Sub-mode card ─────────────────────────────────────────────────────────────
 
 class _SubModeCard extends ConsumerStatefulWidget {
-  const _SubModeCard({required this.subMode, required this.onTap});
+  const _SubModeCard({
+    required this.subMode,
+    required this.onTap,
+    this.isComingSoon = false,
+  });
 
   final GameSubMode subMode;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final bool isComingSoon;
 
   @override
   ConsumerState<_SubModeCard> createState() => _SubModeCardState();
@@ -182,100 +193,138 @@ class _SubModeCardState extends ConsumerState<_SubModeCard> {
   @override
   Widget build(BuildContext context) {
     final theme = ref.watch(themeProvider).theme;
+    final isComingSoon = widget.isComingSoon;
 
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() {
-        _isHovered = false;
-        _isPressed = false;
-      }),
-      cursor: SystemMouseCursors.click,
-      child: AnimatedScale(
-        duration: const Duration(milliseconds: 180),
-        scale: _isPressed ? 0.97 : (_isHovered ? 1.02 : 1.0),
-        curve: Curves.easeOutCubic,
-        child: GestureDetector(
-          onTapDown: (_) => setState(() => _isPressed = true),
-          onTapUp: (_) {
-            setState(() => _isPressed = false);
-            widget.onTap();
-          },
-          onTapCancel: () => setState(() => _isPressed = false),
-          child: Container(
-            width: double.infinity,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-            decoration: BoxDecoration(
-              color: _isHovered
-                  ? theme.accentPrimary.withValues(alpha: 0.08)
-                  : theme.backgroundMid,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
+      onEnter: isComingSoon
+          ? null
+          : (_) => setState(() => _isHovered = true),
+      onExit: isComingSoon
+          ? null
+          : (_) => setState(() {
+                _isHovered = false;
+                _isPressed = false;
+              }),
+      cursor:
+          isComingSoon ? SystemMouseCursors.basic : SystemMouseCursors.click,
+      child: Opacity(
+        opacity: isComingSoon ? 0.5 : 1.0,
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 180),
+          scale: _isPressed ? 0.97 : (_isHovered ? 1.02 : 1.0),
+          curve: Curves.easeOutCubic,
+          child: GestureDetector(
+            onTapDown:
+                isComingSoon ? null : (_) => setState(() => _isPressed = true),
+            onTapUp: isComingSoon
+                ? null
+                : (_) {
+                    setState(() => _isPressed = false);
+                    widget.onTap?.call();
+                  },
+            onTapCancel:
+                isComingSoon ? null : () => setState(() => _isPressed = false),
+            child: Container(
+              width: double.infinity,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              decoration: BoxDecoration(
                 color: _isHovered
-                    ? theme.accentPrimary.withValues(alpha: 0.7)
-                    : theme.accentDark.withValues(alpha: 0.4),
-                width: 1.5,
+                    ? theme.accentPrimary.withValues(alpha: 0.08)
+                    : theme.backgroundMid,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: _isHovered
+                      ? theme.accentPrimary.withValues(alpha: 0.7)
+                      : theme.accentDark.withValues(alpha: 0.4),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.accentPrimary.withValues(alpha: 0.06),
+                    blurRadius: 12,
+                    spreadRadius: 0,
+                  ),
+                ],
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: theme.accentPrimary.withValues(alpha: 0.06),
-                  blurRadius: 12,
-                  spreadRadius: 0,
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: theme.accentPrimary.withValues(alpha: 0.10),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: theme.accentPrimary.withValues(alpha: 0.25),
-                      width: 1,
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: theme.accentPrimary.withValues(alpha: 0.10),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: theme.accentPrimary.withValues(alpha: 0.25),
+                        width: 1,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        widget.subMode.emoji,
+                        style: const TextStyle(fontSize: 22),
+                      ),
                     ),
                   ),
-                  child: Center(
-                    child: Text(
-                      widget.subMode.emoji,
-                      style: const TextStyle(fontSize: 22),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              widget.subMode.displayName,
+                              style: GoogleFonts.outfit(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: theme.textPrimary,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            if (isComingSoon) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color:
+                                      theme.accentDark.withValues(alpha: 0.25),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'COMING SOON',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                    color: theme.textSecondary,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          widget.subMode.description,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: theme.textSecondary,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.subMode.displayName,
-                        style: GoogleFonts.outfit(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: theme.textPrimary,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        widget.subMode.description,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: theme.textSecondary,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                    ],
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: theme.accentPrimary.withValues(alpha: 0.6),
+                    size: 22,
                   ),
-                ),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: theme.accentPrimary.withValues(alpha: 0.6),
-                  size: 22,
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
