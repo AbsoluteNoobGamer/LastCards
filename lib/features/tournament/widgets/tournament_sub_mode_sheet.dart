@@ -100,12 +100,17 @@ class TournamentSubModeSheet extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 children: GameSubMode.values.map((subMode) {
+                  // Online Bust isn't wired up yet — gate it behind Coming Soon.
+                  final isComingSoon = subMode == GameSubMode.bust &&
+                      type == TournamentType.online;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _SubModeCard(
                       subMode: subMode,
-                      onTap: () => _onSubModeSelected(context, ref, subMode),
-                    ),
+                      isComingSoon: isComingSoon,
+                      onTap: isComingSoon
+                          ? null
+                          : () => _onSubModeSelected(context, ref, subMode),
                   );
                 }).toList(),
               ),
