@@ -239,7 +239,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     );
   }
 
-  void _onJoin() {
+  Future<void> _onJoin() async {
     final code = _codeController.text.trim();
     if (code.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -249,14 +249,25 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     }
     setState(() => _pendingJoin = true);
     final wsClient = ref.read(wsClientProvider);
-    wsClient.connect();
-    Future.delayed(const Duration(milliseconds: 500), () {
-      wsClient.send(jsonEncode({
-        'type': 'join_room',
-        'roomCode': code,
-        'displayName': _nameController.text.trim(),
-      }));
-    });
+    try {
+      await wsClient.connect();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _pendingJoin = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Connection failed: $e'),
+          backgroundColor: const Color(0xFFB71C1C),
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+    wsClient.send(jsonEncode({
+      'type': 'join_room',
+      'roomCode': code,
+      'displayName': _nameController.text.trim(),
+    }));
     // If no response after 8s, show hint (wrong server IP or room code).
     Future.delayed(const Duration(seconds: 8), () {
       if (!mounted || !_pendingJoin) return;
@@ -273,22 +284,38 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     });
   }
 
-  void _onCreate() {
+  Future<void> _onCreate() async {
     final wsClient = ref.read(wsClientProvider);
-    wsClient.connect();
-    Future.delayed(const Duration(milliseconds: 500), () {
-      wsClient.send(jsonEncode({
-        'type': 'create_room',
-        'displayName': _nameController.text.trim(),
-      }));
-    });
+    try {
+      await wsClient.connect();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Connection failed: $e'),
+          backgroundColor: const Color(0xFFB71C1C),
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+    wsClient.send(jsonEncode({
+      'type': 'create_room',
+      'displayName': _nameController.text.trim(),
+    }));
     // Navigation happens when room_created is received (see initState listener).
   }
 
   void _toggleReady() {
-    setState(() => _isReady = !_isReady);
-    final wsClient = ref.read(wsClientProvider);
-    wsClient.send(jsonEncode({'type': 'ready'}));
+    final willBeReady = !_isReady;
+    setState(() => _isReady = willBeReady);
+    // Only send the 'ready' signal when toggling ON — the server has no
+    // concept of un-readying, so sending on toggle-off would start the game
+    // prematurely.
+    if (willBeReady) {
+      final wsClient = ref.read(wsClientProvider);
+      wsClient.send(jsonEncode({'type': 'ready'}));
+    }
   }
 
   void _enterSelectedMode() {

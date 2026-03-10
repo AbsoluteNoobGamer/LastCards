@@ -199,12 +199,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (!mounted) return;
       final state = ref.read(gameStateProvider);
       if (state == null) return;
-      setState(() => _onlineDiscardCount++);
       final name = state.playerById(e.playerId)?.displayName ?? e.playerId;
       final actions = e.cards
           .map((c) => MoveCardAction(card: c))
           .toList();
       setState(() {
+        _onlineDiscardCount++;
         _pushMoveLog(MoveLogEntry.play(
           playerId: e.playerId,
           playerName: name,
