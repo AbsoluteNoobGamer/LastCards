@@ -89,6 +89,14 @@ class GameSession {
   // ── Lobby ─────────────────────────────────────────────────────────────────
 
   String addPlayer(dynamic ws, String displayName) {
+    if (_started) {
+      ws.sink.add('{"type":"error","code":"game_started","message":"Game already in progress."}');
+      return '';
+    }
+    if (_players.length >= 4) {
+      ws.sink.add('{"type":"error","code":"room_full","message":"Room is full (max 4 players)."}');
+      return '';
+    }
     final id = 'player-${++_playerCounter}';
     _players[id] = _ConnectedPlayer(ws: ws, displayName: displayName);
 

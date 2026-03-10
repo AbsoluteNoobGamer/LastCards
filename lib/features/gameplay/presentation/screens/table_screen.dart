@@ -554,6 +554,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       cardFactory: _makeCards,
     );
 
+    // Play draw sound for timeout penalty.
+    game_audio.AudioService.instance.playSound(GameSound.cardDraw);
+
     // End turn automatically
     var nextId = nextPlayerId(state: newState);
     nextId = _resolveTournamentNextPlayerId(newState, nextId);
@@ -705,28 +708,60 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     // Online: show win overlay when game ends (same as single-player).
     ref.listen<GameState?>(gameStateProvider, (prev, next) {
       if (next == null || next.phase != GamePhase.ended ||
-          next.winnerId == null || _onlineWinDialogShown || !mounted) return;
-      final winner = next.playerById(next.winnerId!);
-      if (winner == null) return;
+          _onlineWinDialogShown || !mounted) return;
+      // winnerId may be null (not yet set) or empty (player disconnected).
+      final hasWinner = next.winnerId != null && next.winnerId!.isNotEmpty;
+      final winner = hasWinner ? next.playerById(next.winnerId!) : null;
       setState(() => _onlineWinDialogShown = true);
-      game_audio.AudioService.instance.playSound(GameSound.playerWin);
       final navigator = Navigator.of(context);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        showDialog<void>(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => _WinDialog(
-            winnerName: winner.displayName,
-            isLocalWin: next.localPlayer?.id == next.winnerId,
-            onPlayAgain: () {
-              navigator.pop(); // close dialog
-              navigator.pop(); // leave table
-            },
-            isOnlineMode: true,
-          ),
-        );
-      });
+      if (hasWinner && winner != null) {
+        game_audio.AudioService.instance.playSound(GameSound.playerWin);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => _WinDialog(
+              winnerName: winner.displayName,
+              isLocalWin: next.localPlayer?.id == next.winnerId,
+              onPlayAgain: () {
+                navigator.pop(); // close dialog
+                navigator.pop(); // leave table
+              },
+              isOnlineMode: true,
+            ),
+          );
+        });
+      } else {
+        // Game ended without a winner (e.g. player disconnected).
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => AlertDialog(
+              backgroundColor: Colors.grey.shade900,
+              title: const Text(
+                'Game Ended',
+                style: TextStyle(color: Colors.white),
+              ),
+              content: const Text(
+                'A player disconnected. The game has ended.',
+                style: TextStyle(color: Colors.white70),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    navigator.pop(); // close dialog
+                    navigator.pop(); // leave table
+                  },
+                  child: const Text('BACK TO MENU'),
+                ),
+              ],
+            ),
+          );
+        });
+      }
     });
 
     // Online: server requests suit choice after local player played an Ace.
@@ -1185,6 +1220,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       );
       _engineTimer.cancel();
 
+      // Play card sounds for Joker play.
+      game_audio.AudioService.instance.playSound(GameSound.cardPlace);
+      game_audio.AudioService.instance.playSound(GameSound.specialJoker);
+
       _discardPile.add(assignedJoker);
 
       final localInNew = newState.players
@@ -1217,6 +1256,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     var newState =
         applyPlay(state: _offlineState, playerId: playerId, cards: played);
     _engineTimer.cancel();
+
+    // Play card sounds (moved from game_engine to UI layer for server compat).
+    game_audio.AudioService.instance.playSound(GameSound.cardPlace);
+    for (final c in played) {
+      final s = _offlineSpecialSoundFor(c);
+      if (s != null) game_audio.AudioService.instance.playSound(s);
+    }
 
     _discardPile.addAll(played);
 
@@ -1272,6 +1318,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       count: drawCount,
       cardFactory: _makeCards,
     );
+
+    // Play draw sound for penalty.
+    game_audio.AudioService.instance.playSound(GameSound.cardDraw);
+    game_audio.AudioService.instance.playSound(GameSound.penaltyDraw);
 
     // applyDraw clears activePenaltyCount — restore the pre-existing penalty
     // so an ongoing 2/Jack penalty chain is not inadvertently cancelled.
@@ -1345,6 +1395,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       count: drawCount,
       cardFactory: _makeCards,
     );
+
+    // Play draw sounds (moved from game_engine to UI layer for server compat).
+    game_audio.AudioService.instance.playSound(GameSound.cardDraw);
+    if (isPenaltyDraw) {
+      game_audio.AudioService.instance.playSound(GameSound.penaltyDraw);
+    }
 
     final localAfterDraw = newState.players
         .where((p) => p.tablePosition == TablePosition.bottom)
@@ -1935,6 +1991,29 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _moveLogEntries.insert(0, entry);
     if (_moveLogEntries.length > 3) {
       _moveLogEntries.removeRange(3, _moveLogEntries.length);
+    }
+  }
+
+  static GameSound? _offlineSpecialSoundFor(CardModel card) {
+    switch (card.effectiveRank) {
+      case Rank.two:
+        return GameSound.specialTwo;
+      case Rank.jack:
+        return card.isBlackJack
+            ? GameSound.specialBlackJack
+            : GameSound.specialRedJack;
+      case Rank.king:
+        return GameSound.specialKing;
+      case Rank.ace:
+        return GameSound.specialAce;
+      case Rank.queen:
+        return GameSound.specialQueen;
+      case Rank.eight:
+        return GameSound.specialEight;
+      case Rank.joker:
+        return GameSound.specialJoker;
+      default:
+        return null;
     }
   }
 

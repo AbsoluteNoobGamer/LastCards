@@ -76,6 +76,7 @@ class RoomManager {
     }
 
     final playerId = session.addPlayer(ws, displayName);
+    if (playerId.isEmpty) return; // rejected (room full or game started)
     _playerRooms[ws] = code;
     _playerIds[ws] = playerId;
   }
