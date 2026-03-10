@@ -54,23 +54,23 @@ enum TournamentFormat {
 
 enum TournamentType {
   vsAi,
-  localMultiplayer;
+  online;
 
   String get displayName => switch (this) {
         TournamentType.vsAi => 'Single Player',
-        TournamentType.localMultiplayer => 'Online',
+        TournamentType.online => 'Online',
       };
 
   String get description => switch (this) {
         TournamentType.vsAi =>
           'Compete against AI opponents across multiple rounds',
-        TournamentType.localMultiplayer =>
+        TournamentType.online =>
           'Play tournament against real players online',
       };
 
   String get emoji => switch (this) {
         TournamentType.vsAi => '👤',
-        TournamentType.localMultiplayer => '🌐',
+        TournamentType.online => '🌐',
       };
 }
 

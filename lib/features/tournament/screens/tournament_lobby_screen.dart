@@ -9,6 +9,7 @@ import '../../../../services/audio_service.dart';
 import '../../../../services/game_sound.dart';
 import '../../../../tournament/tournament_engine.dart';
 import '../../gameplay/presentation/screens/table_screen.dart';
+import '../../online/screens/matchmaking_screen.dart';
 import '../providers/tournament_session_provider.dart';
 import 'elimination_screen.dart';
 import 'round_summary_screen.dart';
@@ -25,6 +26,7 @@ class TournamentLobbyScreen extends ConsumerStatefulWidget {
 
 class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
   late final TournamentEngine _engine;
+  late final bool _isOnline;
   Map<String, String> _playerIdByName = {};
   bool _isDisposed = false;
 
@@ -32,8 +34,12 @@ class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
   void initState() {
     super.initState();
     final session = ref.read(tournamentSessionProvider);
+    _isOnline = session.type == TournamentType.online;
 
-    if (session.type == TournamentType.vsAi) {
+    // Online tournaments are driven by the server via MatchmakingScreen →
+    // LobbyReadyScreen → TournamentScreen(isOnline: true). We only need a
+    // local engine for the offline (vs AI) path.
+    if (!_isOnline) {
       _engine = TournamentEngine.offline(
         players: [
           const TournamentPlayer(
@@ -45,19 +51,15 @@ class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
         requiredPlayers: session.playerCount ?? 4,
       );
     } else {
-      // Local Multiplayer
-      final names = session.playerNames.take(session.playerCount ?? 4).toList();
-      final players = List.generate(
-        names.length,
-        (i) => TournamentPlayer(
-          id: i == 0 ? OfflineGameState.localId : 'local-player-${i + 1}',
-          displayName: names[i],
-          isAi: false,
-        ),
-      );
+      // Placeholder — never used for online path.
       _engine = TournamentEngine.offline(
-        players: players,
-        requiredPlayers: session.playerCount ?? 4,
+        players: [
+          const TournamentPlayer(
+            id: OfflineGameState.localId,
+            displayName: 'You',
+            isAi: false,
+          )
+        ],
       );
     }
   }
@@ -70,8 +72,32 @@ class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
   }
 
   void _onBeginTournament() {
+    if (_isOnline) {
+      _launchOnlineTournament();
+      return;
+    }
     _engine.startTournament();
     _runTournamentLoop();
+  }
+
+  void _launchOnlineTournament() {
+    // Ensure the format is set so LobbyReadyScreen routes to TournamentScreen.
+    final session = ref.read(tournamentSessionProvider);
+    if (session.format == null) {
+      ref
+          .read(tournamentSessionProvider.notifier)
+          .setFormat(TournamentFormat.knockout);
+    }
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => const MatchmakingScreen(),
+        transitionDuration: const Duration(milliseconds: 400),
+        transitionsBuilder: (_, animation, __, child) => FadeTransition(
+          opacity: animation,
+          child: child,
+        ),
+      ),
+    );
   }
 
   Future<void> _runTournamentLoop() async {
@@ -353,65 +379,101 @@ class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
               ),
               const SizedBox(height: 48),
 
-              // Player Grid
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 1.2,
+              // Player Grid (offline only — online players are matched server-side)
+              if (!_isOnline)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: GridView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 1.2,
+                      ),
+                      itemCount: _engine.allPlayers.length,
+                      itemBuilder: (context, index) {
+                        final player = _engine.allPlayers[index];
+                        return Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: theme.surfacePanel,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: theme.accentDark.withValues(alpha: 0.3),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CircleAvatar(
+                                radius: 24,
+                                backgroundColor: theme.backgroundDeep,
+                                child: Icon(
+                                  player.isAi
+                                      ? Icons.smart_toy_rounded
+                                      : Icons.person_rounded,
+                                  color: theme.accentPrimary,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                player.displayName,
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: theme.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
-                    itemCount: _engine.allPlayers.length,
-                    itemBuilder: (context, index) {
-                      final player = _engine.allPlayers[index];
-                      return Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: theme.surfacePanel,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: theme.accentDark.withValues(alpha: 0.3),
-                            width: 1.5,
+                  ),
+                )
+              else
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.public_rounded,
+                          size: 64,
+                          color: theme.accentPrimary.withValues(alpha: 0.6),
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Online Tournament',
+                          style: GoogleFonts.outfit(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: theme.textPrimary,
                           ),
                         ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircleAvatar(
-                              radius: 24,
-                              backgroundColor: theme.backgroundDeep,
-                              child: Icon(
-                                player.isAi
-                                    ? Icons.smart_toy_rounded
-                                    : Icons.person_rounded,
-                                color: theme.accentPrimary,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              player.displayName,
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.outfit(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: theme.textPrimary,
-                              ),
-                            ),
-                          ],
+                        const SizedBox(height: 8),
+                        Text(
+                          'You\'ll be matched with ${(session.playerCount ?? 4) - 1} other players online.\nThe tournament bracket is managed by the server.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: theme.textSecondary,
+                            height: 1.5,
+                          ),
                         ),
-                      );
-                    },
+                      ],
+                    ),
                   ),
                 ),
-              ),
 
               // CTA
               Padding(
@@ -445,7 +507,7 @@ class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              'Begin Tournament',
+                              _isOnline ? 'Find Match' : 'Begin Tournament',
                               style: GoogleFonts.outfit(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
@@ -455,7 +517,9 @@ class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
                             ),
                             const SizedBox(width: 8),
                             Icon(
-                              Icons.play_arrow_rounded,
+                              _isOnline
+                                  ? Icons.search_rounded
+                                  : Icons.play_arrow_rounded,
                               size: 24,
                               color: theme.backgroundDeep,
                             ),

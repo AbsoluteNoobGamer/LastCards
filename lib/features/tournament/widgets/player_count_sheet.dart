@@ -152,7 +152,7 @@ class _TournamentPlayerCountSheetState
         } else {
           // Online knockout: go back to sub-mode sheet so user can switch
           // between Knockout and Bust without restarting the whole flow.
-          return TournamentSubModeSheet(type: TournamentType.localMultiplayer);
+          return TournamentSubModeSheet(type: TournamentType.online);
         }
       },
     );

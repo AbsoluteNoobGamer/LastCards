@@ -16,9 +16,9 @@ import 'tournament_type_sheet.dart';
 /// Routes to the appropriate next sheet based on the combination of
 /// [TournamentType] and [GameSubMode]:
 ///
-/// | Sub-mode | vsAi                               | localMultiplayer             |
-/// |----------|------------------------------------|------------------------------|
-/// | Knockout | [TournamentDifficultySelectionSheet]| [TournamentPlayerCountSheet] |
+/// | Sub-mode | vsAi                               | online                            |
+/// |----------|------------------------------------|-----------------------------------|
+/// | Knockout | [TournamentDifficultySelectionSheet]| [TournamentPlayerCountSheet]      |
 /// | Bust     | [BustSetupSheet] (isOnline: false)  | [BustSetupSheet] (isOnline: true) |
 class TournamentSubModeSheet extends ConsumerWidget {
   const TournamentSubModeSheet({required this.type, super.key});
@@ -100,17 +100,11 @@ class TournamentSubModeSheet extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 children: GameSubMode.values.map((subMode) {
-                  // Online Bust isn't wired up yet — gate it behind Coming Soon.
-                  final isComingSoon = subMode == GameSubMode.bust &&
-                      type == TournamentType.localMultiplayer;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _SubModeCard(
                       subMode: subMode,
-                      isComingSoon: isComingSoon,
-                      onTap: isComingSoon
-                          ? null
-                          : () => _onSubModeSelected(context, ref, subMode),
+                      onTap: () => _onSubModeSelected(context, ref, subMode),
                     ),
                   );
                 }).toList(),
@@ -144,7 +138,7 @@ class TournamentSubModeSheet extends ConsumerWidget {
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (_) => BustSetupSheet(
-          isOnline: type == TournamentType.localMultiplayer,
+          isOnline: type == TournamentType.online,
         ),
       );
       return;
