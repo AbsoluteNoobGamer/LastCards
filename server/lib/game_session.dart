@@ -108,6 +108,20 @@ class GameSession {
   void removePlayer(String playerId) {
     _players.remove(playerId);
     _broadcast({'type': 'player_left', 'playerId': playerId});
+
+    // If the game is in progress, end it — removing a player's hand mid-game
+    // would corrupt the state, and the turn timer could fire for a ghost player.
+    if (_started && !_gameOver) {
+      _turnTimer?.cancel();
+      _gameOver = true;
+      _state = _state.copyWith(phase: GamePhase.ended);
+      _broadcast({
+        'type': 'game_ended',
+        'winnerId': '',
+        'reason': 'player_disconnected',
+        'disconnectedPlayerId': playerId,
+      });
+    }
   }
 
   void markReady(String playerId) {
