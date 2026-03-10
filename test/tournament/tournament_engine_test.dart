@@ -383,10 +383,14 @@ void main() {
 
       await tester.tap(find.text('Start Tournament'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       expect(finishCalls.length, 4);
       expect(finishCalls, ['You:1', 'Player 2:2', 'Player 3:3', 'Player 4:4']);
+
+      // Dismiss EliminationScreen to clean up the navigator stack.
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
     });
 
     testWidgets('standard win screen does NOT appear when isTournamentMode is true',
@@ -414,10 +418,14 @@ void main() {
 
       await tester.tap(find.text('Start Tournament'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       expect(capturedTournamentMode, isTrue);
       expect(find.text('PLAY AGAIN'), findsNothing);
+
+      // Dismiss EliminationScreen to clean up the navigator stack.
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
     });
 
     testWidgets('round summary screen appears after all 4 players have finished',
