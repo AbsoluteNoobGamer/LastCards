@@ -91,7 +91,7 @@ class _TournamentRoundSummaryScreenState
 
               // Content Body
               Expanded(
-                child: Padding(
+                child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: FadeTransition(
                     opacity: _fadeAnim,
@@ -186,7 +186,6 @@ class _TournamentRoundSummaryScreenState
                   ),
                 ),
               ),
-
               // Next Round CTA
               Padding(
                 padding: const EdgeInsets.all(24),

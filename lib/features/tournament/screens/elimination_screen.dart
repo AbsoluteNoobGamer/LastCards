@@ -59,7 +59,7 @@ class TournamentEliminationScreen extends ConsumerWidget {
 
               // Cards
               Expanded(
-                child: Padding(
+                child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Column(
                     children: [
@@ -155,7 +155,6 @@ class TournamentEliminationScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-
               // CTA
               Padding(
                 padding: const EdgeInsets.all(24),

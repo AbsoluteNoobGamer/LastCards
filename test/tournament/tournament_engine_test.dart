@@ -454,7 +454,11 @@ void main() {
 
       await tester.tap(find.text('Start Tournament'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+
+      // Dismiss EliminationScreen so flow reaches onRoundSummaryShown.
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       expect(summaryResult, isNotNull);
       expect(summaryResult!.roundNumber, 1);
@@ -499,13 +503,18 @@ void main() {
 
       await tester.tap(find.text('Start Tournament'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       // 3 callbacks fired; verify positions without depending on random AI names.
       expect(finishCalls.length, 3);
       expect(finishCalls[0], endsWith(':1'));
       expect(finishCalls[1], endsWith(':2'));
       expect(finishCalls[2], endsWith(':3'));
+
+      // Dismiss EliminationScreen so flow reaches onRoundSummaryShown.
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+
       expect(summaryResult, isNotNull);
       expect(summaryResult!.eliminatedPlayerId, 'tournament-ai-4');
     });
@@ -542,7 +551,11 @@ void main() {
 
       await tester.tap(find.text('Start Tournament'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+
+      // Dismiss EliminationScreen so flow reaches onRoundSummaryShown.
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       expect(summaryResult, isNotNull);
       expect(summaryResult!.eliminatedPlayerId, 'tournament-ai-4');

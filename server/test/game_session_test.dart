@@ -428,14 +428,12 @@ void main() {
   // ── end_turn ───────────────────────────────────────────────────────────────
 
   group('end_turn', () {
-    test('end_turn after draw broadcasts turn_changed', () {
+    test('draw_card broadcasts turn_changed (draw auto-advances turn)', () {
       final (:session, :p1ws, :p2ws, :p1Id, :p2Id) = _makeKnownGame();
+
       session.handleAction(p1Id, {'type': 'draw_card'});
 
-      p1ws.clear();
-      p2ws.clear();
-      session.handleAction(p1Id, {'type': 'end_turn'});
-
+      // A draw always ends the turn — turn_changed is broadcast immediately.
       expect(p1ws.lastOfType('turn_changed'), isNotNull);
       expect(p2ws.lastOfType('turn_changed'), isNotNull);
     });
