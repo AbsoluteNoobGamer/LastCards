@@ -6,8 +6,8 @@ import '../../../../core/providers/theme_provider.dart';
 import '../../online/screens/matchmaking_screen.dart';
 import '../providers/tournament_session_provider.dart';
 import '../screens/tournament_lobby_screen.dart';
+import 'difficulty_selection_sheet.dart';
 import 'player_count_sheet.dart';
-import 'tournament_type_sheet.dart';
 
 /// Bottom Sheet 4 (Single Player) / 3 (Online) — Format Selection
 ///
@@ -138,7 +138,7 @@ class _TournamentFormatSelectionSheetState
       backgroundColor: Colors.transparent,
       builder: (_) {
         if (session.type == TournamentType.vsAi) {
-          return const TournamentTypeSheet();
+          return const TournamentDifficultySelectionSheet();
         } else {
           return const TournamentPlayerCountSheet();
         }
