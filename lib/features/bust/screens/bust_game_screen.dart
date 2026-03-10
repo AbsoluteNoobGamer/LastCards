@@ -39,6 +39,7 @@ class BustGameScreen extends ConsumerStatefulWidget {
     super.key,
     required this.totalPlayers,
     this.aiDifficulty = AiDifficulty.medium,
+    this.isOnline = false,
     this.resumeState,
   });
 
@@ -46,7 +47,17 @@ class BustGameScreen extends ConsumerStatefulWidget {
   final int totalPlayers;
 
   /// AI difficulty — passed to [AiPlayerConfig].
+  /// Ignored when [isOnline] is true.
   final AiDifficulty aiDifficulty;
+
+  /// Whether this is an online Bust session (real players via server)
+  /// or an offline session (vs AI).
+  ///
+  /// When true, the game setup should use real player slots instead of AI
+  /// configs. Full online wiring is handled by the server's game_session.dart
+  /// which calls the same shared engine functions (validatePlay, applyPlay,
+  /// advanceTurn, etc.).
+  final bool isOnline;
 
   /// If non-null, resumes a game already in progress (subsequent rounds).
   final BustResumeState? resumeState;
@@ -376,6 +387,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
           aiConfigs: _aiConfigs,
           eliminationHistory: _eliminationHistory,
           localRoundStats: updatedLocalStats,
+          isOnline: widget.isOnline,
         ),
         transitionDuration: const Duration(milliseconds: 500),
         transitionsBuilder: (_, animation, __, child) => FadeTransition(

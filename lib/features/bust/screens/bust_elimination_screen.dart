@@ -26,6 +26,7 @@ class BustEliminationScreen extends ConsumerWidget {
     required this.aiConfigs,
     required this.eliminationHistory,
     required this.localRoundStats,
+    this.isOnline = false,
   });
 
   final BustRoundResult result;
@@ -40,6 +41,10 @@ class BustEliminationScreen extends ConsumerWidget {
   /// Per-round performance stats for the local human player (already includes
   /// the stat for the round that just finished, built in [BustGameScreen]).
   final List<BustLocalRoundStat> localRoundStats;
+
+  /// Whether this is an online Bust session. Threaded through to subsequent
+  /// [BustGameScreen] instances so the mode is preserved across rounds.
+  final bool isOnline;
 
   /// True when the local human player was eliminated this round.
   bool get _localEliminated =>
@@ -299,6 +304,7 @@ class BustEliminationScreen extends ConsumerWidget {
       Navigator.of(context).pushReplacement(PageRouteBuilder(
         pageBuilder: (_, __, ___) => BustGameScreen(
           totalPlayers: result.survivorIds.length,
+          isOnline: isOnline,
           resumeState: BustResumeState(
             roundNumber: result.roundNumber + 1,
             survivorIds: result.survivorIds,

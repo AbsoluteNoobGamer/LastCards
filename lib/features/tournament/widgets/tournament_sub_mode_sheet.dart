@@ -3,16 +3,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/providers/theme_provider.dart';
-import '../providers/tournament_session_provider.dart';
+import '../../bust/widgets/bust_setup_sheet.dart';
 import '../../single_player/providers/single_player_session_provider.dart';
-import 'tournament_sub_mode_sheet.dart';
+import '../providers/tournament_session_provider.dart';
+import 'difficulty_selection_sheet.dart';
+import 'player_count_sheet.dart';
+import 'tournament_type_sheet.dart';
 
-/// Bottom Sheet 1 — Tournament Type Selection
+/// Bottom Sheet 2 — Sub-mode selection (Knockout vs Bust).
 ///
-/// Shows two large tappable option cards: vs AI, Local Multiplayer.
-/// On selection, dismisses and opens Bottom Sheet 2a or 2b.
-class TournamentTypeSheet extends ConsumerWidget {
-  const TournamentTypeSheet({super.key});
+/// Shown after the user picks Single Player or Online in [TournamentTypeSheet].
+/// Routes to the appropriate next sheet based on the combination of
+/// [TournamentType] and [GameSubMode]:
+///
+/// | Sub-mode | vsAi                               | localMultiplayer             |
+/// |----------|------------------------------------|------------------------------|
+/// | Knockout | [TournamentDifficultySelectionSheet]| [TournamentPlayerCountSheet] |
+/// | Bust     | [BustSetupSheet] (isOnline: false)  | [BustSetupSheet] (isOnline: true) |
+class TournamentSubModeSheet extends ConsumerWidget {
+  const TournamentSubModeSheet({required this.type, super.key});
+
+  final TournamentType type;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -28,8 +39,8 @@ class TournamentTypeSheet extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Drag handle
             const SizedBox(height: 12),
+            // Drag handle
             Container(
               width: 40,
               height: 4,
@@ -38,39 +49,62 @@ class TournamentTypeSheet extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
+            const SizedBox(height: 4),
+
+            // Header row with back button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.chevron_left_rounded,
+                        color: theme.accentPrimary,
+                        size: 30,
+                      ),
+                      onPressed: () => _goBack(context),
+                      tooltip: 'Back',
+                    ),
+                  ),
+                  Column(
+                    children: [
+                      Text(
+                        type.displayName,
+                        style: GoogleFonts.cinzel(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: theme.accentPrimary,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                      Text(
+                        'Choose Game Mode',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: theme.textSecondary,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 20),
 
-            // Title
-            Text(
-              'Tournament Mode',
-              style: GoogleFonts.cinzel(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: theme.accentPrimary,
-                letterSpacing: 2.0,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Select your tournament type',
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                color: theme.textSecondary,
-                letterSpacing: 0.3,
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Option Cards
+            // Sub-mode cards
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
-                children: TournamentType.values.map((type) {
+                children: GameSubMode.values.map((subMode) {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: _TournamentTypeCard(
-                      type: type,
-                      onTap: () => _onTypeSelected(context, ref, type),
+                    child: _SubModeCard(
+                      subMode: subMode,
+                      onTap: () => _onSubModeSelected(context, ref, subMode),
                     ),
                   );
                 }).toList(),
@@ -83,32 +117,65 @@ class TournamentTypeSheet extends ConsumerWidget {
     );
   }
 
-  void _onTypeSelected(
-      BuildContext context, WidgetRef ref, TournamentType type) {
-    ref.read(tournamentSessionProvider.notifier).setType(type);
+  void _goBack(BuildContext context) {
     Navigator.of(context).pop();
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => TournamentSubModeSheet(type: type),
+      builder: (_) => const TournamentTypeSheet(),
     );
+  }
+
+  void _onSubModeSelected(
+      BuildContext context, WidgetRef ref, GameSubMode subMode) {
+    ref.read(tournamentSessionProvider.notifier).setSubMode(subMode);
+    Navigator.of(context).pop();
+
+    if (subMode == GameSubMode.bust) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => BustSetupSheet(
+          isOnline: type == TournamentType.localMultiplayer,
+        ),
+      );
+      return;
+    }
+
+    // Knockout path — route based on type
+    if (type == TournamentType.vsAi) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => const TournamentDifficultySelectionSheet(),
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => const TournamentPlayerCountSheet(),
+      );
+    }
   }
 }
 
-class _TournamentTypeCard extends ConsumerStatefulWidget {
-  const _TournamentTypeCard({required this.type, required this.onTap});
+// ── Sub-mode card ─────────────────────────────────────────────────────────────
 
-  final TournamentType type;
+class _SubModeCard extends ConsumerStatefulWidget {
+  const _SubModeCard({required this.subMode, required this.onTap});
+
+  final GameSubMode subMode;
   final VoidCallback onTap;
 
   @override
-  ConsumerState<_TournamentTypeCard> createState() =>
-      _TournamentTypeCardState();
+  ConsumerState<_SubModeCard> createState() => _SubModeCardState();
 }
 
-class _TournamentTypeCardState extends ConsumerState<_TournamentTypeCard> {
+class _SubModeCardState extends ConsumerState<_SubModeCard> {
   bool _isHovered = false;
   bool _isPressed = false;
 
@@ -136,7 +203,8 @@ class _TournamentTypeCardState extends ConsumerState<_TournamentTypeCard> {
           onTapCancel: () => setState(() => _isPressed = false),
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
             decoration: BoxDecoration(
               color: _isHovered
                   ? theme.accentPrimary.withValues(alpha: 0.08)
@@ -171,7 +239,7 @@ class _TournamentTypeCardState extends ConsumerState<_TournamentTypeCard> {
                   ),
                   child: Center(
                     child: Text(
-                      widget.type.emoji,
+                      widget.subMode.emoji,
                       style: const TextStyle(fontSize: 22),
                     ),
                   ),
@@ -182,7 +250,7 @@ class _TournamentTypeCardState extends ConsumerState<_TournamentTypeCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.type.displayName,
+                        widget.subMode.displayName,
                         style: GoogleFonts.outfit(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -192,7 +260,7 @@ class _TournamentTypeCardState extends ConsumerState<_TournamentTypeCard> {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        widget.type.description,
+                        widget.subMode.description,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: theme.textSecondary,

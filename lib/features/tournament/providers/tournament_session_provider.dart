@@ -54,13 +54,11 @@ enum TournamentFormat {
 
 enum TournamentType {
   vsAi,
-  localMultiplayer,
-  bust;
+  localMultiplayer;
 
   String get displayName => switch (this) {
         TournamentType.vsAi => 'Single Player',
         TournamentType.localMultiplayer => 'Online',
-        TournamentType.bust => 'Bust Mode',
       };
 
   String get description => switch (this) {
@@ -68,20 +66,43 @@ enum TournamentType {
           'Compete against AI opponents across multiple rounds',
         TournamentType.localMultiplayer =>
           'Play tournament against real players online',
-        TournamentType.bust =>
-          'Last player holding cards loses — up to 10 players',
       };
 
   String get emoji => switch (this) {
         TournamentType.vsAi => '👤',
         TournamentType.localMultiplayer => '🌐',
-        TournamentType.bust => '💥',
+      };
+}
+
+/// Sub-mode chosen after picking Single Player or Online.
+/// Determines whether the session runs a standard knockout tournament
+/// or a Bust-mode elimination game.
+enum GameSubMode {
+  knockout,
+  bust;
+
+  String get displayName => switch (this) {
+        GameSubMode.knockout => 'Knockout Tournament',
+        GameSubMode.bust => 'Bust Mode',
+      };
+
+  String get description => switch (this) {
+        GameSubMode.knockout =>
+          'Eliminated player leaves each round — last one wins',
+        GameSubMode.bust =>
+          'Last player holding cards loses — up to 10 players',
+      };
+
+  String get emoji => switch (this) {
+        GameSubMode.knockout => '🏆',
+        GameSubMode.bust => '💥',
       };
 }
 
 class TournamentSessionState {
   const TournamentSessionState({
     this.type,
+    this.subMode,
     this.difficulty,
     this.playerNames = const [],
     this.playerCount,
@@ -89,6 +110,10 @@ class TournamentSessionState {
   });
 
   final TournamentType? type;
+
+  /// Knockout or Bust — chosen in [TournamentSubModeSheet] after picking type.
+  final GameSubMode? subMode;
+
   final AiDifficulty? difficulty;
   final List<String> playerNames;
   final int? playerCount;
@@ -96,14 +121,17 @@ class TournamentSessionState {
 
   TournamentSessionState copyWith({
     TournamentType? type,
+    GameSubMode? subMode,
     AiDifficulty? difficulty,
     List<String>? playerNames,
     int? playerCount,
     TournamentFormat? format,
     bool clearDifficulty = false,
+    bool clearSubMode = false,
   }) {
     return TournamentSessionState(
       type: type ?? this.type,
+      subMode: clearSubMode ? null : (subMode ?? this.subMode),
       difficulty: clearDifficulty ? null : (difficulty ?? this.difficulty),
       playerNames: playerNames ?? this.playerNames,
       playerCount: playerCount ?? this.playerCount,
@@ -117,8 +145,12 @@ class TournamentSessionNotifier extends StateNotifier<TournamentSessionState> {
 
   void setType(TournamentType type) {
     if (state.type != type) {
-      state = state.copyWith(type: type, clearDifficulty: true);
+      state = state.copyWith(type: type, clearDifficulty: true, clearSubMode: true);
     }
+  }
+
+  void setSubMode(GameSubMode subMode) {
+    state = state.copyWith(subMode: subMode);
   }
 
   void setDifficulty(AiDifficulty difficulty) {
