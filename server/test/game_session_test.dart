@@ -449,10 +449,9 @@ void main() {
       expect(err!['code'], equals('invalid_end_turn'));
     });
 
-    test('after end_turn, currentPlayerId changes to next player', () {
+    test('after draw_card, currentPlayerId changes to next player', () {
       final (:session, :p1ws, :p2ws, :p1Id, :p2Id) = _makeKnownGame();
       session.handleAction(p1Id, {'type': 'draw_card'});
-      session.handleAction(p1Id, {'type': 'end_turn'});
 
       final snap = _latestSnapshot(p1ws);
       expect(snap['currentPlayerId'], equals(p2Id));
@@ -869,14 +868,13 @@ void main() {
   // ── turn timer ─────────────────────────────────────────────────────────────
 
   group('turn timer', () {
-    test('turn advances correctly after draw + end_turn (mirrors timeout)', () {
+    test('turn advances correctly after draw (draw auto-advances turn)', () {
       // The actual 60s timer is not testable synchronously.
       // We verify the state transitions that _onTurnTimeout performs:
-      // draw 1 card → advance turn.
+      // draw 1 card → turn auto-advances.
       final (:session, :p1ws, :p2ws, :p1Id, :p2Id) = _makeKnownGame();
 
       session.handleAction(p1Id, {'type': 'draw_card'});
-      session.handleAction(p1Id, {'type': 'end_turn'});
 
       final snap = _latestSnapshot(p1ws);
       expect(snap['currentPlayerId'], equals(p2Id));
