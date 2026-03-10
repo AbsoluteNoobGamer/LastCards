@@ -1,7 +1,4 @@
-import 'package:flutter/material.dart' show Color;
 import 'package:freezed_annotation/freezed_annotation.dart';
-
-import '../theme/app_colors.dart';
 
 part 'card_model.freezed.dart';
 part 'card_model.g.dart';
@@ -129,9 +126,6 @@ extension CardModelX on CardModel {
 
   /// The effective rank to use for matching (Joker uses declared rank).
   Rank get effectiveRank => isJoker ? (jokerDeclaredRank ?? rank) : rank;
-
-  /// Card face color from the design spec.
-  Color get suitColor => suit.isRed ? AppColors.suitRed : AppColors.suitBlack;
 
   String get shortLabel => '${rank.displayLabel}${suit.symbol}';
 }

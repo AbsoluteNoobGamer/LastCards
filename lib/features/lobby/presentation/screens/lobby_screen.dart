@@ -1,12 +1,20 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/models/game_event.dart';
+import '../../../../core/models/game_state.dart';
+import '../../../../core/models/player_model.dart';
+import '../../../../core/providers/connection_provider.dart';
+import '../../../../core/providers/game_provider.dart';
+import '../../../../core/theme/app_dimensions.dart';
+import '../../../../core/theme/app_theme_data.dart';
+import '../../../../core/providers/theme_provider.dart';
 import '../../../gameplay/presentation/screens/table_screen.dart';
 import '../../../../screens/tournament_screen.dart';
-import '../../../../core/providers/theme_provider.dart';
-import '../../../../core/theme/app_theme_data.dart';
-import '../../../../core/theme/app_dimensions.dart';
 
 enum OnlineMode { standard, tournament }
 
@@ -28,9 +36,72 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   final _codeController = TextEditingController();
   final _nameController = TextEditingController();
   bool _isReady = false;
+  String? _roomCode;
+  bool _pendingJoin = false;
+  final List<PlayerModel> _lobbyPlayers = [];
+  StreamSubscription<RoomCreatedEvent>? _roomCreatedSub;
+  StreamSubscription<StateSnapshotEvent>? _stateSnapshotSub;
+  StreamSubscription<GameEvent>? _lobbyEventsSub;
+
+  @override
+  void initState() {
+    super.initState();
+    // Ensure GameNotifier exists and is subscribed before any state_snapshot arrives,
+    // so when we navigate to the table the provider already has the server state.
+    ref.read(gameNotifierProvider);
+    final handler = ref.read(gameEventHandlerProvider);
+    _roomCreatedSub = handler.roomCreated.listen((e) {
+      if (!mounted) return;
+      setState(() => _roomCode = e.roomCode);
+      _codeController.text = e.roomCode;
+    });
+    _stateSnapshotSub = handler.stateSnapshots.listen((e) {
+      if (!mounted) return;
+      if (e.gameState.phase == GamePhase.playing) {
+        _stateSnapshotSub?.cancel();
+        _stateSnapshotSub = null;
+        _enterSelectedMode();
+      }
+    });
+    _lobbyEventsSub = handler.events.listen((e) {
+      if (!mounted) return;
+      if (e is ErrorEvent) {
+        setState(() => _pendingJoin = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: Colors.red.shade800,
+          ),
+        );
+        return;
+      }
+      if (e is PlayerJoinedEvent) {
+        setState(() {
+          _lobbyPlayers.removeWhere((p) => p.id == e.player.id);
+          _lobbyPlayers.add(e.player);
+          if (_pendingJoin) {
+            _pendingJoin = false;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Joined room! Tap READY when ready.'),
+                backgroundColor: Color(0xFF2E7D32),
+              ),
+            );
+          }
+        });
+        return;
+      }
+      if (e is PlayerLeftEvent) {
+        setState(() => _lobbyPlayers.removeWhere((p) => p.id == e.playerId));
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _roomCreatedSub?.cancel();
+    _stateSnapshotSub?.cancel();
+    _lobbyEventsSub?.cancel();
     _codeController.dispose();
     _nameController.dispose();
     super.dispose();
@@ -125,8 +196,22 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       _Divider(theme: theme),
                       const SizedBox(height: AppDimensions.lg),
 
-                      // Lobby player list placeholder
-                      _LobbyPlayerList(isReady: _isReady, theme: theme),
+                      // Room code display (after create)
+                      if (_roomCode != null) ...[
+                        _RoomCodeCard(
+                          roomCode: _roomCode!,
+                          theme: theme,
+                        ),
+                        const SizedBox(height: AppDimensions.lg),
+                      ],
+
+                      // Lobby player list (real from server or placeholder)
+                      _LobbyPlayerList(
+                        isReady: _isReady,
+                        theme: theme,
+                        players: _lobbyPlayers,
+                        pendingJoin: _pendingJoin,
+                      ),
 
                       const SizedBox(height: AppDimensions.lg),
 
@@ -154,19 +239,83 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     );
   }
 
-  void _onJoin() {
-    // TODO: ws connect + join room action
-    _enterSelectedMode();
+  Future<void> _onJoin() async {
+    final code = _codeController.text.trim();
+    if (code.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a room code first')),
+      );
+      return;
+    }
+    setState(() => _pendingJoin = true);
+    final wsClient = ref.read(wsClientProvider);
+    try {
+      await wsClient.connect();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _pendingJoin = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Connection failed: $e'),
+          backgroundColor: const Color(0xFFB71C1C),
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+    wsClient.send(jsonEncode({
+      'type': 'join_room',
+      'roomCode': code,
+      'displayName': _nameController.text.trim(),
+    }));
+    // If no response after 8s, show hint (wrong server IP or room code).
+    Future.delayed(const Duration(seconds: 8), () {
+      if (!mounted || !_pendingJoin) return;
+      setState(() => _pendingJoin = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not join. Check the room code and that this device is using the host\'s IP (e.g. run with WS_URL=ws://HOST_IP:8080/game).',
+          ),
+          duration: Duration(seconds: 5),
+          backgroundColor: Color(0xFFB71C1C),
+        ),
+      );
+    });
   }
 
-  void _onCreate() {
-    // TODO: ws connect + create room action
-    _enterSelectedMode();
+  Future<void> _onCreate() async {
+    final wsClient = ref.read(wsClientProvider);
+    try {
+      await wsClient.connect();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Connection failed: $e'),
+          backgroundColor: const Color(0xFFB71C1C),
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+    wsClient.send(jsonEncode({
+      'type': 'create_room',
+      'displayName': _nameController.text.trim(),
+    }));
+    // Navigation happens when room_created is received (see initState listener).
   }
 
   void _toggleReady() {
-    setState(() => _isReady = !_isReady);
-    // TODO: send ready action via ws
+    final willBeReady = !_isReady;
+    setState(() => _isReady = willBeReady);
+    // Only send the 'ready' signal when toggling ON — the server has no
+    // concept of un-readying, so sending on toggle-off would start the game
+    // prematurely.
+    if (willBeReady) {
+      final wsClient = ref.read(wsClientProvider);
+      wsClient.send(jsonEncode({'type': 'ready'}));
+    }
   }
 
   void _enterSelectedMode() {
@@ -288,27 +437,115 @@ class _Divider extends StatelessWidget {
   }
 }
 
-class _LobbyPlayerList extends StatelessWidget {
-  const _LobbyPlayerList({required this.isReady, required this.theme});
+class _RoomCodeCard extends StatelessWidget {
+  const _RoomCodeCard({
+    required this.roomCode,
+    required this.theme,
+  });
 
-  final bool isReady;
+  final String roomCode;
   final AppThemeData theme;
 
   @override
   Widget build(BuildContext context) {
-    final players = [
-      _PlayerEntry(name: 'You', isReady: isReady, theme: theme),
-      _PlayerEntry(
-          name: 'Waiting...', isReady: false, isPlaceholder: true, theme: theme),
-      _PlayerEntry(
-          name: 'Waiting...', isReady: false, isPlaceholder: true, theme: theme),
-    ];
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimensions.lg,
+        vertical: AppDimensions.md,
+      ),
+      decoration: BoxDecoration(
+        color: theme.backgroundMid,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusButton),
+        border: Border.all(color: theme.accentDark),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Room code',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              letterSpacing: 0.2,
+              color: theme.textSecondary,
+            ),
+          ),
+          const SizedBox(height: AppDimensions.xs),
+          SelectableText(
+            roomCode,
+            style: GoogleFonts.inter(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 4,
+              color: theme.accentPrimary,
+            ),
+          ),
+          const SizedBox(height: AppDimensions.xs),
+          Text(
+            'Share this code with others to join',
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+              color: theme.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LobbyPlayerList extends StatelessWidget {
+  const _LobbyPlayerList({
+    required this.isReady,
+    required this.theme,
+    required this.players,
+    required this.pendingJoin,
+  });
+
+  final bool isReady;
+  final AppThemeData theme;
+  final List<PlayerModel> players;
+  final bool pendingJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPlayers = players.isNotEmpty;
+    final list = hasPlayers
+        ? players
+            .map((p) => _PlayerEntry(
+                  name: p.displayName,
+                  isReady: false,
+                  theme: theme,
+                  isPlaceholder: false,
+                ))
+            .toList()
+        : [
+            _PlayerEntry(name: 'You', isReady: isReady, theme: theme),
+            _PlayerEntry(
+                name: 'Waiting...', isReady: false, isPlaceholder: true, theme: theme),
+            _PlayerEntry(
+                name: 'Waiting...', isReady: false, isPlaceholder: true, theme: theme),
+          ];
 
     return Column(
       children: [
-        for (int i = 0; i < players.length; i++) ...[
-          players[i],
-          if (i < players.length - 1)
+        if (pendingJoin)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppDimensions.sm),
+            child: Text(
+              'Joining room...',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: theme.textSecondary,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        for (int i = 0; i < list.length; i++) ...[
+          list[i],
+          if (i < list.length - 1)
             Divider(height: 1, color: theme.accentDark, thickness: 0.3),
         ],
       ],

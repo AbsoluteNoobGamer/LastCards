@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/providers/theme_provider.dart';
+import '../../lobby/presentation/screens/lobby_screen.dart';
 import '../providers/online_session_provider.dart';
 import 'player_count_sheet.dart';
 
@@ -88,6 +89,12 @@ class ModeSelectionSheet extends ConsumerWidget {
       BuildContext context, WidgetRef ref, OnlineGameMode mode) {
     ref.read(onlineSessionProvider.notifier).setMode(mode);
     Navigator.of(context).pop();
+    if (mode == OnlineGameMode.privateGame) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const LobbyScreen()),
+      );
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

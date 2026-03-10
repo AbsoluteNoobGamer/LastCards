@@ -7,19 +7,25 @@ class _WinDialog extends StatelessWidget {
     required this.winnerName,
     required this.isLocalWin,
     required this.onPlayAgain,
+    this.isOnlineMode = false,
   });
 
   final String winnerName;
   final bool isLocalWin;
   final VoidCallback onPlayAgain;
+  final bool isOnlineMode;
 
   @override
   Widget build(BuildContext context) {
-    final emoji = isLocalWin ? '🎉' : '🤖';
+    final emoji = isLocalWin ? '🎉' : (isOnlineMode ? '👤' : '🤖');
     final headline = isLocalWin ? 'YOU WIN!' : '$winnerName WINS!';
     final sub = isLocalWin
-        ? 'Excellent hand — you beat the Dealer!'
-        : 'The Dealer played their last card first.';
+        ? (isOnlineMode
+            ? 'You played your last card first!'
+            : 'Excellent hand — you beat the Dealer!')
+        : (isOnlineMode
+            ? '$winnerName played their last card first. Better luck next time!'
+            : 'The Dealer played their last card first.');
 
     return Dialog(
       backgroundColor: AppColors.feltMid,
@@ -67,9 +73,9 @@ class _WinDialog extends StatelessWidget {
                         BorderRadius.circular(AppDimensions.radiusButton),
                   ),
                 ),
-                child: const Text(
-                  'PLAY AGAIN',
-                  style: TextStyle(
+                child: Text(
+                  isOnlineMode ? 'BACK TO MENU' : 'PLAY AGAIN',
+                  style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     letterSpacing: 1.2,
                     fontSize: 15,

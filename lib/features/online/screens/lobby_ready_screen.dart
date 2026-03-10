@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/models/game_event.dart';
+import '../../../../core/models/game_state.dart';
+import '../../../../core/providers/connection_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../features/gameplay/presentation/screens/table_screen.dart';
 import '../../../../features/tournament/providers/tournament_session_provider.dart';
@@ -27,6 +30,9 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
   Timer? _countdownTimer;
   late AnimationController _countdownAnim;
   late AnimationController _pulseAnim;
+  StreamSubscription<StateSnapshotEvent>? _snapshotSub;
+  bool _snapshotReceived = false;
+  bool _countdownDone = false;
 
   @override
   void initState() {
@@ -41,6 +47,18 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
+
+    // Listen for the state_snapshot with phase == playing from the server.
+    // Navigation fires only once both the countdown has finished AND the
+    // server has confirmed the game is live (whichever comes last).
+    final handler = ref.read(gameEventHandlerProvider);
+    _snapshotSub = handler.stateSnapshots.listen((e) {
+      if (!mounted) return;
+      if (e.gameState.phase == GamePhase.playing && !_snapshotReceived) {
+        _snapshotReceived = true;
+        if (_countdownDone) _navigateToGame();
+      }
+    });
 
     // Brief pause before countdown kicks in
     Future.delayed(const Duration(milliseconds: 800), () {
@@ -61,7 +79,12 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
         _pulseOnce();
       } else {
         t.cancel();
-        _launchGame();
+        _countdownDone = true;
+        if (_snapshotReceived) {
+          _navigateToGame();
+        }
+        // Otherwise wait — _snapshotSub listener will call _navigateToGame()
+        // once the server's state_snapshot arrives.
       }
     });
   }
@@ -70,13 +93,16 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
     _countdownAnim.forward(from: 0);
   }
 
-  void _launchGame() {
+  void _navigateToGame() {
+    if (!mounted) return;
+    _snapshotSub?.cancel();
+    _snapshotSub = null;
+
     final playerCount = ref.read(onlineSessionProvider).playerCount ?? 4;
     final isTournament = ref.read(tournamentSessionProvider).format != null;
 
     ref.read(onlineSessionProvider.notifier).reset();
 
-    if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       PageRouteBuilder(
         pageBuilder: (_, __, ___) => isTournament
@@ -95,6 +121,7 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _snapshotSub?.cancel();
     _countdownAnim.dispose();
     _pulseAnim.dispose();
     super.dispose();

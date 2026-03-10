@@ -18,6 +18,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/services/card_back_service.dart';
 import '../../../../core/models/move_log_entry.dart';
+import '../../../../core/models/game_event.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../widgets/discard_pile_widget.dart';
 import '../widgets/draw_pile_widget.dart';
@@ -129,10 +130,19 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   // ── Real shuffled draw pile + discard tracking ────────────────────
   late List<CardModel> _drawPile; // actual remaining cards
   final List<CardModel> _discardPile = []; // tracks all discarded cards
+  /// In online mode we don't have the full discard list; track count for stack depth.
+  int _onlineDiscardCount = 1;
+  bool _onlineWinDialogShown = false;
   // ── Turn timer ────────────────────────────────────────────────────
   late final GameTurnTimer _engineTimer = GameTurnTimer();
   StreamSubscription<int>? _timerWarningSub;
+  StreamSubscription<CardPlayedEvent>? _onlineCardPlaysSub;
+  StreamSubscription<CardDrawnEvent>? _onlineCardDrawsSub;
+  StreamSubscription<ErrorEvent>? _onlineErrorsSub;
+  StreamSubscription<dynamic>? _onlineTurnTimeoutSub;
+  StreamSubscription<dynamic>? _onlineReshuffleSub;
   bool _timerWarningPlayed = false;
+  bool _onlineDealAnimationStarted = false;
 
   /// Toggled (not set) each time a reshuffle fires so DrawPileWidget can
   /// play the shuffle animation even on repeated reshuffles.
@@ -157,13 +167,144 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     super.initState();
     _audioService = ref.read(audioServiceProvider);
     _initNewGame();
-    // BGM start
+    _subscribeToOnlineMoveLogIfNeeded();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _audioService.startBgm();
     });
   }
 
+  void _subscribeToOnlineMoveLogIfNeeded() {
+    if (ref.read(gameStateProvider) == null) return;
+    final handler = ref.read(gameEventHandlerProvider);
+
+    // In online mode the server deals cards before the client navigates here.
+    // The game state is already initialised in _initNewGame(), so no deal
+    // animation is needed. We keep player zone keys and hand order in sync
+    // via the provider-driven rebuild (ref.watch(gameStateProvider)).
+
+    _onlineCardPlaysSub = handler.cardPlays.listen((e) {
+      if (!mounted) return;
+      final state = ref.read(gameStateProvider);
+      if (state == null) return;
+      final name = state.playerById(e.playerId)?.displayName ?? e.playerId;
+      final actions = e.cards
+          .map((c) => MoveCardAction(card: c))
+          .toList();
+      setState(() {
+        _onlineDiscardCount += e.cards.length;
+        _pushMoveLog(MoveLogEntry.play(
+          playerId: e.playerId,
+          playerName: name,
+          cardActions: actions,
+          skippedPlayerNames: const [],
+          turnContinues: false,
+        ));
+      });
+    });
+
+    _onlineCardDrawsSub = handler.cardDraws.listen((e) {
+      if (!mounted) return;
+      final state = ref.read(gameStateProvider);
+      if (state == null) return;
+      final name = state.playerById(e.playerId)?.displayName ?? e.playerId;
+      setState(() {
+        _pushMoveLog(MoveLogEntry.draw(
+          playerId: e.playerId,
+          playerName: name,
+          drawCount: 1,
+        ));
+      });
+    });
+
+    _onlineErrorsSub = handler.errors.listen((e) {
+      if (mounted) _showError(e.message);
+    });
+
+    // ── Turn timeout ────────────────────────────────────────────────────────
+    // Server forced a draw and ended the turn. Show a snackbar and play the
+    // timer-expired sound so online mode matches the offline timeout feedback.
+    _onlineTurnTimeoutSub = handler.turnTimeouts.listen((e) {
+      if (!mounted) return;
+      game_audio.AudioService.instance.playSound(GameSound.timerExpired);
+      _engineTimer.cancel();
+      final state = ref.read(gameStateProvider);
+      final name = state?.playerById(e.playerId)?.displayName ?? e.playerId;
+      final isLocal = state?.localPlayer?.id == e.playerId;
+      final msg = isLocal
+          ? 'Timeout! Drew ${e.cardsDrawn} card(s) as penalty.'
+          : '$name timed out.';
+      _showError(msg);
+    });
+
+    // ── Reshuffle ───────────────────────────────────────────────────────────
+    // Server reshuffled the deck. Toggle the notifier so DrawPileWidget plays
+    // its animation and show the same snackbar as offline mode.
+    _onlineReshuffleSub = handler.reshuffles.listen((e) {
+      if (!mounted) return;
+      game_audio.AudioService.instance.playSound(GameSound.shuffleDeck);
+      setState(() {
+        _onlineDiscardCount = 1;
+        _reshuffleNotifier.value = !_reshuffleNotifier.value;
+      });
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.shuffle_rounded, color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Text(
+                  'Reshuffling deck...',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.goldDark,
+            duration: const Duration(milliseconds: 1800),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+    });
+
+    // Start turn timer when it's our turn in online mode (e.g. game just started)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted &&
+          ref.read(gameStateProvider) != null &&
+          ref.read(isLocalTurnProvider)) {
+        _startTimer();
+      }
+    });
+  }
+
   void _initNewGame() {
+    final liveState = ref.read(gameStateProvider);
+    if (liveState != null) {
+      // Online mode: server already sent state. Don't run deal animation or AI.
+      _offlineState = liveState;
+      _drawPile = [];
+      _discardPile.clear();
+      _onlineDiscardCount = 1; // one card already on discard (discardTopCard)
+      _onlineWinDialogShown = false;
+      if (liveState.discardTopCard != null) {
+        _discardPile.add(liveState.discardTopCard!);
+      }
+      _moveLogEntries.clear();
+      _isDealing = false;
+      _playerZoneKeys.clear();
+      for (final p in liveState.players) {
+        _playerZoneKeys[p.id] = GlobalKey();
+      }
+      final localStart = liveState.players
+          .where((p) => p.tablePosition == TablePosition.bottom)
+          .firstOrNull;
+      _handOrder = localStart?.hand.map((c) => c.id).toList() ?? [];
+      return;
+    }
+
     final hasDebugState = widget.debugInitialOfflineState != null &&
         widget.debugInitialDrawPile != null;
     GameState state;
@@ -316,6 +457,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       _offlineState = _offlineState.copyWith(drawPileCount: _drawPile.length);
     });
 
+    // In online mode the server drives turn advancement — skip local AI
+    // scheduling and timer start (the online turn-timer listener handles it).
+    final isOnlineMode = ref.read(gameStateProvider) != null;
+    if (isOnlineMode) return;
+
     _startTimer();
     if (_offlineState.currentPlayerId != OfflineGameState.localId) {
       _scheduleAiTurn(_offlineState.currentPlayerId);
@@ -325,6 +471,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   @override
   void dispose() {
     _timerWarningSub?.cancel();
+    _onlineCardPlaysSub?.cancel();
+    _onlineCardDrawsSub?.cancel();
+    _onlineErrorsSub?.cancel();
+    _onlineTurnTimeoutSub?.cancel();
+    _onlineReshuffleSub?.cancel();
     _engineTimer.dispose();
     _reshuffleNotifier.dispose();
     // BGM stop
@@ -346,6 +497,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
     _engineTimer.start(() {
       if (!mounted) return;
+      // Online mode: server handles timeout authoritatively via its own 60s
+      // timer. Just cancel the local timer and let the server's turn_timeout
+      // event drive the behavior.
+      if (ref.read(gameStateProvider) != null) {
+        _engineTimer.cancel();
+        return;
+      }
       if (widget.isTournamentMode &&
           _tournamentFinishedPlayerIds
               .contains(_offlineState.currentPlayerId)) {
@@ -388,6 +546,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       count: 1,
       cardFactory: _makeCards,
     );
+
+    // Play draw sound for timeout penalty.
+    game_audio.AudioService.instance.playSound(GameSound.cardDraw);
 
     // End turn automatically
     var nextId = nextPlayerId(state: newState);
@@ -525,6 +686,147 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         ? _offlineState.activePenaltyCount
         : ref.watch(penaltyCountProvider);
 
+    // In online mode, start turn timer when it becomes our turn (e.g. after opponent ends)
+    ref.listen(isLocalTurnProvider, (prev, next) {
+      if (ref.read(gameStateProvider) == null || !mounted) return;
+      if (next == true && prev == false) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && ref.read(isLocalTurnProvider)) _startTimer();
+        });
+      } else if (next == false) {
+        _engineTimer.cancel();
+      }
+    });
+
+    // Online: show win overlay when game ends (same as single-player).
+    ref.listen<GameState?>(gameStateProvider, (prev, next) {
+      if (next == null || next.phase != GamePhase.ended ||
+          _onlineWinDialogShown || !mounted) return;
+      // winnerId may be null (not yet set) or empty (player disconnected).
+      final hasWinner = next.winnerId != null && next.winnerId!.isNotEmpty;
+      final winner = hasWinner ? next.playerById(next.winnerId!) : null;
+      setState(() => _onlineWinDialogShown = true);
+      final navigator = Navigator.of(context);
+      if (hasWinner && winner != null) {
+        game_audio.AudioService.instance.playSound(GameSound.playerWin);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => _WinDialog(
+              winnerName: winner.displayName,
+              isLocalWin: next.localPlayer?.id == next.winnerId,
+              onPlayAgain: () {
+                navigator.pop(); // close dialog
+                navigator.pop(); // leave table
+              },
+              isOnlineMode: true,
+            ),
+          );
+        });
+      } else {
+        // Game ended without a winner (e.g. player disconnected).
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => AlertDialog(
+              backgroundColor: Colors.grey.shade900,
+              title: const Text(
+                'Game Ended',
+                style: TextStyle(color: Colors.white),
+              ),
+              content: const Text(
+                'A player disconnected. The game has ended.',
+                style: TextStyle(color: Colors.white70),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    navigator.pop(); // close dialog
+                    navigator.pop(); // leave table
+                  },
+                  child: const Text('BACK TO MENU'),
+                ),
+              ],
+            ),
+          );
+        });
+      }
+    });
+
+    // Online: server requests suit choice after local player played an Ace.
+    // Show the same suit picker sheet used by offline mode, then send the choice.
+    ref.listen<bool>(pendingSuitChoiceProvider, (prev, next) {
+      if (!next || !mounted) return;
+      // Only show for the local player's own Ace — server only sends this to
+      // the acting player, so no extra guard is needed.
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final chosenSuit = await showModalBottomSheet<Suit>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          builder: (_) => const _AceSuitPickerSheet(),
+        );
+        if (!mounted) return;
+        if (chosenSuit != null) {
+          ref.read(gameNotifierProvider.notifier).declareSuit(chosenSuit.name);
+        }
+        // If dismissed without a choice the server will eventually time out
+        // the turn — no client-side fallback needed.
+      });
+    });
+
+    // Online: server requests joker declaration after local player played a Joker.
+    ref.listen<bool>(pendingJokerResolutionProvider, (prev, next) {
+      if (!next || !mounted) return;
+      final jokerCardId =
+          ref.read(gameNotifierProvider).pendingJokerCardId;
+      if (jokerCardId == null) return;
+      final gameState = ref.read(gameStateProvider);
+      if (gameState == null) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final jokerContext =
+            jokerPlayContextFromCardsPlayed(gameState.cardsPlayedThisTurn);
+        final jokerAnchor =
+            jokerContext == JokerPlayContext.midTurnContinuance
+                ? (gameState.lastPlayedThisTurn ?? gameState.discardTopCard!)
+                : gameState.discardTopCard!;
+        final validOptions = getValidJokerOptions(
+          state: gameState,
+          discardTop: gameState.discardTopCard!,
+          context: jokerContext,
+          contextTopCard: jokerAnchor,
+        );
+        if (validOptions.isEmpty || !mounted) return;
+        final activeSequenceSuit =
+            jokerContext == JokerPlayContext.midTurnContinuance
+                ? jokerAnchor.effectiveSuit
+                : null;
+        final chosenCard = await showModalBottomSheet<CardModel>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (_) => _JokerSelectionSheet(
+            options: validOptions,
+            playContext: jokerContext,
+            activeSequenceSuit: activeSequenceSuit,
+          ),
+        );
+        if (!mounted) return;
+        if (chosenCard != null) {
+          ref.read(gameNotifierProvider.notifier).declareJoker(
+            jokerCardId: jokerCardId,
+            suitName: chosenCard.suit.name,
+            rankName: chosenCard.rank.name,
+          );
+        }
+      });
+    });
+
     final appTheme = ref.watch(themeProvider).theme;
     return Scaffold(
       appBar: null,
@@ -564,7 +866,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             : connState,
                         canEndTurn: isOfflineMode
                             ? (validateEndTurn(_offlineState) == null)
-                            : true,
+                            : (isMyTurn &&
+                                validateEndTurn(gameState) == null),
                         isDealing: _isDealing,
                         visibleCardCounts: _visibleCardCounts,
                         drawPileKey: _drawPileKey,
@@ -574,9 +877,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             ? () => _offlineDrawCard(OfflineGameState.localId)
                             : _onDrawTap,
                         onHandReorder: _onHandReorder,
-                        onEndTurnTap: isOfflineMode ? _endTurn : () {},
+                        onEndTurnTap: isOfflineMode
+                            ? _endTurn
+                            : () {
+                                ref.read(gameNotifierProvider.notifier).endTurn();
+                              },
                         isOffline: isOfflineMode,
-                        discardPileCount: _discardPile.length,
+                        discardPileCount: isOfflineMode
+                            ? _discardPile.length
+                            : _onlineDiscardCount,
                         reshuffleNotifier: _reshuffleNotifier,
                         timeRemainingStream: _engineTimer.timeRemainingStream,
                         tournamentStatusBadges: _buildTournamentStatusBadges(),
@@ -641,34 +950,33 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   ),
                 ),
 
-              // ── Offline floating back control ───────────────────────────
-              if (isOfflineMode)
-                Positioned(
-                  bottom: 210,
-                  left: 0,
-                  child: SafeArea(
-                    top: false,
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppDimensions.xs),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.30),
-                          shape: BoxShape.circle,
+              // ── Floating back control (single-player and online) ────────────
+              Positioned(
+                bottom: 210,
+                left: 0,
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppDimensions.xs),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.30),
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        tooltip: isOfflineMode ? 'Exit game' : 'Leave game',
+                        icon: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 18,
+                          color: Colors.white,
                         ),
-                        child: IconButton(
-                          tooltip: 'Exit game',
-                          icon: const Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            size: 18,
-                            color: Colors.white,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                          onPressed: () => Navigator.of(context).pop(),
-                        ),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => Navigator.of(context).pop(),
                       ),
                     ),
                   ),
                 ),
+              ),
 
               // ── HUD overlay (suit badge, penalty, queen lock) ───────────
               // Placed at ~63 % of screen height — the empty gap between the
@@ -731,7 +1039,91 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     setState(() => _selectedCardId = null);
   }
 
-  void _onPlayTap({required String cardId}) {
+  /// Online play: same rules as single-player — validate, then Joker/Ace flows or send play.
+  Future<void> _onPlayTap({required String cardId}) async {
+    if (!ref.read(isLocalTurnProvider)) return;
+    final gameState = ref.read(gameStateProvider);
+    if (gameState == null) return;
+    final local = gameState.localPlayer;
+    if (local == null) return;
+    final card = local.hand.where((c) => c.id == cardId).firstOrNull;
+    if (card == null) return;
+
+    final err = validatePlay(
+      cards: [card],
+      discardTop: gameState.discardTopCard!,
+      state: gameState,
+    );
+    if (err != null) {
+      _showError(err);
+      return;
+    }
+
+    // Joker: show sheet, then send declare_joker (same flow as single-player).
+    if (card.isJoker && mounted) {
+      final jokerContext =
+          jokerPlayContextFromCardsPlayed(gameState.cardsPlayedThisTurn);
+      final jokerAnchor =
+          jokerContext == JokerPlayContext.midTurnContinuance
+              ? (gameState.lastPlayedThisTurn ?? gameState.discardTopCard!)
+              : gameState.discardTopCard!;
+      final validOptions = getValidJokerOptions(
+        state: gameState,
+        discardTop: gameState.discardTopCard!,
+        context: jokerContext,
+        contextTopCard: jokerAnchor,
+      );
+      if (validOptions.isEmpty) {
+        _showError('No valid moves available for the Joker right now.');
+        return;
+      }
+      setState(() => _selectedCardId = cardId);
+      final activeSequenceSuit =
+          jokerContext == JokerPlayContext.midTurnContinuance
+              ? jokerAnchor.effectiveSuit
+              : null;
+      final chosenCard = await showModalBottomSheet<CardModel>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (_) => _JokerSelectionSheet(
+          options: validOptions,
+          playContext: jokerContext,
+          activeSequenceSuit: activeSequenceSuit,
+        ),
+      );
+      if (!mounted) return;
+      setState(() => _selectedCardId = null);
+      if (chosenCard == null) return;
+      ref.read(gameNotifierProvider.notifier).declareJoker(
+        jokerCardId: cardId,
+        suitName: chosenCard.suit.name,
+        rankName: chosenCard.rank.name,
+      );
+      return;
+    }
+
+    // Ace as first card of turn: show suit picker, then send play_cards with declaredSuit.
+    if (card.effectiveRank == Rank.ace &&
+        gameState.actionsThisTurn == 0 &&
+        mounted) {
+      setState(() => _selectedCardId = cardId);
+      final chosenAceSuit = await showModalBottomSheet<Suit>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (_) => const _AceSuitPickerSheet(),
+      );
+      if (!mounted) return;
+      setState(() => _selectedCardId = null);
+      if (chosenAceSuit == null) return;
+      ref.read(gameNotifierProvider.notifier).playCards(
+        [cardId],
+        declaredSuit: chosenAceSuit.name,
+      );
+      return;
+    }
+
+    // Normal play
     ref.read(gameNotifierProvider.notifier).playCards([cardId]);
     setState(() => _selectedCardId = null);
   }
@@ -821,6 +1213,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       );
       _engineTimer.cancel();
 
+      // Play card sounds for Joker play.
+      game_audio.AudioService.instance.playSound(GameSound.cardPlace);
+      game_audio.AudioService.instance.playSound(GameSound.specialJoker);
+
       _discardPile.add(assignedJoker);
 
       final localInNew = newState.players
@@ -853,6 +1249,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     var newState =
         applyPlay(state: _offlineState, playerId: playerId, cards: played);
     _engineTimer.cancel();
+
+    // Play card sounds (moved from game_engine to UI layer for server compat).
+    game_audio.AudioService.instance.playSound(GameSound.cardPlace);
+    for (final c in played) {
+      final s = _offlineSpecialSoundFor(c);
+      if (s != null) game_audio.AudioService.instance.playSound(s);
+    }
 
     _discardPile.addAll(played);
 
@@ -908,6 +1311,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       count: drawCount,
       cardFactory: _makeCards,
     );
+
+    // Play draw sound for penalty.
+    game_audio.AudioService.instance.playSound(GameSound.cardDraw);
+    game_audio.AudioService.instance.playSound(GameSound.penaltyDraw);
 
     // applyDraw clears activePenaltyCount — restore the pre-existing penalty
     // so an ongoing 2/Jack penalty chain is not inadvertently cancelled.
@@ -981,6 +1388,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       count: drawCount,
       cardFactory: _makeCards,
     );
+
+    // Play draw sounds (moved from game_engine to UI layer for server compat).
+    game_audio.AudioService.instance.playSound(GameSound.cardDraw);
+    if (isPenaltyDraw) {
+      game_audio.AudioService.instance.playSound(GameSound.penaltyDraw);
+    }
 
     final localAfterDraw = newState.players
         .where((p) => p.tablePosition == TablePosition.bottom)
@@ -1571,6 +1984,29 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _moveLogEntries.insert(0, entry);
     if (_moveLogEntries.length > 3) {
       _moveLogEntries.removeRange(3, _moveLogEntries.length);
+    }
+  }
+
+  static GameSound? _offlineSpecialSoundFor(CardModel card) {
+    switch (card.effectiveRank) {
+      case Rank.two:
+        return GameSound.specialTwo;
+      case Rank.jack:
+        return card.isBlackJack
+            ? GameSound.specialBlackJack
+            : GameSound.specialRedJack;
+      case Rank.king:
+        return GameSound.specialKing;
+      case Rank.ace:
+        return GameSound.specialAce;
+      case Rank.queen:
+        return GameSound.specialQueen;
+      case Rank.eight:
+        return GameSound.specialEight;
+      case Rank.joker:
+        return GameSound.specialJoker;
+      default:
+        return null;
     }
   }
 

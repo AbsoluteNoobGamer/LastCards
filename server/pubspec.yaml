@@ -1,0 +1,18 @@
+name: last_cards_server
+description: WebSocket server for Last Cards multiplayer.
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  shelf: ^1.4.0
+  shelf_web_socket: ^2.0.0
+  uuid: ^4.4.2
+
+  last_cards:
+    path: ..
+
+dev_dependencies:
+  test: ^1.24.0
