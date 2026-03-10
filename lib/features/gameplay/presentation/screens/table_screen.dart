@@ -177,23 +177,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (ref.read(gameStateProvider) == null) return;
     final handler = ref.read(gameEventHandlerProvider);
 
-    // ── Deal animation: fire once on the first state_snapshot ──────────────
-    // The first snapshot signals the game is live and all hands are dealt.
-    // We mirror the offline deal animation so online mode feels identical.
-    handler.stateSnapshots.first.then((e) {
-      if (!mounted || _onlineDealAnimationStarted) return;
-      _onlineDealAnimationStarted = true;
-      // Sync player zone keys from the live state (may have changed since init)
-      setState(() {
-        for (final p in e.gameState.players) {
-          _playerZoneKeys.putIfAbsent(p.id, () => GlobalKey());
-        }
-        _offlineState = e.gameState;
-      });
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _startDealAnimation();
-      });
-    });
+    // In online mode the server deals cards before the client navigates here.
+    // The game state is already initialised in _initNewGame(), so no deal
+    // animation is needed. We keep player zone keys and hand order in sync
+    // via the provider-driven rebuild (ref.watch(gameStateProvider)).
 
     _onlineCardPlaysSub = handler.cardPlays.listen((e) {
       if (!mounted) return;
