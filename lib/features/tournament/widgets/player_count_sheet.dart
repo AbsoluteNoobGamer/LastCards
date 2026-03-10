@@ -6,6 +6,7 @@ import '../../../../core/providers/theme_provider.dart';
 import '../providers/tournament_session_provider.dart';
 import 'difficulty_selection_sheet.dart';
 import 'format_selection_sheet.dart';
+import 'tournament_sub_mode_sheet.dart';
 import 'tournament_type_sheet.dart';
 
 /// Bottom Sheet 3 — Player Count Selection
@@ -149,7 +150,9 @@ class _TournamentPlayerCountSheetState
         if (session.type == TournamentType.vsAi) {
           return const TournamentDifficultySelectionSheet();
         } else {
-          return const TournamentTypeSheet();
+          // Online knockout: go back to sub-mode sheet so user can switch
+          // between Knockout and Bust without restarting the whole flow.
+          return TournamentSubModeSheet(type: TournamentType.localMultiplayer);
         }
       },
     );

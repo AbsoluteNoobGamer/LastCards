@@ -5,19 +5,27 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../single_player/providers/single_player_session_provider.dart';
-import '../../tournament/widgets/tournament_type_sheet.dart';
+import '../../tournament/providers/tournament_session_provider.dart';
+import '../../tournament/widgets/tournament_sub_mode_sheet.dart';
 import '../screens/bust_game_screen.dart';
 
 class BustSetupSheet extends ConsumerWidget {
-  const BustSetupSheet({super.key});
+  const BustSetupSheet({required this.isOnline, super.key});
 
-  void _goBack(BuildContext context) {
+  /// Whether this Bust session is online (real players) or offline (vs AI).
+  ///
+  /// **Currently unused** — online Bust is gated behind "Coming Soon" in
+  /// [TournamentSubModeSheet], so this is always `false` in practice.
+  /// Kept as scaffolding for future online support.
+  final bool isOnline;
+
+  void _goBack(BuildContext context, TournamentType type) {
     Navigator.of(context).pop();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const TournamentTypeSheet(),
+      builder: (_) => TournamentSubModeSheet(type: type),
     );
   }
 
@@ -25,9 +33,10 @@ class BustSetupSheet extends ConsumerWidget {
     Navigator.of(context).pop();
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const BustGameScreen(
+        pageBuilder: (_, __, ___) => BustGameScreen(
           totalPlayers: 10,
           aiDifficulty: AiDifficulty.hard,
+          isOnline: isOnline,
         ),
         transitionDuration: const Duration(milliseconds: 400),
         transitionsBuilder: (_, animation, __, child) {
@@ -52,6 +61,8 @@ class BustSetupSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(themeProvider).theme;
+    final tournamentType = ref.watch(tournamentSessionProvider).type
+        ?? (isOnline ? TournamentType.localMultiplayer : TournamentType.vsAi);
 
     return Container(
       decoration: BoxDecoration(
@@ -89,7 +100,7 @@ class BustSetupSheet extends ConsumerWidget {
                         color: theme.accentPrimary,
                         size: 30,
                       ),
-                      onPressed: () => _goBack(context),
+                      onPressed: () => _goBack(context, tournamentType),
                       tooltip: 'Back',
                     ),
                   ),
@@ -139,7 +150,7 @@ class BustSetupSheet extends ConsumerWidget {
                   children: [
                     _InfoRow(
                       icon: Icons.group_rounded,
-                      label: '10 players',
+                      label: '10 players (vs AI)',
                       theme: theme,
                     ),
                     const SizedBox(height: 12),

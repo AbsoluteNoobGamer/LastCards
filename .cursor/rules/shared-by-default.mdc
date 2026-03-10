@@ -1,0 +1,63 @@
+---
+description: All new game features must be shared across offline, AI, tournament, bust, and online modes by default.
+alwaysApply: true
+---
+
+# Shared-By-Default Architecture
+
+Every new game mechanic, rule, or feature must work across **all modes** (offline/AI, tournament, bust, online) unless explicitly told otherwise.
+
+## Where New Code Goes
+
+| What | Where |
+|---|---|
+| New card rule / game mechanic | `lib/shared/engine/game_engine.dart` — `_applySpecialEffect`, `validatePlay`, or a new shared function |
+| New win/loss condition | `lib/shared/rules/win_condition_rules.dart` |
+| New penalty/chain rule | `lib/shared/rules/pickup_chain_rules.dart` |
+| Mode-specific setup (deck, hand size, round config) | A config object passed as a parameter to `TableScreen`, NOT a new parallel screen |
+| Bust-specific meta-game (rounds, elimination) | `lib/features/bust/` — orchestrates `TableScreen`, does not reimplement it |
+| New UI screen | Only justified if the UI is genuinely different (e.g. `BustEliminationScreen`), never for different game logic |
+
+## Mandatory Server Sync
+
+Whenever `lib/shared/engine/game_engine.dart` changes, **also update** `server/lib/game_session.dart` to call the new/changed function. The server is the authoritative online engine — it must stay in sync.
+
+## Anti-Patterns to Reject
+
+```dart
+// ❌ BAD — parallel screen that reimplements game loop
+class NewModeGameScreen extends StatefulWidget {
+  // 1000+ lines duplicating validatePlay, applyPlay, AI scheduling...
+}
+
+// ✅ GOOD — thin coordinator that configures TableScreen
+class NewModeCoordinator extends StatelessWidget {
+  Widget build(BuildContext context) => TableScreen(
+    newModeConfig: NewModeConfig(...),
+    onRoundComplete: _handleRoundComplete,
+  );
+}
+```
+
+```dart
+// ❌ BAD — rule only in offline engine
+void _applySpecialEffect(...) {
+  // new card effect only here
+}
+
+// ✅ GOOD — rule in shared engine, consumed by all modes
+// lib/shared/engine/game_engine.dart
+GameState _applySpecialEffect(GameState gs, CardModel card, ...) {
+  case Rank.newCard:
+    return gs.copyWith(newEffect: ...);
+}
+// server/lib/game_session.dart already calls applyPlay() → picks it up automatically
+```
+
+## Checklist for Any New Feature
+
+- [ ] Game logic added to `lib/shared/engine/game_engine.dart` (not a feature folder)
+- [ ] `server/lib/game_session.dart` updated if engine API changed
+- [ ] `test/engine_test.dart` has tests covering the new logic
+- [ ] No new parallel game screen created (use `TableScreen` with a config param)
+- [ ] `docs/rules-by-mode.md` updated if the rule affects gameplay

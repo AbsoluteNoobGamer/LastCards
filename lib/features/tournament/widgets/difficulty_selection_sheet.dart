@@ -6,7 +6,7 @@ import '../../../../core/providers/theme_provider.dart';
 import '../../single_player/providers/single_player_session_provider.dart';
 import '../providers/tournament_session_provider.dart';
 import 'format_selection_sheet.dart';
-import 'tournament_type_sheet.dart';
+import 'tournament_sub_mode_sheet.dart';
 
 /// Bottom Sheet 2a — Difficulty Selection (vs AI)
 class TournamentDifficultySelectionSheet extends ConsumerWidget {
@@ -109,7 +109,7 @@ class TournamentDifficultySelectionSheet extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const TournamentTypeSheet(),
+      builder: (_) => TournamentSubModeSheet(type: TournamentType.vsAi),
     );
   }
 
