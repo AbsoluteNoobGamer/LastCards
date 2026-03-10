@@ -13,6 +13,10 @@ class BustSetupSheet extends ConsumerWidget {
   const BustSetupSheet({required this.isOnline, super.key});
 
   /// Whether this Bust session is online (real players) or offline (vs AI).
+  ///
+  /// **Currently unused** — online Bust is gated behind "Coming Soon" in
+  /// [TournamentSubModeSheet], so this is always `false` in practice.
+  /// Kept as scaffolding for future online support.
   final bool isOnline;
 
   void _goBack(BuildContext context, TournamentType type) {
@@ -146,7 +150,7 @@ class BustSetupSheet extends ConsumerWidget {
                   children: [
                     _InfoRow(
                       icon: Icons.group_rounded,
-                      label: isOnline ? '10 real players' : '10 players (vs AI)',
+                      label: '10 players (vs AI)',
                       theme: theme,
                     ),
                     const SizedBox(height: 12),

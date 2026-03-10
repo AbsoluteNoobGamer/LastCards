@@ -53,10 +53,10 @@ class BustGameScreen extends ConsumerStatefulWidget {
   /// Whether this is an online Bust session (real players via server)
   /// or an offline session (vs AI).
   ///
-  /// When true, the game setup should use real player slots instead of AI
-  /// configs. Full online wiring is handled by the server's game_session.dart
-  /// which calls the same shared engine functions (validatePlay, applyPlay,
-  /// advanceTurn, etc.).
+  /// **Currently unused** — online Bust is gated behind "Coming Soon" in
+  /// [TournamentSubModeSheet] and this flag is only scaffolding for future
+  /// online support. When online Bust is implemented, [_initGame] should
+  /// branch on this flag to use real player slots instead of AI configs.
   final bool isOnline;
 
   /// If non-null, resumes a game already in progress (subsequent rounds).
