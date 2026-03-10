@@ -518,6 +518,7 @@ class GameSession {
   /// Draws 2 cards for [playerId] as punishment for an invalid play attempt,
   /// then ends their turn.
   void _applyInvalidPlayPenalty(String playerId) {
+    final savedPenalty = _state.activePenaltyCount;
     final drawnCards = <CardModel>[];
     _state = applyDraw(
       state: _state,
@@ -532,9 +533,7 @@ class GameSession {
 
     // Restore any active penalty that applyDraw cleared — the invalid play
     // should not cancel an ongoing 2/Jack chain.
-    // (applyDraw sets activePenaltyCount = 0; we don't restore here because
-    // the penalty chain is the server's concern and the state_snapshot will
-    // reflect the correct value after _advanceTurn resets it.)
+    _state = _state.copyWith(activePenaltyCount: savedPenalty);
 
     for (final card in drawnCards) {
       _sendTo(playerId, {
@@ -609,7 +608,7 @@ class GameSession {
 
   /// Saves the current discard top (before it is replaced) into the under-pile.
   void _pushDiscardUnderTop() {
-    final prev = _state.discardSecondCard ?? _state.discardTopCard;
+    final prev = _state.discardTopCard;
     if (prev != null) _discardUnderTop.add(prev);
   }
 

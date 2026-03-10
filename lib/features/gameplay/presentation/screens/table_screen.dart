@@ -504,14 +504,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
     _engineTimer.start(() {
       if (!mounted) return;
-      // Online mode: send draw then end turn to server
+      // Online mode: server handles timeout authoritatively via its own 60s
+      // timer. Just cancel the local timer and let the server's turn_timeout
+      // event drive the behavior.
       if (ref.read(gameStateProvider) != null) {
-        if (ref.read(isLocalTurnProvider)) {
-          game_audio.AudioService.instance.playSound(GameSound.timerExpired);
-          ref.read(gameNotifierProvider.notifier).drawCard();
-          ref.read(gameNotifierProvider.notifier).endTurn();
-          _engineTimer.cancel();
-        }
+        _engineTimer.cancel();
         return;
       }
       if (widget.isTournamentMode &&

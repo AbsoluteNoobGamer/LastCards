@@ -99,7 +99,7 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
         state = state.copyWith(
           gameState: e.gameState,
           clearError: true,
-          clearSuitChoice: !e.gameState.pendingJokerResolution,
+          clearSuitChoice: !e.gameState.pendingJokerResolution && !state.pendingSuitChoice,
         );
         // Online mode consumes shared rules for structural dependency.
         wouldConfirmWin(e.gameState);
