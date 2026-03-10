@@ -342,13 +342,17 @@ class GameSession {
       });
     }
 
-    // Other players see the draw event without card details.
+    // Other players see one draw event per card (without card details) so
+    // their GameNotifier decrements drawPileCount correctly.
     for (final entry in _players.entries) {
       if (entry.key != playerId) {
-        entry.value.ws.sink.add(jsonEncode({
+        final encoded = jsonEncode({
           'type': 'card_drawn',
           'playerId': playerId,
-        }));
+        });
+        for (int i = 0; i < drawnCards.length; i++) {
+          entry.value.ws.sink.add(encoded);
+        }
       }
     }
 
@@ -494,10 +498,13 @@ class GameSession {
     }
     for (final entry in _players.entries) {
       if (entry.key != timedOutPlayerId) {
-        entry.value.ws.sink.add(jsonEncode({
+        final encoded = jsonEncode({
           'type': 'card_drawn',
           'playerId': timedOutPlayerId,
-        }));
+        });
+        for (int i = 0; i < drawnCards.length; i++) {
+          entry.value.ws.sink.add(encoded);
+        }
       }
     }
 
@@ -545,10 +552,13 @@ class GameSession {
     }
     for (final entry in _players.entries) {
       if (entry.key != playerId) {
-        entry.value.ws.sink.add(jsonEncode({
+        final encoded = jsonEncode({
           'type': 'card_drawn',
           'playerId': playerId,
-        }));
+        });
+        for (int i = 0; i < drawnCards.length; i++) {
+          entry.value.ws.sink.add(encoded);
+        }
       }
     }
 
