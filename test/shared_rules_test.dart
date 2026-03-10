@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:last_cards/core/models/offline_game_engine.dart';
-import 'package:last_cards/core/models/player_model.dart';
 import 'package:last_cards/core/providers/game_provider.dart';
 import 'package:last_cards/shared/engine/game_engine.dart';
 import 'package:last_cards/shared/rules/pickup_chain_rules.dart';

@@ -149,15 +149,8 @@ bool aiHasPlayableTurn({
   required GameState state,
   required List<CardModel> playedCards,
 }) {
-  final next = nextPlayerId(state: state);
   return (
-    state: state.copyWith(
-      currentPlayerId: next,
-      actionsThisTurn: 0,
-      cardsPlayedThisTurn: 0,
-      lastPlayedThisTurn: null,
-      activeSkipCount: 0,
-    ),
+    state: advanceTurn(state),
     playedCards: playedCards,
     preTurnAdvanceState: state,
   );

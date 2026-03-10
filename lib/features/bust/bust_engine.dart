@@ -1,13 +1,11 @@
 import 'dart:math' as math;
 
-import 'package:last_cards/core/models/game_state.dart';
-import 'package:last_cards/core/models/player_model.dart';
-import 'package:last_cards/core/models/card_model.dart';
+import 'package:last_cards/shared/engine/game_engine.dart';
 import 'package:last_cards/core/models/offline_game_state.dart';
 
-export 'package:last_cards/core/models/card_model.dart';
-export 'package:last_cards/core/models/game_state.dart';
-export 'package:last_cards/core/models/player_model.dart';
+export 'package:last_cards/shared/models/card_model.dart';
+export 'package:last_cards/shared/models/game_state_model.dart';
+export 'package:last_cards/shared/models/player_model.dart';
 
 /// Bust-mode specific game engine.
 ///

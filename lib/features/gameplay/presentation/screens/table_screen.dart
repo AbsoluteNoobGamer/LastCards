@@ -551,17 +551,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     game_audio.AudioService.instance.playSound(GameSound.cardDraw);
 
     // End turn automatically
-    var nextId = nextPlayerId(state: newState);
-    nextId = _resolveTournamentNextPlayerId(newState, nextId);
-    newState = newState.copyWith(
-      currentPlayerId: nextId,
-      actionsThisTurn: 0,
-      cardsPlayedThisTurn: 0,
-      lastPlayedThisTurn: null,
-      activeSkipCount: 0,
-      preTurnCentreSuit: newState.discardTopCard?.effectiveSuit,
-      queenSuitLock: null,
-    );
+    final nextId = nextPlayerId(state: newState);
+    final resolvedNextId = _resolveTournamentNextPlayerId(newState, nextId);
+    newState = advanceTurn(newState, nextId: resolvedNextId);
 
     final localAfter = newState.players
         .where((p) => p.tablePosition == TablePosition.bottom)
@@ -1303,12 +1295,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       String playerId, List<CardModel> attemptedCards) {
     _showError('Invalid play! Drawing 2 cards as penalty.');
 
-    // Step 2: draw up to 2 cards (respects remaining pile size).
-    final drawCount = math.min(2, _drawPile.length);
-    var newState = applyDraw(
+    // Step 2: draw 2 cards and preserve the active penalty chain.
+    var newState = applyInvalidPlayPenalty(
       state: _offlineState,
       playerId: playerId,
-      count: drawCount,
       cardFactory: _makeCards,
     );
 
@@ -1316,22 +1306,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     game_audio.AudioService.instance.playSound(GameSound.cardDraw);
     game_audio.AudioService.instance.playSound(GameSound.penaltyDraw);
 
-    // applyDraw clears activePenaltyCount — restore the pre-existing penalty
-    // so an ongoing 2/Jack penalty chain is not inadvertently cancelled.
-    newState = newState.copyWith(
-      activePenaltyCount: _offlineState.activePenaltyCount,
-    );
-
     // Step 3: end the turn.
-    final nextId = nextPlayerId(state: newState);
-    newState = newState.copyWith(
-      currentPlayerId: nextId,
-      actionsThisTurn: 0,
-      cardsPlayedThisTurn: 0,
-      lastPlayedThisTurn: null,
-      activeSkipCount: 0,
-      preTurnCentreSuit: newState.discardTopCard?.effectiveSuit,
-    );
+    newState = advanceTurn(newState);
 
     final localAfter = newState.players
         .where((p) => p.tablePosition == TablePosition.bottom)
@@ -1344,8 +1320,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     });
 
     _engineTimer.cancel();
-    if (nextId != OfflineGameState.localId) {
-      _scheduleAiTurn(nextId);
+    if (newState.currentPlayerId != OfflineGameState.localId) {
+      _scheduleAiTurn(newState.currentPlayerId);
     } else {
       _startTimer();
     }

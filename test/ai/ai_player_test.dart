@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:last_cards/core/models/offline_game_engine.dart';
-import 'package:last_cards/core/models/player_model.dart';
 
 CardModel c(Rank r, Suit s, String id) => CardModel(id: id, rank: r, suit: s);
 

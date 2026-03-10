@@ -1,7 +1,6 @@
 // ignore_for_file: lines_longer_than_80_chars
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:last_cards/core/models/card_model.dart';
 import 'package:last_cards/core/models/offline_game_state.dart';
 import 'package:last_cards/features/bust/bust_engine.dart';
 import 'package:last_cards/features/bust/bust_round_manager.dart';
