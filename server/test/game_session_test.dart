@@ -222,18 +222,10 @@ void main() {
       }
     });
 
-    test('8-player game scales hand size to 6', () {
-      final (:session, :sockets, :ids) = _makeSession(8);
-      for (final id in ids) {
-        session.markReady(id);
-      }
-      // 53 ÷ 8 = 6
-      for (final ws in sockets) {
-        final snap = _latestSnapshot(ws);
-        final self = (snap['players'] as List).first as Map<String, dynamic>;
-        expect((self['hand'] as List).length, equals(6));
-      }
-    });
+    // Note: The server caps rooms at 4 players (addPlayer rejects beyond 4),
+    // so the hand-size scaling formula (min(7, 53 ÷ N)) is only exercised
+    // for N ≤ 4, which always yields 7. The 8-player test was removed because
+    // it is incompatible with the 4-player cap.
   });
 
   // ── play_cards ─────────────────────────────────────────────────────────────

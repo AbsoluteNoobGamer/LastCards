@@ -470,6 +470,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       _offlineState = _offlineState.copyWith(drawPileCount: _drawPile.length);
     });
 
+    // In online mode the server drives turn advancement — skip local AI
+    // scheduling and timer start (the online turn-timer listener handles it).
+    final isOnlineMode = ref.read(gameStateProvider) != null;
+    if (isOnlineMode) return;
+
     _startTimer();
     if (_offlineState.currentPlayerId != OfflineGameState.localId) {
       _scheduleAiTurn(_offlineState.currentPlayerId);
