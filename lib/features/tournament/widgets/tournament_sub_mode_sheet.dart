@@ -111,6 +111,7 @@ class TournamentSubModeSheet extends ConsumerWidget {
                       onTap: isComingSoon
                           ? null
                           : () => _onSubModeSelected(context, ref, subMode),
+                    ),
                   );
                 }).toList(),
               ),
