@@ -18,6 +18,8 @@ RUN curl -fsSL \
 
 ENV PATH="/opt/flutter/bin:${PATH}"
 
+RUN git config --global --add safe.directory /opt/flutter
+
 # Pre-cache Flutter tool (suppresses first-run setup during pub get)
 RUN flutter precache --no-android --no-ios --no-web --no-fuchsia
 
