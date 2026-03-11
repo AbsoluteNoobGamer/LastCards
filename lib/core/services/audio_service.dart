@@ -1,8 +1,6 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/audio_service.dart' as app_audio;
-import '../../services/game_sound.dart';
 
 final audioServiceProvider = ChangeNotifierProvider<AudioService>((ref) {
   return AudioService();
@@ -57,33 +55,4 @@ class AudioService extends ChangeNotifier {
     await app_audio.AudioService.instance.setSoundEffectsEnabled(enabled);
     notifyListeners();
   }
-
-  Future<void> startBgm() async {
-    try {
-      await app_audio.AudioService.instance.startBgm();
-    } catch (e) {
-      debugPrint('AudioService.startBgm error: $e');
-    }
-  }
-
-  Future<void> stopBgm() async {
-    try {
-      await app_audio.AudioService.instance.stopBgm();
-    } catch (e) {
-      debugPrint('AudioService.stopBgm error: $e');
-    }
-  }
-
-  Future<void> playDealCard() async {
-    await app_audio.AudioService.instance.playSound(GameSound.cardDraw);
-  }
-
-  Future<void> playClick() async {
-    await app_audio.AudioService.instance.playSound(GameSound.cardPlace);
-  }
-
-  Future<void> playDrag() async {
-    await app_audio.AudioService.instance.playSound(GameSound.cardDraw);
-  }
-
 }
