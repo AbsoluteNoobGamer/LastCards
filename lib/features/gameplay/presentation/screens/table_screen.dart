@@ -111,8 +111,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   bool _isDealing = false;
   final Map<String, int> _visibleCardCounts = {};
 
-  late AudioService _audioService;
-
   // Animation overlay keys
   final GlobalKey<DealingAnimationOverlayState> _overlayKey =
       GlobalKey<DealingAnimationOverlayState>();
@@ -165,12 +163,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   @override
   void initState() {
     super.initState();
-    _audioService = ref.read(audioServiceProvider);
     _initNewGame();
     _subscribeToOnlineMoveLogIfNeeded();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _audioService.startBgm();
-    });
   }
 
   void _subscribeToOnlineMoveLogIfNeeded() {
@@ -421,13 +415,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       orderedPlayers.add(players[idx]);
     }
 
-    final audioService = ref.read(audioServiceProvider);
-
     for (int i = 0; i < 7; i++) {
       for (final p in orderedPlayers) {
         if (!mounted) return;
 
-        audioService.playDealCard();
+        game_audio.AudioService.instance.playSound(GameSound.cardDraw);
         final overlay = _overlayKey.currentState;
         if (overlay != null) {
           await overlay.animateCardDeal(p.id);
@@ -478,8 +470,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _onlineReshuffleSub?.cancel();
     _engineTimer.dispose();
     _reshuffleNotifier.dispose();
-    // BGM stop
-    _audioService.stopBgm();
     super.dispose();
   }
 
@@ -700,7 +690,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       setState(() => _onlineWinDialogShown = true);
       final navigator = Navigator.of(context);
       if (hasWinner && winner != null) {
-        game_audio.AudioService.instance.playSound(GameSound.playerWin);
+        final isLocalWin = next.localPlayer?.id == next.winnerId;
+        game_audio.AudioService.instance.playSound(
+            isLocalWin ? GameSound.playerWin : GameSound.playerLose);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           showDialog<void>(
@@ -708,7 +700,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             barrierDismissible: false,
             builder: (_) => _WinDialog(
               winnerName: winner.displayName,
-              isLocalWin: next.localPlayer?.id == next.winnerId,
+              isLocalWin: isLocalWin,
               onPlayAgain: () {
                 navigator.pop(); // close dialog
                 navigator.pop(); // leave table
@@ -1245,8 +1237,18 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     // Play card sounds (moved from game_engine to UI layer for server compat).
     game_audio.AudioService.instance.playSound(GameSound.cardPlace);
     for (final c in played) {
-      final s = _offlineSpecialSoundFor(c);
+      final s = soundForCard(c);
       if (s != null) game_audio.AudioService.instance.playSound(s);
+    }
+
+    // Direction reversed by King
+    if (newState.direction != previousState.direction) {
+      game_audio.AudioService.instance
+          .playSound(GameSound.directionReversed);
+    }
+    // Skip accumulated by Eight
+    if (newState.activeSkipCount > previousState.activeSkipCount) {
+      game_audio.AudioService.instance.playSound(GameSound.skipApplied);
     }
 
     _discardPile.addAll(played);
@@ -1664,8 +1666,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         .firstOrNull!;
     if (winner.id == OfflineGameState.localId) {
       CardBackService.instance.registerWin();
+      game_audio.AudioService.instance.playSound(GameSound.playerWin);
+    } else {
+      game_audio.AudioService.instance.playSound(GameSound.playerLose);
     }
-    game_audio.AudioService.instance.playSound(GameSound.playerWin);
 
     Future.microtask(() {
       if (!mounted) return;
@@ -1700,7 +1704,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final playerName = state.playerById(playerId)?.displayName ?? playerId;
     widget.onPlayerFinished(playerName, finishPosition);
     if (_tournamentFinishedPlayerIds.length < state.players.length) {
-      game_audio.AudioService.instance.playSound(GameSound.tournamentQualify);
+      if (playerId == OfflineGameState.localId) {
+        game_audio.AudioService.instance.playSound(GameSound.tournamentQualify);
+      } else {
+        game_audio.AudioService.instance.playSound(GameSound.opponentOut);
+      }
     }
 
     if (_tournamentFinishedPlayerIds.length == state.players.length) {
@@ -1960,29 +1968,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _moveLogEntries.insert(0, entry);
     if (_moveLogEntries.length > 3) {
       _moveLogEntries.removeRange(3, _moveLogEntries.length);
-    }
-  }
-
-  static GameSound? _offlineSpecialSoundFor(CardModel card) {
-    switch (card.effectiveRank) {
-      case Rank.two:
-        return GameSound.specialTwo;
-      case Rank.jack:
-        return card.isBlackJack
-            ? GameSound.specialBlackJack
-            : GameSound.specialRedJack;
-      case Rank.king:
-        return GameSound.specialKing;
-      case Rank.ace:
-        return GameSound.specialAce;
-      case Rank.queen:
-        return GameSound.specialQueen;
-      case Rank.eight:
-        return GameSound.specialEight;
-      case Rank.joker:
-        return GameSound.specialJoker;
-      default:
-        return null;
     }
   }
 

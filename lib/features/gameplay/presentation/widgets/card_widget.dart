@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../domain/entities/card.dart';
-import '../controllers/audio_service.dart';
+import '../../../../services/audio_service.dart' as _audio;
+import '../../../../services/game_sound.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -15,7 +14,7 @@ import 'joker_card_widget.dart';
 /// Pass [isSelected] to show the lifted + gold-shimmer selection state.
 /// Pass [onTap] to make the card interactive.
 /// Pass [onTap] to make the card interactive.
-class CardWidget extends ConsumerWidget {
+class CardWidget extends StatelessWidget {
   const CardWidget({
     super.key,
     required this.card,
@@ -32,7 +31,7 @@ class CardWidget extends ConsumerWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     if (!faceUp) return CardBackWidget(width: width);
     if (card.isJoker) {
       return JokerCardWidget(width: width, onTap: onTap);
@@ -57,13 +56,13 @@ class CardWidget extends ConsumerWidget {
           child: GestureDetector(
             onTap: () {
               if (onTap != null) {
-                ref.read(audioServiceProvider).playClick();
+                _audio.AudioService.instance.playSound(GameSound.cardSelect);
                 onTap!();
               }
             },
             onPanStart: onTap != null
                 ? (_) {
-                    ref.read(audioServiceProvider).playDrag();
+                    _audio.AudioService.instance.playSound(GameSound.cardDraw);
                   }
                 : null,
             child: Transform.translate(

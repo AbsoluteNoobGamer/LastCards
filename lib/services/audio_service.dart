@@ -13,7 +13,6 @@ class AudioService {
   static final AudioService instance = AudioService._();
 
   static const String _prefsKeySfxEnabled = 'sound_effects_enabled';
-  static const String _bgmAssetSubpath = 'audio/sfx/bgm.wav';
   static const Map<GameSound, String> _soundFiles = {
     GameSound.cardDraw: 'sfx/Draw-Card.wav',
     GameSound.cardPlace: 'sfx/card_place.wav',
@@ -30,17 +29,19 @@ class AudioService {
     GameSound.timerWarning: 'sfx/timer_warning.wav',
     GameSound.timerExpired: 'sfx/timer_expired.wav',
     GameSound.playerWin: 'sfx/player_win.wav',
+    GameSound.playerLose: 'sfx/player_lose.wav',
     GameSound.tournamentQualify: 'sfx/tournament_qualify.wav',
     GameSound.tournamentEliminate: 'sfx/tournament_eliminate.wav',
     GameSound.tournamentWin: 'sfx/tournament_win.wav',
     GameSound.shuffleDeck: 'sfx/shuffle_deck.wav',
+    GameSound.bustRoundStart: 'sfx/bust_round_start.wav',
+    GameSound.bustRoundEnd: 'sfx/bust_round_end.wav',
+    GameSound.skipApplied: 'sfx/skip_applied.wav',
+    GameSound.directionReversed: 'sfx/direction_reversed.wav',
+    GameSound.opponentOut: 'sfx/opponent_out.wav',
+    GameSound.endTurnButton: 'sfx/end_turn_button.wav',
+    GameSound.cardSelect: 'sfx/card_select.wav',
   };
-
-  // Dedicated looping player for background music only.
-  // SFX use fire-and-forget players (see _playOneShotAsset) to avoid the
-  // AudioPool / single-player ReleaseMode.stop re-prepare race condition that
-  // causes IllegalStateException (prepareAsync called on wrong state) on Android.
-  AudioPlayer? _bgmPlayer;
 
   // Category players: each owns a single AudioPlayer that is stopped then
   // replayed for every new sound in that category.  Separating categories
@@ -63,7 +64,6 @@ class AudioService {
 
   bool _initialized = false;
   bool _soundEffectsEnabled = true;
-  bool _bgmActive = false;
   double _volume = 1.0;
 
   // Tracks in-flight SFX players. Opening too many native MediaPlayers
@@ -90,7 +90,6 @@ class AudioService {
       _prefs = await SharedPreferences.getInstance();
       _soundEffectsEnabled = _prefs?.getBool(_prefsKeySfxEnabled) ?? true;
       _availableAssets = await _loadAudioAssets();
-      _bgmPlayer = AudioPlayer();
       _turnPlayer = AudioPlayer();
       _specialPlayer = AudioPlayer();
       _uiPlayer = AudioPlayer();
@@ -103,9 +102,6 @@ class AudioService {
 
   Future<void> setSoundEffectsEnabled(bool enabled) async {
     _soundEffectsEnabled = enabled;
-    if (!enabled) {
-      await stopBgm();
-    }
     try {
       _prefs ??= await SharedPreferences.getInstance();
       await _prefs?.setBool(_prefsKeySfxEnabled, enabled);
@@ -119,59 +115,6 @@ class AudioService {
     _turnPlayer?.setVolume(_volume);
     _specialPlayer?.setVolume(_volume);
     _uiPlayer?.setVolume(_volume);
-  }
-
-  /// Starts looping background music. Safe to call multiple times — re-entrant
-  /// calls while BGM is already active are ignored.
-  Future<void> startBgm() async {
-    if (!_initialized) await init();
-    if (!_soundEffectsEnabled) return;
-    if (_bgmActive) return;
-    if (!_availableAssets.contains('assets/$_bgmAssetSubpath')) {
-      debugPrint('AudioService.startBgm: asset not found — $_bgmAssetSubpath');
-      return;
-    }
-
-    try {
-      final player = _bgmPlayer;
-      if (player == null) return;
-
-      // Dispose and recreate the BGM player to guarantee a clean MediaPlayer
-      // state regardless of what happened previously.
-      await player.dispose();
-      _bgmPlayer = AudioPlayer();
-
-      // Absorb mid-playback platform errors so they never become unhandled
-      // exceptions. In audioplayers 6.x platform errors propagate as stream
-      // errors on eventStream; any listener without onError: forwards the error
-      // to the Zone handler, which rethrows it as an unhandled exception and
-      // crashes the app. Subscribing with onError: absorbs them for our listener.
-      _bgmPlayer!.eventStream.listen(
-        (_) {},
-        onError: (Object e) {
-          debugPrint('AudioService BGM error: $e');
-          _bgmActive = false;
-        },
-      );
-
-      await _bgmPlayer!.setReleaseMode(ReleaseMode.loop);
-      await _bgmPlayer!.setVolume(0.3);
-      await _bgmPlayer!.play(AssetSource(_bgmAssetSubpath));
-      _bgmActive = true;
-    } catch (e) {
-      debugPrint('AudioService.startBgm error: $e');
-      _bgmActive = false;
-    }
-  }
-
-  /// Stops background music. Safe to call even if nothing is playing.
-  Future<void> stopBgm() async {
-    _bgmActive = false;
-    try {
-      await _bgmPlayer?.stop();
-    } catch (e) {
-      debugPrint('AudioService.stopBgm error: $e');
-    }
   }
 
   Future<void> playSound(GameSound sound) async {
@@ -205,12 +148,20 @@ class AudioService {
       case GameSound.timerExpired:
       case GameSound.shuffleDeck:
       case GameSound.penaltyDraw:
+      case GameSound.bustRoundStart:
+      case GameSound.bustRoundEnd:
+      case GameSound.skipApplied:
+      case GameSound.directionReversed:
         await _playCategorySound(_uiPlayer, assetSubpath);
 
       // ── High-frequency / burst sounds: fire-and-forget to avoid cut-offs ───
       case GameSound.cardDraw:
       case GameSound.cardPlace:
       case GameSound.playerWin:
+      case GameSound.playerLose:
+      case GameSound.opponentOut:
+      case GameSound.endTurnButton:
+      case GameSound.cardSelect:
         await _playOneShotAsset(assetSubpath);
     }
   }
@@ -238,18 +189,15 @@ class AudioService {
   /// torn down (e.g. in [State.dispose]).
   Future<void> dispose() async {
     try {
-      await _bgmPlayer?.dispose();
       await _turnPlayer?.dispose();
       await _specialPlayer?.dispose();
       await _uiPlayer?.dispose();
     } catch (e) {
       debugPrint('AudioService.dispose error: $e');
     }
-    _bgmPlayer = null;
     _turnPlayer = null;
     _specialPlayer = null;
     _uiPlayer = null;
-    _bgmActive = false;
     _initialized = false;
   }
 

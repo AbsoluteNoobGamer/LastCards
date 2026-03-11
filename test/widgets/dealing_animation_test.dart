@@ -7,14 +7,7 @@ import 'package:last_cards/features/gameplay/presentation/widgets/card_widget.da
 import 'package:last_cards/features/gameplay/presentation/widgets/draw_pile_widget.dart';
 import 'package:last_cards/core/services/audio_service.dart';
 
-class MockAudioService extends AudioService {
-  @override
-  Future<void> startBgm() async {}
-  @override
-  Future<void> playClick() async {}
-  @override
-  Future<void> stopBgm() async {}
-}
+class MockAudioService extends AudioService {}
 
 void main() {
   testWidgets('Sequential Dealer Animation works and blocks early input',

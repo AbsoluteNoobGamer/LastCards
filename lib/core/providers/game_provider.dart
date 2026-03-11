@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:last_cards/services/audio_service.dart';
-import 'package:last_cards/services/game_sound.dart';
+import 'package:last_cards/services/game_sound.dart' show GameSound, soundForCard;
 import 'package:last_cards/shared/rules/win_condition_rules.dart';
 
 import '../models/card_model.dart';
@@ -122,8 +122,12 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
         if (state.gameState == null) return;
         unawaited(AudioService.instance.playSound(GameSound.cardPlace));
         for (final card in e.cards) {
-          final s = _specialSoundFor(card);
+          final s = soundForCard(card);
           if (s != null) unawaited(AudioService.instance.playSound(s));
+        }
+        // Eight played → skip effect incoming
+        if (e.cards.any((c) => c.effectiveRank == Rank.eight)) {
+          unawaited(AudioService.instance.playSound(GameSound.skipApplied));
         }
         state = state.copyWith(
           gameState: state.gameState!.copyWith(
@@ -153,6 +157,10 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     _subs.add(
       _eventHandler.turnChanges.listen((e) {
         if (state.gameState == null) return;
+        if (e.direction != state.gameState!.direction) {
+          unawaited(
+              AudioService.instance.playSound(GameSound.directionReversed));
+        }
         state = state.copyWith(
           gameState: state.gameState!.copyWith(
             currentPlayerId: e.newCurrentPlayerId,
@@ -250,29 +258,6 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
         state = state.copyWith(lastError: e.message);
       }),
     );
-  }
-
-  static GameSound? _specialSoundFor(CardModel card) {
-    switch (card.effectiveRank) {
-      case Rank.two:
-        return GameSound.specialTwo;
-      case Rank.jack:
-        return card.isBlackJack
-            ? GameSound.specialBlackJack
-            : GameSound.specialRedJack;
-      case Rank.king:
-        return GameSound.specialKing;
-      case Rank.ace:
-        return GameSound.specialAce;
-      case Rank.queen:
-        return GameSound.specialQueen;
-      case Rank.eight:
-        return GameSound.specialEight;
-      case Rank.joker:
-        return GameSound.specialJoker;
-      default:
-        return null;
-    }
   }
 
   // ── Actions ───────────────────────────────────────────────────────────────
