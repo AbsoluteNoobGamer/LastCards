@@ -1,15 +1,15 @@
 # ── Build stage ───────────────────────────────────────────────────────────────
-# Use Dart 3.11.2 (satisfies google_fonts ^8.0.2 which needs Dart >=3.9.0).
+# Use Dart 3.9.2 (satisfies google_fonts ^8.0.2 which needs Dart >=3.9.0).
 # We also install Flutter so that `flutter pub get` can resolve the root
 # package (last_cards) which declares `flutter: sdk: flutter`.
-FROM dart:3.11.2 AS build
+FROM dart:3.9.2 AS build
 
 # Install Flutter SDK (same version the app targets)
 RUN apt-get update -q && apt-get install -y --no-install-recommends \
       curl git unzip xz-utils ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-ENV FLUTTER_VERSION=3.29.2
+ENV FLUTTER_VERSION=3.35.4
 RUN curl -fsSL \
       "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz" \
       -o /tmp/flutter.tar.xz && \
