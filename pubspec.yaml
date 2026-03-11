@@ -42,7 +42,8 @@ dev_dependencies:
     sdk: flutter
   integration_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
+  dev_dependencies:
+  flutter_lints: ^5.0.0  # or ~3.0.0 — compatible with Dart <3.8.0
   build_runner: ^2.4.13
   freezed: ^2.5.7
   json_serializable: ^6.8.0
