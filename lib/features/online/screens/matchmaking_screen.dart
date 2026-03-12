@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -63,6 +64,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
           _eventSub = null;
           Future.delayed(const Duration(milliseconds: 600), () {
             if (!mounted) return;
+            _navigatedForward = true;
             Navigator.of(context).pushReplacement(
               PageRouteBuilder(
                 pageBuilder: (_, __, ___) => const LobbyReadyScreen(),
@@ -77,13 +79,44 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
         }
       }
     });
+
+    // Connect to the server and send a quickplay matchmaking request.
+    _connectAndRequestMatch(playerCount);
   }
+
+  Future<void> _connectAndRequestMatch(int playerCount) async {
+    final wsClient = ref.read(wsClientProvider);
+    try {
+      await wsClient.connect();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Connection failed: $e'),
+          backgroundColor: const Color(0xFFB71C1C),
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+    wsClient.send(jsonEncode({
+      'type': 'quickplay',
+      'playerCount': playerCount,
+      'displayName': 'Player',
+    }));
+  }
+
+  bool _navigatedForward = false;
 
   @override
   void dispose() {
     _rotateController.dispose();
     _pulseController.dispose();
     _eventSub?.cancel();
+    // Only disconnect if the user cancelled — not on forward navigation.
+    if (!_navigatedForward) {
+      ref.read(wsClientProvider).disconnect();
+    }
     super.dispose();
   }
 
@@ -280,7 +313,8 @@ class _AnimatedWaitingIndicator extends ConsumerWidget {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: accent.withValues(alpha: 0.20 + 0.15 * pulseController.value),
+                        color: accent.withValues(
+                            alpha: 0.20 + 0.15 * pulseController.value),
                         blurRadius: 24,
                         spreadRadius: 4,
                       ),

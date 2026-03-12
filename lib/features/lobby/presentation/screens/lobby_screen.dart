@@ -275,7 +275,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Could not join. Check the room code and that this device is using the host\'s IP (e.g. run with WS_URL=ws://HOST_IP:8080/game).',
+            'Could not join. Check the room code and try again.',
           ),
           duration: Duration(seconds: 5),
           backgroundColor: Color(0xFFB71C1C),
@@ -524,9 +524,15 @@ class _LobbyPlayerList extends StatelessWidget {
         : [
             _PlayerEntry(name: 'You', isReady: isReady, theme: theme),
             _PlayerEntry(
-                name: 'Waiting...', isReady: false, isPlaceholder: true, theme: theme),
+                name: 'Waiting...',
+                isReady: false,
+                isPlaceholder: true,
+                theme: theme),
             _PlayerEntry(
-                name: 'Waiting...', isReady: false, isPlaceholder: true, theme: theme),
+                name: 'Waiting...',
+                isReady: false,
+                isPlaceholder: true,
+                theme: theme),
           ];
 
     return Column(
