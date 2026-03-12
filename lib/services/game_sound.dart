@@ -31,6 +31,8 @@ enum GameSound {
 }
 
 /// Returns the [GameSound] for a special card's effect, or `null` for normal cards.
+/// Callers play [GameSound.cardPlace] (card_place.wav) for every card; only
+/// special cards get an additional sound from this function (all modes).
 GameSound? soundForCard(CardModel card) {
   switch (card.effectiveRank) {
     case Rank.two:

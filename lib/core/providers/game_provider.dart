@@ -120,8 +120,9 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     _subs.add(
       _eventHandler.cardPlays.listen((e) {
         if (state.gameState == null) return;
-        unawaited(AudioService.instance.playSound(GameSound.cardPlace));
+        // Every card uses card_place.wav; special cards also get their effect sound.
         for (final card in e.cards) {
+          unawaited(AudioService.instance.playSound(GameSound.cardPlace));
           final s = soundForCard(card);
           if (s != null) unawaited(AudioService.instance.playSound(s));
         }
