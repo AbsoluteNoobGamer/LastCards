@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -77,6 +78,31 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
         }
       }
     });
+
+    // Connect to the server and send a quickplay matchmaking request.
+    _connectAndRequestMatch(playerCount);
+  }
+
+  Future<void> _connectAndRequestMatch(int playerCount) async {
+    final wsClient = ref.read(wsClientProvider);
+    try {
+      await wsClient.connect();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Connection failed: $e'),
+          backgroundColor: const Color(0xFFB71C1C),
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+    wsClient.send(jsonEncode({
+      'type': 'quickplay',
+      'playerCount': playerCount,
+      'displayName': 'Player',
+    }));
   }
 
   @override
@@ -84,6 +110,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     _rotateController.dispose();
     _pulseController.dispose();
     _eventSub?.cancel();
+    ref.read(wsClientProvider).disconnect();
     super.dispose();
   }
 
