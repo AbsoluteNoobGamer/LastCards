@@ -268,6 +268,7 @@ class _TableLayout extends StatelessWidget {
                                 child: DiscardPileWidget(
                                   topCard: gameState.discardTopCard,
                                   secondCard: gameState.discardSecondCard,
+                                  discardPileHistory: gameState.discardPileHistory,
                                   cardWidth: 100,
                                   discardPileCount: discardPileCount,
                                 ),

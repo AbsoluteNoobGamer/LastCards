@@ -123,13 +123,33 @@ final class ErrorEvent extends GameEvent {
   String get type => 'error';
 }
 
-/// Room was created; server sends the room code to the creator.
+/// Room was created; server sends the room code and creator's player ID.
 final class RoomCreatedEvent extends GameEvent {
   final String roomCode;
-  const RoomCreatedEvent(this.roomCode);
+  final String playerId;
+  const RoomCreatedEvent(this.roomCode, {this.playerId = ''});
 
   @override
   String get type => 'room_created';
+}
+
+/// Room was joined; server sends the room code and joiner's player ID.
+final class RoomJoinedEvent extends GameEvent {
+  final String roomCode;
+  final String playerId;
+  const RoomJoinedEvent(this.roomCode, this.playerId);
+
+  @override
+  String get type => 'room_joined';
+}
+
+/// A player marked themselves ready in the lobby.
+final class PlayerReadyEvent extends GameEvent {
+  final String playerId;
+  const PlayerReadyEvent(this.playerId);
+
+  @override
+  String get type => 'player_ready';
 }
 
 /// Server requires the local player to choose a suit after playing an Ace.
@@ -299,7 +319,13 @@ GameEvent parseServerEvent(String raw) {
       'player_left' => PlayerLeftEvent(json['playerId'] as String),
       'game_ended' => GameEndedEvent(json['winnerId'] as String),
       'room_created' => RoomCreatedEvent(
-          json['roomCode'] as String? ?? ''),
+          json['roomCode'] as String? ?? '',
+          playerId: json['playerId'] as String? ?? ''),
+      'room_joined' => RoomJoinedEvent(
+          json['roomCode'] as String? ?? '',
+          json['playerId'] as String? ?? ''),
+      'player_ready' => PlayerReadyEvent(
+          json['playerId'] as String? ?? ''),
       'suit_choice_required' => SuitChoiceRequiredEvent(
           cardId: json['cardId'] as String? ?? '',
         ),

@@ -2,6 +2,7 @@ import '../core/models/card_model.dart';
 
 enum GameSound {
   cardDraw,
+  dealCard, // Dealer dealing at round start (separate from player drawing)
   cardPlace,
   specialTwo,
   specialBlackJack,

@@ -278,7 +278,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   void _initNewGame() {
     final liveState = ref.read(gameStateProvider);
     if (liveState != null) {
-      // Online mode: server already sent state. Don't run deal animation or AI.
+      // Online mode: server sent state. Run visual deal animation then use it.
       _offlineState = liveState;
       _drawPile = [];
       _discardPile.clear();
@@ -288,7 +288,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         _discardPile.add(liveState.discardTopCard!);
       }
       _moveLogEntries.clear();
-      _isDealing = false;
       _playerZoneKeys.clear();
       for (final p in liveState.players) {
         _playerZoneKeys[p.id] = GlobalKey();
@@ -297,6 +296,22 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           .where((p) => p.tablePosition == TablePosition.bottom)
           .firstOrNull;
       _handOrder = localStart?.hand.map((c) => c.id).toList() ?? [];
+
+      // Start deal animation: mask hands, show countdown, then animate cards in.
+      setState(() {
+        _isDealing = true;
+        _visibleCardCounts.clear();
+        for (final p in liveState.players) {
+          _visibleCardCounts[p.id] = 0;
+        }
+        // Pre-deal countdown (54 - 1 face-up = 53), matching offline.
+        _offlineState = liveState.copyWith(drawPileCount: 53);
+      });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _startDealAnimation();
+      });
       return;
     }
 
@@ -417,10 +432,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
 
     for (int i = 0; i < 7; i++) {
-      for (final p in orderedPlayers) {
+      for (var pi = 0; pi < orderedPlayers.length; pi++) {
+        final p = orderedPlayers[pi];
         if (!mounted) return;
 
-        game_audio.AudioService.instance.playSound(GameSound.cardDraw);
+        game_audio.AudioService.instance.playDealCardSoundForPlayer(pi);
         final overlay = _overlayKey.currentState;
         if (overlay != null) {
           // Fire the animation but only stagger by 100 ms — cards overlap
@@ -444,15 +460,19 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     if (!mounted) return;
 
+    final isOnlineMode = ref.read(gameStateProvider) != null;
+    final realDrawCount = isOnlineMode
+        ? (ref.read(gameStateProvider)?.drawPileCount ?? _drawPile.length)
+        : _drawPile.length;
+
     setState(() {
       _isDealing = false;
       // Snap to real remaining pile size after the visual countdown completes.
-      _offlineState = _offlineState.copyWith(drawPileCount: _drawPile.length);
+      _offlineState = _offlineState.copyWith(drawPileCount: realDrawCount);
     });
 
     // In online mode the server drives turn advancement — skip local AI
     // scheduling and timer start (the online turn-timer listener handles it).
-    final isOnlineMode = ref.read(gameStateProvider) != null;
     if (isOnlineMode) return;
 
     _startTimer();

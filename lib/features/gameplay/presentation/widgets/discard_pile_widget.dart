@@ -20,12 +20,17 @@ class DiscardPileWidget extends StatefulWidget {
     super.key,
     this.topCard,
     this.secondCard,
+    this.discardPileHistory,
     this.cardWidth = AppDimensions.cardWidthDiscardTop,
     this.discardPileCount = 0,
   });
 
   final CardModel? topCard;
   final CardModel? secondCard;
+
+  /// Cards under the top (2nd, 3rd, ...) for visual stacking hints.
+  /// When null, falls back to [secondCard] for layer 1.
+  final List<CardModel>? discardPileHistory;
   final double cardWidth;
 
   /// Number of cards currently in the discard pile. Used to compute stack depth.
@@ -91,7 +96,8 @@ class _DiscardPileWidgetState extends State<DiscardPileWidget> {
             if (topCard == null)
               _EmptyPileLabel(width: widget.cardWidth, height: height),
 
-            // Dynamic stacked card-back layers (furthest first)
+            // Dynamic stacked layers (furthest first) — card faces when history
+            // available, otherwise card backs.
             if (topCard != null)
               for (int i = layers; i >= 1; i--)
                 Positioned(
@@ -99,7 +105,7 @@ class _DiscardPileWidgetState extends State<DiscardPileWidget> {
                   left: 8 + i * layerOffset,
                   child: Opacity(
                     opacity: (1 - i * 0.15).clamp(0.2, 0.8),
-                    child: CardBackWidget(width: widget.cardWidth),
+                    child: _buildLayerCard(i),
                   ),
                 ),
 
@@ -142,6 +148,23 @@ class _DiscardPileWidgetState extends State<DiscardPileWidget> {
         ),
       ),
     );
+  }
+
+  /// Builds a single stacked layer — card face when history available, else back.
+  Widget _buildLayerCard(int layerIndex) {
+    final effectiveHistory = widget.discardPileHistory ??
+        (widget.secondCard != null ? [widget.secondCard!] : <CardModel>[]);
+    final card = effectiveHistory.length >= layerIndex
+        ? effectiveHistory[layerIndex - 1]
+        : null;
+    if (card != null) {
+      return CardWidget(
+        card: card,
+        width: widget.cardWidth,
+        faceUp: true,
+      );
+    }
+    return CardBackWidget(width: widget.cardWidth);
   }
 }
 

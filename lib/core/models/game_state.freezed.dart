@@ -32,6 +32,9 @@ mixin _$GameState {
   /// Second-from-top card for visual stacking effect on the discard pile.
   CardModel? get discardSecondCard => throw _privateConstructorUsedError;
 
+  /// Cards under the discard top (2nd, 3rd, ...) for visual stacking.
+  List<CardModel> get discardPileHistory => throw _privateConstructorUsedError;
+
   /// Number of cards remaining in the draw pile.
   int get drawPileCount => throw _privateConstructorUsedError;
 
@@ -99,6 +102,7 @@ abstract class $GameStateCopyWith<$Res> {
       PlayDirection direction,
       CardModel? discardTopCard,
       CardModel? discardSecondCard,
+      List<CardModel> discardPileHistory,
       int drawPileCount,
       int activePenaltyCount,
       int activeSkipCount,
@@ -139,6 +143,7 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
     Object? direction = null,
     Object? discardTopCard = freezed,
     Object? discardSecondCard = freezed,
+    Object? discardPileHistory = null,
     Object? drawPileCount = null,
     Object? activePenaltyCount = null,
     Object? activeSkipCount = null,
@@ -181,6 +186,10 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
           ? _value.discardSecondCard
           : discardSecondCard // ignore: cast_nullable_to_non_nullable
               as CardModel?,
+      discardPileHistory: null == discardPileHistory
+          ? _value.discardPileHistory
+          : discardPileHistory // ignore: cast_nullable_to_non_nullable
+              as List<CardModel>,
       drawPileCount: null == drawPileCount
           ? _value.drawPileCount
           : drawPileCount // ignore: cast_nullable_to_non_nullable
@@ -291,6 +300,7 @@ abstract class _$$GameStateImplCopyWith<$Res>
       PlayDirection direction,
       CardModel? discardTopCard,
       CardModel? discardSecondCard,
+      List<CardModel> discardPileHistory,
       int drawPileCount,
       int activePenaltyCount,
       int activeSkipCount,
@@ -332,6 +342,7 @@ class __$$GameStateImplCopyWithImpl<$Res>
     Object? direction = null,
     Object? discardTopCard = freezed,
     Object? discardSecondCard = freezed,
+    Object? discardPileHistory = null,
     Object? drawPileCount = null,
     Object? activePenaltyCount = null,
     Object? activeSkipCount = null,
@@ -374,6 +385,10 @@ class __$$GameStateImplCopyWithImpl<$Res>
           ? _value.discardSecondCard
           : discardSecondCard // ignore: cast_nullable_to_non_nullable
               as CardModel?,
+      discardPileHistory: null == discardPileHistory
+          ? _value._discardPileHistory
+          : discardPileHistory // ignore: cast_nullable_to_non_nullable
+              as List<CardModel>,
       drawPileCount: null == drawPileCount
           ? _value.drawPileCount
           : drawPileCount // ignore: cast_nullable_to_non_nullable
@@ -437,6 +452,7 @@ class _$GameStateImpl implements _GameState {
       required this.direction,
       this.discardTopCard,
       this.discardSecondCard,
+      final List<CardModel> discardPileHistory = const [],
       this.drawPileCount = 0,
       this.activePenaltyCount = 0,
       this.activeSkipCount = 0,
@@ -449,7 +465,8 @@ class _$GameStateImpl implements _GameState {
       this.cardsPlayedThisTurn = 0,
       this.lastPlayedThisTurn,
       this.pendingJokerResolution = false})
-      : _players = players;
+      : _players = players,
+        _discardPileHistory = discardPileHistory;
 
   factory _$GameStateImpl.fromJson(Map<String, dynamic> json) =>
       _$$GameStateImplFromJson(json);
@@ -478,6 +495,19 @@ class _$GameStateImpl implements _GameState {
   /// Second-from-top card for visual stacking effect on the discard pile.
   @override
   final CardModel? discardSecondCard;
+
+  /// Cards under the discard top (2nd, 3rd, ...) for visual stacking.
+  final List<CardModel> _discardPileHistory;
+
+  /// Cards under the discard top (2nd, 3rd, ...) for visual stacking.
+  @override
+  @JsonKey()
+  List<CardModel> get discardPileHistory {
+    if (_discardPileHistory is EqualUnmodifiableListView)
+      return _discardPileHistory;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_discardPileHistory);
+  }
 
   /// Number of cards remaining in the draw pile.
   @override
@@ -544,7 +574,7 @@ class _$GameStateImpl implements _GameState {
 
   @override
   String toString() {
-    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardSecondCard: $discardSecondCard, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, activeSkipCount: $activeSkipCount, suitLock: $suitLock, preTurnCentreSuit: $preTurnCentreSuit, queenSuitLock: $queenSuitLock, winnerId: $winnerId, lastUpdatedAt: $lastUpdatedAt, actionsThisTurn: $actionsThisTurn, cardsPlayedThisTurn: $cardsPlayedThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn, pendingJokerResolution: $pendingJokerResolution)';
+    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardSecondCard: $discardSecondCard, discardPileHistory: $discardPileHistory, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, activeSkipCount: $activeSkipCount, suitLock: $suitLock, preTurnCentreSuit: $preTurnCentreSuit, queenSuitLock: $queenSuitLock, winnerId: $winnerId, lastUpdatedAt: $lastUpdatedAt, actionsThisTurn: $actionsThisTurn, cardsPlayedThisTurn: $cardsPlayedThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn, pendingJokerResolution: $pendingJokerResolution)';
   }
 
   @override
@@ -564,6 +594,8 @@ class _$GameStateImpl implements _GameState {
                 other.discardTopCard == discardTopCard) &&
             (identical(other.discardSecondCard, discardSecondCard) ||
                 other.discardSecondCard == discardSecondCard) &&
+            const DeepCollectionEquality()
+                .equals(other._discardPileHistory, _discardPileHistory) &&
             (identical(other.drawPileCount, drawPileCount) ||
                 other.drawPileCount == drawPileCount) &&
             (identical(other.activePenaltyCount, activePenaltyCount) ||
@@ -601,6 +633,7 @@ class _$GameStateImpl implements _GameState {
         direction,
         discardTopCard,
         discardSecondCard,
+        const DeepCollectionEquality().hash(_discardPileHistory),
         drawPileCount,
         activePenaltyCount,
         activeSkipCount,
@@ -640,6 +673,7 @@ abstract class _GameState implements GameState {
       required final PlayDirection direction,
       final CardModel? discardTopCard,
       final CardModel? discardSecondCard,
+      final List<CardModel> discardPileHistory,
       final int drawPileCount,
       final int activePenaltyCount,
       final int activeSkipCount,
@@ -674,6 +708,10 @@ abstract class _GameState implements GameState {
   /// Second-from-top card for visual stacking effect on the discard pile.
   @override
   CardModel? get discardSecondCard;
+
+  /// Cards under the discard top (2nd, 3rd, ...) for visual stacking.
+  @override
+  List<CardModel> get discardPileHistory;
 
   /// Number of cards remaining in the draw pile.
   @override
