@@ -27,7 +27,9 @@ class CardBackService {
   static const String _prefsUnlockedKey = 'card_back_unlocked';
   static const String _prefsWinsKey = 'card_back_total_wins';
   static const String _prefsAnimatedEffectsKey = 'card_back_animated_effects';
+  static const String _prefsJokerCoverKey = 'joker_cover_selected';
   static const String _cardBackCoverPrefix = 'assets/images/cardbackcover/';
+  static const String _jokerCoverPrefix = 'assets/images/jokercover/';
   static const String _animatedCardsPrefix = 'assets/animated_cards/';
   static const Set<String> _builtInAnimatedNames = {
     'classic.gif',
@@ -60,6 +62,10 @@ class CardBackService {
       ValueNotifier<List<CardBackDesign>>([]);
   final ValueNotifier<List<CardBackDesign>> cardBackCoverDesigns =
       ValueNotifier<List<CardBackDesign>>([]);
+  final ValueNotifier<String> selectedJokerCoverId =
+      ValueNotifier<String>('classic');
+  final ValueNotifier<List<CardBackDesign>> jokerCoverDesigns =
+      ValueNotifier<List<CardBackDesign>>([]);
 
   bool _initialized = false;
   int _totalWins = 0;
@@ -90,6 +96,7 @@ class CardBackService {
     animatedGifDesigns.value = await _loadAnimatedGifDesigns();
     uploadedAnimatedAssetPath.value = await _findUploadedAnimatedAsset();
     cardBackCoverDesigns.value = await _loadCardBackCoverDesigns();
+    jokerCoverDesigns.value = await _loadJokerCoverDesigns();
     _unlocked = unlockedRaw == null || unlockedRaw.trim().isEmpty
         ? <String>{'classic'}
         : unlockedRaw
@@ -112,7 +119,44 @@ class CardBackService {
       selectedDesignId.value = covers.isNotEmpty ? covers.first.id : 'classic';
       await prefs.setString(_prefsSelectedKey, selectedDesignId.value);
     }
+
+    final jokerSelected =
+        prefs.getString(_prefsJokerCoverKey) ?? 'classic';
+    final jokerCovers = jokerCoverDesigns.value;
+    final isValidJoker = jokerSelected == 'classic' ||
+        jokerCovers.any((d) => d.id == jokerSelected);
+    selectedJokerCoverId.value =
+        isValidJoker ? jokerSelected : (jokerCovers.isNotEmpty ? jokerCovers.first.id : 'classic');
+    if (!isValidJoker) {
+      await prefs.setString(_prefsJokerCoverKey, selectedJokerCoverId.value);
+    }
+
     _initialized = true;
+  }
+
+  Future<List<CardBackDesign>> _loadJokerCoverDesigns() async {
+    try {
+      final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+      final paths = manifest
+          .listAssets()
+          .where((path) => path.startsWith(_jokerCoverPrefix))
+          .where((path) {
+        final lower = path.toLowerCase();
+        return lower.endsWith('.png') ||
+            lower.endsWith('.jpg') ||
+            lower.endsWith('.jpeg');
+      }).toList()
+        ..sort();
+      return paths
+          .map((path) => CardBackDesign(
+                id: path,
+                label: _labelFromFilename(path.split('/').last),
+                assetPath: path,
+              ))
+          .toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   Future<List<CardBackDesign>> _loadCardBackCoverDesigns() async {
@@ -178,6 +222,19 @@ class CardBackService {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsSelectedKey, designId);
+    return true;
+  }
+
+  Future<bool> selectJokerCover(String designId) async {
+    await init();
+    if (designId != 'classic' &&
+        !jokerCoverDesigns.value.any((d) => d.id == designId)) {
+      return false;
+    }
+    if (selectedJokerCoverId.value == designId) return true;
+    selectedJokerCoverId.value = designId;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefsJokerCoverKey, designId);
     return true;
   }
 

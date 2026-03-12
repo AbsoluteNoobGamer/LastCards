@@ -32,6 +32,7 @@ enum _CardStyleMenuView {
   root,
   animatedBacks,
   coverBacks,
+  jokerCovers,
 }
 
 class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
@@ -54,6 +55,8 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
             _buildAnimatedStylesMenu(selectedDesignId),
           _CardStyleMenuView.coverBacks =>
             _buildCoverStylesMenu(selectedDesignId),
+          _CardStyleMenuView.jokerCovers =>
+            _buildJokerCoversMenu(selectedDesignId),
         };
 
         return Column(
@@ -117,6 +120,19 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
               const Icon(Icons.chevron_right_rounded, color: Colors.white70),
           onTap: () => setState(() => _view = _CardStyleMenuView.coverBacks),
         ),
+        const SizedBox(height: 8),
+        _CardStyleTile(
+          option: const _CardStyleOption(
+            id: 'joker_root',
+            title: 'Joker',
+            subtitle: 'Cover',
+            icon: Icons.celebration_rounded,
+          ),
+          isSelected: false,
+          trailing:
+              const Icon(Icons.chevron_right_rounded, color: Colors.white70),
+          onTap: () => setState(() => _view = _CardStyleMenuView.jokerCovers),
+        ),
       ],
     );
   }
@@ -179,6 +195,72 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
         );
       },
     );
+  }
+
+  Widget _buildJokerCoversMenu(String selectedDesignId) {
+    return ValueListenableBuilder<String>(
+      valueListenable: CardBackService.instance.selectedJokerCoverId,
+      builder: (context, selectedJokerId, _) {
+        return ValueListenableBuilder<List<CardBackDesign>>(
+          valueListenable: CardBackService.instance.jokerCoverDesigns,
+          builder: (context, jokerDesigns, _) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SubmenuHeader(
+                  title: 'Joker Cover',
+                  onBack: () => setState(() => _view = _CardStyleMenuView.root),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _CardStyleTile(
+                    option: const _CardStyleOption(
+                      id: 'classic',
+                      title: 'Classic',
+                      subtitle: 'Default design',
+                      icon: Icons.celebration_rounded,
+                      previewDesignId: 'classic',
+                    ),
+                    isSelected: selectedJokerId == 'classic',
+                    onTap: () => _selectJokerOption(context, 'classic'),
+                  ),
+                ),
+                if (jokerDesigns.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'Add images to assets/images/jokercover/',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ),
+                ...jokerDesigns.map(
+                  (design) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _CardStyleTile(
+                      option: _CardStyleOption(
+                        id: design.id,
+                        title: design.label,
+                        subtitle: null,
+                        icon: Icons.celebration_rounded,
+                        previewAssetPath: design.assetPath,
+                      ),
+                      isSelected: selectedJokerId == design.id,
+                      onTap: () => _selectJokerOption(context, design.id),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _selectJokerOption(BuildContext context, String designId) async {
+    final ok = await CardBackService.instance.selectJokerCover(designId);
+    if (!context.mounted) return;
+    if (ok) widget.onSelectionApplied?.call();
   }
 
   Widget _buildCoverStylesMenu(String selectedDesignId) {

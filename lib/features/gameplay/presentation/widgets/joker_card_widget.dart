@@ -1,10 +1,12 @@
 import 'dart:math' as math;
 
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/services/card_back_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_theme_data.dart';
@@ -59,6 +61,49 @@ class _JokerCardWidgetState extends ConsumerState<JokerCardWidget>
     final theme = ref.watch(themeProvider).theme;
     final height = AppDimensions.cardHeight(widget.width);
 
+    return ValueListenableBuilder<String>(
+      valueListenable: CardBackService.instance.selectedJokerCoverId,
+      builder: (context, selectedJokerId, _) {
+        final design = selectedJokerId != 'classic'
+            ? CardBackService.instance.jokerCoverDesigns.value
+                .firstWhereOrNull((d) => d.id == selectedJokerId)
+            : null;
+        final useImage = design != null && design.assetPath != null;
+
+        if (useImage) {
+          return GestureDetector(
+            onTap: widget.onTap,
+            child: Container(
+              width: widget.width,
+              height: height,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
+                child: Image.asset(
+                  design.assetPath!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _buildClassicJoker(theme),
+                ),
+              ),
+            ),
+          );
+        }
+        return _buildClassicJoker(theme);
+      },
+    );
+  }
+
+  Widget _buildClassicJoker(AppThemeData theme) {
+    final height = AppDimensions.cardHeight(widget.width);
     final bgColors = theme.jokerBackgroundColors ?? [_defaultBg1, _defaultBg2];
     final borderColor = theme.jokerBorderColor ?? AppColors.goldDark;
     final accentColor = theme.jokerAccentColor ?? AppColors.goldPrimary;
