@@ -9,11 +9,16 @@ class BustPlayerRail extends StatefulWidget {
     required this.players,
     this.autoScrollDuration = const Duration(milliseconds: 350),
     this.autoScrollCurve = Curves.easeOutCubic,
+    this.slotKeyBuilder,
   });
 
   final List<BustPlayerViewModel> players;
   final Duration autoScrollDuration;
   final Curve autoScrollCurve;
+
+  /// Optional builder that returns a [GlobalKey] for each player slot.
+  /// Used by the dealing animation overlay to locate render targets.
+  final GlobalKey? Function(BustPlayerViewModel player)? slotKeyBuilder;
 
   @override
   State<BustPlayerRail> createState() => _BustPlayerRailState();
@@ -77,10 +82,16 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
         padding: const EdgeInsets.symmetric(horizontal: AppDimensions.sm),
         itemCount: widget.players.length,
         itemBuilder: (context, index) {
+          final player = widget.players[index];
+          final slotKey = widget.slotKeyBuilder?.call(player);
+          Widget slot = BustPlayerSlot(player: player);
+          if (slotKey != null) {
+            slot = KeyedSubtree(key: slotKey, child: slot);
+          }
           return Padding(
             padding:
                 const EdgeInsets.symmetric(horizontal: AppDimensions.xs),
-            child: BustPlayerSlot(player: widget.players[index]),
+            child: slot,
           );
         },
       ),

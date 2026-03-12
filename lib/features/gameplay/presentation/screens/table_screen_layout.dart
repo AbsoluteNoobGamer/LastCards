@@ -128,6 +128,8 @@ class _TableLayout extends StatelessWidget {
                             colorIndex: e.key,
                           );
                         }).toList(),
+                        slotKeyBuilder: (player) =>
+                            playerZoneKeys[player.id],
                       )
                     : Row(
                         children: [

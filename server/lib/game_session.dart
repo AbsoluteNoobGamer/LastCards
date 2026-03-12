@@ -726,12 +726,12 @@ class GameSession {
   // ── Position helper ───────────────────────────────────────────────────────
 
   TablePosition _positionFor(int index) {
-    const positions = [
-      TablePosition.bottom,
+    if (index == 0) return TablePosition.bottom;
+    const opponentPositions = [
       TablePosition.left,
       TablePosition.top,
       TablePosition.right,
     ];
-    return positions[index % positions.length];
+    return opponentPositions[(index - 1) % opponentPositions.length];
   }
 }
