@@ -14,33 +14,32 @@ class AudioService {
 
   static const String _prefsKeySfxEnabled = 'sound_effects_enabled';
   static const Map<GameSound, String> _soundFiles = {
-    GameSound.cardDraw: 'sfx/Draw-Card.wav',
-    GameSound.cardPlace: 'sfx/card_place.wav',
-    GameSound.specialTwo: 'sfx/special_two.wav',
-    GameSound.specialBlackJack: 'sfx/special-black_jack.wav',
-    GameSound.specialRedJack: 'sfx/special_red_jack.wav',
-    GameSound.specialKing: 'sfx/special_king.wav',
-    GameSound.specialAce: 'sfx/special_ace.wav',
-    GameSound.specialQueen: 'sfx/special_queen.wav',
-    GameSound.specialEight: 'sfx/special_eight.wav',
-    GameSound.specialJoker: 'sfx/special_joker.wav',
-    GameSound.penaltyDraw: 'sfx/penalty_draw.wav',
-    GameSound.turnStart: 'sfx/turn_start.wav',
-    GameSound.timerWarning: 'sfx/timer_warning.wav',
-    GameSound.timerExpired: 'sfx/timer_expired.wav',
-    GameSound.playerWin: 'sfx/player_win.wav',
-    GameSound.playerLose: 'sfx/player_lose.wav',
-    GameSound.tournamentQualify: 'sfx/tournament_qualify.wav',
-    GameSound.tournamentEliminate: 'sfx/tournament_eliminate.wav',
-    GameSound.tournamentWin: 'sfx/tournament_win.wav',
-    GameSound.shuffleDeck: 'sfx/shuffle_deck.wav',
-    GameSound.bustRoundStart: 'sfx/bust_round_start.wav',
-    GameSound.bustRoundEnd: 'sfx/bust_round_end.wav',
-    GameSound.skipApplied: 'sfx/skip_applied.wav',
-    GameSound.directionReversed: 'sfx/direction_reversed.wav',
-    GameSound.opponentOut: 'sfx/opponent_out.wav',
-    GameSound.endTurnButton: 'sfx/end_turn_button.wav',
-    GameSound.cardSelect: 'sfx/card_select.wav',
+    GameSound.cardDraw: 'Draw-Card.wav',
+    GameSound.cardPlace: 'card_place.wav',
+    GameSound.specialTwo: 'special_two.wav',
+    GameSound.specialBlackJack: 'special-black_jack.wav',
+    GameSound.specialRedJack: 'special_red_jack.wav',
+    GameSound.specialKing: 'special_king.wav',
+    GameSound.specialAce: 'special_ace.wav',
+    GameSound.specialQueen: 'special_queen.wav',
+    GameSound.specialEight: 'special_eight.wav',
+    GameSound.specialJoker: 'special_joker.wav',
+    GameSound.penaltyDraw: 'penalty_draw.wav',
+    GameSound.turnStart: 'turn_start.wav',
+    GameSound.timerWarning: 'timer_warning.wav',
+    GameSound.timerExpired: 'timer_expired.wav',
+    GameSound.playerWin: 'player_win.wav',
+    GameSound.playerLose: 'player_lose.wav',
+    GameSound.tournamentQualify: 'tournament_qualify.wav',
+    GameSound.tournamentEliminate: 'tournament_eliminate.wav',
+    GameSound.tournamentWin: 'tournament_win.wav',
+    GameSound.shuffleDeck: 'shuffle_deck.wav',
+    GameSound.bustRoundStart: 'bust_round_start.wav',
+    GameSound.bustRoundEnd: 'bust_round_end.wav',
+    GameSound.skipApplied: 'skip_applied.wav',
+    GameSound.directionReversed: 'direction_reversed.wav',
+    GameSound.opponentOut: 'opponent_out.wav',
+    // Note: cardSelect and endTurnButton wav files are currently missing from assets/audio/sfx/
   };
 
   // Category players: each owns a single AudioPlayer that is stopped then
@@ -64,7 +63,7 @@ class AudioService {
 
   bool _initialized = false;
   bool _soundEffectsEnabled = true;
-  double _volume = 1.0;
+  double _volume = 0.5;
 
   // Tracks in-flight SFX players. Opening too many native MediaPlayers
   // simultaneously exhausts the Android audio session, causing ENODEV (-19)
@@ -264,7 +263,7 @@ class AudioService {
   }
 
   bool _hasAssetFor(GameSound sound) =>
-      _availableAssets.contains('assets/audio/${_soundFiles[sound]}');
+      _availableAssets.contains('assets/audio/sfx/${_soundFiles[sound]}');
 
-  String _assetSubpathFor(GameSound sound) => 'audio/${_soundFiles[sound]}';
+  String _assetSubpathFor(GameSound sound) => 'audio/sfx/${_soundFiles[sound]}';
 }

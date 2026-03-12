@@ -1521,6 +1521,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     // Track AI-played cards into discard pile.
     if (playedByAi.isNotEmpty) {
       _discardPile.addAll(playedByAi);
+      // Play card sounds for AI play
+      game_audio.AudioService.instance.playSound(GameSound.cardPlace);
+      for (final c in playedByAi) {
+        final s = soundForCard(c);
+        if (s != null) game_audio.AudioService.instance.playSound(s);
+      }
     }
 
     final aiPlayerName = _offlineState.playerById(aiId)?.displayName ?? aiId;
