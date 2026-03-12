@@ -9,6 +9,7 @@ import '../../../../core/models/game_event.dart';
 import '../../../../core/models/game_state.dart';
 import '../../../../core/models/player_model.dart';
 import '../../../../core/providers/connection_provider.dart';
+import '../../../../core/providers/profile_provider.dart';
 import '../../../../core/providers/game_provider.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_theme_data.dart';
@@ -34,7 +35,6 @@ class LobbyScreen extends ConsumerStatefulWidget {
 
 class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   final _codeController = TextEditingController();
-  final _nameController = TextEditingController();
   bool _isReady = false;
   String? _roomCode;
   bool _pendingJoin = false;
@@ -103,7 +103,6 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     _stateSnapshotSub?.cancel();
     _lobbyEventsSub?.cancel();
     _codeController.dispose();
-    _nameController.dispose();
     super.dispose();
   }
 
@@ -151,16 +150,6 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       ),
 
                       const SizedBox(height: AppDimensions.xxl),
-
-                      // Player name
-                      _GoldTextField(
-                        theme: theme,
-                        controller: _nameController,
-                        label: 'Your Name',
-                        hintText: 'Enter display name',
-                      ),
-
-                      const SizedBox(height: AppDimensions.md),
 
                       // Room code
                       _GoldTextField(
@@ -266,7 +255,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     wsClient.send(jsonEncode({
       'type': 'join_room',
       'roomCode': code,
-      'displayName': _nameController.text.trim(),
+      'displayName': ref.read(profileProvider).name,
     }));
     // If no response after 8s, show hint (wrong server IP or room code).
     Future.delayed(const Duration(seconds: 8), () {
@@ -301,7 +290,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     if (!mounted) return;
     wsClient.send(jsonEncode({
       'type': 'create_room',
-      'displayName': _nameController.text.trim(),
+      'displayName': ref.read(profileProvider).name,
     }));
     // Navigation happens when room_created is received (see initState listener).
   }
@@ -319,7 +308,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   }
 
   void _enterSelectedMode() {
-    final displayName = _nameController.text.trim();
+    final displayName = ref.read(profileProvider).name;
     final effectiveName = displayName.isEmpty ? 'You' : displayName;
 
     if (widget.onlineMode == OnlineMode.tournament) {

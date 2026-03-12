@@ -82,6 +82,7 @@ class WebSocketClient {
     } catch (e) {
       debugPrint('[WS] Connection failed: $e');
       _handleDisconnect();
+      rethrow;
     }
   }
 
@@ -90,8 +91,7 @@ class WebSocketClient {
   void send(String jsonPayload) {
     if (_stateNotifier.value != WsConnectionState.connected ||
         _channel == null) {
-      debugPrint('[WS] Cannot send — not connected');
-      return;
+      throw StateError('[WS] Cannot send — not connected');
     }
     _channel!.sink.add(jsonPayload);
   }
