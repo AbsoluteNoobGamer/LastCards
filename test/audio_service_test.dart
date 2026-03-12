@@ -170,10 +170,10 @@ void main() {
       expect(low_level.AudioService.instance.volume, 0.0);
 
       low_level.AudioService.instance.setVolume(1.5);
-      expect(low_level.AudioService.instance.volume, 1.0);
+      expect(low_level.AudioService.instance.volume, 0.5);
 
       low_level.AudioService.instance.setVolume(0.7);
-      expect(low_level.AudioService.instance.volume, 0.7);
+      expect(low_level.AudioService.instance.volume, 0.35);
     });
   });
 

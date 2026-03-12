@@ -27,7 +27,7 @@ class AudioService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
 
     // Restore persisted volume (0–100 stored, 0.0–1.0 used by the player).
-    final savedVolume = prefs.getDouble(_prefsKeySoundVolume) ?? 100.0;
+    final savedVolume = prefs.getDouble(_prefsKeySoundVolume) ?? 50.0;
     app_audio.AudioService.instance.setVolume(savedVolume / 100.0);
 
     // Resolve enabled/disabled state.
