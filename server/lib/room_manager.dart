@@ -98,7 +98,8 @@ class RoomManager {
   void _handleQuickplay(dynamic ws, Map<String, dynamic> json) {
     final playerCount = json['playerCount'] as int? ?? 4;
     final displayName = json['displayName'] as String? ?? 'Player';
-    print('[Quickplay] Player "$displayName" queued for $playerCount-player match');
+    print(
+        '[Quickplay] Player "$displayName" queued for $playerCount-player match');
 
     final queue = _quickplayQueues.putIfAbsent(playerCount, () => []);
 
@@ -115,19 +116,22 @@ class RoomManager {
       final roomCode = _uuid.v4().substring(0, 6).toUpperCase();
       final session = GameSession(roomCode);
       _rooms[roomCode] = session;
-      print('[Quickplay] Match found! Creating room $roomCode with $playerCount players');
+      print(
+          '[Quickplay] Match found! Creating room $roomCode with $playerCount players');
 
       for (final qp in matched) {
         final playerId = session.addPlayer(qp.ws, qp.displayName);
         _playerRooms[qp.ws] = roomCode;
         _playerIds[qp.ws] = playerId;
-        print('[Quickplay] Added "${qp.displayName}" ($playerId) to room $roomCode');
+        print(
+            '[Quickplay] Added "${qp.displayName}" ($playerId) to room $roomCode');
 
         // Auto-ready each matched player so the game starts immediately.
         session.markReady(playerId);
       }
 
-      print('[Quickplay] All players readied — game should start in room $roomCode');
+      print(
+          '[Quickplay] All players readied — game should start in room $roomCode');
     }
   }
 
@@ -144,8 +148,7 @@ class RoomManager {
       session?.removePlayer(playerId);
 
       // Clean up empty rooms to prevent memory leaks on long-running servers.
-      if (session != null &&
-          !_playerRooms.containsValue(roomCode)) {
+      if (session != null && !_playerRooms.containsValue(roomCode)) {
         _rooms.remove(roomCode);
       }
     }

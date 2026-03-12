@@ -307,7 +307,8 @@ class _AnimatedWaitingIndicator extends ConsumerWidget {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: accent.withValues(alpha: 0.20 + 0.15 * pulseController.value),
+                        color: accent.withValues(
+                            alpha: 0.20 + 0.15 * pulseController.value),
                         blurRadius: 24,
                         spreadRadius: 4,
                       ),

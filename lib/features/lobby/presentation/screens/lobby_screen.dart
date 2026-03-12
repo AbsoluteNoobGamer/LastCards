@@ -524,9 +524,15 @@ class _LobbyPlayerList extends StatelessWidget {
         : [
             _PlayerEntry(name: 'You', isReady: isReady, theme: theme),
             _PlayerEntry(
-                name: 'Waiting...', isReady: false, isPlaceholder: true, theme: theme),
+                name: 'Waiting...',
+                isReady: false,
+                isPlaceholder: true,
+                theme: theme),
             _PlayerEntry(
-                name: 'Waiting...', isReady: false, isPlaceholder: true, theme: theme),
+                name: 'Waiting...',
+                isReady: false,
+                isPlaceholder: true,
+                theme: theme),
           ];
 
     return Column(
