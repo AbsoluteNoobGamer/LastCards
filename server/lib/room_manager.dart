@@ -130,6 +130,11 @@ class RoomManager {
             '[Quickplay] Added "${qp.displayName}" ($playerId) to room $roomCode');
       }
 
+      // Send catch-up roster so every client knows about all players.
+      for (final qp in matched) {
+        session.sendPlayerRosterTo(qp.ws);
+      }
+
       // Second pass: mark all players ready so _startGame fires only after
       // every player is in the session.
       for (final playerId in playerIds) {

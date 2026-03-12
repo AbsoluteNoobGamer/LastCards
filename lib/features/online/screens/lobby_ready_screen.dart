@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/models/game_event.dart';
 import '../../../../core/models/game_state.dart';
 import '../../../../core/providers/connection_provider.dart';
+import '../../../../core/providers/game_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../features/gameplay/presentation/screens/table_screen.dart';
 import '../../../../features/tournament/providers/tournament_session_provider.dart';
@@ -47,6 +48,13 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
+
+    // Check if GameNotifier already captured a playing snapshot
+    // (e.g. quickplay auto-start during the matchmaking transition delay).
+    final existingState = ref.read(gameNotifierProvider).gameState;
+    if (existingState != null && existingState.phase == GamePhase.playing) {
+      _snapshotReceived = true;
+    }
 
     // Listen for the state_snapshot with phase == playing from the server.
     // Navigation fires only once both the countdown has finished AND the
@@ -163,8 +171,8 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
 
                   // ── All players ready badge ─────────────────────────────
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: theme.accentPrimary.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
@@ -320,8 +328,7 @@ class _ConfirmedPlayerAvatar extends ConsumerStatefulWidget {
       _ConfirmedPlayerAvatarState();
 }
 
-class _ConfirmedPlayerAvatarState
-    extends ConsumerState<_ConfirmedPlayerAvatar>
+class _ConfirmedPlayerAvatarState extends ConsumerState<_ConfirmedPlayerAvatar>
     with SingleTickerProviderStateMixin {
   late AnimationController _entryAnim;
 
@@ -380,8 +387,8 @@ class _ConfirmedPlayerAvatarState
               ),
               boxShadow: [
                 BoxShadow(
-                  color: theme.accentPrimary.withValues(
-                      alpha: widget.isLocalPlayer ? 0.30 : 0.12),
+                  color: theme.accentPrimary
+                      .withValues(alpha: widget.isLocalPlayer ? 0.30 : 0.12),
                   blurRadius: 14,
                   spreadRadius: 0,
                 ),
