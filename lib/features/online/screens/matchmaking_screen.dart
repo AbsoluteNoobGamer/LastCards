@@ -64,6 +64,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
           _eventSub = null;
           Future.delayed(const Duration(milliseconds: 600), () {
             if (!mounted) return;
+            _navigatedForward = true;
             Navigator.of(context).pushReplacement(
               PageRouteBuilder(
                 pageBuilder: (_, __, ___) => const LobbyReadyScreen(),
@@ -105,12 +106,17 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     }));
   }
 
+  bool _navigatedForward = false;
+
   @override
   void dispose() {
     _rotateController.dispose();
     _pulseController.dispose();
     _eventSub?.cancel();
-    ref.read(wsClientProvider).disconnect();
+    // Only disconnect if the user cancelled — not on forward navigation.
+    if (!_navigatedForward) {
+      ref.read(wsClientProvider).disconnect();
+    }
     super.dispose();
   }
 

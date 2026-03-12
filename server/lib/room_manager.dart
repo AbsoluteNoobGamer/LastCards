@@ -119,14 +119,20 @@ class RoomManager {
       print(
           '[Quickplay] Match found! Creating room $roomCode with $playerCount players');
 
+      // First pass: add all players to the session.
+      final playerIds = <String>[];
       for (final qp in matched) {
         final playerId = session.addPlayer(qp.ws, qp.displayName);
+        playerIds.add(playerId);
         _playerRooms[qp.ws] = roomCode;
         _playerIds[qp.ws] = playerId;
         print(
             '[Quickplay] Added "${qp.displayName}" ($playerId) to room $roomCode');
+      }
 
-        // Auto-ready each matched player so the game starts immediately.
+      // Second pass: mark all players ready so _startGame fires only after
+      // every player is in the session.
+      for (final playerId in playerIds) {
         session.markReady(playerId);
       }
 
