@@ -69,7 +69,7 @@ class AudioService {
   // simultaneously exhausts the Android audio session, causing ENODEV (-19)
   // errors on subsequent plays. Cap at a reasonable number for a card game.
   int _activeSfxCount = 0;
-  static const int _maxConcurrentSfx = 6;
+  static const int _maxConcurrentSfx = 10;
 
   bool get soundEffectsEnabled => _soundEffectsEnabled;
   double get volume => _volume;

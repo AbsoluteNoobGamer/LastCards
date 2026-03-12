@@ -1241,9 +1241,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         applyPlay(state: _offlineState, playerId: playerId, cards: played);
     _engineTimer.cancel();
 
-    // Play card sounds (moved from game_engine to UI layer for server compat).
-    game_audio.AudioService.instance.playSound(GameSound.cardPlace);
+    // Play card sounds: every card uses card_place.wav; special cards also get their effect sound.
     for (final c in played) {
+      game_audio.AudioService.instance.playSound(GameSound.cardPlace);
       final s = soundForCard(c);
       if (s != null) game_audio.AudioService.instance.playSound(s);
     }
@@ -1523,9 +1523,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     // Track AI-played cards into discard pile.
     if (playedByAi.isNotEmpty) {
       _discardPile.addAll(playedByAi);
-      // Play card sounds for AI play
-      game_audio.AudioService.instance.playSound(GameSound.cardPlace);
+      // Every card uses card_place.wav; special cards also get their effect sound.
       for (final c in playedByAi) {
+        game_audio.AudioService.instance.playSound(GameSound.cardPlace);
         final s = soundForCard(c);
         if (s != null) game_audio.AudioService.instance.playSound(s);
       }
