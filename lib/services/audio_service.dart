@@ -15,6 +15,7 @@ class AudioService {
   static const String _prefsKeySfxEnabled = 'sound_effects_enabled';
   static const Map<GameSound, String> _soundFiles = {
     GameSound.cardDraw: 'Draw-Card.wav',
+    GameSound.dealCard: 'deal_card.wav', // Add your deal sound to assets/audio/sfx/
     GameSound.cardPlace: 'card_place.wav',
     GameSound.specialTwo: 'special_two.wav',
     GameSound.specialBlackJack: 'special-black_jack.wav',
@@ -39,7 +40,8 @@ class AudioService {
     GameSound.skipApplied: 'skip_applied.wav',
     GameSound.directionReversed: 'direction_reversed.wav',
     GameSound.opponentOut: 'opponent_out.wav',
-    // Note: cardSelect and endTurnButton wav files are currently missing from assets/audio/sfx/
+    GameSound.cardSelect: 'card_select.wav',
+    GameSound.endTurnButton: 'end_turn-button.wav',
   };
 
   // Category players: each owns a single AudioPlayer that is stopped then
@@ -47,16 +49,18 @@ class AudioService {
   // prevents a rapid-fire turnStart (produced by tournament skip chains) from
   // silently dropping UI or special-card sounds and vice-versa.
   //
-  // Using explicit stop() → play() (rather than fire-and-forget) is intentional:
-  // within each category only the most-recent sound matters, so earlier sounds
-  // are cleanly cut and not left dangling.  The Android
-  // prepareAsync-race-condition guard (the reason _playOneShotAsset still exists
-  // for cardDraw/cardPlace) does NOT apply here because we call stop() ourselves
-  // before play(); the problematic race only occurs when stop() is called from
-  // the onPlayerComplete callback after the next play() has already started.
+  // Using explicit stop() → play() is intentional: within each category only
+  // the most-recent sound matters, so earlier sounds are cleanly cut.
   AudioPlayer? _turnPlayer;
   AudioPlayer? _specialPlayer;
   AudioPlayer? _uiPlayer;
+
+  // Card-draw pool: allows overlapping plays during deal animations.
+  // Without this, rapid playSound(cardDraw) calls would stop the previous
+  // before it's heard. Rotating through 3 players lets each play to completion.
+  static const int _cardDrawPoolSize = 3;
+  final List<AudioPlayer> _cardDrawPlayers = [];
+  int _cardDrawPoolIndex = 0;
 
   SharedPreferences? _prefs;
   Set<String> _availableAssets = const <String>{};
@@ -64,12 +68,6 @@ class AudioService {
   bool _initialized = false;
   bool _soundEffectsEnabled = true;
   double _volume = 0.5;
-
-  // Tracks in-flight SFX players. Opening too many native MediaPlayers
-  // simultaneously exhausts the Android audio session, causing ENODEV (-19)
-  // errors on subsequent plays. Cap at a reasonable number for a card game.
-  int _activeSfxCount = 0;
-  static const int _maxConcurrentSfx = 10;
 
   bool get soundEffectsEnabled => _soundEffectsEnabled;
   double get volume => _volume;
@@ -92,6 +90,9 @@ class AudioService {
       _turnPlayer = AudioPlayer();
       _specialPlayer = AudioPlayer();
       _uiPlayer = AudioPlayer();
+      for (var i = 0; i < _cardDrawPoolSize; i++) {
+        _cardDrawPlayers.add(AudioPlayer());
+      }
     } catch (_) {
       // Fail silently: missing assets or audio init should never crash gameplay.
     }
@@ -114,12 +115,21 @@ class AudioService {
     _turnPlayer?.setVolume(_volume);
     _specialPlayer?.setVolume(_volume);
     _uiPlayer?.setVolume(_volume);
+    for (final p in _cardDrawPlayers) {
+      p.setVolume(_volume);
+    }
   }
 
   Future<void> playSound(GameSound sound) async {
     if (!_initialized) await init();
     if (!_soundEffectsEnabled) return;
-    if (!_hasAssetFor(sound)) return;
+    // Skip manifest check: attempt play for all sounds. Some platforms/manifests
+    // format asset paths differently; false negatives would silence valid files.
+    // Missing files will fail in _play* and are caught there.
+    if (!_hasAssetFor(sound)) {
+      // Log only in debug to avoid noise; still attempt play for path variations.
+      debugPrint('AudioService: asset not in manifest for $sound, trying anyway');
+    }
 
     final assetSubpath = _assetSubpathFor(sound);
 
@@ -151,27 +161,54 @@ class AudioService {
       case GameSound.bustRoundEnd:
       case GameSound.skipApplied:
       case GameSound.directionReversed:
-        await _playCategorySound(_uiPlayer, assetSubpath);
-
-      // ── High-frequency / burst sounds: fire-and-forget to avoid cut-offs ───
-      case GameSound.cardDraw:
+      case GameSound.cardSelect:
+      case GameSound.endTurnButton:
       case GameSound.cardPlace:
       case GameSound.playerWin:
       case GameSound.playerLose:
       case GameSound.opponentOut:
-      case GameSound.endTurnButton:
-      case GameSound.cardSelect:
-        await _playOneShotAsset(assetSubpath);
+        await _playCategorySound(_uiPlayer, assetSubpath);
+
+      // ── Card draw: when player draws from deck (overlapping pool) ───────────
+      case GameSound.cardDraw:
+        await _playOverlappingSound(assetSubpath);
+
+      // ── Deal card: dealer dealing at round start (overlapping pool) ──────────
+      case GameSound.dealCard:
+        await _playOverlappingSound(assetSubpath);
+    }
+  }
+
+  /// Plays the deal sound for a specific player during the deal animation.
+  /// [playerIndex] is 0-based: 0 = first opponent, 1 = second, ..., last = local.
+  /// Uses deal_card_1.wav through deal_card_10.wav (wraps for 10+ players).
+  Future<void> playDealCardSoundForPlayer(int playerIndex) async {
+    if (!_initialized) await init();
+    if (!_soundEffectsEnabled) return;
+    final slot = (playerIndex % 10) + 1;
+    await _playOverlappingSound('audio/sfx/deal_card_$slot.wav');
+  }
+
+  /// Plays a sound on a rotating pool, allowing overlapping playback.
+  /// Used for cardDraw and dealCard; rapid plays would otherwise stop each other.
+  Future<void> _playOverlappingSound(String assetSubpath) async {
+    if (_cardDrawPlayers.isEmpty) return;
+    final player = _cardDrawPlayers[_cardDrawPoolIndex % _cardDrawPlayers.length];
+    _cardDrawPoolIndex++;
+    try {
+      await player.setVolume(_volume);
+      await player.play(AssetSource(assetSubpath));
+    } catch (e) {
+      debugPrint('AudioService._playOverlappingSound($assetSubpath) error: $e');
     }
   }
 
   /// Plays a sound on a shared, persistent [AudioPlayer].
   ///
   /// Calls [AudioPlayer.stop] first to cleanly cancel any in-progress playback
-  /// on that player before starting the new sound.  This is intentionally
-  /// different from [_playOneShotAsset]: within a category only the latest
-  /// sound matters, so earlier ones are cut.  Categories are kept separate so
-  /// that, e.g., a tournamentQualify sound is never cut by turnStart.
+  /// on that player before starting the new sound.  Within a category only
+  /// the latest sound matters, so earlier ones are cut.  Categories are kept
+  /// separate so that, e.g., a tournamentQualify sound is never cut by turnStart.
   Future<void> _playCategorySound(
       AudioPlayer? player, String assetSubpath) async {
     if (player == null) return;
@@ -191,6 +228,10 @@ class AudioService {
       await _turnPlayer?.dispose();
       await _specialPlayer?.dispose();
       await _uiPlayer?.dispose();
+      for (final p in _cardDrawPlayers) {
+        await p.dispose();
+      }
+      _cardDrawPlayers.clear();
     } catch (e) {
       debugPrint('AudioService.dispose error: $e');
     }
@@ -200,70 +241,37 @@ class AudioService {
     _initialized = false;
   }
 
-  /// Creates a fresh [AudioPlayer] for every SFX play and disposes it after
-  /// completion. This is the only safe pattern on Android: reusing a single
-  /// player or using AudioPool both trigger a ReleaseMode.stop re-prepare cycle
-  /// (onCompletion → stop() → prepareAsync()) that races with the next play()
-  /// call and causes a fatal IllegalStateException in MediaPlayer.
-  Future<void> _playOneShotAsset(String assetSubpath) async {
-    // Drop the sound if too many players are already open. Exceeding Android's
-    // audio session capacity causes MEDIA_ERROR_UNKNOWN ENODEV (-19) errors on
-    // the next open, so backpressure here prevents the cascade.
-    if (_activeSfxCount >= _maxConcurrentSfx) return;
-    _activeSfxCount++;
-
-    AudioPlayer? player;
-    try {
-      player = AudioPlayer();
-      await player.setReleaseMode(ReleaseMode.release);
-      await player.setVolume(_volume);
-      // CRITICAL: subscribe with onError: before calling play().
-      // In audioplayers 6.x, platform errors (e.g. MEDIA_ERROR_UNKNOWN extra:-19
-      // = ENODEV / audio focus loss) arrive as stream errors on eventStream after
-      // play() has already resolved — the try/catch below does NOT cover them.
-      // For broadcast streams, any listener without onError: forwards the error
-      // to the Zone handler, which rethrows it as an unhandled exception and
-      // crashes the app. onPlayerComplete is derived from eventStream via .where()
-      // so stream errors propagate through it too; adding onError: here absorbs
-      // them for our subscription.
-      // onError must also dispose the player to avoid a native resource leak.
-      player.onPlayerComplete.listen(
-        (_) {
-          _activeSfxCount--;
-          player!.dispose().catchError((_) {});
-        },
-        onError: (Object e) {
-          _activeSfxCount--;
-          debugPrint('AudioService SFX error ($assetSubpath): $e');
-          player!.dispose().catchError((_) {});
-        },
-      );
-      await player.play(AssetSource(assetSubpath));
-    } catch (e) {
-      _activeSfxCount--;
-      player?.dispose().catchError((_) {});
-      debugPrint('AudioService._playOneShotAsset($assetSubpath) error: $e');
-    }
-  }
-
   Future<Set<String>> _loadAudioAssets() async {
     try {
       final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
       return manifest
           .listAssets()
-          .where((path) => path.startsWith('assets/audio/'))
+          .where((path) =>
+              path.startsWith('assets/audio/') ||
+              path.contains('/assets/audio/'))
           .toSet();
     } catch (_) {
       final manifestJson = await rootBundle.loadString('AssetManifest.json');
       final Map<String, dynamic> manifest = jsonDecode(manifestJson);
       return manifest.keys
-          .where((path) => path.startsWith('assets/audio/'))
+          .where((path) =>
+              path.startsWith('assets/audio/') ||
+              path.contains('/assets/audio/'))
+          .map((k) => k.toString())
           .toSet();
     }
   }
 
-  bool _hasAssetFor(GameSound sound) =>
-      _availableAssets.contains('assets/audio/sfx/${_soundFiles[sound]}');
+  bool _hasAssetFor(GameSound sound) {
+    final filename = _soundFiles[sound];
+    if (filename == null) return false;
+    final exactPath = 'assets/audio/sfx/$filename';
+    if (_availableAssets.contains(exactPath)) return true;
+    final name = filename; // Capture for closure
+    return _availableAssets.any((p) =>
+        p.contains('audio/sfx/$name') ||
+        p.toLowerCase().endsWith(name.toLowerCase()));
+  }
 
   String _assetSubpathFor(GameSound sound) => 'audio/sfx/${_soundFiles[sound]}';
 }

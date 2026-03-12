@@ -22,6 +22,10 @@ _$GameStateImpl _$$GameStateImplFromJson(Map<String, dynamic> json) =>
           ? null
           : CardModel.fromJson(
               json['discardSecondCard'] as Map<String, dynamic>),
+      discardPileHistory: (json['discardPileHistory'] as List<dynamic>?)
+              ?.map((e) => CardModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
       drawPileCount: (json['drawPileCount'] as num?)?.toInt() ?? 0,
       activePenaltyCount: (json['activePenaltyCount'] as num?)?.toInt() ?? 0,
       activeSkipCount: (json['activeSkipCount'] as num?)?.toInt() ?? 0,
@@ -49,6 +53,7 @@ Map<String, dynamic> _$$GameStateImplToJson(_$GameStateImpl instance) =>
       'direction': _$PlayDirectionEnumMap[instance.direction]!,
       'discardTopCard': instance.discardTopCard,
       'discardSecondCard': instance.discardSecondCard,
+      'discardPileHistory': instance.discardPileHistory,
       'drawPileCount': instance.drawPileCount,
       'activePenaltyCount': instance.activePenaltyCount,
       'activeSkipCount': instance.activeSkipCount,

@@ -346,6 +346,10 @@ GameState applyPlay({
   var gs = _removeCardsFromHand(state, playerId, cards);
 
   gs = gs.copyWith(
+    discardPileHistory: [
+      if (gs.discardTopCard != null) gs.discardTopCard!,
+      ...gs.discardPileHistory,
+    ].take(5).toList(),
     discardSecondCard: gs.discardTopCard,
     discardTopCard: cards.last,
     suitLock: null,

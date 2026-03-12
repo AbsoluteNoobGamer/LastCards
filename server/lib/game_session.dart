@@ -156,6 +156,8 @@ class GameSession {
     final player = _players[playerId];
     if (player != null) player.isReady = true;
 
+    _broadcast({'type': 'player_ready', 'playerId': playerId});
+
     if (_players.length >= 2 &&
         _players.values.every((p) => p.isReady) &&
         !_started) {
@@ -701,9 +703,13 @@ class GameSession {
 
       final personalizedState = _state.copyWith(players: personalizedPlayers);
 
+      final stateWithHistory = personalizedState.copyWith(
+        discardPileHistory: _discardUnderTop.reversed.take(5).toList(),
+      );
+
       ws.sink.add(jsonEncode({
         'type': 'state_snapshot',
-        'payload': personalizedState.toJson(),
+        'payload': stateWithHistory.toJson(),
       }));
     }
   }

@@ -26,7 +26,7 @@ class _StackAndFlowAppState extends ConsumerState<StackAndFlowApp> {
   Widget build(BuildContext context) {
     final themeState = ref.watch(themeProvider);
     return MaterialApp(
-      title: 'Stack & Flow',
+      title: 'Last Cards',
       debugShowCheckedModeBanner: false,
       theme: buildThemeData(themeState.theme),
       initialRoute: AppRoutes.start,

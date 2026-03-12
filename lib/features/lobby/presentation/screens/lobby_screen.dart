@@ -37,8 +37,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   final _codeController = TextEditingController();
   bool _isReady = false;
   String? _roomCode;
+  String? _localPlayerId;
   bool _pendingJoin = false;
   final List<PlayerModel> _lobbyPlayers = [];
+  final Map<String, bool> _playerReady = {};
   StreamSubscription<RoomCreatedEvent>? _roomCreatedSub;
   StreamSubscription<StateSnapshotEvent>? _stateSnapshotSub;
   StreamSubscription<GameEvent>? _lobbyEventsSub;
@@ -52,7 +54,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     final handler = ref.read(gameEventHandlerProvider);
     _roomCreatedSub = handler.roomCreated.listen((e) {
       if (!mounted) return;
-      setState(() => _roomCode = e.roomCode);
+      setState(() {
+        _roomCode = e.roomCode;
+        if (e.playerId.isNotEmpty) _localPlayerId = e.playerId;
+      });
       _codeController.text = e.roomCode;
     });
     _stateSnapshotSub = handler.stateSnapshots.listen((e) {
@@ -81,6 +86,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
           _lobbyPlayers.add(e.player);
           if (_pendingJoin) {
             _pendingJoin = false;
+            _localPlayerId ??= e.player.id;
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Joined room! Tap READY when ready.'),
@@ -91,8 +97,19 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         });
         return;
       }
+      if (e is RoomJoinedEvent) {
+        setState(() => _localPlayerId = e.playerId);
+        return;
+      }
+      if (e is PlayerReadyEvent) {
+        setState(() => _playerReady[e.playerId] = true);
+        return;
+      }
       if (e is PlayerLeftEvent) {
-        setState(() => _lobbyPlayers.removeWhere((p) => p.id == e.playerId));
+        setState(() {
+          _lobbyPlayers.removeWhere((p) => p.id == e.playerId);
+          _playerReady.remove(e.playerId);
+        });
       }
     });
   }
@@ -128,7 +145,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                     children: [
                       // Logo / title
                       Text(
-                        'STACK & FLOW',
+                        'LAST CARDS',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.playfairDisplay(
                           fontSize: 36,
@@ -196,7 +213,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
                       // Lobby player list (real from server or placeholder)
                       _LobbyPlayerList(
-                        isReady: _isReady,
+                        localPlayerId: _localPlayerId,
+                        localIsReady: _isReady,
+                        playerReady: _playerReady,
                         theme: theme,
                         players: _lobbyPlayers,
                         pendingJoin: _pendingJoin,
@@ -487,13 +506,17 @@ class _RoomCodeCard extends StatelessWidget {
 
 class _LobbyPlayerList extends StatelessWidget {
   const _LobbyPlayerList({
-    required this.isReady,
+    required this.localPlayerId,
+    required this.localIsReady,
+    required this.playerReady,
     required this.theme,
     required this.players,
     required this.pendingJoin,
   });
 
-  final bool isReady;
+  final String? localPlayerId;
+  final bool localIsReady;
+  final Map<String, bool> playerReady;
   final AppThemeData theme;
   final List<PlayerModel> players;
   final bool pendingJoin;
@@ -503,15 +526,21 @@ class _LobbyPlayerList extends StatelessWidget {
     final hasPlayers = players.isNotEmpty;
     final list = hasPlayers
         ? players
-            .map((p) => _PlayerEntry(
-                  name: p.displayName,
-                  isReady: false,
-                  theme: theme,
-                  isPlaceholder: false,
-                ))
+            .map((p) {
+              final isMe = p.id == localPlayerId;
+              final ready = isMe
+                  ? localIsReady
+                  : (playerReady[p.id] ?? false);
+              return _PlayerEntry(
+                name: p.displayName,
+                isReady: ready,
+                theme: theme,
+                isPlaceholder: false,
+              );
+            })
             .toList()
         : [
-            _PlayerEntry(name: 'You', isReady: isReady, theme: theme),
+            _PlayerEntry(name: 'You', isReady: localIsReady, theme: theme),
             _PlayerEntry(
                 name: 'Waiting...',
                 isReady: false,

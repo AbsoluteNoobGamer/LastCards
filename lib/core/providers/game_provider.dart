@@ -132,6 +132,11 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
         }
         state = state.copyWith(
           gameState: state.gameState!.copyWith(
+            discardPileHistory: [
+              if (state.gameState!.discardTopCard != null)
+                state.gameState!.discardTopCard!,
+              ...state.gameState!.discardPileHistory,
+            ].take(5).toList(),
             discardSecondCard: state.gameState!.discardTopCard,
             discardTopCard: e.newDiscardTop,
           ),
@@ -246,6 +251,7 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
         state = state.copyWith(
           gameState: state.gameState!.copyWith(
             drawPileCount: e.newDrawPileCount,
+            discardPileHistory: [],
           ),
         );
       }),

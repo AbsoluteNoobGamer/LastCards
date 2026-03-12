@@ -64,6 +64,7 @@ class RoomManager {
     ws.sink.add(jsonEncode({
       'type': 'room_created',
       'roomCode': roomCode,
+      'playerId': playerId,
     }));
   }
 
@@ -85,6 +86,12 @@ class RoomManager {
     if (playerId.isEmpty) return; // rejected (room full or game started)
     _playerRooms[ws] = code;
     _playerIds[ws] = playerId;
+
+    ws.sink.add(jsonEncode({
+      'type': 'room_joined',
+      'roomCode': code,
+      'playerId': playerId,
+    }));
   }
 
   void _markReady(dynamic ws) {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -6,11 +7,14 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:last_cards/core/models/offline_game_engine.dart';
 import 'package:last_cards/core/models/offline_game_state.dart';
+import 'package:last_cards/services/audio_service.dart' as game_audio;
+import 'package:last_cards/services/game_sound.dart';
 import 'package:last_cards/core/models/move_log_entry.dart';
 import 'package:last_cards/core/providers/theme_provider.dart';
 import 'package:last_cards/core/theme/app_colors.dart';
 import 'package:last_cards/core/theme/app_dimensions.dart';
 import 'package:last_cards/core/theme/app_typography.dart';
+import 'package:last_cards/features/gameplay/presentation/widgets/dealing_animation_overlay.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/discard_pile_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/draw_pile_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/floating_action_bar_widget.dart';
@@ -19,6 +23,7 @@ import 'package:last_cards/features/gameplay/presentation/widgets/last_move_pane
 import 'package:last_cards/features/gameplay/presentation/widgets/player_hand_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/player_zone_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/turn_indicator_overlay.dart';
+import 'package:last_cards/shared/models/game_state_model.dart';
 import 'package:last_cards/features/single_player/providers/single_player_session_provider.dart';
 
 import '../bust_engine.dart';
@@ -115,6 +120,13 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   final ValueNotifier<bool> _reshuffleNotifier = ValueNotifier(false);
   final List<MoveLogEntry> _moveLogEntries = [];
 
+  bool _isDealing = false;
+  final Map<String, int> _visibleCardCounts = {};
+  final GlobalKey _drawPileKey = GlobalKey();
+  final Map<String, GlobalKey> _playerZoneKeys = {};
+  final GlobalKey<DealingAnimationOverlayState> _dealingOverlayKey =
+      GlobalKey<DealingAnimationOverlayState>();
+
   int get _clampedPlayers => widget.totalPlayers.clamp(2, 10);
 
   @override
@@ -209,12 +221,77 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     _handOrder = local?.hand.map((c) => c.id).toList() ?? [];
     _localCardsDealtThisRound = local?.hand.length ?? 0;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (_gameState.currentPlayerId != OfflineGameState.localId) {
-        _scheduleAiTurn(_gameState.currentPlayerId);
+    // Assign player zone keys for the dealing animation overlay.
+    _playerZoneKeys.clear();
+    for (final p in _gameState.players) {
+      _playerZoneKeys[p.id] = GlobalKey();
+    }
+
+    setState(() {
+      _isDealing = true;
+      _visibleCardCounts.clear();
+      for (final p in _gameState.players) {
+        _visibleCardCounts[p.id] = 0;
       }
     });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _startDealAnimation();
+    });
+  }
+
+  /// Runs the visual deal animation: cards fly from draw pile to each player.
+  Future<void> _startDealAnimation() async {
+    final handSize =
+        BustEngine.handSizeFor(_gameState.players.length);
+
+    // Order: opponents first (clockwise from left of local), local last.
+    final players = _gameState.players;
+    final localIdx =
+        players.indexWhere((p) => p.tablePosition == TablePosition.bottom);
+    final orderedPlayers = <PlayerModel>[];
+    const dir = 1; // clockwise
+    for (int i = 1; i <= players.length; i++) {
+      final idx = (localIdx + i * dir) % players.length;
+      orderedPlayers.add(players[idx]);
+    }
+
+    for (int i = 0; i < handSize; i++) {
+      for (var pi = 0; pi < orderedPlayers.length; pi++) {
+        final p = orderedPlayers[pi];
+        if (!mounted) return;
+
+        game_audio.AudioService.instance.playDealCardSoundForPlayer(pi);
+        final overlay = _dealingOverlayKey.currentState;
+        if (overlay != null) {
+          unawaited(overlay.animateCardDeal(p.id));
+          await Future.delayed(const Duration(milliseconds: 100));
+        } else {
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
+
+        if (mounted) {
+          setState(() {
+            _visibleCardCounts[p.id] = (_visibleCardCounts[p.id] ?? 0) + 1;
+            _gameState = _gameState.copyWith(
+              drawPileCount: math.max(0, _gameState.drawPileCount - 1),
+            );
+          });
+        }
+      }
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _isDealing = false;
+      _gameState = _gameState.copyWith(drawPileCount: _drawPile.length);
+    });
+
+    if (_gameState.currentPlayerId != OfflineGameState.localId) {
+      _scheduleAiTurn(_gameState.currentPlayerId);
+    }
   }
 
   GameState _applyInitialEffects(GameState state) {
@@ -239,9 +316,14 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   List<BustPlayerViewModel> get _bustPlayers =>
       _gameState.players.asMap().entries.map((e) {
         final p = e.value;
-        return BustPlayerViewModel.fromPlayerModel(
-          p,
-          currentPlayerId: _gameState.currentPlayerId,
+        final cardCount = _isDealing
+            ? (_visibleCardCounts[p.id] ?? 0)
+            : p.cardCount;
+        return BustPlayerViewModel(
+          id: p.id,
+          displayName: p.displayName,
+          cardCount: cardCount,
+          isActive: p.id == _gameState.currentPlayerId,
           isEliminated: _roundManager.state.eliminatedIds.contains(p.id),
           isLocal: p.tablePosition == TablePosition.bottom,
           colorIndex: e.key,
@@ -252,10 +334,15 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     final local = _localPlayer;
     if (local == null) return [];
     final handMap = {for (final c in local.hand) c.id: c};
-    return _handOrder
+    var cards = _handOrder
         .where(handMap.containsKey)
         .map((id) => handMap[id]!)
         .toList();
+    if (_isDealing) {
+      final visible = _visibleCardCounts[local.id] ?? 0;
+      cards = cards.take(visible).toList();
+    }
+    return cards;
   }
 
   void _syncHandOrder(List<CardModel> newHand) {
@@ -304,7 +391,10 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
 
     if (!mounted) return;
     setState(() {
-      _gameState = _gameState.copyWith(drawPileCount: _drawPile.length);
+      _gameState = _gameState.copyWith(
+        drawPileCount: _drawPile.length,
+        discardPileHistory: [], // Under-pile was reshuffled into draw
+      );
       _reshuffleNotifier.value = !_reshuffleNotifier.value;
     });
     ScaffoldMessenger.of(context)
@@ -526,6 +616,12 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       count: drawCount,
       cardFactory: _makeCards,
     );
+
+    // Play draw sounds (same pattern as TableScreen offline).
+    game_audio.AudioService.instance.playSound(GameSound.cardDraw);
+    if (isPenaltyDraw) {
+      game_audio.AudioService.instance.playSound(GameSound.penaltyDraw);
+    }
 
     final localAfter = newState.players
         .where((p) => p.tablePosition == TablePosition.bottom)
@@ -888,7 +984,10 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                 child: Column(
                   children: [
                     // 1. Opponent rail
-                    BustPlayerRail(players: opponents),
+                    BustPlayerRail(
+                      players: opponents,
+                      slotKeyBuilder: (p) => _playerZoneKeys[p.id],
+                    ),
 
                     // 2. Round indicator
                     _RoundIndicator(roundState: rs),
@@ -906,6 +1005,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 SizedBox(
+                                  key: _drawPileKey,
                                   width: 100,
                                   height: 145,
                                   child: OverflowBox(
@@ -914,7 +1014,8 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                                     child: DrawPileWidget(
                                       cardCount: _gameState.drawPileCount,
                                       cardWidth: 100,
-                                      enabled: isMyTurn &&
+                                      enabled: !_isDealing &&
+                                          isMyTurn &&
                                           (_gameState.actionsThisTurn == 0 ||
                                               _gameState.queenSuitLock != null),
                                       onTap: isMyTurn ? _drawCard : null,
@@ -932,6 +1033,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                                     child: DiscardPileWidget(
                                       topCard: _gameState.discardTopCard,
                                       secondCard: _gameState.discardSecondCard,
+                                      discardPileHistory: _gameState.discardPileHistory,
                                       cardWidth: 100,
                                       discardPileCount: _discardPile.length,
                                     ),
@@ -958,27 +1060,35 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                             '',
                         direction: _gameState.direction,
                         canEndTurn: canEndTurn,
-                        onEndTurn: isMyTurn ? _endTurn : null,
+                        onEndTurn: isMyTurn && !_isDealing ? _endTurn : null,
                       ),
                     ),
 
                     // 5. Local player zone + hand
                     if (localPlayer != null)
-                      Padding(
-                        padding:
-                            const EdgeInsets.only(bottom: AppDimensions.sm),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: PlayerZoneWidget(
-                            player:
-                                localPlayer.copyWith(isActiveTurn: isMyTurn),
-                            isLocalPlayer: true,
-                            child: PlayerHandWidget(
-                              cards: _orderedHand,
-                              selectedCardId: _selectedCardId,
-                              onCardTap: isMyTurn ? _onCardTap : null,
-                              onReorder: _onHandReorder,
-                              enabled: isMyTurn,
+                      KeyedSubtree(
+                        key: _playerZoneKeys[OfflineGameState.localId],
+                        child: Padding(
+                          padding:
+                              const EdgeInsets.only(bottom: AppDimensions.sm),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: PlayerZoneWidget(
+                              player:
+                                  localPlayer.copyWith(
+                                    isActiveTurn: isMyTurn,
+                                    cardCount: _isDealing
+                                        ? (_visibleCardCounts[OfflineGameState.localId] ?? 0)
+                                        : localPlayer.cardCount,
+                                  ),
+                              isLocalPlayer: true,
+                              child: PlayerHandWidget(
+                                cards: _orderedHand,
+                                selectedCardId: _selectedCardId,
+                                onCardTap: isMyTurn ? _onCardTap : null,
+                                onReorder: _onHandReorder,
+                                enabled: isMyTurn && !_isDealing,
+                              ),
                             ),
                           ),
                         ),
@@ -1030,6 +1140,15 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                     child:
                         TurnIndicatorOverlay(direction: _gameState.direction),
                   ),
+                ),
+              ),
+
+              // Dealing animation overlay (cards flying from draw pile)
+              Positioned.fill(
+                child: DealingAnimationOverlay(
+                  key: _dealingOverlayKey,
+                  drawPileKey: _drawPileKey,
+                  playerKeys: _playerZoneKeys,
                 ),
               ),
 

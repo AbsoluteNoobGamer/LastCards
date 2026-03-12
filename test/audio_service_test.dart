@@ -211,7 +211,7 @@ void main() {
       GameSound.skipApplied: 'skip_applied.wav',
       GameSound.directionReversed: 'direction_reversed.wav',
       GameSound.opponentOut: 'opponent_out.wav',
-      GameSound.endTurnButton: 'end_turn_button.wav',
+      GameSound.endTurnButton: 'end_turn-button.wav',
       GameSound.cardSelect: 'card_select.wav',
     };
 

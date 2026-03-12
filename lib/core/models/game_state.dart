@@ -27,6 +27,9 @@ class GameState with _$GameState {
     /// Second-from-top card for visual stacking effect on the discard pile.
     CardModel? discardSecondCard,
 
+    /// Cards under the discard top (2nd, 3rd, ...) for visual stacking.
+    @Default([]) List<CardModel> discardPileHistory,
+
     /// Number of cards remaining in the draw pile.
     @Default(0) int drawPileCount,
 
