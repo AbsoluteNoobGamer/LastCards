@@ -8,6 +8,7 @@ import '../../../../core/models/game_event.dart';
 import '../../../../core/models/game_state.dart';
 import '../../../../core/providers/connection_provider.dart';
 import '../../../../core/providers/game_provider.dart';
+import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../features/gameplay/presentation/screens/table_screen.dart';
 import '../../../../features/tournament/providers/tournament_session_provider.dart';
@@ -164,148 +165,225 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
               ),
             ),
 
-            SafeArea(
-              child: Column(
-                children: [
-                  const SizedBox(height: 40),
+            Positioned.fill(
+              child: SafeArea(
+                child: OrientationBuilder(
+                  builder: (context, orientation) {
+                    final isLandscape =
+                        orientation == Orientation.landscape;
 
-                  // ── All players ready badge ─────────────────────────────
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: theme.accentPrimary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: theme.accentPrimary.withValues(alpha: 0.35),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.check_circle_outline_rounded,
-                          color: theme.accentPrimary,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'All players ready',
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: theme.accentPrimary,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 28),
-
-                  // ── Last Cards title ────────────────────────────────────
-                  ShaderMask(
-                    shaderCallback: (bounds) => LinearGradient(
-                      colors: [theme.accentLight, theme.accentPrimary],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ).createShader(bounds),
-                    child: Text(
-                      'Last Cards',
-                      style: GoogleFonts.cinzel(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: 3,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 6),
-
-                  Text(
-                    'Get ready to play!',
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      color: theme.textSecondary,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-
-                  const Spacer(flex: 2),
-
-                  // ── Player avatars ─────────────────────────────────────
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 20,
-                      runSpacing: 16,
-                      children: List.generate(playerCount, (i) {
-                        return _ConfirmedPlayerAvatar(
-                          index: i,
-                          isLocalPlayer: i == 0,
-                        );
-                      }),
-                    ),
-                  ),
-
-                  const Spacer(flex: 2),
-
-                  // ── Countdown ──────────────────────────────────────────
-                  AnimatedBuilder(
-                    animation: _countdownAnim,
-                    builder: (context, child) {
-                      final scale = Tween<double>(begin: 1.4, end: 1.0)
-                          .evaluate(CurvedAnimation(
-                              parent: _countdownAnim,
-                              curve: Curves.easeOutBack));
-                      final opacity = Tween<double>(begin: 1.0, end: 0.85)
-                          .evaluate(_countdownAnim);
-
-                      return Opacity(
-                        opacity: opacity,
-                        child: Transform.scale(
-                          scale: scale,
-                          child: child,
-                        ),
+                    if (isLandscape) {
+                      return _buildLandscapeLayout(
+                        theme: theme,
+                        playerCount: playerCount,
                       );
-                    },
-                    child: ShaderMask(
-                      key: ValueKey(_countdown),
-                      shaderCallback: (bounds) => LinearGradient(
-                        colors: [theme.accentLight, theme.accentPrimary],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ).createShader(bounds),
-                      child: Text(
-                        _countdown > 0 ? '$_countdown' : 'GO!',
-                        style: GoogleFonts.outfit(
-                          fontSize: 96,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: -4,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  Text(
-                    'Starting automatically…',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: theme.textSecondary.withValues(alpha: 0.6),
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-
-                  const Spacer(flex: 3),
-                ],
+                    }
+                    return _buildPortraitLayout(
+                      theme: theme,
+                      playerCount: playerCount,
+                    );
+                  },
+                ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPortraitLayout({
+    required AppThemeData theme,
+    required int playerCount,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 40),
+        _buildReadyBadge(theme),
+        const SizedBox(height: 28),
+        _buildTitleSection(theme),
+        const Spacer(flex: 2),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 20,
+            runSpacing: 16,
+            children: List.generate(playerCount, (i) {
+              return _ConfirmedPlayerAvatar(
+                index: i,
+                isLocalPlayer: i == 0,
+              );
+            }),
+          ),
+        ),
+        const Spacer(flex: 2),
+        _buildCountdownSection(theme),
+        Text(
+          'Starting automatically…',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            color: theme.textSecondary.withValues(alpha: 0.6),
+            letterSpacing: 0.3,
+          ),
+        ),
+        const Spacer(flex: 3),
+      ],
+    );
+  }
+
+  Widget _buildLandscapeLayout({
+    required AppThemeData theme,
+    required int playerCount,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: Center(
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 16,
+              runSpacing: 12,
+              children: List.generate(playerCount, (i) {
+                return _ConfirmedPlayerAvatar(
+                  index: i,
+                  isLocalPlayer: i == 0,
+                );
+              }),
+            ),
+          ),
+        ),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(child: _buildReadyBadge(theme)),
+              const SizedBox(height: 16),
+              Center(child: _buildTitleSection(theme)),
+              const SizedBox(height: 20),
+              Center(child: _buildCountdownSection(theme)),
+              const SizedBox(height: 8),
+              Text(
+                'Starting automatically…',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: theme.textSecondary.withValues(alpha: 0.6),
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReadyBadge(AppThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.accentPrimary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: theme.accentPrimary.withValues(alpha: 0.35),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.check_circle_outline_rounded,
+            color: theme.accentPrimary,
+            size: 16,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'All players ready',
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: theme.accentPrimary,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTitleSection(AppThemeData theme) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ShaderMask(
+          shaderCallback: (bounds) => LinearGradient(
+            colors: [theme.accentLight, theme.accentPrimary],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ).createShader(bounds),
+          child: Text(
+            'Last Cards',
+            style: GoogleFonts.cinzel(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              letterSpacing: 3,
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Get ready to play!',
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            color: theme.textSecondary,
+            letterSpacing: 0.3,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCountdownSection(AppThemeData theme) {
+    return AnimatedBuilder(
+      animation: _countdownAnim,
+      builder: (context, child) {
+        final scale = Tween<double>(begin: 1.4, end: 1.0).evaluate(
+          CurvedAnimation(
+            parent: _countdownAnim,
+            curve: Curves.easeOutBack,
+          ),
+        );
+        final opacity =
+            Tween<double>(begin: 1.0, end: 0.85).evaluate(_countdownAnim);
+        return Opacity(
+          opacity: opacity,
+          child: Transform.scale(
+            scale: scale,
+            child: child,
+          ),
+        );
+      },
+      child: ShaderMask(
+        key: ValueKey(_countdown),
+        shaderCallback: (bounds) => LinearGradient(
+          colors: [theme.accentLight, theme.accentPrimary],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ).createShader(bounds),
+        child: Text(
+          _countdown > 0 ? '$_countdown' : 'GO!',
+          style: GoogleFonts.outfit(
+            fontSize: 96,
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+            letterSpacing: -4,
+          ),
         ),
       ),
     );
