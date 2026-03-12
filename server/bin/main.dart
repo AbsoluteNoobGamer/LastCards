@@ -15,13 +15,14 @@ void main() async {
     roomManager.handleConnection(webSocket);
   });
 
-  // Route /game to WebSocket handler, everything else gets 404.
-  shelf.Handler handler(shelf.Request request) {
+  final handler = const shelf.Pipeline()
+      .addMiddleware(shelf.logRequests())
+      .addHandler((shelf.Request request) {
     if (request.url.path == 'game') {
       return wsHandler(request);
     }
-    return shelf.Response.notFound('Not found');
-  }
+    return shelf.Response.ok('Last Cards server running');
+  });
 
   final server = await io.serve(handler, '0.0.0.0', port);
   print('[Server] Listening on 0.0.0.0:${server.port}');
