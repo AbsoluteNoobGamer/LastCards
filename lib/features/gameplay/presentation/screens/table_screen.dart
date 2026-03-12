@@ -9,8 +9,8 @@ import 'package:last_cards/features/gameplay/presentation/widgets/dealing_animat
 import '../../domain/usecases/offline_game_engine.dart';
 import 'package:last_cards/shared/rules/win_condition_rules.dart';
 import '../../data/datasources/offline_game_state_datasource.dart';
-import '../../domain/entities/player.dart';
 import '../../../../shared/engine/game_turn_timer.dart';
+
 import '../controllers/connection_provider.dart';
 import '../controllers/game_provider.dart';
 import '../../data/datasources/websocket_client.dart';
@@ -28,8 +28,8 @@ import '../widgets/player_zone_widget.dart';
 import '../widgets/card_widget.dart';
 import '../widgets/floating_action_bar_widget.dart';
 import '../widgets/turn_indicator_overlay.dart';
-import '../controllers/audio_service.dart';
 import '../widgets/last_move_panel_widget.dart';
+
 import '../../../../widgets/turn_timer_bar.dart';
 import '../../../../services/audio_service.dart' as game_audio;
 import '../../../../services/game_sound.dart';
@@ -140,7 +140,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   StreamSubscription<dynamic>? _onlineTurnTimeoutSub;
   StreamSubscription<dynamic>? _onlineReshuffleSub;
   bool _timerWarningPlayed = false;
-  bool _onlineDealAnimationStarted = false;
 
   /// Toggled (not set) each time a reshuffle fires so DrawPileWidget can
   /// play the shuffle animation even on repeated reshuffles.
@@ -422,13 +421,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         game_audio.AudioService.instance.playSound(GameSound.cardDraw);
         final overlay = _overlayKey.currentState;
         if (overlay != null) {
-          await overlay.animateCardDeal(p.id);
+          // Fire the animation but only stagger by 100 ms — cards overlap
+          // in flight for a natural fan-deal feel instead of sequential waits.
+          unawaited(overlay.animateCardDeal(p.id));
+          await Future.delayed(const Duration(milliseconds: 100));
         } else {
-          await Future.delayed(const Duration(milliseconds: 150));
+          await Future.delayed(const Duration(milliseconds: 100));
         }
-
-        // Wait an extra sliver between cards so they don't overlap too rigidly
-        await Future.delayed(const Duration(milliseconds: 50));
 
         if (mounted) {
           setState(() {
@@ -683,7 +682,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     // Online: show win overlay when game ends (same as single-player).
     ref.listen<GameState?>(gameStateProvider, (prev, next) {
       if (next == null || next.phase != GamePhase.ended ||
-          _onlineWinDialogShown || !mounted) return;
+          _onlineWinDialogShown || !mounted) {
+        return;
+      }
       // winnerId may be null (not yet set) or empty (player disconnected).
       final hasWinner = next.winnerId != null && next.winnerId!.isNotEmpty;
       final winner = hasWinner ? next.playerById(next.winnerId!) : null;

@@ -5,7 +5,7 @@ import 'package:last_cards/core/models/game_state.dart';
 import 'package:last_cards/core/models/player_model.dart';
 import 'package:test/test.dart';
 
-import '../lib/game_session.dart';
+import 'package:last_cards_server/game_session.dart';
 
 // ── Fake WebSocket ────────────────────────────────────────────────────────────
 

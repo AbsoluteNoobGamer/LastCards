@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/providers/theme_provider.dart';
 import '../providers/tournament_session_provider.dart';
-import '../../single_player/providers/single_player_session_provider.dart';
 import 'tournament_sub_mode_sheet.dart';
 
 /// Bottom Sheet 1 — Tournament Type Selection

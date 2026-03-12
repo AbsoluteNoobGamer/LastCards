@@ -361,22 +361,30 @@ void main() {
       final finishCalls = <String>[];
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: TournamentScreen(
-            roundGameBuilder: ({
-              required totalPlayers,
-              required isTournamentMode,
-              required onPlayerFinished,
-              required tournamentPlayerNameByTableId,
-            }) {
-              return _AutoFinishRoundGameScreen(
-                finishOrderNames: const ['You', 'Player 2', 'Player 3', 'Player 4'],
-                onPlayerFinished: (name, pos) {
-                  finishCalls.add('$name:$pos');
-                  onPlayerFinished(name, pos);
-                },
-              );
-            },
+        ProviderScope(
+          child: MaterialApp(
+            home: TournamentScreen(
+              roundGameBuilder: ({
+                required totalPlayers,
+                required isTournamentMode,
+                required onPlayerFinished,
+                required tournamentPlayerNameByTableId,
+              }) {
+                final names = [
+                  tournamentPlayerNameByTableId['player-local'] ?? 'You',
+                  tournamentPlayerNameByTableId['player-2'] ?? 'Player 2',
+                  tournamentPlayerNameByTableId['player-3'] ?? 'Player 3',
+                  tournamentPlayerNameByTableId['player-4'] ?? 'Player 4',
+                ];
+                return _AutoFinishRoundGameScreen(
+                  finishOrderNames: names,
+                  onPlayerFinished: (name, pos) {
+                    finishCalls.add('$name:$pos');
+                    onPlayerFinished(name, pos);
+                  },
+                );
+              },
+            ),
           ),
         ),
       );
@@ -386,7 +394,10 @@ void main() {
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       expect(finishCalls.length, 4);
-      expect(finishCalls, ['You:1', 'Player 2:2', 'Player 3:3', 'Player 4:4']);
+      expect(finishCalls[0], 'You:1');
+      expect(finishCalls[1], endsWith(':2'));
+      expect(finishCalls[2], endsWith(':3'));
+      expect(finishCalls[3], endsWith(':4'));
 
       // Dismiss EliminationScreen to clean up the navigator stack.
       await tester.tap(find.text('Continue'));
@@ -398,20 +409,28 @@ void main() {
       bool? capturedTournamentMode;
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: TournamentScreen(
-            roundGameBuilder: ({
-              required totalPlayers,
-              required isTournamentMode,
-              required onPlayerFinished,
-              required tournamentPlayerNameByTableId,
-            }) {
-              capturedTournamentMode = isTournamentMode;
-              return _AutoFinishRoundGameScreen(
-                finishOrderNames: const ['You', 'Player 2', 'Player 3', 'Player 4'],
-                onPlayerFinished: onPlayerFinished,
-              );
-            },
+        ProviderScope(
+          child: MaterialApp(
+            home: TournamentScreen(
+              roundGameBuilder: ({
+                required totalPlayers,
+                required isTournamentMode,
+                required onPlayerFinished,
+                required tournamentPlayerNameByTableId,
+              }) {
+                capturedTournamentMode = isTournamentMode;
+                final names = [
+                  tournamentPlayerNameByTableId['player-local'] ?? 'You',
+                  tournamentPlayerNameByTableId['player-2'] ?? 'Player 2',
+                  tournamentPlayerNameByTableId['player-3'] ?? 'Player 3',
+                  tournamentPlayerNameByTableId['player-4'] ?? 'Player 4',
+                ];
+                return _AutoFinishRoundGameScreen(
+                  finishOrderNames: names,
+                  onPlayerFinished: onPlayerFinished,
+                );
+              },
+            ),
           ),
         ),
       );

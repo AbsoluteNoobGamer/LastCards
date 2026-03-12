@@ -10,7 +10,6 @@ import '../../../../services/game_sound.dart';
 import '../../../../tournament/tournament_engine.dart';
 import '../../gameplay/presentation/screens/table_screen.dart';
 import '../providers/tournament_session_provider.dart';
-import 'elimination_screen.dart';
 import 'round_summary_screen.dart';
 import 'waiting_screen.dart';
 import 'winner_screen.dart';

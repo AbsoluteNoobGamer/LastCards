@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/card.dart';
-import '../../../../services/audio_service.dart' as _audio;
+import '../../../../services/audio_service.dart' as game_audio;
 import '../../../../services/game_sound.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -56,13 +56,13 @@ class CardWidget extends StatelessWidget {
           child: GestureDetector(
             onTap: () {
               if (onTap != null) {
-                _audio.AudioService.instance.playSound(GameSound.cardSelect);
+                game_audio.AudioService.instance.playSound(GameSound.cardSelect);
                 onTap!();
               }
             },
             onPanStart: onTap != null
                 ? (_) {
-                    _audio.AudioService.instance.playSound(GameSound.cardDraw);
+                    game_audio.AudioService.instance.playSound(GameSound.cardDraw);
                   }
                 : null,
             child: Transform.translate(
