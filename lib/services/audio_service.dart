@@ -63,7 +63,7 @@ class AudioService {
 
   bool _initialized = false;
   bool _soundEffectsEnabled = true;
-  double _volume = 1.0;
+  double _volume = 0.5;
 
   // Tracks in-flight SFX players. Opening too many native MediaPlayers
   // simultaneously exhausts the Android audio session, causing ENODEV (-19)
@@ -110,8 +110,7 @@ class AudioService {
   }
 
   void setVolume(double value) {
-    // Halve the input value to enforce a lower maximum volume across the app.
-    _volume = (value * 0.5).clamp(0.0, 0.5);
+    _volume = value.clamp(0.0, 1.0);
     _turnPlayer?.setVolume(_volume);
     _specialPlayer?.setVolume(_volume);
     _uiPlayer?.setVolume(_volume);
