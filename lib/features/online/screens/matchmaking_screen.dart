@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/models/game_event.dart';
 import '../../../../core/providers/connection_provider.dart';
+import '../../../../core/providers/game_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../providers/online_session_provider.dart';
 import 'lobby_ready_screen.dart';
@@ -50,6 +51,10 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     final playerCount = ref.read(onlineSessionProvider).playerCount ?? 4;
     // Slot 0 = local player (always joined)
     _slotsJoined = List.generate(playerCount, (i) => i == 0);
+
+    // Ensure GameNotifier is subscribed before any state_snapshot arrives,
+    // so the snapshot is captured even during the navigation delay.
+    ref.read(gameNotifierProvider);
 
     // Listen for real player_joined events from the server
     final handler = ref.read(gameEventHandlerProvider);

@@ -89,11 +89,13 @@ class GameSession {
 
   String addPlayer(dynamic ws, String displayName) {
     if (_started) {
-      ws.sink.add('{"type":"error","code":"game_started","message":"Game already in progress."}');
+      ws.sink.add(
+          '{"type":"error","code":"game_started","message":"Game already in progress."}');
       return '';
     }
     if (_players.length >= 4) {
-      ws.sink.add('{"type":"error","code":"room_full","message":"Room is full (max 4 players)."}');
+      ws.sink.add(
+          '{"type":"error","code":"room_full","message":"Room is full (max 4 players)."}');
       return '';
     }
     final id = 'player-${++_playerCounter}';
@@ -110,6 +112,25 @@ class GameSession {
     });
 
     return id;
+  }
+
+  /// Sends player_joined for every current player to [ws].
+  /// Used after quickplay matching so late-joining clients learn about
+  /// players that were added before them.
+  void sendPlayerRosterTo(dynamic ws) {
+    int index = 0;
+    for (final entry in _players.entries) {
+      ws.sink.add(jsonEncode({
+        'type': 'player_joined',
+        'player': PlayerModel(
+          id: entry.key,
+          displayName: entry.value.displayName,
+          tablePosition: _positionFor(index),
+          cardCount: 0,
+        ).toJson(),
+      }));
+      index++;
+    }
   }
 
   void removePlayer(String playerId) {
@@ -343,12 +364,12 @@ class GameSession {
     // If they have already played a card this turn, the draw action is blocked.
     // EXCEPTION: If there is a Queen suit lock, they MUST draw if they cannot play.
     if (_state.actionsThisTurn > 0 && _state.queenSuitLock == null) {
-      _sendError(playerId, 'already_acted', 'You have already acted this turn.');
+      _sendError(
+          playerId, 'already_acted', 'You have already acted this turn.');
       return;
     }
 
-    final count =
-        _state.activePenaltyCount > 0 ? _state.activePenaltyCount : 1;
+    final count = _state.activePenaltyCount > 0 ? _state.activePenaltyCount : 1;
 
     final drawnCards = <CardModel>[];
     _state = applyDraw(
@@ -589,9 +610,8 @@ class GameSession {
     if (_gameOver) return;
     if (!wouldConfirmWin(_state)) return;
 
-    final winnerId = _state.players
-        .firstWhere((p) => p.hand.isEmpty && p.cardCount == 0)
-        .id;
+    final winnerId =
+        _state.players.firstWhere((p) => p.hand.isEmpty && p.cardCount == 0).id;
     _state = _state.copyWith(phase: GamePhase.ended, winnerId: winnerId);
     _gameOver = true;
     _turnTimer?.cancel();
@@ -680,8 +700,7 @@ class GameSession {
             personalizedPlayers[i].copyWith(tablePosition: pos);
       }
 
-      final personalizedState =
-          _state.copyWith(players: personalizedPlayers);
+      final personalizedState = _state.copyWith(players: personalizedPlayers);
 
       ws.sink.add(jsonEncode({
         'type': 'state_snapshot',
