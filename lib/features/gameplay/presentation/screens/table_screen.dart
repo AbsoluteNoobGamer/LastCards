@@ -475,15 +475,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   void _startTimer({bool playTurnSound = true}) {
     _timerWarningPlayed = false;
     _timerWarningSub?.cancel();
-    _timerWarningSub = _engineTimer.timeRemainingStream.listen((secondsLeft) {
-      if (!_timerWarningPlayed && secondsLeft > 0 && secondsLeft <= 10) {
-        _timerWarningPlayed = true;
-        game_audio.AudioService.instance.playSound(GameSound.timerWarning);
-      }
-    });
     if (playTurnSound) {
       game_audio.AudioService.instance.playSound(GameSound.turnStart);
     }
+    // Start the timer BEFORE subscribing so that _currentSeconds is reset to
+    // 60 before Stream.multi delivers the initial snapshot synchronously.
     _engineTimer.start(() {
       if (!mounted) return;
       // Online mode: server handles timeout authoritatively via its own 60s
@@ -520,6 +516,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         // Timeout rule: always force a single draw, end the turn, and pass play.
         game_audio.AudioService.instance.playSound(GameSound.timerExpired);
         _forcedTimeoutDrawAndEnd();
+      }
+    });
+    // Subscribe AFTER start() so the synchronous initial value from
+    // Stream.multi is the freshly-reset 60, not a stale previous value.
+    _timerWarningSub = _engineTimer.timeRemainingStream.listen((secondsLeft) {
+      if (!_timerWarningPlayed && secondsLeft > 0 && secondsLeft <= 10) {
+        _timerWarningPlayed = true;
+        game_audio.AudioService.instance.playSound(GameSound.timerWarning);
       }
     });
   }
