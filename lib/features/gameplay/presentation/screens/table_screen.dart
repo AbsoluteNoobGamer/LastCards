@@ -193,12 +193,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           turnContinues: false,
         ));
       });
-      // Play card sounds for online play
-      game_audio.AudioService.instance.playSound(GameSound.cardPlace);
-      for (final c in e.cards) {
-        final s = soundForCard(c);
-        if (s != null) game_audio.AudioService.instance.playSound(s);
-      }
     });
 
     _onlineCardDrawsSub = handler.cardDraws.listen((e) {
@@ -213,8 +207,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           drawCount: 1,
         ));
       });
-      // Play draw sound for online mode
-      game_audio.AudioService.instance.playSound(GameSound.cardDraw);
     });
 
     _onlineErrorsSub = handler.errors.listen((e) {
