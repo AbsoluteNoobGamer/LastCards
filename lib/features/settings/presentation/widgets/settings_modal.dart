@@ -14,36 +14,12 @@ final settingsProvider =
 
 class SettingsState {
   final double soundVolume;
-  final double musicVolume;
-  final double animationSpeed;
-  final bool vibrateEnabled;
-  final bool tooltipsEnabled;
-  final bool darkMode;
 
-  SettingsState({
-    this.soundVolume = 100.0,
-    this.musicVolume = 100.0,
-    this.animationSpeed = 1.0,
-    this.vibrateEnabled = true,
-    this.tooltipsEnabled = true,
-    this.darkMode = true,
-  });
+  SettingsState({this.soundVolume = 100.0});
 
-  SettingsState copyWith({
-    double? soundVolume,
-    double? musicVolume,
-    double? animationSpeed,
-    bool? vibrateEnabled,
-    bool? tooltipsEnabled,
-    bool? darkMode,
-  }) {
+  SettingsState copyWith({double? soundVolume}) {
     return SettingsState(
       soundVolume: soundVolume ?? this.soundVolume,
-      musicVolume: musicVolume ?? this.musicVolume,
-      animationSpeed: animationSpeed ?? this.animationSpeed,
-      vibrateEnabled: vibrateEnabled ?? this.vibrateEnabled,
-      tooltipsEnabled: tooltipsEnabled ?? this.tooltipsEnabled,
-      darkMode: darkMode ?? this.darkMode,
     );
   }
 }
@@ -59,11 +35,6 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     _prefs = await SharedPreferences.getInstance();
     state = SettingsState(
       soundVolume: _prefs?.getDouble('soundVolume') ?? 100.0,
-      musicVolume: _prefs?.getDouble('musicVolume') ?? 100.0,
-      animationSpeed: _prefs?.getDouble('animationSpeed') ?? 1.0,
-      vibrateEnabled: _prefs?.getBool('vibrateEnabled') ?? true,
-      tooltipsEnabled: _prefs?.getBool('tooltipsEnabled') ?? true,
-      darkMode: _prefs?.getBool('darkMode') ?? true,
     );
   }
 
@@ -73,31 +44,6 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     // Propagate to the low-level audio singleton immediately so sounds
     // reflect the new volume without requiring an app restart.
     game_audio.AudioService.instance.setVolume(val / 100.0);
-  }
-
-  void updateMusic(double val) {
-    state = state.copyWith(musicVolume: val);
-    _prefs?.setDouble('musicVolume', val);
-  }
-
-  void updateAnimSpeed(double val) {
-    state = state.copyWith(animationSpeed: val);
-    _prefs?.setDouble('animationSpeed', val);
-  }
-
-  void toggleVibrate(bool val) {
-    state = state.copyWith(vibrateEnabled: val);
-    _prefs?.setBool('vibrateEnabled', val);
-  }
-
-  void toggleTooltips(bool val) {
-    state = state.copyWith(tooltipsEnabled: val);
-    _prefs?.setBool('tooltipsEnabled', val);
-  }
-
-  void toggleDarkMode(bool val) {
-    state = state.copyWith(darkMode: val);
-    _prefs?.setBool('darkMode', val);
   }
 }
 
@@ -170,33 +116,17 @@ class SettingsModal extends ConsumerWidget {
                         ),
                         const SizedBox(height: 24),
                         _SliderRow(
-                          label: 'Sound Effects',
+                          label: 'Sound Effects Volume',
                           value: settings.soundVolume,
                           min: 0,
                           max: 100,
                           onChanged: notifier.updateSound,
                         ),
-                        _SliderRow(
-                          label: 'Music',
-                          value: settings.musicVolume,
-                          min: 0,
-                          max: 100,
-                          onChanged: notifier.updateMusic,
-                        ),
-                        _SliderRow(
-                          label: 'Animation Speed',
-                          value: settings.animationSpeed,
-                          min: 0.5,
-                          max: 2.0,
-                          divisions: 3,
-                          onChanged: notifier.updateAnimSpeed,
-                          valueLabel: '${settings.animationSpeed}x',
-                        ),
                         const Divider(height: 40, color: Colors.grey),
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
                           dense: isMobile,
-                          title: const Text('Sound Effects'),
+                          title: const Text('Enable Sound Effects'),
                           value: audioService.soundEffectsEnabled,
                           onChanged: (val) =>
                               audioService.setSoundEffectsEnabled(val),
@@ -216,30 +146,6 @@ class SettingsModal extends ConsumerWidget {
                               activeThumbColor: Colors.amber,
                             );
                           },
-                        ),
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          dense: isMobile,
-                          title: const Text('Vibration Feedback'),
-                          value: settings.vibrateEnabled,
-                          onChanged: notifier.toggleVibrate,
-                          activeThumbColor: Colors.amber,
-                        ),
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          dense: isMobile,
-                          title: const Text('Show Tooltips'),
-                          value: settings.tooltipsEnabled,
-                          onChanged: notifier.toggleTooltips,
-                          activeThumbColor: Colors.amber,
-                        ),
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          dense: isMobile,
-                          title: const Text('Dark Mode'),
-                          value: settings.darkMode,
-                          onChanged: notifier.toggleDarkMode,
-                          activeThumbColor: Colors.amber,
                         ),
                       ],
                     ),

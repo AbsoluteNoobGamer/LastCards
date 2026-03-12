@@ -1,5 +1,17 @@
 import 'package:flutter/material.dart';
 
+/// Game mode categories for the leaderboard, aligned with main menu entry points.
+enum LeaderboardMode {
+  singlePlayer('Single Player', Icons.smart_toy),
+  online('Online', Icons.people),
+  tournamentVsAi('Tournament (vs AI)', Icons.emoji_events),
+  tournamentOnline('Tournament (Online)', Icons.public);
+
+  const LeaderboardMode(this.label, this.icon);
+  final String label;
+  final IconData icon;
+}
+
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
 
@@ -9,6 +21,7 @@ class LeaderboardScreen extends StatefulWidget {
 
 class _LeaderboardScreenState extends State<LeaderboardScreen> {
   bool _isLoading = false;
+  LeaderboardMode _selectedMode = LeaderboardMode.singlePlayer;
 
   final List<Map<String, dynamic>> _mockPlayers = [
     {'name': 'ACE_KILLER_99', 'wins': 1432, 'streak': 12},
@@ -33,10 +46,38 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Global Leaderboard'),
+        title: Text('${_selectedMode.label} Leaderboard'),
       ),
       body: Column(
         children: [
+          // Mode category chips
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: LeaderboardMode.values.map((mode) {
+                final isSelected = _selectedMode == mode;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FilterChip(
+                    selected: isSelected,
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(mode.icon, size: 16, color: isSelected ? Colors.black : Colors.amber),
+                        const SizedBox(width: 6),
+                        Text(mode.label),
+                      ],
+                    ),
+                    onSelected: (_) => setState(() => _selectedMode = mode),
+                    selectedColor: Colors.amber,
+                    checkmarkColor: Colors.black,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+
           // "Your Rank" Banner
           Container(
             padding: const EdgeInsets.all(16),
@@ -44,10 +85,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Your Rank: #47',
-                  style: TextStyle(
-                    fontSize: 18,
+                Text(
+                  '${_selectedMode.label} Leaderboard — Your Rank: #47',
+                  style: const TextStyle(
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Colors.amber,
                   ),
