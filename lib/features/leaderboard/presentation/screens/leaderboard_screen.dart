@@ -86,7 +86,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '$_selectedMode Leaderboard — Your Rank: #47',
+                  '${_selectedMode.label} Leaderboard — Your Rank: #47',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
