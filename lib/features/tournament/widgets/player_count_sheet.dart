@@ -11,7 +11,7 @@ import 'tournament_sub_mode_sheet.dart';
 /// Bottom Sheet 3 — Player Count Selection
 ///
 /// Shown after difficulty or player setup.
-/// Lets the player pick 3 or 4 players (no 2 player option for tournament).
+/// Lets the player pick 3–7 players (no 2 player option for tournament).
 class TournamentPlayerCountSheet extends ConsumerStatefulWidget {
   const TournamentPlayerCountSheet({super.key});
 
@@ -100,26 +100,50 @@ class _TournamentPlayerCountSheetState
             ),
             const SizedBox(height: 20),
 
-            // 3 or 4 players cards
+            // 3–7 players cards (two rows: 3–4–5, then 6–7)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [3, 4].map((count) {
-                  final isSelected = _selectedCount == count;
-                  return Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        left: count == 3 ? 0 : 8,
-                        right: count == 4 ? 0 : 8,
-                      ),
-                      child: _PlayerCountCard(
-                        count: count,
-                        isSelected: isSelected,
-                        onTap: () => setState(() => _selectedCount = count),
-                      ),
-                    ),
-                  );
-                }).toList(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [3, 4, 5].map((count) {
+                      final isSelected = _selectedCount == count;
+                      return Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            left: count == 3 ? 0 : 8,
+                            right: count == 5 ? 0 : 8,
+                          ),
+                          child: _PlayerCountCard(
+                            count: count,
+                            isSelected: isSelected,
+                            onTap: () => setState(() => _selectedCount = count),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [6, 7].map((count) {
+                      final isSelected = _selectedCount == count;
+                      return Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            left: count == 6 ? 0 : 8,
+                            right: count == 7 ? 0 : 8,
+                          ),
+                          child: _PlayerCountCard(
+                            count: count,
+                            isSelected: isSelected,
+                            onTap: () => setState(() => _selectedCount = count),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 24),

@@ -93,9 +93,9 @@ class GameSession {
           '{"type":"error","code":"game_started","message":"Game already in progress."}');
       return '';
     }
-    if (_players.length >= 4) {
+    if (_players.length >= 7) {
       ws.sink.add(
-          '{"type":"error","code":"room_full","message":"Room is full (max 4 players)."}');
+          '{"type":"error","code":"room_full","message":"Room is full (max 7 players)."}');
       return '';
     }
     final id = 'player-${++_playerCounter}';
@@ -174,9 +174,8 @@ class GameSession {
     final entries = _players.entries.toList();
     final totalPlayers = entries.length;
 
-    // Hand size scaled so the full deal always fits in the 54-card deck.
-    // 53 usable cards (54 minus 1 face-up discard) ÷ players, capped at 7.
-    final handSize = math.min(7, 53 ~/ totalPlayers);
+    // Fixed 7 cards per hand for all player counts (2–7).
+    const handSize = 7;
 
     final playerModels = <PlayerModel>[];
     for (int i = 0; i < totalPlayers; i++) {
@@ -727,12 +726,12 @@ class GameSession {
   // ── Position helper ───────────────────────────────────────────────────────
 
   TablePosition _positionFor(int index) {
-    const positions = [
-      TablePosition.bottom,
+    if (index == 0) return TablePosition.bottom;
+    const opponentPositions = [
       TablePosition.left,
       TablePosition.top,
       TablePosition.right,
     ];
-    return positions[index % positions.length];
+    return opponentPositions[(index - 1) % opponentPositions.length];
   }
 }
