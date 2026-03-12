@@ -1,0 +1,589 @@
+Resolving dependencies...
+Downloading packages...
+  _fe_analyzer_shared 80.0.0 (97.0.0 available)
+  analyzer 7.3.0 (11.0.0 available)
+  analyzer_plugin 0.13.0 (0.14.5 available)
+  build 2.5.4 (4.0.4 available)
+  build_config 1.1.2 (1.3.0 available)
+  build_resolvers 2.5.4 (3.0.4 available)
+  build_runner 2.5.4 (2.12.2 available)
+  build_runner_core 9.1.2 (9.3.2 available)
+  custom_lint_core 0.7.5 (0.8.2 available)
+  custom_lint_visitor 1.0.0+7.3.0 (1.0.0+9.0.0 available)
+  dart_style 3.1.0 (3.1.7 available)
+  flutter_lints 5.0.0 (6.0.0 available)
+  flutter_riverpod 2.6.1 (3.3.1 available)
+  freezed 2.5.8 (3.2.5 available)
+  freezed_annotation 2.4.4 (3.1.0 available)
+  json_annotation 4.9.0 (4.11.0 available)
+  json_serializable 6.9.5 (6.13.0 available)
+  lints 5.1.1 (6.1.0 available)
+  meta 1.17.0 (1.18.1 available)
+  mockito 5.4.5 (5.6.3 available)
+  riverpod 2.6.1 (3.2.1 available)
+  riverpod_analyzer_utils 0.5.9 (0.5.10 available)
+  riverpod_annotation 2.6.1 (4.0.2 available)
+  riverpod_generator 2.6.4 (4.0.3 available)
+  source_gen 2.0.0 (4.2.0 available)
+  source_helper 1.3.7 (1.3.10 available)
+Got dependencies!
+26 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/ai/ai_player_test.dart
+00:00 +0: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/ai/ai_player_test.dart: AI decision-making regressions Ace suit selection chooses the suit with most cards in AI hand
+00:00 +1: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/ai/ai_player_test.dart: AI decision-making regressions Ace never selects Spades by default when better options exist
+00:00 +2: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/ai/ai_player_test.dart: AI decision-making regressions Joker never declares Black Jack rank unless hand is empty after it
+00:00 +3: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/ai/ai_player_test.dart: AI decision-making regressions Joker declares suit AI holds most cards in
+00:00 +4: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/ai/ai_player_test.dart: AI decision-making regressions AI plays its last card immediately when it is valid
+00:00 +5: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/ai/ai_player_test.dart: AI decision-making regressions AI plays Black Jack only when many cards or a draw chain is active
+00:00 +6: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper initializes with sound effects enabled
+00:00 +7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper setSoundEffectsEnabled(false) disables and notifies
+00:00 +8: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper setSoundEffectsEnabled(true) re-enables and notifies
+00:00 +9: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper setSoundEffectsEnabled(true) re-enables and notifies
+00:00 +10: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper setSoundEffectsEnabled(true) re-enables and notifies
+00:00 +11: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper setSoundEffectsEnabled(true) re-enables and notifies
+00:00 +12: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper setSoundEffectsEnabled(true) re-enables and notifies
+00:00 +13: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper setSoundEffectsEnabled(true) re-enables and notifies
+00:00 +14: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper setSoundEffectsEnabled(true) re-enables and notifies
+00:00 +15: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper setSoundEffectsEnabled(true) re-enables and notifies
+00:00 +16: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper setSoundEffectsEnabled(true) re-enables and notifies
+00:00 +17: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper setSoundEffectsEnabled(true) re-enables and notifies
+00:00 +18: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper setSoundEffectsEnabled(true) re-enables and notifies
+00:00 +19: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/bust/bust_logic_test.dart: BustEngine.buildRound 2 players: correct player count and hand sizes
+00:00 +20: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +21: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +22: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +23: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +24: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +25: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +26: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +27: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +28: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +29: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +30: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +31: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +32: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +33: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +34: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +35: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +36: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +37: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +38: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +39: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +40: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +41: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +42: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper persists enabled flag to SharedPreferences
+00:00 +43: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/bust/bust_logic_test.dart: BustRoundManager.recordTurn does nothing once round is complete
+00:00 +44: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper toggleMute (deprecated) inverts soundEffectsEnabled
+00:00 +45: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper toggleMute (deprecated) inverts soundEffectsEnabled
+00:00 +46: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper toggleMute (deprecated) inverts soundEffectsEnabled
+00:00 +47: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper toggleMute (deprecated) inverts soundEffectsEnabled
+00:00 +48: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper toggleMute (deprecated) inverts soundEffectsEnabled
+00:00 +49: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper toggleMute (deprecated) inverts soundEffectsEnabled
+00:00 +50: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper toggleMute (deprecated) inverts soundEffectsEnabled
+00:00 +51: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper toggleMute (deprecated) inverts soundEffectsEnabled
+00:00 +52: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper toggleMute (deprecated) inverts soundEffectsEnabled
+00:00 +53: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper toggleMute (deprecated) inverts soundEffectsEnabled
+00:00 +54: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper toggleMute (deprecated) inverts soundEffectsEnabled
+00:00 +55: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper toggleMute (deprecated) inverts soundEffectsEnabled
+00:00 +56: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper toggleMute (deprecated) inverts soundEffectsEnabled
+00:00 +57: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper toggleMute (deprecated) inverts soundEffectsEnabled
+00:00 +58: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper toggleMute (deprecated) inverts soundEffectsEnabled
+00:00 +59: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper toggleMute (deprecated) inverts soundEffectsEnabled
+00:00 +60: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper toggleMute (deprecated) inverts soundEffectsEnabled
+00:00 +61: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper toggleMute (deprecated) inverts soundEffectsEnabled
+00:00 +62: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/e2e_gameplay_test.dart: E2E Gameplay Flow Engine Test Simulate complete 2-player game to win condition
+00:00 +63: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper restores previously saved enabled flag on next init
+00:00 +64: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper restores previously saved enabled flag on next init
+00:00 +65: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: AudioService wrapper restores previously saved volume on next init
+00:00 +66: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: low_level.AudioService singleton playSound does not throw when not initialized
+AudioService._playOneShotAsset(audio/sfx/card_place.wav) error: MissingPluginException(No implementation found for method getTemporaryDirectory on channel plugins.flutter.io/path_provider)
+00:00 +67: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: low_level.AudioService singleton playSound does not throw when sound effects are disabled
+00:00 +68: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: low_level.AudioService singleton setVolume clamps values below 0 and above 1
+00:00 +69: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: GameSound asset mapping every GameSound value has a mapping entry
+00:00 +70: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: GameSound asset mapping specialBlackJack maps to the hyphenated filename
+00:00 +71: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: Sound events at correct game events applyPlay: cardPlace fires (no throw) for a normal card
+00:00 +72: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: Sound events at correct game events applyPlay: specialTwo sound fires (no throw) for two
+00:00 +73: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: Sound events at correct game events applyPlay: specialKing sound fires (no throw) for king
+00:00 +74: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: Sound events at correct game events applyPlay: specialAce sound fires (no throw) for ace
+00:00 +75: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: Sound events at correct game events applyPlay: specialQueen sound fires (no throw) for queen
+00:00 +76: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: Sound events at correct game events applyPlay: specialEight sound fires (no throw) for eight
+00:00 +77: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: Sound events at correct game events applyPlay: specialBlackJack fires (no throw) for Black Jack
+00:00 +78: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: Sound events at correct game events applyPlay: specialRedJack fires (no throw) for Red Jack
+00:00 +79: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: Sound events at correct game events applyDraw: cardDraw fires (no throw) for voluntary draw
+00:00 +80: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: Sound events at correct game events applyDraw: penaltyDraw fires (no throw) when activePenaltyCount > 0
+00:00 +81: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: Sound events at correct game events applyDraw: penaltyDraw does NOT fire for a normal draw (no throw)
+00:00 +82: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/audio_service_test.dart: Sound trigger documentation event ÔåÆ sound mapping is as documented
+00:00 +83: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 1. Basic Play Validation basicSuitMatch
+00:00 +84: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 1. Basic Play Validation sameSuitAnyRankIsValid
+00:00 +85: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 1. Basic Play Validation basicRankMatch
+00:00 +86: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 1. Basic Play Validation crossSuitNonRankRejected
+00:00 +87: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 1. Basic Play Validation invalidPlayForcesDraw
+00:00 +88: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 1. Basic Play Validation drawnCardCannotPlaySameTurn
+00:00 +89: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 1. Basic Play Validation specialOverrideBypassesMatch
+00:00 +90: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 2. Multi-Card Stacking sameValueStackingCrossSuit
+00:00 +91: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 2. Multi-Card Stacking sameValueMixedRanksInvalid
+00:00 +92: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 2. Multi-Card Stacking sequenceAfterValueStack
+00:00 +93: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 2. Multi-Card Stacking invalidSequenceBreaksChain
+00:00 +94: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 3. Numerical Sequences ascendingSameSuitSequence
+00:00 +95: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 3. Numerical Sequences descendingSameSuitSequence
+00:00 +96: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 3. Numerical Sequences mixedSuitSequenceInvalid
+00:00 +97: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 3. Numerical Sequences gappedSequenceInvalid
+00:00 +98: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 3. Numerical Sequences largeSuitGapMultiCardRejected
+00:00 +99: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 3. Numerical Sequences sameSuitSeparateTurnsValid
+00:00 +100: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 3. Numerical Sequences sameTurnGapRejected
+00:00 +101: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 3. Numerical Sequences sameTurnConsecutiveAllowed
+00:00 +102: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 3. Numerical Sequences sequenceToValueChain
+00:00 +103: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 3. Numerical Sequences wraparoundSequenceInvalid
+00:00 +104: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 4. Queen Self-Covering queenRequiresSameSuitCover
+00:00 +105: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 4. Queen Self-Covering queenCoverByQueenChains
+00:00 +106: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 4. Queen Self-Covering tripleQueenChain
+00:00 +107: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 4. Queen Self-Covering cannotCoverQueenDraws
+00:00 +108: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 4. Queen Self-Covering queenCoverBypassesAdjacentRule
+00:00 +109: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 4. Queen Self-Covering queenCoverResumesNormal
+00:00 +110: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 4. Queen Self-Covering queenWithPenaltyOrder
+00:00 +111: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 4. Queen Self-Covering invalidQueenCoverRejected
+00:00 +112: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 4. Queen Self-Covering queenRankMatchAllowed
+00:00 +113: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 4. Queen Self-Covering queenUncoveredEndTurnInvalid
+00:00 +114: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking twoPenaltyStacking
+00:00 +115: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking blackJackOnTwoChain
+00:00 +116: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking blackJackCanStackOnTwoChain_validation
+00:00 +117: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking redJackCancelsAll
+00:00 +118: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking kingReverseDirection
+00:00 +119: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking eightSkipTurn (single)
+00:00 +120: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking eightSkipTurn (stacked multiple)
+00:00 +121: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking eightSkipTurn (stacked sequential - two eights one at a time)
+00:00 +122: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking eightSkipTurn (sequence ending on Eight - mixed cards)
+00:00 +123: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking eightFollowedByNonEight_resetsSkipToZero
+00:00 +124: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking multipleEightsFollowedByNonEight_resetsSkipToZero
+00:00 +125: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking kingSkipTwoPlayerRule
+00:00 +126: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking aceWildFirstCard
+00:00 +127: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking aceMidSequenceNotWild
+00:00 +128: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking aceInvalidMidTurnWild
+00:00 +129: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking sequenceCancelsPenalty_midTurn
+00:00 +130: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking sequenceCancelsPenalty_jackToTen
+00:00 +131: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking sequenceCancelsPenalty_valueChainToNumericalFlow
+00:00 +132: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking queenSuitLockSelfCover
+00:00 +133: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking jokerWildDeclaration
+00:00 +134: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking jokerOptions_turnStart_generalized_jack
+00:00 +135: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking jokerOptions_midTurn_generalized_jack
+00:00 +136: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking jokerOptions_turnStart_generalized_eight
+00:00 +137: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking jokerOptions_midTurn_generalized_eight
+00:00 +138: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking jokerOptions_activePenalty_jack
+00:00 +139: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking jokerExecution_normalDiscard
+00:00 +140: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking jokerExecution_penaltyStacking
+00:00 +141: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking penaltyResolutionOrder
+00:00 +142: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking redJackPenaltyResetE2EFlow
+00:00 +143: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking redJackPenaltyResetE2EFlow_validation
+00:00 +144: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 5. Special Card Stacking specialStartupTrigger
+00:00 +145: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 6. Edge Cases & Infrastructure playerAttemptsEndTurnWithoutAction_shouldBeRejected
+00:00 +146: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 6. Edge Cases & Infrastructure drawPileReshuffle
+  Skip: not yet implemented
+00:00 +146 ~1: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 6. Edge Cases & Infrastructure cannotWinOnPenaltyDraw
+  Skip: not yet implemented
+00:00 +146 ~2: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 6. Edge Cases & Infrastructure turnTimer30Seconds
+  Skip: not yet implemented
+00:00 +146 ~3: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 6. Edge Cases & Infrastructure dealerNoHandDemoMode
+  Skip: not yet implemented
+00:00 +146 ~4: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 6. Edge Cases & Infrastructure aiPlayer2Logic
+  Skip: not yet implemented
+00:00 +146 ~5: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 6. Edge Cases & Infrastructure serverValidatesAllPlays
+  Skip: not yet implemented
+00:00 +146 ~6: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/engine_test.dart: 6. Edge Cases & Infrastructure reconnectionPreservesState
+  Skip: not yet implemented
+00:00 +146 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/joker_play_pipeline_connection_test.dart: Joker popup connection (mirrors Ace popup pattern) 1) Joker tap opens popup (same modal pattern as Ace)
+00:01 +147 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/joker_play_pipeline_connection_test.dart: Joker popup connection (mirrors Ace popup pattern) 1) Joker tap opens popup (same modal pattern as Ace)
+00:01 +148 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/joker_play_pipeline_connection_test.dart: Joker popup connection (mirrors Ace popup pattern) 1) Joker tap opens popup (same modal pattern as Ace)
+00:01 +149 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/joker_play_pipeline_connection_test.dart: Joker popup connection (mirrors Ace popup pattern) 1) Joker tap opens popup (same modal pattern as Ace)
+00:01 +150 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/joker_play_pipeline_connection_test.dart: Joker popup connection (mirrors Ace popup pattern) 1) Joker tap opens popup (same modal pattern as Ace)
+00:01 +151 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/joker_play_pipeline_connection_test.dart: Joker popup connection (mirrors Ace popup pattern) 1) Joker tap opens popup (same modal pattern as Ace)
+00:01 +152 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/joker_play_pipeline_connection_test.dart: Joker popup connection (mirrors Ace popup pattern) 1) Joker tap opens popup (same modal pattern as Ace)
+00:01 +153 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/joker_play_pipeline_connection_test.dart: Joker popup connection (mirrors Ace popup pattern) 1) Joker tap opens popup (same modal pattern as Ace)
+00:01 +154 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/joker_play_pipeline_connection_test.dart: Joker popup connection (mirrors Ace popup pattern) 1) Joker tap opens popup (same modal pattern as Ace)
+00:01 +155 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/joker_play_pipeline_connection_test.dart: Joker popup connection (mirrors Ace popup pattern) 1) Joker tap opens popup (same modal pattern as Ace)
+00:01 +156 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/joker_play_pipeline_connection_test.dart: Joker popup connection (mirrors Ace popup pattern) 1) Joker tap opens popup (same modal pattern as Ace)
+00:01 +157 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/joker_play_pipeline_connection_test.dart: Joker popup connection (mirrors Ace popup pattern) 1) Joker tap opens popup (same modal pattern as Ace)
+00:01 +158 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/joker_play_pipeline_connection_test.dart: Joker popup connection (mirrors Ace popup pattern) 1) Joker tap opens popup (same modal pattern as Ace)
+00:01 +159 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/joker_play_pipeline_connection_test.dart: Joker popup connection (mirrors Ace popup pattern) 1) Joker tap opens popup (same modal pattern as Ace)
+00:01 +160 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +161 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +162 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +163 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +164 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +165 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +166 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +167 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +168 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +169 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +170 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +171 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +172 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +173 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +174 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +175 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +176 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +177 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +178 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +179 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +180 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +181 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +182 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +183 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +184 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:01 +185 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/profile_test.dart: 2. Name validation valid name passes profanity filter and accepts correctly
+00:02 +186 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +187 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +188 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +189 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +190 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +191 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +192 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +193 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +194 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +195 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +196 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +197 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +198 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +199 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +200 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +201 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +202 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +203 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +204 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +205 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +206 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +207 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:02 +208 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:03 +209 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:03 +210 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:03 +211 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:03 +212 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:03 +213 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:03 +214 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:03 +215 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:03 +216 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:03 +217 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:03 +218 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:03 +219 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:03 +220 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:03 +220 ~7: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/tournament/tournament_engine_test.dart: Tournament mode flow wiring onPlayerFinished is called each time a player empties hand in tournament mode
+ÔòÉÔòÉÔòí EXCEPTION CAUGHT BY WIDGETS LIBRARY Ôò×ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+The following StateError was thrown building TournamentEliminationScreen(dirty, state:
+_ConsumerState#0965a):
+Bad state: No ProviderScope found
+
+The relevant error-causing widget was:
+  TournamentEliminationScreen
+  TournamentEliminationScreen:file:///C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/lib/screens/tournament_screen.dart:144:27
+
+When the exception was thrown, this was the stack:
+#0      ProviderScope.containerOf (package:flutter_riverpod/src/framework.dart:110:7)
+#1      ConsumerStatefulElement._container (package:flutter_riverpod/src/consumer.dart:508:53)
+#2      ConsumerStatefulElement._container (package:flutter_riverpod/src/consumer.dart)
+#3      ConsumerStatefulElement.watch.<anonymous closure> (package:flutter_riverpod/src/consumer.dart:564:14)
+#4      _LinkedHashMapMixin.putIfAbsent (dart:_compact_hash:675:23)
+#5      ConsumerStatefulElement.watch (package:flutter_riverpod/src/consumer.dart:557:26)
+#6      TournamentEliminationScreen.build (package:last_cards/features/tournament/screens/elimination_screen.dart:21:23)
+#7      _ConsumerState.build (package:flutter_riverpod/src/consumer.dart:476:19)
+#8      StatefulElement.build (package:flutter/src/widgets/framework.dart:5931:27)
+#9      ConsumerStatefulElement.build (package:flutter_riverpod/src/consumer.dart:539:20)
+#10     ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5817:15)
+#11     StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#12     Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#13     ComponentElement._firstBuild (package:flutter/src/widgets/framework.dart:5799:5)
+#14     StatefulElement._firstBuild (package:flutter/src/widgets/framework.dart:5973:11)
+#15     ComponentElement.mount (package:flutter/src/widgets/framework.dart:5793:5)
+...     Normal element mounting (260 frames)
+#275    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4587:20)
+#276    MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7264:36)
+#277    Element.updateChild (package:flutter/src/widgets/framework.dart:4059:18)
+#278    Element.updateChildren (package:flutter/src/widgets/framework.dart:4255:32)
+#279    MultiChildRenderObjectElement.update (package:flutter/src/widgets/framework.dart:7295:17)
+#280    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#281    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#282    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#283    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#284    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#285    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#286    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#287    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#288    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#289    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#290    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#291    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#292    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#293    _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#294    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#295    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#296    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#297    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#298    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#299    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#300    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#301    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#302    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#303    _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#304    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#305    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#306    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#307    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#308    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#309    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#310    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#311    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#312    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#313    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#314    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#315    SingleChildRenderObjectElement.update (package:flutter/src/widgets/framework.dart:7122:14)
+#316    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#317    SingleChildRenderObjectElement.update (package:flutter/src/widgets/framework.dart:7122:14)
+#318    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#319    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#320    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#321    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#322    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#323    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#324    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#325    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#326    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#327    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#328    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#329    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#330    BuildScope._tryRebuild (package:flutter/src/widgets/framework.dart:2750:15)
+#331    BuildScope._flushDirtyElements (package:flutter/src/widgets/framework.dart:2807:11)
+#332    BuildOwner.buildScope (package:flutter/src/widgets/framework.dart:3111:18)
+#333    AutomatedTestWidgetsFlutterBinding.drawFrame (package:flutter_test/src/binding.dart:2131:19)
+#334    RendererBinding._handlePersistentFrameCallback (package:flutter/src/rendering/binding.dart:495:5)
+#335    SchedulerBinding._invokeFrameCallback (package:flutter/src/scheduler/binding.dart:1430:15)
+#336    SchedulerBinding.handleDrawFrame (package:flutter/src/scheduler/binding.dart:1345:9)
+#337    AutomatedTestWidgetsFlutterBinding.pump.<anonymous closure> (package:flutter_test/src/binding.dart:1960:9)
+#340    TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#341    AutomatedTestWidgetsFlutterBinding.pump (package:flutter_test/src/binding.dart:1949:27)
+#342    WidgetTester.pumpAndSettle.<anonymous closure> (package:flutter_test/src/widget_tester.dart:719:23)
+#345    TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#346    WidgetTester.pumpAndSettle (package:flutter_test/src/widget_tester.dart:712:27)
+#347    main.<anonymous closure>.<anonymous closure> (file:///C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/tournament/tournament_engine_test.dart:392:20)
+<asynchronous suspension>
+#348    testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#349    TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1682:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided 5 frames from dart:async and package:stack_trace)
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ÔòÉÔòÉÔòí EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK Ôò×ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+The following assertion was thrown running a test:
+The finder "Found 0 widgets with text "Continue": []" (used in a call to "tap()") could not find any
+matching widgets.
+
+When the exception was thrown, this was the stack:
+#0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2090:7)
+#1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1942:12)
+#2      WidgetController.tap (package:flutter_test/src/controller.dart:1075:7)
+#3      main.<anonymous closure>.<anonymous closure> (file:///C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/tournament/tournament_engine_test.dart:401:20)
+<asynchronous suspension>
+#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1682:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+The test description was:
+  onPlayerFinished is called each time a player empties hand in tournament mode
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ÔòÉÔòÉÔòí EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK Ôò×ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+The following message was thrown:
+Multiple exceptions (2) were detected during the running of the current test, and at least one was
+unexpected.
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+00:03 +220 ~7 -1: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:03 +220 ~7 -1: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/tournament/tournament_engine_test.dart: Tournament mode flow wiring onPlayerFinished is called each time a player empties hand in tournament mode [E]
+  Test failed. See exception logs above.
+  The test description was: onPlayerFinished is called each time a player empties hand in tournament mode
+  
+00:03 +220 ~7 -1: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/widgets/dealing_animation_test.dart: Sequential Dealer Animation works and blocks early input
+Revealed card 1 to player
+Revealed card 2 to player
+Revealed card 3 to player
+Revealed card 4 to player
+Revealed card 5 to player
+Revealed card 6 to player
+Revealed card 7 to player
+00:03 +221 ~7 -1: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:03 +222 ~7 -1: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:03 +223 ~7 -1: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:03 +223 ~7 -1: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/tournament/tournament_engine_test.dart: Tournament mode flow wiring standard win screen does NOT appear when isTournamentMode is true
+ÔòÉÔòÉÔòí EXCEPTION CAUGHT BY WIDGETS LIBRARY Ôò×ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+The following StateError was thrown building TournamentEliminationScreen(dirty, state:
+_ConsumerState#d2dc1):
+Bad state: No ProviderScope found
+
+The relevant error-causing widget was:
+  TournamentEliminationScreen
+  TournamentEliminationScreen:file:///C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/lib/screens/tournament_screen.dart:144:27
+
+When the exception was thrown, this was the stack:
+#0      ProviderScope.containerOf (package:flutter_riverpod/src/framework.dart:110:7)
+#1      ConsumerStatefulElement._container (package:flutter_riverpod/src/consumer.dart:508:53)
+#2      ConsumerStatefulElement._container (package:flutter_riverpod/src/consumer.dart)
+#3      ConsumerStatefulElement.watch.<anonymous closure> (package:flutter_riverpod/src/consumer.dart:564:14)
+#4      _LinkedHashMapMixin.putIfAbsent (dart:_compact_hash:675:23)
+#5      ConsumerStatefulElement.watch (package:flutter_riverpod/src/consumer.dart:557:26)
+#6      TournamentEliminationScreen.build (package:last_cards/features/tournament/screens/elimination_screen.dart:21:23)
+#7      _ConsumerState.build (package:flutter_riverpod/src/consumer.dart:476:19)
+#8      StatefulElement.build (package:flutter/src/widgets/framework.dart:5931:27)
+#9      ConsumerStatefulElement.build (package:flutter_riverpod/src/consumer.dart:539:20)
+#10     ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5817:15)
+#11     StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#12     Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#13     ComponentElement._firstBuild (package:flutter/src/widgets/framework.dart:5799:5)
+#14     StatefulElement._firstBuild (package:flutter/src/widgets/framework.dart:5973:11)
+#15     ComponentElement.mount (package:flutter/src/widgets/framework.dart:5793:5)
+...     Normal element mounting (260 frames)
+#275    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4587:20)
+#276    MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7264:36)
+#277    Element.updateChild (package:flutter/src/widgets/framework.dart:4059:18)
+#278    Element.updateChildren (package:flutter/src/widgets/framework.dart:4255:32)
+#279    MultiChildRenderObjectElement.update (package:flutter/src/widgets/framework.dart:7295:17)
+#280    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#281    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#282    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#283    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#284    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#285    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#286    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#287    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#288    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#289    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#290    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#291    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#292    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#293    _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#294    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#295    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#296    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#297    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#298    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#299    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#300    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#301    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#302    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#303    _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#304    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#305    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#306    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#307    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#308    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#309    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#310    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#311    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#312    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#313    StatefulElement.update (package:flutter/src/widgets/framework.dart:6007:5)
+#314    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#315    SingleChildRenderObjectElement.update (package:flutter/src/widgets/framework.dart:7122:14)
+#316    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#317    SingleChildRenderObjectElement.update (package:flutter/src/widgets/framework.dart:7122:14)
+#318    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#319    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#320    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#321    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#322    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#323    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#324    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#325    ProxyElement.update (package:flutter/src/widgets/framework.dart:6149:5)
+#326    Element.updateChild (package:flutter/src/widgets/framework.dart:4037:15)
+#327    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5841:16)
+#328    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5982:11)
+#329    Element.rebuild (package:flutter/src/widgets/framework.dart:5529:7)
+#330    BuildScope._tryRebuild (package:flutter/src/widgets/framework.dart:2750:15)
+#331    BuildScope._flushDirtyElements (package:flutter/src/widgets/framework.dart:2807:11)
+#332    BuildOwner.buildScope (package:flutter/src/widgets/framework.dart:3111:18)
+#333    AutomatedTestWidgetsFlutterBinding.drawFrame (package:flutter_test/src/binding.dart:2131:19)
+#334    RendererBinding._handlePersistentFrameCallback (package:flutter/src/rendering/binding.dart:495:5)
+#335    SchedulerBinding._invokeFrameCallback (package:flutter/src/scheduler/binding.dart:1430:15)
+#336    SchedulerBinding.handleDrawFrame (package:flutter/src/scheduler/binding.dart:1345:9)
+#337    AutomatedTestWidgetsFlutterBinding.pump.<anonymous closure> (package:flutter_test/src/binding.dart:1960:9)
+#340    TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#341    AutomatedTestWidgetsFlutterBinding.pump (package:flutter_test/src/binding.dart:1949:27)
+#342    WidgetTester.pumpAndSettle.<anonymous closure> (package:flutter_test/src/widget_tester.dart:719:23)
+#345    TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#346    WidgetTester.pumpAndSettle (package:flutter_test/src/widget_tester.dart:712:27)
+#347    main.<anonymous closure>.<anonymous closure> (file:///C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/tournament/tournament_engine_test.dart:436:20)
+<asynchronous suspension>
+#348    testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#349    TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1682:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided 5 frames from dart:async and package:stack_trace)
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ÔòÉÔòÉÔòí EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK Ôò×ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+The following assertion was thrown running a test:
+The finder "Found 0 widgets with text "Continue": []" (used in a call to "tap()") could not find any
+matching widgets.
+
+When the exception was thrown, this was the stack:
+#0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2090:7)
+#1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1942:12)
+#2      WidgetController.tap (package:flutter_test/src/controller.dart:1075:7)
+#3      main.<anonymous closure>.<anonymous closure> (file:///C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/tournament/tournament_engine_test.dart:442:20)
+<asynchronous suspension>
+#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1682:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+The test description was:
+  standard win screen does NOT appear when isTournamentMode is true
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ÔòÉÔòÉÔòí EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK Ôò×ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+The following message was thrown:
+Multiple exceptions (2) were detected during the running of the current test, and at least one was
+unexpected.
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+00:03 +223 ~7 -2: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:03 +223 ~7 -2: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/tournament/tournament_engine_test.dart: Tournament mode flow wiring standard win screen does NOT appear when isTournamentMode is true [E]
+  Test failed. See exception logs above.
+  The test description was: standard win screen does NOT appear when isTournamentMode is true
+  
+00:03 +224 ~7 -2: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: GameTurnTimer Tests timer cancels without expiring
+00:03 +225 ~7 -2: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/tournament/tournament_engine_test.dart: Tournament mode flow wiring round summary screen appears after all 4 players have finished
+00:03 +226 ~7 -2: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/tournament/tournament_engine_test.dart: Tournament mode flow wiring round summary screen appears after all 4 players have finished
+00:03 +227 ~7 -2: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/tournament/tournament_engine_test.dart: Tournament mode flow wiring round summary screen appears after all 4 players have finished
+00:03 +228 ~7 -2: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: TurnTimerBar UI Tests TurnTimerBar is active and visible globally across all turns
+00:03 +229 ~7 -2: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: TurnTimerBar UI Tests TurnTimerBar is active and visible globally across all turns
+00:03 +230 ~7 -2: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: TurnTimerBar UI Tests TurnTimerBar is active and visible globally across all turns
+00:03 +231 ~7 -2: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: TurnTimerBar UI Tests TurnTimerBar is active and visible globally across all turns
+00:03 +232 ~7 -2: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: TurnTimerBar UI Tests TurnTimerBar is active and visible globally across all turns
+00:03 +232 ~7 -2: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/widgets/player_hand_overflow_test.dart: PlayerHandWidget ÔÇö edge case correctness disabled hand (enabled=false) does not fire onTap
+
+Warning: A call to tap() with finder "Found 1 widget with type "PlayerHandWidget": [
+  PlayerHandWidget(state: _PlayerHandWidgetState#00e73),
+]" derived an Offset (Offset(400.0, 57.4)) that would not hit test on the specified widget.
+Maybe the widget is actually off-screen, or another widget is obscuring it, or the widget cannot receive pointer events.
+The finder corresponds to this RenderBox: _RenderLayoutBuilder#da78d relayoutBoundary=up1
+The hit test result at that offset is: HitTestResult(_RenderInkFeatures#ada9b@Offset(400.0, 57.4), RenderPhysicalModel#9debf@Offset(400.0, 57.4), RenderSemanticsAnnotations#7db5e@Offset(400.0, 57.4), RenderRepaintBoundary#3ecfa@Offset(400.0, 57.4), RenderIgnorePointer#77f66@Offset(400.0, 57.4), RenderAnimatedOpacity#7117d@Offset(400.0, 57.4), RenderAnimatedOpacity#fc630@Offset(400.0, 57.4), _RenderColoredBox#1f598@Offset(400.0, 57.4), RenderAnimatedOpacity#71b7e@Offset(400.0, 57.4), RenderIgnorePointer#0f044@Offset(400.0, 57.4), RenderAnimatedOpacity#4c2a3@Offset(400.0, 57.4), RenderRepaintBoundary#2cd41@Offset(400.0, 57.4), RenderSemanticsAnnotations#8f830@Offset(400.0, 57.4), RenderOffstage#19939@Offset(400.0, 57.4), RenderSemanticsAnnotations#58274@Offset(400.0, 57.4), _RenderTheater#abf0e@Offset(400.0, 57.4), RenderAbsorbPointer#bbcd9@Offset(400.0, 57.4), RenderPointerListener#4fc05@Offset(400.0, 57.4), RenderSemanticsAnnotations#6649c@Offset(400.0, 57.4), RenderCustomPaint#3da64@Offset(400.0, 57.4), RenderSemanticsAnnotations#1efe2@Offset(400.0, 57.4), RenderSemanticsAnnotations#69b9f@Offset(400.0, 57.4), RenderSemanticsAnnotations#94108@Offset(400.0, 57.4), RenderTapRegionSurface#0ecf0@Offset(400.0, 57.4), RenderSemanticsAnnotations#74cf1@Offset(400.0, 57.4), RenderSemanticsAnnotations#9293b@Offset(400.0, 57.4), HitTestEntry<HitTestTarget>#11a92(_ReusableRenderView#5a671), HitTestEntry<HitTestTarget>#27d76(<AutomatedTestWidgetsFlutterBinding>))
+#0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2158:25)
+#1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1942:12)
+#2      WidgetController.tap (package:flutter_test/src/controller.dart:1075:7)
+#3      main.<anonymous closure>.<anonymous closure> (file:///C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/widgets/player_hand_overflow_test.dart:236:20)
+<asynchronous suspension>
+#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1682:5)
+<asynchronous suspension>
+#6      StackZoneSpecification._registerCallback.<anonymous closure> (package:stack_trace/src/stack_zone_specification.dart:114:42)
+<asynchronous suspension>
+To silence this warning, pass "warnIfMissed: false" to "tap()".
+To make this warning fatal, set WidgetController.hitTestWarningShouldBeFatal to true.
+
+00:03 +233 ~7 -2: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: TurnTimerBar UI Tests TurnTimerBar is active and visible globally across all turns
+00:03 +234 ~7 -2: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: TurnTimerBar UI Tests TurnTimerBar is active and visible globally across all turns
+00:03 +235 ~7 -2: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: TurnTimerBar UI Tests TurnTimerBar is active and visible globally across all turns
+00:03 +236 ~7 -2: C:/Users/AbsoluteNoobGamer/Desktop/dev/cards/test/shared/turn_timer_test.dart: TurnTimerBar UI Tests TurnTimerBar is active and visible globally across all turns
+00:04 +237 ~7 -2: Some tests failed.

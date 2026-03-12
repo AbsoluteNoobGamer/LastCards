@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:last_cards/core/models/offline_game_engine.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/card_widget.dart';
@@ -80,35 +79,30 @@ void main() {
       const option = CardModel(id: '4h', rank: Rank.four, suit: Suit.hearts);
 
       await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            audioServiceProvider.overrideWith((_) => _SilentAudio()),
-          ],
-          child: MaterialApp(
-            home: Builder(
-              builder: (context) => Scaffold(
-                body: ElevatedButton(
-                  onPressed: () async {
-                    selected = await showModalBottomSheet<CardModel>(
-                      context: context,
-                      backgroundColor: Colors.transparent,
-                      builder: (sheetContext) => Material(
-                        child: SizedBox(
-                          height: 200,
-                          child: Center(
-                            child: CardWidget(
-                              card: option,
-                              isSelected: false,
-                              onTap: () =>
-                                  Navigator.of(sheetContext).pop(option),
-                            ),
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: ElevatedButton(
+                onPressed: () async {
+                  selected = await showModalBottomSheet<CardModel>(
+                    context: context,
+                    backgroundColor: Colors.transparent,
+                    builder: (sheetContext) => Material(
+                      child: SizedBox(
+                        height: 200,
+                        child: Center(
+                          child: CardWidget(
+                            card: option,
+                            isSelected: false,
+                            onTap: () =>
+                                Navigator.of(sheetContext).pop(option),
                           ),
                         ),
                       ),
-                    );
-                  },
-                  child: const Text('open'),
-                ),
+                    ),
+                  );
+                },
+                child: const Text('open'),
               ),
             ),
           ),

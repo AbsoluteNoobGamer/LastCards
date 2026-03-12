@@ -8,11 +8,19 @@ class GameTurnTimer {
   
   int _currentSeconds = defaultDurationSeconds;
 
-  // Return a stream that immediately emits the current value upon listening
-  Stream<int> get timeRemainingStream async* {
-    yield _currentSeconds;
-    yield* _timeRemainingController.stream;
-  }
+  // Returns a multicast-safe stream: each subscriber gets the current value
+  // immediately, then receives all subsequent controller emissions.
+  // Using Stream.multi avoids creating a new async* generator chain on every
+  // access while still delivering the buffered snapshot to late listeners.
+  Stream<int> get timeRemainingStream => Stream.multi((controller) {
+    controller.add(_currentSeconds);
+    final sub = _timeRemainingController.stream.listen(
+      controller.add,
+      onError: controller.addError,
+      onDone: controller.close,
+    );
+    controller.onCancel = sub.cancel;
+  });
   
   void start(void Function() onExpire) {
     cancel();

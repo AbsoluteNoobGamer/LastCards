@@ -201,10 +201,18 @@ void main() {
       GameSound.timerWarning: 'timer_warning.wav',
       GameSound.timerExpired: 'timer_expired.wav',
       GameSound.playerWin: 'player_win.wav',
+      GameSound.playerLose: 'player_lose.wav',
       GameSound.tournamentQualify: 'tournament_qualify.wav',
       GameSound.tournamentEliminate: 'tournament_eliminate.wav',
       GameSound.tournamentWin: 'tournament_win.wav',
       GameSound.shuffleDeck: 'shuffle_deck.wav',
+      GameSound.bustRoundStart: 'bust_round_start.wav',
+      GameSound.bustRoundEnd: 'bust_round_end.wav',
+      GameSound.skipApplied: 'skip_applied.wav',
+      GameSound.directionReversed: 'direction_reversed.wav',
+      GameSound.opponentOut: 'opponent_out.wav',
+      GameSound.endTurnButton: 'end_turn_button.wav',
+      GameSound.cardSelect: 'card_select.wav',
     };
 
     test('every GameSound value has a mapping entry', () {

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/game_state.dart';
-import '../../../../services/audio_service.dart' as _audio;
+import '../../../../services/audio_service.dart' as game_audio;
 import '../../../../services/game_sound.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/providers/theme_provider.dart';
@@ -67,7 +67,7 @@ class FloatingActionBarWidget extends ConsumerWidget {
               child: ElevatedButton(
                 onPressed: canEndTurn && onEndTurn != null
                     ? () {
-                        _audio.AudioService.instance
+                        game_audio.AudioService.instance
                             .playSound(GameSound.endTurnButton);
                         onEndTurn!();
                       }

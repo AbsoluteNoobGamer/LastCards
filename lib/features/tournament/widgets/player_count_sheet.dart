@@ -7,7 +7,6 @@ import '../providers/tournament_session_provider.dart';
 import 'difficulty_selection_sheet.dart';
 import 'format_selection_sheet.dart';
 import 'tournament_sub_mode_sheet.dart';
-import 'tournament_type_sheet.dart';
 
 /// Bottom Sheet 3 — Player Count Selection
 ///

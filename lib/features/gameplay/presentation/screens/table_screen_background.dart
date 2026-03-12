@@ -9,13 +9,15 @@ class _FeltTableBackground extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(themeProvider).theme;
     return Positioned.fill(
-      child: CustomPaint(
-        painter: _TableBackgroundPainter(
-          themeId: theme.id,
-          baseColor: theme.backgroundDeep,
-          midColor: theme.backgroundMid,
-          accentColor: theme.accentPrimary,
-          accentDark: theme.accentDark,
+      child: RepaintBoundary(
+        child: CustomPaint(
+          painter: _TableBackgroundPainter(
+            themeId: theme.id,
+            baseColor: theme.backgroundDeep,
+            midColor: theme.backgroundMid,
+            accentColor: theme.accentPrimary,
+            accentDark: theme.accentDark,
+          ),
         ),
       ),
     );
