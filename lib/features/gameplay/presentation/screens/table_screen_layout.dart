@@ -89,10 +89,18 @@ class _TableLayout extends StatelessWidget {
       orElse: () => players.isNotEmpty ? players.first : _emptyLocal,
     );
 
-    // Classify opponents by table position
+    // Classify opponents by table position (2–4 players) or use rail (5+ players)
     final topOpp = _opponentAt(players, TablePosition.top);
     final leftOpp = _opponentAt(players, TablePosition.left);
     final rightOpp = _opponentAt(players, TablePosition.right);
+
+    // For 5+ players, use rail layout; otherwise use 3-slot layout
+    final useRail = players.length > 4;
+    final opponents = useRail
+        ? players
+            .where((p) => p.tablePosition != TablePosition.bottom)
+            .toList()
+        : <PlayerModel>[];
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -106,63 +114,78 @@ class _TableLayout extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
           child: Column(
             children: [
-              // ── Top opponents row: P2 left, P3 center, P4 right ─────────
+              // ── Top opponents: rail (5+ players) or 3-slot (2–4) ─────────
               Padding(
                 padding: const EdgeInsets.only(top: 0),
-                child: Row(
-                  children: [
-                    Expanded(
-                        child: Align(
-                      alignment: Alignment.topLeft,
-                      child: leftOpp != null
-                          ? PlayerZoneWidget(
-                              key: playerZoneKeys[leftOpp.id],
-                              player: leftOpp,
-                              isTournamentFinished:
-                                  tournamentStatusBadges[leftOpp.id] != null,
-                              isTournamentEliminated: _isEliminatedBadge(
-                                tournamentStatusBadges[leftOpp.id],
-                              ),
-                              aiConfig: aiConfigs[leftOpp.id],
-                            )
-                          : const SizedBox(height: 96),
-                    )),
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: topOpp != null
-                            ? PlayerZoneWidget(
-                                key: playerZoneKeys[topOpp.id],
-                                player: topOpp,
-                                isTournamentFinished:
-                                    tournamentStatusBadges[topOpp.id] != null,
-                                isTournamentEliminated: _isEliminatedBadge(
-                                  tournamentStatusBadges[topOpp.id],
-                                ),
-                                aiConfig: aiConfigs[topOpp.id],
-                              )
-                            : const _EmptyOpponentZone(),
+                child: useRail
+                    ? BustPlayerRail(
+                        players: opponents.asMap().entries.map((e) {
+                          return BustPlayerViewModel.fromPlayerModel(
+                            e.value,
+                            currentPlayerId: gameState.currentPlayerId,
+                            isEliminated: false,
+                            isLocal: false,
+                            colorIndex: e.key,
+                          );
+                        }).toList(),
+                      )
+                    : Row(
+                        children: [
+                          Expanded(
+                              child: Align(
+                            alignment: Alignment.topLeft,
+                            child: leftOpp != null
+                                ? PlayerZoneWidget(
+                                    key: playerZoneKeys[leftOpp.id],
+                                    player: leftOpp,
+                                    isTournamentFinished:
+                                        tournamentStatusBadges[leftOpp.id] !=
+                                            null,
+                                    isTournamentEliminated: _isEliminatedBadge(
+                                      tournamentStatusBadges[leftOpp.id],
+                                    ),
+                                    aiConfig: aiConfigs[leftOpp.id],
+                                  )
+                                : const SizedBox(height: 96),
+                          )),
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.topCenter,
+                              child: topOpp != null
+                                  ? PlayerZoneWidget(
+                                      key: playerZoneKeys[topOpp.id],
+                                      player: topOpp,
+                                      isTournamentFinished:
+                                          tournamentStatusBadges[topOpp.id] !=
+                                              null,
+                                      isTournamentEliminated: _isEliminatedBadge(
+                                        tournamentStatusBadges[topOpp.id],
+                                      ),
+                                      aiConfig: aiConfigs[topOpp.id],
+                                    )
+                                  : const _EmptyOpponentZone(),
+                            ),
+                          ),
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.topRight,
+                              child: rightOpp != null
+                                  ? PlayerZoneWidget(
+                                      key: playerZoneKeys[rightOpp.id],
+                                      player: rightOpp,
+                                      isTournamentFinished:
+                                          tournamentStatusBadges[rightOpp.id] !=
+                                              null,
+                                      isTournamentEliminated: _isEliminatedBadge(
+                                        tournamentStatusBadges[rightOpp.id],
+                                      ),
+                                      aiConfig: aiConfigs[rightOpp.id],
+                                    )
+                                  : const SizedBox(height: 96),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.topRight,
-                        child: rightOpp != null
-                            ? PlayerZoneWidget(
-                                key: playerZoneKeys[rightOpp.id],
-                                player: rightOpp,
-                                isTournamentFinished:
-                                    tournamentStatusBadges[rightOpp.id] != null,
-                                isTournamentEliminated: _isEliminatedBadge(
-                                  tournamentStatusBadges[rightOpp.id],
-                                ),
-                                aiConfig: aiConfigs[rightOpp.id],
-                              )
-                            : const SizedBox(height: 96),
-                      ),
-                    ),
-                  ],
-                ),
               ),
 
               // ── Centre board area (unchanged draw/discard/dealer/HUD) ───

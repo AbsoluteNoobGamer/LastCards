@@ -34,6 +34,8 @@ import '../../../../widgets/turn_timer_bar.dart';
 import '../../../../services/audio_service.dart' as game_audio;
 import '../../../../services/game_sound.dart';
 import '../../../../features/single_player/providers/single_player_session_provider.dart';
+import '../../../../features/bust/models/bust_player_view_model.dart';
+import '../../../../features/bust/widgets/bust_player_rail.dart';
 
 part 'table_screen_background.dart';
 part 'table_screen_layout.dart';

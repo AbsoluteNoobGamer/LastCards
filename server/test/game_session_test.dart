@@ -222,10 +222,25 @@ void main() {
       }
     });
 
-    // Note: The server caps rooms at 4 players (addPlayer rejects beyond 4),
-    // so the hand-size scaling formula (min(7, 53 ÷ N)) is only exercised
-    // for N ≤ 4, which always yields 7. The 8-player test was removed because
-    // it is incompatible with the 4-player cap.
+    test('7-player game deals 7 cards each', () {
+      final (:session, :sockets, :ids) = _makeSession(7);
+      for (final id in ids) {
+        session.markReady(id);
+      }
+      for (final ws in sockets) {
+        final snap = _latestSnapshot(ws);
+        final self = (snap['players'] as List).first as Map<String, dynamic>;
+        expect((self['hand'] as List).length, equals(7));
+      }
+    });
+
+    test('8th player is rejected (max 7)', () {
+      final (:session, :sockets, :ids) = _makeSession(7);
+      final ws = _FakeWs();
+      final id = session.addPlayer(ws, 'Player 8');
+      expect(id, isEmpty);
+      expect(ws.lastOfType('error')?['code'], equals('room_full'));
+    });
   });
 
   // ── play_cards ─────────────────────────────────────────────────────────────

@@ -85,12 +85,9 @@ class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
 
       final nameByTableId = <String, String>{};
       for (var i = 0; i < _engine.activePlayerIds.length; i++) {
-        final tableId = switch (i) {
-          0 => OfflineGameState.localId,
-          1 => 'player-2',
-          2 => 'player-3',
-          _ => 'player-4',
-        };
+        final tableId = i == 0
+            ? OfflineGameState.localId
+            : 'player-${i + 1}';
         nameByTableId[tableId] = _displayName(_engine.activePlayerIds[i]);
       }
 
