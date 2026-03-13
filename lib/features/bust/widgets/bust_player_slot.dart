@@ -122,12 +122,47 @@ class BustPlayerSlot extends ConsumerWidget {
               ),
             ),
           ),
+          // ── Tournament status badge (qualified/eliminated) ─────────────────
+          if (player.isTournamentFinished) ...[
+            SizedBox(height: compact ? 2 : 4),
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 4 : 6,
+                vertical: compact ? 1 : 2,
+              ),
+              decoration: BoxDecoration(
+                color: player.isTournamentEliminated
+                    ? const Color(0x22FF3333)
+                    : (theme.accentPrimary as Color).withValues(alpha: 0.13),
+                border: Border.all(
+                  color: player.isTournamentEliminated
+                      ? const Color(0xFFFF3333)
+                      : (theme.accentPrimary as Color),
+                  width: 1,
+                ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                player.isTournamentEliminated ? '✗ Eliminated' : '✓ Qualified',
+                style: TextStyle(
+                  color: player.isTournamentEliminated
+                      ? const Color(0xFFFF3333)
+                      : (theme.accentPrimary as Color),
+                  fontSize: compact ? 8 : 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
 
     if (player.isEliminated) {
       slot = Opacity(opacity: 0.40, child: slot);
+    } else if (player.isTournamentFinished) {
+      slot = Opacity(opacity: 0.50, child: slot);
     }
 
     return slot;

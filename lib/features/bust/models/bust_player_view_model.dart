@@ -10,6 +10,8 @@ class BustPlayerViewModel {
     this.isEliminated = false,
     this.isLocal = false,
     this.colorIndex = 0,
+    this.isTournamentFinished = false,
+    this.isTournamentEliminated = false,
   });
 
   final String id;
@@ -19,6 +21,12 @@ class BustPlayerViewModel {
   final bool isEliminated;
   final bool isLocal;
   final int colorIndex;
+
+  /// When true, player has finished the tournament round (qualified or eliminated).
+  final bool isTournamentFinished;
+
+  /// When [isTournamentFinished], true = eliminated, false = qualified.
+  final bool isTournamentEliminated;
 
   /// 10-colour palette for the rail (color-blind friendly, distinct).
   /// Reuses the 4 PlayerStyles colors for indices 0–3 then extends.
@@ -38,13 +46,20 @@ class BustPlayerViewModel {
   Color get color => railColors[colorIndex % railColors.length];
 
   /// Factory from existing [PlayerModel] + external state.
+  /// [tournamentStatusBadge] when non-null (e.g. '✓ Qualified' or '✗ Eliminated')
+  /// sets tournament finished state for 5+ player tournament rail.
   factory BustPlayerViewModel.fromPlayerModel(
     PlayerModel player, {
     required String currentPlayerId,
     required bool isEliminated,
     required bool isLocal,
     required int colorIndex,
+    String? tournamentStatusBadge,
   }) {
+    final hasTournamentBadge = tournamentStatusBadge != null;
+    final isTournamentEliminated =
+        hasTournamentBadge && tournamentStatusBadge.contains('Eliminated');
+
     return BustPlayerViewModel(
       id: player.id,
       displayName: player.displayName,
@@ -53,6 +68,8 @@ class BustPlayerViewModel {
       isEliminated: isEliminated,
       isLocal: isLocal,
       colorIndex: colorIndex,
+      isTournamentFinished: hasTournamentBadge,
+      isTournamentEliminated: isTournamentEliminated,
     );
   }
 }

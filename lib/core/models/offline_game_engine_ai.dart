@@ -24,7 +24,7 @@ bool aiHasPlayableTurn({
   return choices.isNotEmpty;
 }
 
-({GameState state, List<CardModel> playedCards, GameState preTurnAdvanceState})
+({GameState state, List<CardModel> playedCards, GameState preTurnAdvanceState, int queenCoverDrawCount})
     aiTakeTurn({
   required GameState state,
   required String aiPlayerId,
@@ -118,6 +118,7 @@ bool aiHasPlayableTurn({
   }
 
   // Queen cover: AI must immediately cover before ending turn.
+  int queenCoverDrawCount = 0;
   int coverAttempts = 0;
   while (afterPlay.queenSuitLock != null && coverAttempts < 5) {
     coverAttempts++;
@@ -132,6 +133,7 @@ bool aiHasPlayableTurn({
       playedCards.add(cover);
       continue;
     }
+    queenCoverDrawCount = 1;
     afterPlay = applyDraw(
       state: afterPlay,
       playerId: aiPlayerId,
@@ -141,18 +143,24 @@ bool aiHasPlayableTurn({
     break;
   }
 
-  return _finalizeAiTurn(state: afterPlay, playedCards: playedCards);
+  return _finalizeAiTurn(
+    state: afterPlay,
+    playedCards: playedCards,
+    queenCoverDrawCount: queenCoverDrawCount,
+  );
 }
 
-({GameState state, List<CardModel> playedCards, GameState preTurnAdvanceState})
+({GameState state, List<CardModel> playedCards, GameState preTurnAdvanceState, int queenCoverDrawCount})
     _finalizeAiTurn({
   required GameState state,
   required List<CardModel> playedCards,
+  int queenCoverDrawCount = 0,
 }) {
   return (
     state: advanceTurn(state),
     playedCards: playedCards,
     preTurnAdvanceState: state,
+    queenCoverDrawCount: queenCoverDrawCount,
   );
 }
 

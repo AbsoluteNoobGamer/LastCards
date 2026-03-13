@@ -1641,6 +1641,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           afterState: result.preTurnAdvanceState,
           turnContinuesOverride: false,
         );
+        // Queen cover draw: AI played a Queen but couldn't cover, had to draw.
+        if (result.queenCoverDrawCount > 0) {
+          _pushMoveLog(MoveLogEntry.draw(
+            playerId: aiId,
+            playerName: aiPlayerName,
+            drawCount: result.queenCoverDrawCount,
+          ));
+        }
       } else {
         _pushMoveLog(MoveLogEntry.draw(
           playerId: aiId,
@@ -1789,11 +1797,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final playerName = state.playerById(playerId)?.displayName ?? playerId;
     widget.onPlayerFinished(playerName, finishPosition);
     if (_tournamentFinishedPlayerIds.length < state.players.length) {
-      if (playerId == OfflineGameState.localId) {
-        game_audio.AudioService.instance.playSound(GameSound.tournamentQualify);
-      } else {
-        game_audio.AudioService.instance.playSound(GameSound.opponentOut);
-      }
+      // Anyone who finishes here has qualified for next round, not eliminated.
+      game_audio.AudioService.instance.playSound(GameSound.tournamentQualify);
     }
 
     if (_tournamentFinishedPlayerIds.length == state.players.length) {

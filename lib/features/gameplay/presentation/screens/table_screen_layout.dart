@@ -164,10 +164,13 @@ class _TableLayout extends StatelessWidget {
                             isEliminated: false,
                             isLocal: false,
                             colorIndex: e.key,
+                            tournamentStatusBadge:
+                                tournamentStatusBadges[e.value.id],
                           );
                         }).toList(),
                         slotKeyBuilder: (player) =>
                             playerZoneKeys[player.id],
+                        height: tournamentStatusBadges.isNotEmpty ? 112 : 96,
                       )
                     : Row(
                         children: [
@@ -486,9 +489,9 @@ class _LandscapeTableLayout extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: AppDimensions.xs),
       child: Column(
         children: [
-          // ── Band 1: Compact opponents rail (72px, compact slots) ─────────
+          // ── Band 1: Compact opponents rail (taller when tournament badges) ─
           SizedBox(
-            height: 72,
+            height: tournamentStatusBadges.isNotEmpty ? 88 : 72,
             child: useRail
                 ? BustPlayerRail(
                     players: opponents.asMap().entries.map((e) {
@@ -498,10 +501,12 @@ class _LandscapeTableLayout extends StatelessWidget {
                         isEliminated: false,
                         isLocal: false,
                         colorIndex: e.key,
+                        tournamentStatusBadge:
+                            tournamentStatusBadges[e.value.id],
                       );
                     }).toList(),
                     slotKeyBuilder: (player) => playerZoneKeys[player.id],
-                    height: 72,
+                    height: tournamentStatusBadges.isNotEmpty ? 88 : 72,
                     compact: true,
                   )
                 : Row(
