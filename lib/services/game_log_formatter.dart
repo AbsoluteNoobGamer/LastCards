@@ -2,10 +2,10 @@ import '../core/models/card_model.dart';
 import '../core/models/move_log_entry.dart';
 
 /// Formats move log entries into compact hybrid text:
-/// - Normal cards: bold suit symbol + rank (e.g. ♠8 ♥4)
-/// - Joker: full descriptive text ("played Joker as ♠A")
+/// - Normal cards: rank + suit symbol (e.g. 8♠ 4♥)
+/// - Joker: full descriptive text ("played Joker as A♠")
 /// - Ace with declared suit: full text ("played A → ♥")
-/// - Eight skips: full text ("played ♠8, skipped Mia")
+/// - Eight skips: full text ("played 8♠, skipped Mia")
 /// - Draw: simple text ("drew 2 cards")
 class GameLogFormatter {
   const GameLogFormatter._();
@@ -13,7 +13,7 @@ class GameLogFormatter {
   /// Returns a compact icon string for a single card.
   /// Uses the effective suit/rank so Joker declared values are shown correctly.
   static String cardToIcon(CardModel card) {
-    return '${card.effectiveSuit.symbol}${card.effectiveRank.displayLabel}';
+    return '${card.effectiveRank.displayLabel}${card.effectiveSuit.symbol}';
   }
 
   /// Returns the action portion of the log entry (without the player name).
@@ -45,7 +45,9 @@ class GameLogFormatter {
     // checking the last card is both necessary and sufficient.
     final isEightSkip = cards.last.card.effectiveRank == Rank.eight &&
         entry.skippedPlayerNames.isNotEmpty;
-    return hasJoker || hasAceDeclaration || isEightSkip;
+    // Long multi-card plays need extra lines so all cards are visible.
+    final hasManyCards = cards.length > 6;
+    return hasJoker || hasAceDeclaration || isEightSkip || hasManyCards;
   }
 
   // ── Private helpers ──────────────────────────────────────────────────────
@@ -63,7 +65,7 @@ class GameLogFormatter {
       final declaredSuit = card.jokerDeclaredSuit;
       final declaredRank = card.jokerDeclaredRank;
       if (declaredSuit != null && declaredRank != null) {
-        return 'played Joker as ${declaredSuit.symbol}${declaredRank.displayLabel}';
+        return 'played Joker as ${declaredRank.displayLabel}${declaredSuit.symbol}';
       }
       return 'played Joker';
     }
@@ -88,10 +90,9 @@ class GameLogFormatter {
       return 'played $icons, skipped ${_joinNames(skipped)}';
     }
 
-    // NORMAL PLAY: compact icons, max 3 shown then "+N more".
-    final icons = cards.take(3).map((a) => cardToIcon(a.card)).join(' ');
-    final extra = cards.length > 3 ? ' +${cards.length - 3}' : '';
-    return 'played $icons$extra';
+    // NORMAL PLAY: compact icons, show all cards (no limit).
+    final icons = cards.map((a) => cardToIcon(a.card)).join(' ');
+    return 'played $icons';
   }
 
   static String _cardCountLabel(int count) =>
