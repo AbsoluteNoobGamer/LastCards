@@ -1522,15 +1522,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           _offlineState.playerById(playerId)?.displayName ?? playerId;
       var nextId = nextPlayerId(state: newState);
       nextId = _resolveTournamentNextPlayerId(newState, nextId);
-      newState = newState.copyWith(
-          currentPlayerId: nextId,
-          actionsThisTurn: 0,
-          cardsPlayedThisTurn: 0,
-          activeSkipCount: 0,
-          preTurnCentreSuit: newState.discardTopCard?.effectiveSuit);
-      if (isQueenPenaltyDraw) {
-        newState = newState.copyWith(queenSuitLock: null);
-      }
+      newState = advanceTurn(newState, nextId: nextId);
       setState(() {
         _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
         _selectedCardId = null;
@@ -1553,12 +1545,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           _offlineState.playerById(playerId)?.displayName ?? playerId;
       var nextId = nextPlayerId(state: newState);
       nextId = _resolveTournamentNextPlayerId(newState, nextId);
-      newState = newState.copyWith(
-          currentPlayerId: nextId,
-          actionsThisTurn: 0,
-          cardsPlayedThisTurn: 0,
-          activeSkipCount: 0,
-          preTurnCentreSuit: newState.discardTopCard?.effectiveSuit);
+      newState = advanceTurn(newState, nextId: nextId);
       setState(() {
         _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
         _selectedCardId = null;

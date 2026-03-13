@@ -549,26 +549,19 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   }
 
   void _applyInvalidPlayPenalty(String playerId) {
-    final drawCount = math.min(2, _drawPile.length);
-    var newState = applyDraw(
+    final handSizeBefore =
+        _gameState.playerById(playerId)?.hand.length ?? 0;
+    var newState = applyInvalidPlayPenalty(
       state: _gameState,
       playerId: playerId,
-      count: drawCount,
       cardFactory: _makeCards,
     );
-    newState =
-        newState.copyWith(activePenaltyCount: _gameState.activePenaltyCount);
+    final drawCount =
+        (newState.playerById(playerId)?.hand.length ?? 0) - handSizeBefore;
 
     final stateBeforeAdvance = newState;
     final nextId = _nextActivePlayerId(newState);
-    newState = newState.copyWith(
-      currentPlayerId: nextId,
-      actionsThisTurn: 0,
-      cardsPlayedThisTurn: 0,
-      lastPlayedThisTurn: null,
-      activeSkipCount: 0,
-      preTurnCentreSuit: newState.discardTopCard?.effectiveSuit,
-    );
+    newState = advanceTurn(newState, nextId: nextId);
 
     final localAfter = newState.players
         .where((p) => p.tablePosition == TablePosition.bottom)
@@ -628,15 +621,8 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
         .firstOrNull;
 
     final stateBeforeAdvance = newState;
-    var nextId = _nextActivePlayerId(newState);
-    newState = newState.copyWith(
-      currentPlayerId: nextId,
-      actionsThisTurn: 0,
-      cardsPlayedThisTurn: 0,
-      activeSkipCount: 0,
-      preTurnCentreSuit: newState.discardTopCard?.effectiveSuit,
-    );
-    if (isQueenDraw) newState = newState.copyWith(queenSuitLock: null);
+    final nextId = _nextActivePlayerId(newState);
+    newState = advanceTurn(newState, nextId: nextId);
 
     setState(() {
       _gameState = newState.copyWith(drawPileCount: _drawPile.length);
@@ -663,13 +649,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     final stateBeforeSkip = _gameState;
     final nextId = _nextActivePlayerId(_gameState);
     setState(() {
-      _gameState = _gameState.copyWith(
-        currentPlayerId: nextId,
-        actionsThisTurn: 0,
-        cardsPlayedThisTurn: 0,
-        activeSkipCount: 0,
-        preTurnCentreSuit: _gameState.discardTopCard?.effectiveSuit,
-      );
+      _gameState = advanceTurn(_gameState, nextId: nextId);
       _selectedCardId = null;
     });
     _recordSkippedTurns(stateBeforeSkip, nextId);
@@ -720,14 +700,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     final stateBeforeAdvance = _gameState;
     final nextId = _nextActivePlayerId(_gameState);
     setState(() {
-      _gameState = _gameState.copyWith(
-        currentPlayerId: nextId,
-        actionsThisTurn: 0,
-        cardsPlayedThisTurn: 0,
-        lastPlayedThisTurn: null,
-        activeSkipCount: 0,
-        preTurnCentreSuit: _gameState.discardTopCard?.effectiveSuit,
-      );
+      _gameState = advanceTurn(_gameState, nextId: nextId);
     });
 
     _recordSkippedTurns(stateBeforeAdvance, nextId);
