@@ -483,6 +483,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   @override
   void dispose() {
+    // Disconnect from online game so we don't receive stale state_snapshot
+    // events when opening LobbyScreen for a private game.
+    if (ref.read(gameStateProvider) != null) {
+      ref.read(wsClientProvider).disconnect();
+    }
     _timerWarningSub?.cancel();
     _onlineCardPlaysSub?.cancel();
     _onlineCardDrawsSub?.cancel();
@@ -492,6 +497,40 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _engineTimer.dispose();
     _reshuffleNotifier.dispose();
     super.dispose();
+  }
+
+  void _onBackPressed() {
+    final isOfflineMode = ref.read(gameStateProvider) == null;
+    if (isOfflineMode) {
+      Navigator.of(context).pop();
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        backgroundColor: Colors.grey.shade900,
+        title: const Text('Leave game?', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'You will be disconnected and the game will continue without you. '
+          'Are you sure you want to leave?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pop();
+            },
+            child: const Text('Leave', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _startTimer({bool playTurnSound = true}) {
@@ -737,7 +776,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           );
         });
       } else {
-        // Game ended without a winner (e.g. player disconnected).
+        // Game ended without a winner (all other players left).
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           showDialog<void>(
@@ -746,11 +785,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             builder: (_) => AlertDialog(
               backgroundColor: Colors.grey.shade900,
               title: const Text(
-                'Game Ended',
+                'Players Left',
                 style: TextStyle(color: Colors.white),
               ),
               content: const Text(
-                'A player disconnected. The game has ended.',
+                'All other players have left. The game has ended.',
                 style: TextStyle(color: Colors.white70),
               ),
               actions: [
@@ -846,7 +885,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       backgroundColor: appTheme.backgroundDeep,
       body: LayoutBuilder(
         builder: (context, constraints) {
-          return Stack(
+          final stack = Stack(
             children: [
               const _FeltTableBackground(),
 
@@ -982,7 +1021,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                           color: Colors.white,
                         ),
                         visualDensity: VisualDensity.compact,
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: _onBackPressed,
                       ),
                     ),
                   ),
@@ -1024,6 +1063,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 ),
               ),
             ],
+          );
+          if (isOfflineMode) return stack;
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) {
+              if (didPop) return;
+              _onBackPressed();
+            },
+            child: stack,
           );
         },
       ),
