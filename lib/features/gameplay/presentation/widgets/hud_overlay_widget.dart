@@ -23,6 +23,7 @@ class HudOverlayWidget extends ConsumerWidget {
     this.queenSuitLock,
     this.penaltyCount = 0,
     this.penaltyTargetPosition,
+    this.compact = false,
   });
 
   /// Active suit declared by Ace or Joker (null = no override).
@@ -38,9 +39,13 @@ class HudOverlayWidget extends ConsumerWidget {
   /// Drives the arrow direction on the penalty badge.
   final TablePosition? penaltyTargetPosition;
 
+  /// When true, uses smaller badges for landscape layout.
+  final bool compact;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(themeProvider).theme;
+    final gap = compact ? AppDimensions.xs : AppDimensions.sm;
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -50,23 +55,24 @@ class HudOverlayWidget extends ConsumerWidget {
           _PenaltyBadge(
             count: penaltyCount,
             targetPosition: penaltyTargetPosition,
+            compact: compact,
           ),
-          const SizedBox(width: AppDimensions.sm),
+          SizedBox(width: gap),
         ],
 
         // Active suit badge (Ace/Joker declaration) — premium badge with pop-in
         if (activeSuit != null) ...[
-          _AnimatedSuitBadge(suit: activeSuit!, theme: theme),
-          const SizedBox(width: AppDimensions.sm),
+          _AnimatedSuitBadge(suit: activeSuit!, theme: theme, compact: compact),
+          SizedBox(width: gap),
         ],
 
         // Queen suit lock (distinct accent ring indicator)
         if (queenSuitLock != null) ...[
-          _QueenLockIndicator(suit: queenSuitLock!, theme: theme),
-          const SizedBox(width: AppDimensions.sm),
+          _QueenLockIndicator(suit: queenSuitLock!, theme: theme, compact: compact),
+          SizedBox(width: gap),
         ],
 
-        const SizedBox(width: AppDimensions.sm),
+        SizedBox(width: gap),
       ],
     );
   }
@@ -97,24 +103,30 @@ double _rotationForTarget(TablePosition? position) {
 }
 
 class _PenaltyBadge extends StatelessWidget {
-  const _PenaltyBadge({required this.count, this.targetPosition});
+  const _PenaltyBadge({required this.count, this.targetPosition, this.compact = false});
 
   final int count;
 
   /// Where the penalty-receiving player sits — determines arrow direction.
   final TablePosition? targetPosition;
 
+  final bool compact;
+
   @override
   Widget build(BuildContext context) {
     const badgeColor = Color(0xFFE53935); // always red for danger signal
+    final padding = compact ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2) : const EdgeInsets.symmetric(horizontal: 8, vertical: 4);
+    final iconSize = compact ? 10.0 : 12.0;
+    final fontSize = compact ? 10.0 : 12.0;
+    final radius = compact ? 8.0 : 12.0;
     return AnimatedScale(
       scale: 1.0,
       duration: const Duration(milliseconds: 200),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: padding,
         decoration: BoxDecoration(
           color: badgeColor,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(radius),
           boxShadow: [
             BoxShadow(
               color: badgeColor.withValues(alpha: 0.5),
@@ -127,19 +139,19 @@ class _PenaltyBadge extends StatelessWidget {
           children: [
             Transform.rotate(
               angle: _rotationForTarget(targetPosition),
-              child: const Icon(
+              child: Icon(
                 Icons.arrow_upward_rounded,
-                size: 12,
+                size: iconSize,
                 color: Colors.white,
               ),
             ),
-            const SizedBox(width: 3),
+            SizedBox(width: compact ? 2 : 3),
             Text(
               '+$count',
               style: AppTypography.labelSmall.copyWith(
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
-                fontSize: 12,
+                fontSize: fontSize,
               ),
             ),
           ],
@@ -162,10 +174,11 @@ Color _suitSymbolColor(Suit suit) {
 /// Animated badge that pops in when an Ace or Joker declares a suit.
 /// Colors are driven entirely by [theme] — zero hardcoded theme values.
 class _AnimatedSuitBadge extends StatefulWidget {
-  const _AnimatedSuitBadge({required this.suit, required this.theme});
+  const _AnimatedSuitBadge({required this.suit, required this.theme, this.compact = false});
 
   final Suit suit;
   final AppThemeData theme;
+  final bool compact;
 
   @override
   State<_AnimatedSuitBadge> createState() => _AnimatedSuitBadgeState();
@@ -188,19 +201,22 @@ class _AnimatedSuitBadgeState extends State<_AnimatedSuitBadge> {
     final suitColor = _suitSymbolColor(widget.suit);
     final primaryColor = widget.theme.accentPrimary;
     final bgColor = widget.theme.surfacePanel;
+    final size = widget.compact ? 40.0 : 56.0;
+    final fontSize = widget.compact ? 20.0 : 26.0;
+    final labelSize = widget.compact ? 8.0 : 9.0;
 
     final badge = Container(
-      width: 56,
-      height: 56,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: bgColor,
-        border: Border.all(color: primaryColor, width: 2.0),
+        border: Border.all(color: primaryColor, width: widget.compact ? 1.5 : 2.0),
         boxShadow: [
           BoxShadow(
             color: primaryColor.withValues(alpha: 0.4),
-            blurRadius: 12,
-            spreadRadius: 2,
+            blurRadius: widget.compact ? 8 : 12,
+            spreadRadius: widget.compact ? 1 : 2,
           ),
         ],
       ),
@@ -208,7 +224,7 @@ class _AnimatedSuitBadgeState extends State<_AnimatedSuitBadge> {
         child: Text(
           widget.suit.symbol,
           style: TextStyle(
-            fontSize: 26,
+            fontSize: fontSize,
             color: suitColor,
             shadows: [
               Shadow(
@@ -232,11 +248,11 @@ class _AnimatedSuitBadgeState extends State<_AnimatedSuitBadge> {
           mainAxisSize: MainAxisSize.min,
           children: [
             badge,
-            const SizedBox(height: 4),
+            SizedBox(height: widget.compact ? 2 : 4),
             Text(
               'ACTIVE SUIT',
               style: TextStyle(
-                fontSize: 9,
+                fontSize: labelSize,
                 color: primaryColor.withValues(alpha: 0.7),
                 letterSpacing: 1.5,
                 fontWeight: FontWeight.w500,
@@ -254,31 +270,35 @@ class _AnimatedSuitBadgeState extends State<_AnimatedSuitBadge> {
 /// Smaller indicator for Queen suit-lock — distinct from the Ace badge.
 /// Uses [theme.accentPrimary] for border and glow.
 class _QueenLockIndicator extends StatelessWidget {
-  const _QueenLockIndicator({required this.suit, required this.theme});
+  const _QueenLockIndicator({required this.suit, required this.theme, this.compact = false});
 
   final Suit suit;
   final AppThemeData theme;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final suitColor = _suitSymbolColor(suit);
     final primaryColor = theme.accentPrimary;
     final bgColor = theme.surfacePanel;
+    final size = compact ? 32.0 : 40.0;
+    final fontSize = compact ? 16.0 : 20.0;
+    final labelSize = compact ? 7.0 : 8.0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 40,
-          height: 40,
+          width: size,
+          height: size,
           decoration: BoxDecoration(
             color: bgColor,
             shape: BoxShape.circle,
-            border: Border.all(color: primaryColor, width: 2),
+            border: Border.all(color: primaryColor, width: compact ? 1.5 : 2),
             boxShadow: [
               BoxShadow(
                 color: primaryColor.withValues(alpha: 0.4),
-                blurRadius: 10,
+                blurRadius: compact ? 6 : 10,
               ),
             ],
           ),
@@ -287,16 +307,16 @@ class _QueenLockIndicator extends StatelessWidget {
               suit.symbol,
               style: AppTypography.cardRank(
                 color: suitColor,
-                fontSize: 20,
+                fontSize: fontSize,
               ),
             ),
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: compact ? 2 : 4),
         Text(
           'QUEEN LOCK',
           style: TextStyle(
-            fontSize: 8,
+            fontSize: labelSize,
             color: primaryColor.withValues(alpha: 0.7),
             letterSpacing: 1.2,
             fontWeight: FontWeight.w500,

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,7 +21,11 @@ class FloatingActionBarWidget extends ConsumerWidget {
     required this.direction,
     required this.canEndTurn,
     this.onEndTurn,
+    this.compact = false,
   });
+
+  /// When true, uses smaller padding/fonts for landscape layout.
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -37,7 +43,10 @@ class FloatingActionBarWidget extends ConsumerWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < AppDimensions.breakpointMobile;
+        // Use shorter dimension: in landscape, maxWidth is the long axis.
+        final isMobile = math.min(constraints.maxWidth, constraints.maxHeight) <
+            AppDimensions.breakpointMobile;
+        final useCompact = compact || (isMobile && constraints.maxWidth > constraints.maxHeight);
 
         Widget endTurnButton() {
           return AnimatedOpacity(
@@ -78,8 +87,8 @@ class FloatingActionBarWidget extends ConsumerWidget {
                   foregroundColor: canEndTurn ? bgDeep : textSec,
                   disabledForegroundColor: textSec,
                   padding: EdgeInsets.symmetric(
-                    horizontal: isMobile ? 12 : 20,
-                    vertical: isMobile ? 10 : 12,
+                    horizontal: useCompact ? 8 : (isMobile ? 12 : 20),
+                    vertical: useCompact ? 6 : (isMobile ? 10 : 12),
                   ),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -88,7 +97,7 @@ class FloatingActionBarWidget extends ConsumerWidget {
                   'End Turn',
                   style: TextStyle(
                     fontWeight: FontWeight.w900,
-                    fontSize: isMobile ? 13 : 16,
+                    fontSize: useCompact ? 11 : (isMobile ? 13 : 16),
                   ),
                 ),
               ),
@@ -98,12 +107,12 @@ class FloatingActionBarWidget extends ConsumerWidget {
 
         return Container(
           padding: EdgeInsets.symmetric(
-            horizontal: isMobile ? AppDimensions.sm : AppDimensions.md,
-            vertical: isMobile ? 6 : 8,
+            horizontal: useCompact ? 8 : (isMobile ? AppDimensions.sm : AppDimensions.md),
+            vertical: useCompact ? 4 : (isMobile ? 6 : 8),
           ),
           decoration: BoxDecoration(
             color: surface.withValues(alpha: 0.95),
-            borderRadius: BorderRadius.circular(32),
+            borderRadius: BorderRadius.circular(useCompact ? 20 : 32),
             border: Border.all(
               color: accentDark.withValues(alpha: 0.6),
               width: 1.5,
@@ -121,21 +130,21 @@ class FloatingActionBarWidget extends ConsumerWidget {
             children: [
               // Left: Direction
               SizedBox(
-                width: isMobile ? 90 : 120,
+                width: useCompact ? 64 : (isMobile ? 90 : 120),
                 child: Row(
                   children: [
                     Icon(
                       isCw ? Icons.rotate_right : Icons.rotate_left,
                       color: accent,
-                      size: isMobile ? 14 : 16,
+                      size: useCompact ? 12 : (isMobile ? 14 : 16),
                     ),
-                    const SizedBox(width: 4),
+                    SizedBox(width: useCompact ? 2 : 4),
                     Expanded(
                       child: Text(
                         '$dirIcon $dirText',
                         style: TextStyle(
                           color: textSec.withValues(alpha: 0.9),
-                          fontSize: isMobile ? 10 : 12,
+                          fontSize: useCompact ? 9 : (isMobile ? 10 : 12),
                           fontStyle: FontStyle.italic,
                         ),
                         maxLines: 1,
@@ -149,9 +158,9 @@ class FloatingActionBarWidget extends ConsumerWidget {
               // Divider
               Container(
                 width: 1,
-                height: 24,
+                height: useCompact ? 18 : 24,
                 color: accentDark.withValues(alpha: 0.3),
-                margin: const EdgeInsets.symmetric(horizontal: 8),
+                margin: EdgeInsets.symmetric(horizontal: useCompact ? 4 : 8),
               ),
 
               // Center: Whose turn
@@ -163,7 +172,7 @@ class FloatingActionBarWidget extends ConsumerWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: accent,
-                    fontSize: isMobile ? 14 : 16,
+                    fontSize: useCompact ? 12 : (isMobile ? 14 : 16),
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.5,
                   ),
@@ -174,14 +183,14 @@ class FloatingActionBarWidget extends ConsumerWidget {
 
               Container(
                 width: 1,
-                height: 24,
+                height: useCompact ? 18 : 24,
                 color: accentDark.withValues(alpha: 0.3),
-                margin: const EdgeInsets.symmetric(horizontal: 8),
+                margin: EdgeInsets.symmetric(horizontal: useCompact ? 4 : 8),
               ),
 
               // Right: End Turn Button
               SizedBox(
-                width: isMobile ? 90 : 120,
+                width: useCompact ? 64 : (isMobile ? 90 : 120),
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: endTurnButton(),

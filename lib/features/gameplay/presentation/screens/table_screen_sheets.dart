@@ -9,7 +9,7 @@ class _AceSuitPickerSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    final isMobile = media.size.width < AppDimensions.breakpointMobile;
+    final isMobile = math.min(media.size.width, media.size.height) < AppDimensions.breakpointMobile;
     final buttonWidth = (media.size.width * 0.18).clamp(56.0, 74.0);
     final buttonHeight = (buttonWidth * 1.25).clamp(72.0, 92.0);
 
@@ -208,7 +208,7 @@ class _JokerSelectionSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    final isMobile = media.size.width < AppDimensions.breakpointMobile;
+    final isMobile = math.min(media.size.width, media.size.height) < AppDimensions.breakpointMobile;
     final optionWidth = (media.size.width * 0.12).clamp(44.0, 64.0);
 
     return Container(

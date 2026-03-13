@@ -6,10 +6,14 @@ class TurnTimerBar extends StatelessWidget {
   final Stream<int>? timeRemainingStream;
   final bool isVisible;
 
+  /// When true, uses shorter bar height for landscape layout.
+  final bool compact;
+
   const TurnTimerBar({
     super.key,
     required this.timeRemainingStream,
     this.isVisible = false,
+    this.compact = false,
   });
 
   @override
@@ -30,12 +34,14 @@ class TurnTimerBar extends StatelessWidget {
           barColor = Colors.amber;
         }
 
+        final barHeight = compact ? 6.0 : 10.0;
+        final radius = compact ? 3.0 : 5.0;
         return TweenAnimationBuilder<double>(
           tween: Tween<double>(begin: progress, end: progress),
           duration: const Duration(milliseconds: 500),
           builder: (context, value, _) {
             return Container(
-              height: 10,
+              height: barHeight,
               width: double.infinity,
               alignment: Alignment.centerLeft,
               child: FractionallySizedBox(
@@ -43,7 +49,7 @@ class TurnTimerBar extends StatelessWidget {
                 child: Container(
                   decoration: BoxDecoration(
                     color: barColor,
-                    borderRadius: BorderRadius.circular(5),
+                    borderRadius: BorderRadius.circular(radius),
                     boxShadow: seconds <= 10 ? [
                       BoxShadow(
                         color: barColor.withAlpha(128),

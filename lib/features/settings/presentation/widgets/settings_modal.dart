@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -57,7 +59,7 @@ class SettingsModal extends ConsumerWidget {
     final audioService = ref.watch(audioServiceProvider);
     CardBackService.instance.init();
     final media = MediaQuery.of(context);
-    final isMobile = media.size.width < 600;
+    final isMobile = math.min(media.size.width, media.size.height) < 600;
     final initialSize = isMobile ? 0.9 : 0.82;
     final minSize = isMobile ? 0.55 : 0.45;
     final maxSize = isMobile ? 0.96 : 0.9;

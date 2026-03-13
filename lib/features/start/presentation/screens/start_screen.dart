@@ -94,7 +94,7 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final isMobile = constraints.maxWidth < 600;
+                final isMobile = min(constraints.maxWidth, constraints.maxHeight) < 600;
                 return SingleChildScrollView(
                   child: ConstrainedBox(
                     constraints:

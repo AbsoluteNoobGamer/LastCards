@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 class AISelectorModal extends StatefulWidget {
@@ -15,7 +17,7 @@ class _AISelectorModalState extends State<AISelectorModal> {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    final isMobile = media.size.width < 600;
+    final isMobile = math.min(media.size.width, media.size.height) < 600;
     final sidePadding = isMobile ? 16.0 : 24.0;
 
     return Container(

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/card.dart';
@@ -116,10 +118,15 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget> {
             ? constraints.maxWidth
             : MediaQuery.of(context).size.width;
 
-        final isCompact = maxWidth < AppDimensions.breakpointMobile;
+        // Use shorter screen dimension: in landscape, width is the long axis.
+        final media = MediaQuery.sizeOf(context);
+        final isCompact =
+            math.min(media.width, media.height) < AppDimensions.breakpointMobile;
 
+        final minW = math.min(44.0, widget.cardWidth);
+        final maxW = widget.cardWidth;
         final targetWidth =
-            (maxWidth * (isCompact ? 0.14 : 0.11)).clamp(44.0, widget.cardWidth);
+            (maxWidth * (isCompact ? 0.14 : 0.11)).clamp(minW, maxW);
         final cardH = AppDimensions.cardHeight(targetWidth) + 14;
 
         final n = cards.length;

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/services/card_back_service.dart';
@@ -348,7 +350,8 @@ class CardStylesModal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    final isMobile = media.size.width < 600;
+    final isMobile = math.min(media.size.width, media.size.height) <
+        AppDimensions.breakpointMobile;
     final initialSize = isMobile ? 0.56 : 0.48;
     final minSize = isMobile ? 0.38 : 0.3;
     final maxSize = isMobile ? 0.72 : 0.62;

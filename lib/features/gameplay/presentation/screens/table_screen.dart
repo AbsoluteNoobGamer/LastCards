@@ -885,6 +885,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       backgroundColor: appTheme.backgroundDeep,
       body: LayoutBuilder(
         builder: (context, constraints) {
+          final isLandscapeMobile = math.min(constraints.maxWidth,
+                  constraints.maxHeight) < AppDimensions.breakpointMobile &&
+              constraints.maxWidth > constraints.maxHeight;
+
           final stack = Stack(
             children: [
               const _FeltTableBackground(),
@@ -952,7 +956,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               // ── Game log panel (centred, below player avatars) ───────────
               if (_moveLogEntries.isNotEmpty)
                 Positioned(
-                  top: MediaQuery.of(context).padding.top + 175,
+                  top: MediaQuery.of(context).padding.top +
+                      (isLandscapeMobile ? 72 : 175),
                   left: MediaQuery.of(context).size.width * 0.08,
                   right: MediaQuery.of(context).size.width * 0.08,
                   child: IgnorePointer(
@@ -1002,7 +1007,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
               // ── Floating back control (single-player and online) ────────────
               Positioned(
-                bottom: 210,
+                bottom: isLandscapeMobile ? 130 : 210,
                 left: 0,
                 child: SafeArea(
                   top: false,
@@ -1029,30 +1034,29 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               ),
 
               // ── HUD overlay (suit badge, penalty, queen lock) ───────────
-              // Placed at ~63 % of screen height — the empty gap between the
-              // draw/discard pile area and the gold TurnTimerBar.
-              // Placed last (before the deal overlay) for highest z-index.
-              Positioned(
-                top: MediaQuery.of(context).size.height * 0.63,
-                left: 0,
-                right: 0,
-                child: IgnorePointer(
-                  child: Center(
-                    child: HudOverlayWidget(
-                      activeSuit: gameState.suitLock,
-                      queenSuitLock: gameState.queenSuitLock,
-                      penaltyCount: penaltyCount,
-                      penaltyTargetPosition: penaltyCount > 0
-                          ? gameState.players
-                              .where((p) =>
-                                  p.id == nextPlayerId(state: gameState))
-                              .firstOrNull
-                              ?.tablePosition
-                          : null,
+              // In landscape mobile, HUD is rendered inline in _LandscapeTableLayout.
+              if (!isLandscapeMobile)
+                Positioned(
+                  top: MediaQuery.of(context).size.height * 0.63,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: Center(
+                      child: HudOverlayWidget(
+                        activeSuit: gameState.suitLock,
+                        queenSuitLock: gameState.queenSuitLock,
+                        penaltyCount: penaltyCount,
+                        penaltyTargetPosition: penaltyCount > 0
+                            ? gameState.players
+                                .where((p) =>
+                                    p.id == nextPlayerId(state: gameState))
+                                .firstOrNull
+                                ?.tablePosition
+                            : null,
+                      ),
                     ),
                   ),
                 ),
-              ),
 
               // ── Dealing Animation Overlay ──────────────────────────────
               Positioned.fill(

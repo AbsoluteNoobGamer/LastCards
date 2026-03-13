@@ -24,6 +24,7 @@ class PlayerZoneWidget extends ConsumerWidget {
     this.isTournamentEliminated = false,
     this.aiConfig,
     this.child,
+    this.compact = false,
   });
 
   final PlayerModel player;
@@ -38,6 +39,9 @@ class PlayerZoneWidget extends ConsumerWidget {
   /// Override content (e.g. the local PlayerHandWidget). If null, renders
   /// an opponent face-down fan automatically.
   final Widget? child;
+
+  /// When true, uses smaller padding and label for landscape layout.
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -82,7 +86,7 @@ class PlayerZoneWidget extends ConsumerWidget {
         curve: Curves.easeInOutCubic,
         builder: (context, glowValue, childWrapper) {
           return Container(
-            padding: const EdgeInsets.all(AppDimensions.sm),
+            padding: EdgeInsets.all(compact ? 4 : AppDimensions.sm),
             decoration: BoxDecoration(
               color: isActive
                   ? appTheme.accentPrimary.withValues(alpha: glowValue * 0.13)
@@ -136,8 +140,9 @@ class PlayerZoneWidget extends ConsumerWidget {
               player: playerWithReactiveCount,
               isLocalPlayer: isLocalPlayer,
               appTheme: appTheme,
+              compact: compact,
             ),
-            const SizedBox(height: AppDimensions.xs),
+            SizedBox(height: compact ? 2 : AppDimensions.xs),
             child ?? const SizedBox.shrink(),
           ],
         ),
@@ -347,11 +352,13 @@ class _PlayerLabel extends StatelessWidget {
     required this.player,
     required this.appTheme,
     this.isLocalPlayer = false,
+    this.compact = false,
   });
 
   final PlayerModel player;
   final dynamic appTheme;
   final bool isLocalPlayer;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -363,15 +370,24 @@ class _PlayerLabel extends StatelessWidget {
       badgeColor = PlayerStyles.getColor(player.tablePosition);
     }
 
+    final badgePadding = compact
+        ? const EdgeInsets.symmetric(horizontal: 4, vertical: 1)
+        : const EdgeInsets.symmetric(horizontal: 6, vertical: 2);
+    final badgeFontSize = compact ? 7.0 : 9.0;
+    final iconSize = compact ? 10.0 : 14.0;
+    final nameFontSize = compact ? 9.0 : null;
+    final countFontSize = compact ? 8.0 : 10.0;
+    final gap = compact ? 2.0 : AppDimensions.xs;
+
     Widget badgeWidget = const SizedBox.shrink();
     if (badgeText != null) {
       badgeWidget = Container(
-        margin: const EdgeInsets.only(right: AppDimensions.xs),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        margin: EdgeInsets.only(right: gap),
+        padding: badgePadding,
         decoration: BoxDecoration(
           color: (badgeColor ?? appTheme.textSecondary as Color)
               .withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(compact ? 3 : 4),
           border: Border.all(
               color: (badgeColor ?? appTheme.textSecondary as Color)
                   .withValues(alpha: 0.5),
@@ -381,7 +397,7 @@ class _PlayerLabel extends StatelessWidget {
           badgeText,
           style: TextStyle(
             color: badgeColor,
-            fontSize: 9,
+            fontSize: badgeFontSize,
             fontWeight: FontWeight.w800,
             letterSpacing: 0.5,
           ),
@@ -394,16 +410,16 @@ class _PlayerLabel extends StatelessWidget {
       children: [
         badgeWidget,
         Transform.scale(
-          scale: player.isActiveTurn ? 1.05 : 1.0,
+          scale: player.isActiveTurn && !compact ? 1.05 : 1.0,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 PlayerStyles.getIcon(player.tablePosition),
                 color: PlayerStyles.getColor(player.tablePosition),
-                size: 14,
+                size: iconSize,
               ),
-              const SizedBox(width: 4),
+              SizedBox(width: gap),
               Text(
                 player.displayName,
                 style: AppTypography.labelSmall.copyWith(
@@ -411,7 +427,8 @@ class _PlayerLabel extends StatelessWidget {
                       ? PlayerStyles.getColor(player.tablePosition)
                       : (appTheme.textPrimary as Color),
                   fontStyle: FontStyle.normal,
-                  shadows: player.isActiveTurn
+                  fontSize: nameFontSize,
+                  shadows: player.isActiveTurn && !compact
                       ? [
                           Shadow(
                             color: PlayerStyles.getColor(player.tablePosition)
@@ -426,12 +443,15 @@ class _PlayerLabel extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(width: AppDimensions.xs),
+        SizedBox(width: gap),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 4 : 5,
+            vertical: compact ? 0 : 1,
+          ),
           decoration: BoxDecoration(
             color: appTheme.surfacePanel as Color,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(compact ? 6 : 8),
             border: Border.all(
                 color: PlayerStyles.getColor(player.tablePosition)
                     .withValues(alpha: 0.6),
@@ -440,7 +460,7 @@ class _PlayerLabel extends StatelessWidget {
           child: Text(
             '${player.cardCount}',
             style: AppTypography.labelSmall.copyWith(
-              fontSize: 10,
+              fontSize: countFontSize,
               color: appTheme.accentLight as Color,
               fontWeight: FontWeight.w700,
             ),

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -18,7 +20,7 @@ class OnlineModeSelectorModal extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(themeProvider).theme;
     final media = MediaQuery.of(context);
-    final isMobile = media.size.width < 600;
+    final isMobile = math.min(media.size.width, media.size.height) < 600;
     final sidePadding = isMobile ? 16.0 : 24.0;
 
     return Container(

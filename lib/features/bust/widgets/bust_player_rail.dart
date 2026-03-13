@@ -10,6 +10,8 @@ class BustPlayerRail extends StatefulWidget {
     this.autoScrollDuration = const Duration(milliseconds: 350),
     this.autoScrollCurve = Curves.easeOutCubic,
     this.slotKeyBuilder,
+    this.height,
+    this.compact = false,
   });
 
   final List<BustPlayerViewModel> players;
@@ -20,6 +22,12 @@ class BustPlayerRail extends StatefulWidget {
   /// Used by the dealing animation overlay to locate render targets.
   final GlobalKey? Function(BustPlayerViewModel player)? slotKeyBuilder;
 
+  /// Rail height. Defaults to 96. Use 72 for compact landscape.
+  final double? height;
+
+  /// When true, uses compact slots (smaller avatar/name) for landscape.
+  final bool compact;
+
   @override
   State<BustPlayerRail> createState() => _BustPlayerRailState();
 }
@@ -29,6 +37,7 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
   int? _lastActiveIndex;
 
   static const double _itemWidth = 88.0;
+  static const double _itemWidthCompact = 56.0;
 
   @override
   void initState() {
@@ -52,8 +61,9 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
 
     final viewportWidth =
         _scrollController.position.viewportDimension;
-    double target = activeIndex * _itemWidth;
-    target -= (viewportWidth / 2) - (_itemWidth / 2);
+    final itemW = widget.compact ? _itemWidthCompact : _itemWidth;
+    double target = activeIndex * itemW;
+    target -= (viewportWidth / 2) - (itemW / 2);
     target = target.clamp(
       _scrollController.position.minScrollExtent,
       _scrollController.position.maxScrollExtent,
@@ -74,26 +84,53 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
 
   @override
   Widget build(BuildContext context) {
+    final railHeight = widget.height ?? 96;
+    final slotPadding = AppDimensions.xs;
+
+    Widget buildSlot(BustPlayerViewModel player) {
+      final slotKey = widget.slotKeyBuilder?.call(player);
+      Widget slot = BustPlayerSlot(player: player, compact: widget.compact);
+      if (slotKey != null) {
+        slot = KeyedSubtree(key: slotKey, child: slot);
+      }
+      return Padding(
+        padding: EdgeInsets.symmetric(horizontal: slotPadding),
+        child: slot,
+      );
+    }
+
+    // When compact (landscape), center the rail; when content fits, it stays centred.
+    if (widget.compact) {
+      return SizedBox(
+        height: railHeight,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Center(
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    for (final player in widget.players) buildSlot(player),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
     return SizedBox(
-      height: 96,
+      height: railHeight,
       child: ListView.builder(
         controller: _scrollController,
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: AppDimensions.sm),
         itemCount: widget.players.length,
-        itemBuilder: (context, index) {
-          final player = widget.players[index];
-          final slotKey = widget.slotKeyBuilder?.call(player);
-          Widget slot = BustPlayerSlot(player: player);
-          if (slotKey != null) {
-            slot = KeyedSubtree(key: slotKey, child: slot);
-          }
-          return Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: AppDimensions.xs),
-            child: slot,
-          );
-        },
+        itemBuilder: (context, index) => buildSlot(widget.players[index]),
       ),
     );
   }

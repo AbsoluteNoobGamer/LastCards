@@ -54,7 +54,7 @@ class RoomManager {
   void _createRoom(dynamic ws, Map<String, dynamic> json) {
     final roomCode = _uuid.v4().substring(0, 6).toUpperCase();
     final displayName = json['displayName'] as String? ?? 'Player';
-    final session = GameSession(roomCode);
+    final session = GameSession(roomCode, isPrivate: true);
     _rooms[roomCode] = session;
 
     final playerId = session.addPlayer(ws, displayName);
@@ -65,6 +65,7 @@ class RoomManager {
       'type': 'room_created',
       'roomCode': roomCode,
       'playerId': playerId,
+      'isPrivate': true,
     }));
   }
 
@@ -91,6 +92,7 @@ class RoomManager {
       'type': 'room_joined',
       'roomCode': code,
       'playerId': playerId,
+      'isPrivate': session.isPrivate,
     }));
   }
 
@@ -121,7 +123,8 @@ class RoomManager {
       queue.removeRange(0, playerCount);
 
       final roomCode = _uuid.v4().substring(0, 6).toUpperCase();
-      final session = GameSession(roomCode);
+      final session = GameSession(roomCode,
+          isPrivate: false, maxPlayerCount: playerCount);
       _rooms[roomCode] = session;
       print(
           '[Quickplay] Match found! Creating room $roomCode with $playerCount players');
