@@ -817,7 +817,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (next.phase == GamePhase.ended) return;
 
       final finishedIds = next.players
-          .where((p) => p.hand.isEmpty && p.cardCount == 0)
+          .where((p) => canConfirmPlayerWin(state: next, playerId: p.id))
           .map((p) => p.id)
           .toList();
 
@@ -837,19 +837,20 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       }
 
       final prevFinished = prev!.players
-          .where((p) => p.hand.isEmpty && p.cardCount == 0)
+          .where((p) => canConfirmPlayerWin(state: prev, playerId: p.id))
           .map((p) => p.id)
           .toSet();
       final newlyFinished = finishedIds.where((id) => !prevFinished.contains(id));
       if (newlyFinished.isEmpty) return;
 
+      final finishedCallbacks = <(String name, int pos)>[];
       setState(() {
         for (final id in newlyFinished) {
           if (!_tournamentFinishedPlayerIds.contains(id)) {
             _tournamentFinishedPlayerIds.add(id);
             final pos = _tournamentFinishedPlayerIds.length;
             final name = next.playerById(id)?.displayName ?? id;
-            widget.onPlayerFinished(name, pos);
+            finishedCallbacks.add((name, pos));
             if (_tournamentFinishedPlayerIds.length < next.players.length) {
               game_audio.AudioService.instance
                   .playSound(GameSound.tournamentQualify);
@@ -862,6 +863,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               .playSound(GameSound.tournamentEliminate);
         }
       });
+      for (final (name, pos) in finishedCallbacks) {
+        widget.onPlayerFinished(name, pos);
+      }
     });
 
     // Online: server requests suit choice after local player played an Ace.
