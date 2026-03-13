@@ -104,13 +104,51 @@ class _TableLayout extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < AppDimensions.breakpointMobile;
+        // Use shorter dimension: in landscape, maxWidth is the long axis.
+        final isMobile = math.min(constraints.maxWidth, constraints.maxHeight) <
+            AppDimensions.breakpointMobile;
+        final isLandscapeMobile =
+            isMobile && constraints.maxWidth > constraints.maxHeight;
+
+        // Dedicated landscape layout — no scroll, HUD inline, distinct structure.
+        if (isLandscapeMobile) {
+          return _LandscapeTableLayout(
+            gameState: gameState,
+            selectedCardId: selectedCardId,
+            orderedHand: orderedHand,
+            isMyTurn: isMyTurn,
+            penaltyCount: penaltyCount,
+            canEndTurn: canEndTurn,
+            isDealing: isDealing,
+            visibleCardCounts: visibleCardCounts,
+            drawPileKey: drawPileKey,
+            playerZoneKeys: playerZoneKeys,
+            localPlayer: localPlayer,
+            useRail: useRail,
+            opponents: opponents,
+            leftOpp: leftOpp,
+            topOpp: topOpp,
+            rightOpp: rightOpp,
+            onCardTap: onCardTap,
+            onDrawTap: onDrawTap,
+            onHandReorder: onHandReorder,
+            onEndTurnTap: onEndTurnTap,
+            discardPileCount: discardPileCount,
+            reshuffleNotifier: reshuffleNotifier,
+            timeRemainingStream: timeRemainingStream,
+            tournamentStatusBadges: tournamentStatusBadges,
+            finishedPlayerIds: finishedPlayerIds,
+            aiConfigs: aiConfigs,
+          );
+        }
+
         final horizontalPadding =
             isMobile ? AppDimensions.xs : AppDimensions.md;
-        final handCardWidth =
-            (constraints.maxWidth * (isMobile ? 0.12 : 0.1)).clamp(48.0, 82.0);
+        final effectiveWidth = constraints.maxWidth;
+        final handCardWidth = (effectiveWidth * (isMobile ? 0.12 : 0.1))
+            .clamp(44.0, 82.0);
 
-        return Padding(
+        final body = Padding(
           padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
           child: Column(
             children: [
@@ -190,7 +228,7 @@ class _TableLayout extends StatelessWidget {
                       ),
               ),
 
-              // ── Centre board area (unchanged draw/discard/dealer/HUD) ───
+              // ── Centre board area (draw/discard/dealer) ────────────────────────
               Expanded(
                 child: Center(
                   child: Column(
@@ -315,11 +353,12 @@ class _TableLayout extends StatelessWidget {
                 ),
                 child: SizedBox(
                   width: double.infinity,
-                  child: PlayerZoneWidget(
-                    key: playerZoneKeys[localPlayer.id],
-                    player: localPlayer,
-                    isLocalPlayer: true,
-                    child: finishedPlayerIds.contains(localPlayer.id)
+              child: PlayerZoneWidget(
+                key: playerZoneKeys[localPlayer.id],
+                player: localPlayer,
+                isLocalPlayer: true,
+                compact: true,
+                child: finishedPlayerIds.contains(localPlayer.id)
                         ? _TournamentLocalStatusBanner(
                             isEliminated: _isEliminatedBadge(
                               tournamentStatusBadges[localPlayer.id],
@@ -344,6 +383,7 @@ class _TableLayout extends StatelessWidget {
             ],
           ),
         );
+        return body;
       },
     );
   }
@@ -366,6 +406,284 @@ class _TableLayout extends StatelessWidget {
     } catch (_) {
       return null;
     }
+  }
+
+  bool _isEliminatedBadge(String? badgeText) {
+    if (badgeText == null) return false;
+    return badgeText.contains('Eliminated');
+  }
+}
+
+// ── Dedicated landscape layout (mobile) ───────────────────────────────────────
+//
+// Purpose-built for landscape: 3 compact bands, HUD inline, no scrolling.
+// Opponents rail → Centre (draw/discard/HUD) + turn bar → Hand.
+
+class _LandscapeTableLayout extends StatelessWidget {
+  const _LandscapeTableLayout({
+    required this.gameState,
+    required this.selectedCardId,
+    required this.orderedHand,
+    required this.isMyTurn,
+    required this.penaltyCount,
+    required this.canEndTurn,
+    required this.isDealing,
+    required this.visibleCardCounts,
+    required this.drawPileKey,
+    required this.playerZoneKeys,
+    required this.localPlayer,
+    required this.useRail,
+    required this.opponents,
+    required this.leftOpp,
+    required this.topOpp,
+    required this.rightOpp,
+    required this.onCardTap,
+    required this.onDrawTap,
+    required this.onHandReorder,
+    required this.onEndTurnTap,
+    required this.discardPileCount,
+    required this.reshuffleNotifier,
+    required this.timeRemainingStream,
+    required this.tournamentStatusBadges,
+    required this.finishedPlayerIds,
+    required this.aiConfigs,
+  });
+
+  final GameState gameState;
+  final String? selectedCardId;
+  final List<CardModel> orderedHand;
+  final bool isMyTurn;
+  final int penaltyCount;
+  final bool canEndTurn;
+  final bool isDealing;
+  final Map<String, int> visibleCardCounts;
+  final GlobalKey drawPileKey;
+  final Map<String, GlobalKey> playerZoneKeys;
+  final PlayerModel localPlayer;
+  final bool useRail;
+  final List<PlayerModel> opponents;
+  final PlayerModel? leftOpp;
+  final PlayerModel? topOpp;
+  final PlayerModel? rightOpp;
+  final ValueChanged<String> onCardTap;
+  final VoidCallback onDrawTap;
+  final void Function(int oldIndex, int newIndex) onHandReorder;
+  final VoidCallback onEndTurnTap;
+  final int discardPileCount;
+  final ValueNotifier<bool>? reshuffleNotifier;
+  final Stream<int>? timeRemainingStream;
+  final Map<String, String> tournamentStatusBadges;
+  final Set<String> finishedPlayerIds;
+  final Map<String, AiPlayerConfig> aiConfigs;
+
+  @override
+  Widget build(BuildContext context) {
+    const handCardWidth = 40.0;
+    const pileSize = 56.0;
+    const pileHeight = 78.0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppDimensions.xs),
+      child: Column(
+        children: [
+          // ── Band 1: Compact opponents rail (72px, compact slots) ─────────
+          SizedBox(
+            height: 72,
+            child: useRail
+                ? BustPlayerRail(
+                    players: opponents.asMap().entries.map((e) {
+                      return BustPlayerViewModel.fromPlayerModel(
+                        e.value,
+                        currentPlayerId: gameState.currentPlayerId,
+                        isEliminated: false,
+                        isLocal: false,
+                        colorIndex: e.key,
+                      );
+                    }).toList(),
+                    slotKeyBuilder: (player) => playerZoneKeys[player.id],
+                    height: 72,
+                    compact: true,
+                  )
+                : Row(
+                    children: [
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: leftOpp != null
+                              ? PlayerZoneWidget(
+                                  key: playerZoneKeys[leftOpp!.id],
+                                  player: leftOpp!,
+                                  isTournamentFinished:
+                                      tournamentStatusBadges[leftOpp!.id] !=
+                                          null,
+                                  isTournamentEliminated: _isEliminatedBadge(
+                                    tournamentStatusBadges[leftOpp!.id],
+                                  ),
+                                  aiConfig: aiConfigs[leftOpp!.id],
+                                  compact: true,
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.center,
+                          child: topOpp != null
+                              ? PlayerZoneWidget(
+                                  key: playerZoneKeys[topOpp!.id],
+                                  player: topOpp!,
+                                  isTournamentFinished:
+                                      tournamentStatusBadges[topOpp!.id] !=
+                                          null,
+                                  isTournamentEliminated: _isEliminatedBadge(
+                                    tournamentStatusBadges[topOpp!.id],
+                                  ),
+                                  aiConfig: aiConfigs[topOpp!.id],
+                                  compact: true,
+                                )
+                              : const _EmptyOpponentZone(),
+                        ),
+                      ),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: rightOpp != null
+                              ? PlayerZoneWidget(
+                                  key: playerZoneKeys[rightOpp!.id],
+                                  player: rightOpp!,
+                                  isTournamentFinished:
+                                      tournamentStatusBadges[rightOpp!.id] !=
+                                          null,
+                                  isTournamentEliminated: _isEliminatedBadge(
+                                    tournamentStatusBadges[rightOpp!.id],
+                                  ),
+                                  aiConfig: aiConfigs[rightOpp!.id],
+                                  compact: true,
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+
+          // ── Band 2: Centre strip — draw, discard, HUD inline, turn bar ───
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Draw pile
+                SizedBox(
+                  width: pileSize,
+                  height: pileHeight,
+                  child: OverflowBox(
+                    maxWidth: double.infinity,
+                    maxHeight: double.infinity,
+                    child: DrawPileWidget(
+                      key: drawPileKey,
+                      cardCount: gameState.drawPileCount,
+                      onTap: onDrawTap,
+                      cardWidth: pileSize,
+                      enabled: isMyTurn &&
+                          (gameState.actionsThisTurn == 0 ||
+                              gameState.queenSuitLock != null) &&
+                          selectedCardId == null &&
+                          !isDealing,
+                      reshuffleNotifier: reshuffleNotifier,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Discard pile
+                SizedBox(
+                  width: pileSize,
+                  height: pileHeight,
+                  child: OverflowBox(
+                    maxWidth: double.infinity,
+                    maxHeight: double.infinity,
+                    child: DiscardPileWidget(
+                      topCard: gameState.discardTopCard,
+                      secondCard: gameState.discardSecondCard,
+                      discardPileHistory: gameState.discardPileHistory,
+                      cardWidth: pileSize,
+                      discardPileCount: discardPileCount,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // HUD inline (suit badge, penalty, queen lock)
+                HudOverlayWidget(
+                  activeSuit: gameState.suitLock,
+                  queenSuitLock: gameState.queenSuitLock,
+                  penaltyCount: penaltyCount,
+                  penaltyTargetPosition: penaltyCount > 0
+                      ? gameState.players
+                          .where((p) =>
+                              p.id == nextPlayerId(state: gameState))
+                          .firstOrNull
+                          ?.tablePosition
+                      : null,
+                  compact: true,
+                ),
+              ],
+            ),
+          ),
+
+          // Turn timer + action bar (compact for landscape)
+          TurnTimerBar(
+            timeRemainingStream: timeRemainingStream,
+            isVisible: true,
+            compact: true,
+          ),
+          const SizedBox(height: 2),
+          FloatingActionBarWidget(
+            activePlayerName: gameState
+                    .playerById(gameState.currentPlayerId)
+                    ?.displayName ??
+                '',
+            direction: gameState.direction,
+            canEndTurn: canEndTurn,
+            onEndTurn: onEndTurnTap,
+            compact: true,
+          ),
+          const SizedBox(height: 2),
+
+          // ── Band 3: Local player hand ────────────────────────────────────
+          Expanded(
+            child: SizedBox(
+              width: double.infinity,
+              child: PlayerZoneWidget(
+                key: playerZoneKeys[localPlayer.id],
+                player: localPlayer,
+                isLocalPlayer: true,
+                compact: true,
+                child: finishedPlayerIds.contains(localPlayer.id)
+                    ? _TournamentLocalStatusBanner(
+                        isEliminated: _isEliminatedBadge(
+                          tournamentStatusBadges[localPlayer.id],
+                        ),
+                      )
+                    : PlayerHandWidget(
+                        cards: isDealing
+                            ? orderedHand
+                                .take(
+                                    visibleCardCounts[localPlayer.id] ?? 0)
+                                .toList()
+                            : orderedHand,
+                        selectedCardId: selectedCardId,
+                        onCardTap: onCardTap,
+                        onReorder: onHandReorder,
+                        enabled: isMyTurn && !isDealing,
+                        cardWidth: handCardWidth,
+                      ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   bool _isEliminatedBadge(String? badgeText) {

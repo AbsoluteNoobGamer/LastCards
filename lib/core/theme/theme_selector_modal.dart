@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,7 +15,7 @@ class ThemeSelectorModal extends ConsumerWidget {
     final themeState = ref.watch(themeProvider);
     final notifier = ref.read(themeProvider.notifier);
     final media = MediaQuery.of(context);
-    final isMobile = media.size.width < 600;
+    final isMobile = math.min(media.size.width, media.size.height) < 600;
 
     return DraggableScrollableSheet(
       initialChildSize: isMobile ? 0.88 : 0.80,

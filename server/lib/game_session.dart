@@ -5,6 +5,8 @@ import 'dart:math' as math;
 import 'package:last_cards/shared/engine/game_engine.dart';
 import 'package:last_cards/shared/rules/win_condition_rules.dart';
 
+import 'trophy_recorder.dart';
+
 // ── Turn timer duration ───────────────────────────────────────────────────────
 
 const _turnDuration = Duration(seconds: 60);
@@ -36,9 +38,24 @@ class _ConnectedPlayer {
 ///   • Win detection after every state mutation.
 ///   • Personalised state_snapshot broadcasts (each client sees own hand only).
 class GameSession {
-  GameSession(this.roomCode);
+  GameSession(
+    this.roomCode, {
+    this.isPrivate = true,
+    this.maxPlayerCount,
+    TrophyRecorder? trophyRecorder,
+  }) : _trophyRecorder = trophyRecorder ?? TrophyRecorder.instance;
 
   final String roomCode;
+
+  /// True for private lobbies (create_room/join_room). False for quickplay.
+  final bool isPrivate;
+
+  /// For quickplay: the intended player count from the queue.
+  /// Trophies are only earned if the game started with this many players.
+  final int? maxPlayerCount;
+
+  final TrophyRecorder _trophyRecorder;
+
   final _players = <String, _ConnectedPlayer>{};
   int _playerCounter = 0;
 
@@ -54,8 +71,14 @@ class GameSession {
   bool _started = false;
   bool _gameOver = false;
 
+  /// Set in _startGame. True if the game started with maxPlayerCount (or N/A).
+  bool _wasFullRoster = false;
+
   /// Per-turn countdown timer.
   Timer? _turnTimer;
+
+  bool get _trophyEligible =>
+      !isPrivate && (maxPlayerCount == null || _wasFullRoster);
 
   // ── Test helpers ───────────────────────────────────────────────────────────
 
@@ -143,11 +166,18 @@ class GameSession {
       _turnTimer?.cancel();
       _gameOver = true;
       _state = _state.copyWith(phase: GamePhase.ended);
+
+      final trophyPenaltyForLeaver = _trophyEligible;
+      if (trophyPenaltyForLeaver) {
+        _trophyRecorder.recordLeavePenalty(playerId);
+      }
+
       _broadcast({
         'type': 'game_ended',
         'winnerId': '',
         'reason': 'player_disconnected',
         'disconnectedPlayerId': playerId,
+        'trophyPenaltyForLeaver': trophyPenaltyForLeaver,
       });
     }
   }
@@ -170,6 +200,8 @@ class GameSession {
   void _startGame() {
     _started = true;
     _gameOver = false;
+    _wasFullRoster =
+        maxPlayerCount == null || _players.length >= maxPlayerCount!;
 
     final deck = buildShuffledDeck();
     int idx = 0;
@@ -227,6 +259,12 @@ class GameSession {
       );
     }
 
+    // Notify clients of session type (private vs ranked, trophy eligibility).
+    _broadcast({
+      'type': 'session_config',
+      'isPrivate': isPrivate,
+      'trophyEligible': _trophyEligible,
+    });
     _broadcastStateSnapshots();
     _startTurnTimer();
   }
@@ -616,7 +654,17 @@ class GameSession {
     _state = _state.copyWith(phase: GamePhase.ended, winnerId: winnerId);
     _gameOver = true;
     _turnTimer?.cancel();
-    _broadcast({'type': 'game_ended', 'winnerId': winnerId});
+
+    final trophyEligible = _trophyEligible;
+    if (trophyEligible) {
+      _trophyRecorder.recordWin(winnerId);
+    }
+
+    _broadcast({
+      'type': 'game_ended',
+      'winnerId': winnerId,
+      'trophyEligible': trophyEligible,
+    });
   }
 
   // ── Draw pile management ──────────────────────────────────────────────────

@@ -6,9 +6,16 @@ import 'package:last_cards/core/theme/app_typography.dart';
 import '../models/bust_player_view_model.dart';
 
 class BustPlayerSlot extends ConsumerWidget {
-  const BustPlayerSlot({super.key, required this.player});
+  const BustPlayerSlot({
+    super.key,
+    required this.player,
+    this.compact = false,
+  });
 
   final BustPlayerViewModel player;
+
+  /// When true, uses smaller avatar and text for landscape/constrained layouts.
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -42,8 +49,13 @@ class BustPlayerSlot extends ConsumerWidget {
       shadows = const [];
     }
 
+    final avatarSize = compact ? 44.0 : 60.0;
+    final badgeSize = compact ? 18.0 : 22.0;
+    final slotWidth = compact ? 56.0 : 80.0;
+    final iconSize = compact ? 20.0 : 28.0;
+
     Widget slot = SizedBox(
-      width: 80,
+      width: slotWidth,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -52,8 +64,8 @@ class BustPlayerSlot extends ConsumerWidget {
             children: [
               AnimatedContainer(
                 duration: const Duration(milliseconds: 220),
-                width: 60,
-                height: 60,
+                width: avatarSize,
+                height: avatarSize,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: bgColor,
@@ -64,7 +76,7 @@ class BustPlayerSlot extends ConsumerWidget {
                   child: Icon(
                     Icons.person,
                     color: player.color,
-                    size: 28,
+                    size: iconSize,
                   ),
                 ),
               ),
@@ -72,22 +84,22 @@ class BustPlayerSlot extends ConsumerWidget {
                 right: 0,
                 bottom: 0,
                 child: Container(
-                  width: 22,
-                  height: 22,
+                  width: badgeSize,
+                  height: badgeSize,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: theme.accentDark,
                     border: Border.all(
                       color: theme.surfacePanel,
-                      width: 1.5,
+                      width: compact ? 1.0 : 1.5,
                     ),
                   ),
                   child: Text(
                     player.isEliminated ? 'X' : '${player.cardCount}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 11,
+                      fontSize: compact ? 9 : 11,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -95,9 +107,9 @@ class BustPlayerSlot extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: AppDimensions.xs),
+          SizedBox(height: compact ? 2 : AppDimensions.xs),
           SizedBox(
-            width: 80,
+            width: slotWidth,
             child: Text(
               player.displayName,
               textAlign: TextAlign.center,
@@ -106,6 +118,7 @@ class BustPlayerSlot extends ConsumerWidget {
               style: AppTypography.labelSmall.copyWith(
                 color: player.isActive ? player.color : theme.textPrimary,
                 fontWeight: FontWeight.w700,
+                fontSize: compact ? 9 : null,
               ),
             ),
           ),
