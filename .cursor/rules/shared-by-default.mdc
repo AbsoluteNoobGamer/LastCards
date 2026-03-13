@@ -1,11 +1,16 @@
 ---
-description: All new game features must be shared across offline, AI, tournament, bust, and online modes by default.
+description: Game logic lives in one place. There are 2 execution contexts—offline (client) and online (server)—both use the shared engine.
 alwaysApply: true
 ---
 
 # Shared-By-Default Architecture
 
-Every new game mechanic, rule, or feature must work across **all modes** (offline/AI, tournament, bust, online) unless explicitly told otherwise.
+There are **exactly 2 execution contexts** for game rules:
+
+1. **Offline** — Client runs the engine locally (Single Player, Tournament vs AI, Bust vs AI). Uses `lib/core/models/offline_game_engine.dart` which exports `lib/shared/engine/game_engine.dart`.
+2. **Online** — Server runs the engine (`server/lib/game_session.dart`) and imports the same `lib/shared/engine/game_engine.dart`.
+
+Tournament and Bust are **session types**, not separate engines. They orchestrate rounds via `TableScreen` and the shared engine. No parallel game-logic implementations.
 
 ## Where New Code Goes
 
@@ -18,9 +23,20 @@ Every new game mechanic, rule, or feature must work across **all modes** (offlin
 | Bust-specific meta-game (rounds, elimination) | `lib/features/bust/` — orchestrates `TableScreen`, does not reimplement it |
 | New UI screen | Only justified if the UI is genuinely different (e.g. `BustEliminationScreen`), never for different game logic |
 
-## Mandatory Server Sync
+## Server Sync (When It's Needed)
 
-Whenever `lib/shared/engine/game_engine.dart` changes, **also update** `server/lib/game_session.dart` to call the new/changed function. The server is the authoritative online engine — it must stay in sync.
+The server already calls `validatePlay`, `applyPlay`, and `applyDraw` from the shared engine. **Internal changes to those functions propagate automatically** — no changes to `server/lib/game_session.dart` needed.
+
+Update `server/lib/game_session.dart` only when the **engine API changes** (e.g. new parameters to `validatePlay`, new function to call, different return shape). After any engine change, redeploy the server so it runs the updated code.
+
+## Test Both Contexts
+
+Always verify game logic works in **both offline and online**:
+
+- **Offline** — Add or extend unit tests in `test/engine_test.dart` (or `test/*_test.dart`) that call `validatePlay`, `applyPlay`, `applyDraw` directly. These cover the shared engine used by the client.
+- **Online** — For logic exercised by the server, add tests in `server/test/` that drive `GameSession` (e.g. via `seedStateForTesting` + play_cards messages) or that import the shared engine and assert on `validatePlay`/`applyPlay` outcomes. The server uses the same engine, so shared-engine unit tests cover both; add server/integration tests when the flow involves `GameSession` handling (protocol, turn timer, broadcasts).
+
+Never ship a rule or engine fix without tests that would catch regressions in both offline play and online play.
 
 ## Anti-Patterns to Reject
 
@@ -40,12 +56,12 @@ class NewModeCoordinator extends StatelessWidget {
 ```
 
 ```dart
-// ❌ BAD — rule only in offline engine
+// ❌ BAD — rule only in offline/client code
 void _applySpecialEffect(...) {
   // new card effect only here
 }
 
-// ✅ GOOD — rule in shared engine, consumed by all modes
+// ✅ GOOD — rule in shared engine, consumed by both offline and server
 // lib/shared/engine/game_engine.dart
 GameState _applySpecialEffect(GameState gs, CardModel card, ...) {
   case Rank.newCard:
@@ -57,7 +73,8 @@ GameState _applySpecialEffect(GameState gs, CardModel card, ...) {
 ## Checklist for Any New Feature
 
 - [ ] Game logic added to `lib/shared/engine/game_engine.dart` (not a feature folder)
-- [ ] `server/lib/game_session.dart` updated if engine API changed
+- [ ] `server/lib/game_session.dart` updated **only if** engine API changed (new params, new functions)
 - [ ] `test/engine_test.dart` has tests covering the new logic
+- [ ] Logic verified for **both** offline and online (see Test Both Contexts above)
 - [ ] No new parallel game screen created (use `TableScreen` with a config param)
 - [ ] `docs/rules-by-mode.md` updated if the rule affects gameplay
