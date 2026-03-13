@@ -281,6 +281,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       // Online mode: server sent state. Run visual deal animation then use it.
       _offlineState = liveState;
       _drawPile = [];
+      _tournamentFinishedPlayerIds.clear();
+      _tournamentRoundComplete = false;
       _discardPile.clear();
       _onlineDiscardCount = 1; // one card already on discard (discardTopCard)
       _onlineWinDialogShown = false;
@@ -805,6 +807,61 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           );
         });
       }
+    });
+
+    // Online tournament: sync _tournamentFinishedPlayerIds from server state,
+    // play qualify/eliminate sounds, and show qualified badges (5+ players).
+    ref.listen<GameState?>(gameStateProvider, (prev, next) {
+      if (next == null || !widget.isTournamentMode || !mounted) return;
+      // Skip when game has ended — handled by game_ended listener.
+      if (next.phase == GamePhase.ended) return;
+
+      final finishedIds = next.players
+          .where((p) => p.hand.isEmpty && p.cardCount == 0)
+          .map((p) => p.id)
+          .toList();
+
+      if (prev == null) {
+        // Initial load: sync finished list without playing sounds.
+        if (finishedIds.length != _tournamentFinishedPlayerIds.length ||
+            finishedIds.toSet() != _tournamentFinishedPlayerIds.toSet()) {
+          setState(() {
+            _tournamentFinishedPlayerIds
+              ..clear()
+              ..addAll(finishedIds);
+            _tournamentRoundComplete =
+                finishedIds.length == next.players.length;
+          });
+        }
+        return;
+      }
+
+      final prevFinished = prev!.players
+          .where((p) => p.hand.isEmpty && p.cardCount == 0)
+          .map((p) => p.id)
+          .toSet();
+      final newlyFinished = finishedIds.where((id) => !prevFinished.contains(id));
+      if (newlyFinished.isEmpty) return;
+
+      setState(() {
+        for (final id in newlyFinished) {
+          if (!_tournamentFinishedPlayerIds.contains(id)) {
+            _tournamentFinishedPlayerIds.add(id);
+            final pos = _tournamentFinishedPlayerIds.length;
+            final name = next.playerById(id)?.displayName ?? id;
+            widget.onPlayerFinished(name, pos);
+            if (_tournamentFinishedPlayerIds.length < next.players.length) {
+              game_audio.AudioService.instance
+                  .playSound(GameSound.tournamentQualify);
+            }
+          }
+        }
+        if (_tournamentFinishedPlayerIds.length == next.players.length) {
+          _tournamentRoundComplete = true;
+          game_audio.AudioService.instance
+              .playSound(GameSound.tournamentEliminate);
+        }
+      });
     });
 
     // Online: server requests suit choice after local player played an Ace.
