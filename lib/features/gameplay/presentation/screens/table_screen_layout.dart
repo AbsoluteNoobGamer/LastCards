@@ -357,7 +357,7 @@ class _TableLayout extends StatelessWidget {
                 key: playerZoneKeys[localPlayer.id],
                 player: localPlayer,
                 isLocalPlayer: true,
-                compact: true,
+                compact: false,
                 child: finishedPlayerIds.contains(localPlayer.id)
                         ? _TournamentLocalStatusBanner(
                             isEliminated: _isEliminatedBadge(
