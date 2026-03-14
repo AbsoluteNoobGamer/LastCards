@@ -1521,51 +1521,43 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         .where((p) => p.tablePosition == TablePosition.bottom)
         .firstOrNull;
 
-    if (isQueenPenaltyDraw || isPenaltyDraw) {
-      final penaltyPlayerName =
-          _offlineState.playerById(playerId)?.displayName ?? playerId;
-      var nextId = nextPlayerId(state: newState);
-      nextId = _resolveTournamentNextPlayerId(newState, nextId);
-      newState = advanceTurn(newState, nextId: nextId);
-      setState(() {
-        _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
-        _selectedCardId = null;
-        if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
-        _pushMoveLog(MoveLogEntry.draw(
-          playerId: playerId,
-          playerName: penaltyPlayerName,
-          drawCount: drawCount,
-        ));
-      });
-      _engineTimer.cancel();
-      if (nextId != OfflineGameState.localId) {
-        _scheduleAiTurn(nextId);
-      } else {
-        _startTimer();
-      }
+    final playerName =
+        _offlineState.playerById(playerId)?.displayName ?? playerId;
+    _finalizeDrawAndAdvance(
+      playerId: playerId,
+      playerName: playerName,
+      drawCount: drawCount,
+      newState: newState,
+      localAfterDraw: localAfterDraw,
+    );
+  }
+
+  /// Shared helper for draw-and-advance logic used by _offlineDrawCard.
+  void _finalizeDrawAndAdvance({
+    required String playerId,
+    required String playerName,
+    required int drawCount,
+    required GameState newState,
+    required PlayerModel? localAfterDraw,
+  }) {
+    var nextId = nextPlayerId(state: newState);
+    nextId = _resolveTournamentNextPlayerId(newState, nextId);
+    final advanced = advanceTurn(newState, nextId: nextId);
+    setState(() {
+      _offlineState = advanced.copyWith(drawPileCount: _drawPile.length);
+      _selectedCardId = null;
+      if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
+      _pushMoveLog(MoveLogEntry.draw(
+        playerId: playerId,
+        playerName: playerName,
+        drawCount: drawCount,
+      ));
+    });
+    _engineTimer.cancel();
+    if (nextId != OfflineGameState.localId) {
+      _scheduleAiTurn(nextId);
     } else {
-      // Voluntary draw (no valid moves) — auto-end turn per the rules.
-      final drawPlayerName =
-          _offlineState.playerById(playerId)?.displayName ?? playerId;
-      var nextId = nextPlayerId(state: newState);
-      nextId = _resolveTournamentNextPlayerId(newState, nextId);
-      newState = advanceTurn(newState, nextId: nextId);
-      setState(() {
-        _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
-        _selectedCardId = null;
-        if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
-        _pushMoveLog(MoveLogEntry.draw(
-          playerId: playerId,
-          playerName: drawPlayerName,
-          drawCount: drawCount,
-        ));
-      });
-      _engineTimer.cancel();
-      if (nextId != OfflineGameState.localId) {
-        _scheduleAiTurn(nextId);
-      } else {
-        _startTimer();
-      }
+      _startTimer();
     }
   }
 
