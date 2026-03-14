@@ -32,4 +32,10 @@ const _$TablePositionEnumMap = {
   TablePosition.top: 'top',
   TablePosition.left: 'left',
   TablePosition.right: 'right',
+  TablePosition.bottomLeft: 'bottomLeft',
+  TablePosition.topLeft: 'topLeft',
+  TablePosition.topRight: 'topRight',
+  TablePosition.bottomRight: 'bottomRight',
+  TablePosition.farLeft: 'farLeft',
+  TablePosition.farRight: 'farRight',
 };
