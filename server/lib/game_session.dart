@@ -100,10 +100,16 @@ class GameSession {
   /// Callers must have already added players via [addPlayer] before calling
   /// this. The [drawPile] and optional [discardUnderTop] replace the server's
   /// internal piles.
+  ///
+  /// For Bust mode tests, pass [bustSurvivorIds], [bustTurnsThisRound], and
+  /// [bustPenaltyPoints] to seed the bust round state.
   void seedStateForTesting({
     required GameState state,
     required List<CardModel> drawPile,
     List<CardModel> discardUnderTop = const [],
+    List<String>? bustSurvivorIds,
+    Map<String, int>? bustTurnsThisRound,
+    Map<String, int>? bustPenaltyPoints,
   }) {
     _state = state;
     _drawPile = List<CardModel>.from(drawPile);
@@ -112,6 +118,9 @@ class GameSession {
       ..addAll(discardUnderTop);
     _started = true;
     _gameOver = false;
+    if (bustSurvivorIds != null) _bustSurvivorIds = bustSurvivorIds;
+    if (bustTurnsThisRound != null) _bustTurnsThisRound = bustTurnsThisRound;
+    if (bustPenaltyPoints != null) _bustPenaltyPoints = bustPenaltyPoints;
     _broadcastStateSnapshots();
   }
 
@@ -641,7 +650,7 @@ class GameSession {
       }
       _broadcast({
         'type': 'bust_game_ended',
-        'winnerId': winnerId!,
+        'winnerId': winnerId ?? '',
         'trophyEligible': _trophyEligible,
       });
       return;

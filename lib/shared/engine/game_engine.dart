@@ -663,6 +663,7 @@ List<CardModel> buildBustDeck({int? seed}) {
 
 /// Bust mode hand size per player count (2–10).
 int handSizeForBust(int playerCount) {
+  assert(playerCount >= 2 && playerCount <= 10);
   return switch (playerCount) {
     6 => 8,
     7 => 7,
