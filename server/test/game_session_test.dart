@@ -40,12 +40,23 @@ CardModel _card(Rank rank, Suit suit) =>
 CardModel _joker(String id, Suit suit) =>
     CardModel(id: id, rank: Rank.joker, suit: suit);
 
+/// Mirrors GameSession._positionFor for building test states.
+TablePosition _positionFor(int index) {
+  if (index == 0) return TablePosition.bottom;
+  const positions = [
+    TablePosition.left,
+    TablePosition.top,
+    TablePosition.right,
+  ];
+  return positions[(index - 1) % positions.length];
+}
+
 // ── Session builders ──────────────────────────────────────────────────────────
 
 /// Creates a [GameSession] with [n] players added (not yet started).
 ({GameSession session, List<_FakeWs> sockets, List<String> ids})
-    _makeSession(int n) {
-  final session = GameSession('TEST');
+    _makeSession(int n, {bool isBustMode = false}) {
+  final session = GameSession('TEST', isBustMode: isBustMode);
   final sockets = <_FakeWs>[];
   final ids = <String>[];
 
@@ -920,6 +931,217 @@ void main() {
         final snap = _latestSnapshot(ws);
         expect((snap['players'] as List).length, equals(3));
       }
+    });
+  });
+
+  // ── Bust mode ───────────────────────────────────────────────────────────────
+
+  group('Bust mode', () {
+    test('Bust game start: 5 players get 10 cards each, 52-card deck', () {
+      final (:session, :sockets, :ids) = _makeSession(5, isBustMode: true);
+      for (final id in ids) {
+        session.markReady(id);
+      }
+      for (final ws in sockets) {
+        final snap = _latestSnapshot(ws);
+        final players = snap['players'] as List;
+        expect(players.length, equals(5));
+        for (final p in players) {
+          final pm = p as Map<String, dynamic>;
+          final handList = pm['hand'] as List?;
+          final handLen = (handList?.isNotEmpty ?? false)
+              ? handList!.length
+              : (pm['cardCount'] as int? ?? 0);
+          expect(handLen, equals(10), reason: 'Bust 5-player hand size = 10');
+        }
+      }
+    });
+
+    test('Bust round completes when all players have 2 turns, broadcasts bust_round_over', () {
+      final (:session, :sockets, :ids) = _makeSession(5, isBustMode: true);
+      final p1ws = sockets[0];
+      final idsList = ids;
+
+      // Card counts: p1=1, p2=2, p3=5, p4=8, p5=10 → p4,p5 eliminated
+      final cardCounts = {idsList[0]: 1, idsList[1]: 2, idsList[2]: 5, idsList[3]: 8, idsList[4]: 10};
+      final players = [
+        for (var i = 0; i < 5; i++)
+          PlayerModel(
+            id: idsList[i],
+            displayName: 'Player ${i + 1}',
+            tablePosition: _positionFor(i),
+            hand: List.generate(
+                cardCounts[idsList[i]]!,
+                (j) => _card(Rank.values[(j % 13) + 1], Suit.hearts)),
+            cardCount: cardCounts[idsList[i]]!,
+            isActiveTurn: i == 4,
+          ),
+      ];
+      final lastId = idsList[4];
+      final drawPile = List.generate(
+          20, (i) => CardModel(id: 'draw_$i', rank: Rank.four, suit: Suit.clubs));
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: players,
+        currentPlayerId: lastId,
+        direction: PlayDirection.clockwise,
+        discardTopCard: _card(Rank.two, Suit.spades),
+        drawPileCount: drawPile.length,
+        preTurnCentreSuit: Suit.spades,
+      );
+
+      session.seedStateForTesting(
+        state: state,
+        drawPile: drawPile,
+        bustSurvivorIds: idsList,
+        bustTurnsThisRound: {
+          idsList[0]: 2,
+          idsList[1]: 2,
+          idsList[2]: 2,
+          idsList[3]: 2,
+          idsList[4]: 1,
+        },
+        bustPenaltyPoints: {},
+      );
+
+      p1ws.clear();
+      session.handleAction(lastId, {'type': 'draw_card'});
+
+      final roundOver = p1ws.lastOfType('bust_round_over');
+      expect(roundOver, isNotNull);
+      expect(roundOver!['roundNumber'], equals(1));
+      expect(roundOver['eliminatedThisRound'], hasLength(2));
+      expect(
+        (roundOver['eliminatedThisRound'] as List).contains(idsList[3]),
+        isTrue,
+      );
+      expect(
+        (roundOver['eliminatedThisRound'] as List).contains(idsList[4]),
+        isTrue,
+      );
+      expect(roundOver['survivorIds'], hasLength(3));
+      expect(roundOver['isGameOver'], isFalse);
+    });
+
+    test('Bust round with 2 players: 1 eliminated, bust_game_ended broadcast', () {
+      final (:session, :sockets, :ids) = _makeSession(2, isBustMode: true);
+      final p1ws = sockets[0];
+      final p1Id = ids[0];
+      final p2Id = ids[1];
+
+      final p1Hand = [_card(Rank.three, Suit.spades)];
+      final p2Hand = List.generate(
+          5, (i) => _card(Rank.values[i + 2], Suit.hearts));
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: p1Id,
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: p1Hand,
+            cardCount: 1,
+            isActiveTurn: false,
+          ),
+          PlayerModel(
+            id: p2Id,
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: p2Hand,
+            cardCount: 5,
+            isActiveTurn: true,
+          ),
+        ],
+        currentPlayerId: p2Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: _card(Rank.two, Suit.spades),
+        drawPileCount: 10,
+        preTurnCentreSuit: Suit.spades,
+      );
+
+      final drawPile = List.generate(
+          10, (i) => CardModel(id: 'draw_$i', rank: Rank.four, suit: Suit.clubs));
+
+      session.seedStateForTesting(
+        state: state,
+        drawPile: drawPile,
+        bustSurvivorIds: [p1Id, p2Id],
+        bustTurnsThisRound: {p1Id: 2, p2Id: 1},
+        bustPenaltyPoints: {},
+      );
+
+      p1ws.clear();
+      session.handleAction(p2Id, {'type': 'draw_card'});
+
+      final roundOver = p1ws.lastOfType('bust_round_over');
+      expect(roundOver, isNotNull);
+      expect(roundOver!['isGameOver'], isTrue);
+      expect(roundOver['winnerId'], equals(p1Id));
+      expect(roundOver['eliminatedThisRound'], equals([p2Id]));
+
+      final gameEnded = p1ws.lastOfType('bust_game_ended');
+      expect(gameEnded, isNotNull);
+      expect(gameEnded!['winnerId'], equals(p1Id));
+    });
+
+    test('Bust next round: bust_round_start broadcast with incremented round number', () {
+      final (:session, :sockets, :ids) = _makeSession(5, isBustMode: true);
+      final p1ws = sockets[0];
+      final idsList = ids;
+
+      final cardCounts = {idsList[0]: 1, idsList[1]: 2, idsList[2]: 5, idsList[3]: 8, idsList[4]: 10};
+      final players = [
+        for (var i = 0; i < 5; i++)
+          PlayerModel(
+            id: idsList[i],
+            displayName: 'Player ${i + 1}',
+            tablePosition: _positionFor(i),
+            hand: List.generate(
+                cardCounts[idsList[i]]!,
+                (j) => _card(Rank.values[(j % 13) + 1], Suit.hearts)),
+            cardCount: cardCounts[idsList[i]]!,
+            isActiveTurn: i == 4,
+          ),
+      ];
+
+      final drawPile = List.generate(
+          20, (i) => CardModel(id: 'draw_$i', rank: Rank.four, suit: Suit.clubs));
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: players,
+        currentPlayerId: idsList[4],
+        direction: PlayDirection.clockwise,
+        discardTopCard: _card(Rank.two, Suit.spades),
+        drawPileCount: drawPile.length,
+        preTurnCentreSuit: Suit.spades,
+      );
+
+      session.seedStateForTesting(
+        state: state,
+        drawPile: drawPile,
+        bustSurvivorIds: idsList,
+        bustTurnsThisRound: {
+          idsList[0]: 2,
+          idsList[1]: 2,
+          idsList[2]: 2,
+          idsList[3]: 2,
+          idsList[4]: 1,
+        },
+        bustPenaltyPoints: {},
+      );
+
+      p1ws.clear();
+      session.handleAction(idsList[4], {'type': 'draw_card'});
+
+      final roundStart = p1ws.lastOfType('bust_round_start');
+      expect(roundStart, isNotNull);
+      expect(roundStart!['roundNumber'], equals(2));
     });
   });
 
