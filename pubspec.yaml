@@ -47,8 +47,6 @@ dev_dependencies:
   freezed: ^2.5.7
   json_serializable: ^6.8.0
   riverpod_generator: ^2.6.4
-  # custom_lint: 0.7.3
-  # riverpod_lint: ^2.3.13
   analyzer: 7.3.0
   mockito: ^5.4.4
 
