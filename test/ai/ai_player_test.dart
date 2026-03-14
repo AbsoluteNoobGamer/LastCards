@@ -35,7 +35,6 @@ GameState buildState({
     discardTopCard: discardTop,
     drawPileCount: 30,
     activePenaltyCount: activePenalty,
-    lastUpdatedAt: 0,
   );
 }
 

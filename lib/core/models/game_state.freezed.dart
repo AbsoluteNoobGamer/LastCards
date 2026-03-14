@@ -29,9 +29,6 @@ mixin _$GameState {
   /// Top card of the discard pile (null only before first card is turned).
   CardModel? get discardTopCard => throw _privateConstructorUsedError;
 
-  /// Second-from-top card for visual stacking effect on the discard pile.
-  CardModel? get discardSecondCard => throw _privateConstructorUsedError;
-
   /// Cards under the discard top (2nd, 3rd, ...) for visual stacking.
   List<CardModel> get discardPileHistory => throw _privateConstructorUsedError;
 
@@ -56,9 +53,6 @@ mixin _$GameState {
 
   /// ID of the player who has won (null if game not yet ended).
   String? get winnerId => throw _privateConstructorUsedError;
-
-  /// Server timestamp of the last state update (for stale detection).
-  int get lastUpdatedAt => throw _privateConstructorUsedError;
 
   /// Number of valid actions (plays) taken by the current player this turn.
   /// Resets to 0 whenever the active player changes.
@@ -101,7 +95,6 @@ abstract class $GameStateCopyWith<$Res> {
       String currentPlayerId,
       PlayDirection direction,
       CardModel? discardTopCard,
-      CardModel? discardSecondCard,
       List<CardModel> discardPileHistory,
       int drawPileCount,
       int activePenaltyCount,
@@ -110,14 +103,12 @@ abstract class $GameStateCopyWith<$Res> {
       Suit? preTurnCentreSuit,
       Suit? queenSuitLock,
       String? winnerId,
-      int lastUpdatedAt,
       int actionsThisTurn,
       int cardsPlayedThisTurn,
       CardModel? lastPlayedThisTurn,
       bool pendingJokerResolution});
 
   $CardModelCopyWith<$Res>? get discardTopCard;
-  $CardModelCopyWith<$Res>? get discardSecondCard;
   $CardModelCopyWith<$Res>? get lastPlayedThisTurn;
 }
 
@@ -142,7 +133,6 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
     Object? currentPlayerId = null,
     Object? direction = null,
     Object? discardTopCard = freezed,
-    Object? discardSecondCard = freezed,
     Object? discardPileHistory = null,
     Object? drawPileCount = null,
     Object? activePenaltyCount = null,
@@ -151,7 +141,6 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
     Object? preTurnCentreSuit = freezed,
     Object? queenSuitLock = freezed,
     Object? winnerId = freezed,
-    Object? lastUpdatedAt = null,
     Object? actionsThisTurn = null,
     Object? cardsPlayedThisTurn = null,
     Object? lastPlayedThisTurn = freezed,
@@ -181,10 +170,6 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
       discardTopCard: freezed == discardTopCard
           ? _value.discardTopCard
           : discardTopCard // ignore: cast_nullable_to_non_nullable
-              as CardModel?,
-      discardSecondCard: freezed == discardSecondCard
-          ? _value.discardSecondCard
-          : discardSecondCard // ignore: cast_nullable_to_non_nullable
               as CardModel?,
       discardPileHistory: null == discardPileHistory
           ? _value.discardPileHistory
@@ -218,10 +203,6 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
           ? _value.winnerId
           : winnerId // ignore: cast_nullable_to_non_nullable
               as String?,
-      lastUpdatedAt: null == lastUpdatedAt
-          ? _value.lastUpdatedAt
-          : lastUpdatedAt // ignore: cast_nullable_to_non_nullable
-              as int,
       actionsThisTurn: null == actionsThisTurn
           ? _value.actionsThisTurn
           : actionsThisTurn // ignore: cast_nullable_to_non_nullable
@@ -259,20 +240,6 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
   /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  $CardModelCopyWith<$Res>? get discardSecondCard {
-    if (_value.discardSecondCard == null) {
-      return null;
-    }
-
-    return $CardModelCopyWith<$Res>(_value.discardSecondCard!, (value) {
-      return _then(_value.copyWith(discardSecondCard: value) as $Val);
-    });
-  }
-
-  /// Create a copy of GameState
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @pragma('vm:prefer-inline')
   $CardModelCopyWith<$Res>? get lastPlayedThisTurn {
     if (_value.lastPlayedThisTurn == null) {
       return null;
@@ -299,7 +266,6 @@ abstract class _$$GameStateImplCopyWith<$Res>
       String currentPlayerId,
       PlayDirection direction,
       CardModel? discardTopCard,
-      CardModel? discardSecondCard,
       List<CardModel> discardPileHistory,
       int drawPileCount,
       int activePenaltyCount,
@@ -308,7 +274,6 @@ abstract class _$$GameStateImplCopyWith<$Res>
       Suit? preTurnCentreSuit,
       Suit? queenSuitLock,
       String? winnerId,
-      int lastUpdatedAt,
       int actionsThisTurn,
       int cardsPlayedThisTurn,
       CardModel? lastPlayedThisTurn,
@@ -316,8 +281,6 @@ abstract class _$$GameStateImplCopyWith<$Res>
 
   @override
   $CardModelCopyWith<$Res>? get discardTopCard;
-  @override
-  $CardModelCopyWith<$Res>? get discardSecondCard;
   @override
   $CardModelCopyWith<$Res>? get lastPlayedThisTurn;
 }
@@ -341,7 +304,6 @@ class __$$GameStateImplCopyWithImpl<$Res>
     Object? currentPlayerId = null,
     Object? direction = null,
     Object? discardTopCard = freezed,
-    Object? discardSecondCard = freezed,
     Object? discardPileHistory = null,
     Object? drawPileCount = null,
     Object? activePenaltyCount = null,
@@ -350,7 +312,6 @@ class __$$GameStateImplCopyWithImpl<$Res>
     Object? preTurnCentreSuit = freezed,
     Object? queenSuitLock = freezed,
     Object? winnerId = freezed,
-    Object? lastUpdatedAt = null,
     Object? actionsThisTurn = null,
     Object? cardsPlayedThisTurn = null,
     Object? lastPlayedThisTurn = freezed,
@@ -380,10 +341,6 @@ class __$$GameStateImplCopyWithImpl<$Res>
       discardTopCard: freezed == discardTopCard
           ? _value.discardTopCard
           : discardTopCard // ignore: cast_nullable_to_non_nullable
-              as CardModel?,
-      discardSecondCard: freezed == discardSecondCard
-          ? _value.discardSecondCard
-          : discardSecondCard // ignore: cast_nullable_to_non_nullable
               as CardModel?,
       discardPileHistory: null == discardPileHistory
           ? _value._discardPileHistory
@@ -417,10 +374,6 @@ class __$$GameStateImplCopyWithImpl<$Res>
           ? _value.winnerId
           : winnerId // ignore: cast_nullable_to_non_nullable
               as String?,
-      lastUpdatedAt: null == lastUpdatedAt
-          ? _value.lastUpdatedAt
-          : lastUpdatedAt // ignore: cast_nullable_to_non_nullable
-              as int,
       actionsThisTurn: null == actionsThisTurn
           ? _value.actionsThisTurn
           : actionsThisTurn // ignore: cast_nullable_to_non_nullable
@@ -451,7 +404,6 @@ class _$GameStateImpl implements _GameState {
       required this.currentPlayerId,
       required this.direction,
       this.discardTopCard,
-      this.discardSecondCard,
       final List<CardModel> discardPileHistory = const [],
       this.drawPileCount = 0,
       this.activePenaltyCount = 0,
@@ -460,7 +412,6 @@ class _$GameStateImpl implements _GameState {
       this.preTurnCentreSuit,
       this.queenSuitLock,
       this.winnerId,
-      this.lastUpdatedAt = 0,
       this.actionsThisTurn = 0,
       this.cardsPlayedThisTurn = 0,
       this.lastPlayedThisTurn,
@@ -491,10 +442,6 @@ class _$GameStateImpl implements _GameState {
   /// Top card of the discard pile (null only before first card is turned).
   @override
   final CardModel? discardTopCard;
-
-  /// Second-from-top card for visual stacking effect on the discard pile.
-  @override
-  final CardModel? discardSecondCard;
 
   /// Cards under the discard top (2nd, 3rd, ...) for visual stacking.
   final List<CardModel> _discardPileHistory;
@@ -541,11 +488,6 @@ class _$GameStateImpl implements _GameState {
   @override
   final String? winnerId;
 
-  /// Server timestamp of the last state update (for stale detection).
-  @override
-  @JsonKey()
-  final int lastUpdatedAt;
-
   /// Number of valid actions (plays) taken by the current player this turn.
   /// Resets to 0 whenever the active player changes.
   /// Used to enforce that a player must play or draw before ending their turn.
@@ -574,7 +516,7 @@ class _$GameStateImpl implements _GameState {
 
   @override
   String toString() {
-    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardSecondCard: $discardSecondCard, discardPileHistory: $discardPileHistory, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, activeSkipCount: $activeSkipCount, suitLock: $suitLock, preTurnCentreSuit: $preTurnCentreSuit, queenSuitLock: $queenSuitLock, winnerId: $winnerId, lastUpdatedAt: $lastUpdatedAt, actionsThisTurn: $actionsThisTurn, cardsPlayedThisTurn: $cardsPlayedThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn, pendingJokerResolution: $pendingJokerResolution)';
+    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardPileHistory: $discardPileHistory, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, activeSkipCount: $activeSkipCount, suitLock: $suitLock, preTurnCentreSuit: $preTurnCentreSuit, queenSuitLock: $queenSuitLock, winnerId: $winnerId, actionsThisTurn: $actionsThisTurn, cardsPlayedThisTurn: $cardsPlayedThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn, pendingJokerResolution: $pendingJokerResolution)';
   }
 
   @override
@@ -592,8 +534,6 @@ class _$GameStateImpl implements _GameState {
                 other.direction == direction) &&
             (identical(other.discardTopCard, discardTopCard) ||
                 other.discardTopCard == discardTopCard) &&
-            (identical(other.discardSecondCard, discardSecondCard) ||
-                other.discardSecondCard == discardSecondCard) &&
             const DeepCollectionEquality()
                 .equals(other._discardPileHistory, _discardPileHistory) &&
             (identical(other.drawPileCount, drawPileCount) ||
@@ -610,8 +550,6 @@ class _$GameStateImpl implements _GameState {
                 other.queenSuitLock == queenSuitLock) &&
             (identical(other.winnerId, winnerId) ||
                 other.winnerId == winnerId) &&
-            (identical(other.lastUpdatedAt, lastUpdatedAt) ||
-                other.lastUpdatedAt == lastUpdatedAt) &&
             (identical(other.actionsThisTurn, actionsThisTurn) ||
                 other.actionsThisTurn == actionsThisTurn) &&
             (identical(other.cardsPlayedThisTurn, cardsPlayedThisTurn) ||
@@ -624,29 +562,26 @@ class _$GameStateImpl implements _GameState {
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hashAll([
-        runtimeType,
-        sessionId,
-        phase,
-        const DeepCollectionEquality().hash(_players),
-        currentPlayerId,
-        direction,
-        discardTopCard,
-        discardSecondCard,
-        const DeepCollectionEquality().hash(_discardPileHistory),
-        drawPileCount,
-        activePenaltyCount,
-        activeSkipCount,
-        suitLock,
-        preTurnCentreSuit,
-        queenSuitLock,
-        winnerId,
-        lastUpdatedAt,
-        actionsThisTurn,
-        cardsPlayedThisTurn,
-        lastPlayedThisTurn,
-        pendingJokerResolution
-      ]);
+  int get hashCode => Object.hash(
+      runtimeType,
+      sessionId,
+      phase,
+      const DeepCollectionEquality().hash(_players),
+      currentPlayerId,
+      direction,
+      discardTopCard,
+      const DeepCollectionEquality().hash(_discardPileHistory),
+      drawPileCount,
+      activePenaltyCount,
+      activeSkipCount,
+      suitLock,
+      preTurnCentreSuit,
+      queenSuitLock,
+      winnerId,
+      actionsThisTurn,
+      cardsPlayedThisTurn,
+      lastPlayedThisTurn,
+      pendingJokerResolution);
 
   /// Create a copy of GameState
   /// with the given fields replaced by the non-null parameter values.
@@ -672,7 +607,6 @@ abstract class _GameState implements GameState {
       required final String currentPlayerId,
       required final PlayDirection direction,
       final CardModel? discardTopCard,
-      final CardModel? discardSecondCard,
       final List<CardModel> discardPileHistory,
       final int drawPileCount,
       final int activePenaltyCount,
@@ -681,7 +615,6 @@ abstract class _GameState implements GameState {
       final Suit? preTurnCentreSuit,
       final Suit? queenSuitLock,
       final String? winnerId,
-      final int lastUpdatedAt,
       final int actionsThisTurn,
       final int cardsPlayedThisTurn,
       final CardModel? lastPlayedThisTurn,
@@ -704,10 +637,6 @@ abstract class _GameState implements GameState {
   /// Top card of the discard pile (null only before first card is turned).
   @override
   CardModel? get discardTopCard;
-
-  /// Second-from-top card for visual stacking effect on the discard pile.
-  @override
-  CardModel? get discardSecondCard;
 
   /// Cards under the discard top (2nd, 3rd, ...) for visual stacking.
   @override
@@ -741,10 +670,6 @@ abstract class _GameState implements GameState {
   /// ID of the player who has won (null if game not yet ended).
   @override
   String? get winnerId;
-
-  /// Server timestamp of the last state update (for stale detection).
-  @override
-  int get lastUpdatedAt;
 
   /// Number of valid actions (plays) taken by the current player this turn.
   /// Resets to 0 whenever the active player changes.

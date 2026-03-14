@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/dealing_animation_overlay.dart';
 
 import '../../domain/usecases/offline_game_engine.dart';
+import 'package:last_cards/shared/engine/shuffle_utils.dart';
 import 'package:last_cards/shared/rules/win_condition_rules.dart';
 import '../../data/datasources/offline_game_state_datasource.dart';
 import '../../../../shared/engine/game_turn_timer.dart';
@@ -97,8 +98,6 @@ bool shouldShowStandardWinOverlay({required bool isTournamentMode}) {
   return !isTournamentMode;
 }
 
-// ── imports extended for engine ───────────────────────────────────────────────
-// (already imported above)
 
 class _TableScreenState extends ConsumerState<TableScreen> {
   String? _selectedCardId;
@@ -436,7 +435,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       orderedPlayers.add(players[idx]);
     }
 
-    for (int i = 0; i < 7; i++) {
+    final dealCount = _offlineState.players.first.hand.length;
+    for (int i = 0; i < dealCount; i++) {
       for (var pi = 0; pi < orderedPlayers.length; pi++) {
         final p = orderedPlayers[pi];
         if (!mounted) return;
@@ -631,14 +631,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     });
 
     _engineTimer.cancel();
-    if (nextId != OfflineGameState.localId) {
-      _scheduleAiTurn(nextId);
+    if (resolvedNextId != OfflineGameState.localId) {
+      _scheduleAiTurn(resolvedNextId);
     } else {
       _startTimer();
     }
   }
-
-
 
   Future<void> _endTurn() async {
     if (_aiThinking) return;
@@ -1524,51 +1522,43 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         .where((p) => p.tablePosition == TablePosition.bottom)
         .firstOrNull;
 
-    if (isQueenPenaltyDraw || isPenaltyDraw) {
-      final penaltyPlayerName =
-          _offlineState.playerById(playerId)?.displayName ?? playerId;
-      var nextId = nextPlayerId(state: newState);
-      nextId = _resolveTournamentNextPlayerId(newState, nextId);
-      newState = advanceTurn(newState, nextId: nextId);
-      setState(() {
-        _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
-        _selectedCardId = null;
-        if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
-        _pushMoveLog(MoveLogEntry.draw(
-          playerId: playerId,
-          playerName: penaltyPlayerName,
-          drawCount: drawCount,
-        ));
-      });
-      _engineTimer.cancel();
-      if (nextId != OfflineGameState.localId) {
-        _scheduleAiTurn(nextId);
-      } else {
-        _startTimer();
-      }
+    final playerName =
+        _offlineState.playerById(playerId)?.displayName ?? playerId;
+    _finalizeDrawAndAdvance(
+      playerId: playerId,
+      playerName: playerName,
+      drawCount: drawCount,
+      newState: newState,
+      localAfterDraw: localAfterDraw,
+    );
+  }
+
+  /// Shared helper for draw-and-advance logic used by _offlineDrawCard.
+  void _finalizeDrawAndAdvance({
+    required String playerId,
+    required String playerName,
+    required int drawCount,
+    required GameState newState,
+    required PlayerModel? localAfterDraw,
+  }) {
+    var nextId = nextPlayerId(state: newState);
+    nextId = _resolveTournamentNextPlayerId(newState, nextId);
+    final advanced = advanceTurn(newState, nextId: nextId);
+    setState(() {
+      _offlineState = advanced.copyWith(drawPileCount: _drawPile.length);
+      _selectedCardId = null;
+      if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
+      _pushMoveLog(MoveLogEntry.draw(
+        playerId: playerId,
+        playerName: playerName,
+        drawCount: drawCount,
+      ));
+    });
+    _engineTimer.cancel();
+    if (nextId != OfflineGameState.localId) {
+      _scheduleAiTurn(nextId);
     } else {
-      // Voluntary draw (no valid moves) — auto-end turn per the rules.
-      final drawPlayerName =
-          _offlineState.playerById(playerId)?.displayName ?? playerId;
-      var nextId = nextPlayerId(state: newState);
-      nextId = _resolveTournamentNextPlayerId(newState, nextId);
-      newState = advanceTurn(newState, nextId: nextId);
-      setState(() {
-        _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
-        _selectedCardId = null;
-        if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
-        _pushMoveLog(MoveLogEntry.draw(
-          playerId: playerId,
-          playerName: drawPlayerName,
-          drawCount: drawCount,
-        ));
-      });
-      _engineTimer.cancel();
-      if (nextId != OfflineGameState.localId) {
-        _scheduleAiTurn(nextId);
-      } else {
-        _startTimer();
-      }
+      _startTimer();
     }
   }
 
@@ -1754,13 +1744,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       ..add(topCard); // top card stays; everything else leaves
 
     // ── 2. Fisher-Yates shuffle ─────────────────────────────────────────────
-    final rng = math.Random();
-    for (int i = toShuffle.length - 1; i > 0; i--) {
-      final j = rng.nextInt(i + 1);
-      final tmp = toShuffle[i];
-      toShuffle[i] = toShuffle[j];
-      toShuffle[j] = tmp;
-    }
+    fisherYatesShuffle(toShuffle);
 
     // ── 3. Add shuffled cards to draw pile ──────────────────────────────────
     _drawPile.addAll(toShuffle);

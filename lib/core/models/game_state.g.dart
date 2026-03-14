@@ -18,10 +18,6 @@ _$GameStateImpl _$$GameStateImplFromJson(Map<String, dynamic> json) =>
       discardTopCard: json['discardTopCard'] == null
           ? null
           : CardModel.fromJson(json['discardTopCard'] as Map<String, dynamic>),
-      discardSecondCard: json['discardSecondCard'] == null
-          ? null
-          : CardModel.fromJson(
-              json['discardSecondCard'] as Map<String, dynamic>),
       discardPileHistory: (json['discardPileHistory'] as List<dynamic>?)
               ?.map((e) => CardModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -34,7 +30,6 @@ _$GameStateImpl _$$GameStateImplFromJson(Map<String, dynamic> json) =>
           $enumDecodeNullable(_$SuitEnumMap, json['preTurnCentreSuit']),
       queenSuitLock: $enumDecodeNullable(_$SuitEnumMap, json['queenSuitLock']),
       winnerId: json['winnerId'] as String?,
-      lastUpdatedAt: (json['lastUpdatedAt'] as num?)?.toInt() ?? 0,
       actionsThisTurn: (json['actionsThisTurn'] as num?)?.toInt() ?? 0,
       cardsPlayedThisTurn: (json['cardsPlayedThisTurn'] as num?)?.toInt() ?? 0,
       lastPlayedThisTurn: json['lastPlayedThisTurn'] == null
@@ -52,7 +47,6 @@ Map<String, dynamic> _$$GameStateImplToJson(_$GameStateImpl instance) =>
       'currentPlayerId': instance.currentPlayerId,
       'direction': _$PlayDirectionEnumMap[instance.direction]!,
       'discardTopCard': instance.discardTopCard,
-      'discardSecondCard': instance.discardSecondCard,
       'discardPileHistory': instance.discardPileHistory,
       'drawPileCount': instance.drawPileCount,
       'activePenaltyCount': instance.activePenaltyCount,
@@ -61,7 +55,6 @@ Map<String, dynamic> _$$GameStateImplToJson(_$GameStateImpl instance) =>
       'preTurnCentreSuit': _$SuitEnumMap[instance.preTurnCentreSuit],
       'queenSuitLock': _$SuitEnumMap[instance.queenSuitLock],
       'winnerId': instance.winnerId,
-      'lastUpdatedAt': instance.lastUpdatedAt,
       'actionsThisTurn': instance.actionsThisTurn,
       'cardsPlayedThisTurn': instance.cardsPlayedThisTurn,
       'lastPlayedThisTurn': instance.lastPlayedThisTurn,

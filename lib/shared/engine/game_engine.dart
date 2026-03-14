@@ -4,6 +4,7 @@ import '../models/card_model.dart';
 import '../models/game_state_model.dart';
 import '../rules/card_rules.dart';
 import '../rules/pickup_chain_rules.dart';
+import 'shuffle_utils.dart';
 
 export '../models/card_model.dart';
 export '../models/game_state_model.dart';
@@ -350,7 +351,6 @@ GameState applyPlay({
       if (gs.discardTopCard != null) gs.discardTopCard!,
       ...gs.discardPileHistory,
     ].take(5).toList(),
-    discardSecondCard: gs.discardTopCard,
     discardTopCard: cards.last,
     suitLock: null,
     queenSuitLock: null,
@@ -449,26 +449,64 @@ GameState applyInitialFaceUpEffect({
 ///
 /// This ensures the Joker is consumed from hand and the turn action is recorded
 /// in the same play pipeline as any other card.
+///
+/// Because a raw Joker hits the Sequence Penalty Override and Eight Skip
+/// Cancellation paths inside [applyPlay] (it is neither a 2/Jack nor an 8),
+/// we save and restore [activePenaltyCount] and [activeSkipCount] so the
+/// penalty/skip chain is preserved for [resolveJokerPlay] to act on.
 GameState beginJokerPlay({
   required GameState state,
   required String playerId,
   required CardModel jokerCard,
 }) {
+  final savedPenalty = state.activePenaltyCount;
+  final savedSkip = state.activeSkipCount;
   final played =
       applyPlay(state: state, playerId: playerId, cards: [jokerCard]);
-  return played.copyWith(pendingJokerResolution: true);
+  return played.copyWith(
+    pendingJokerResolution: true,
+    activePenaltyCount: savedPenalty,
+    activeSkipCount: savedSkip,
+  );
 }
 
 /// Finalizes a previously committed Joker play after the user picks a represented card.
+///
+/// After updating the discard top, applies the special effect of the resolved
+/// card (e.g. Joker declared as 2 adds penalty, as King reverses direction,
+/// as 8 applies skip, etc.), then runs the same Sequence Penalty Override and
+/// Eight Skip Cancellation that [applyPlay] performs so that online (server)
+/// and offline (client) paths produce identical state.
 GameState resolveJokerPlay({
   required GameState state,
   required CardModel resolvedJokerCard,
 }) {
-  return state.copyWith(
+  var resolved = state.copyWith(
     discardTopCard: resolvedJokerCard,
     lastPlayedThisTurn: resolvedJokerCard,
     pendingJokerResolution: false,
   );
+  // Apply the special effect of the card the Joker was declared as.
+  resolved = _applySpecialEffect(
+    resolved,
+    resolvedJokerCard,
+    declaredSuit: resolvedJokerCard.effectiveSuit,
+  );
+
+  // Sequence Penalty Override: mirror applyPlay — if the resolved card is not
+  // a penalty-generating card, clear any accumulated penalty.
+  if (shouldClearPenaltyAfterPlay(resolvedJokerCard)) {
+    resolved = resolved.copyWith(activePenaltyCount: 0);
+  }
+
+  // Eight Skip Cancellation: mirror applyPlay — if the resolved card is not
+  // an Eight, clear any accumulated skip count.
+  if (resolvedJokerCard.effectiveRank != Rank.eight &&
+      resolved.activeSkipCount > 0) {
+    resolved = resolved.copyWith(activeSkipCount: 0);
+  }
+
+  return resolved;
 }
 
 GameState _applySpecialEffect(
@@ -620,14 +658,7 @@ List<CardModel> buildShuffledDeck() {
   deck.add(const CardModel(id: 'joker_r', rank: Rank.joker, suit: Suit.hearts));
   deck.add(const CardModel(id: 'joker_b', rank: Rank.joker, suit: Suit.spades));
 
-  // Fisher-Yates shuffle
-  final rng = math.Random();
-  for (int i = deck.length - 1; i > 0; i--) {
-    final j = rng.nextInt(i + 1);
-    final tmp = deck[i];
-    deck[i] = deck[j];
-    deck[j] = tmp;
-  }
+  fisherYatesShuffle(deck);
   return deck;
 }
 
@@ -651,13 +682,7 @@ List<CardModel> buildBustDeck({int? seed}) {
       ));
     }
   }
-  final rng = seed != null ? math.Random(seed) : math.Random();
-  for (int i = deck.length - 1; i > 0; i--) {
-    final j = rng.nextInt(i + 1);
-    final tmp = deck[i];
-    deck[i] = deck[j];
-    deck[j] = tmp;
-  }
+  fisherYatesShuffle(deck, seed);
   return deck;
 }
 

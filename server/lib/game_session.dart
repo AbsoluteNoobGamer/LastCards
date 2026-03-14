@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:collection/collection.dart';
 import 'package:last_cards/shared/engine/game_engine.dart';
+import 'package:last_cards/shared/engine/shuffle_utils.dart';
 import 'package:last_cards/shared/rules/win_condition_rules.dart';
 
 import 'trophy_recorder.dart';
@@ -255,7 +257,6 @@ class GameSession {
         tablePosition: _positionFor(i),
         hand: hand,
         cardCount: hand.length,
-        isActiveTurn: i == 0,
       ));
     }
 
@@ -338,12 +339,12 @@ class GameSession {
     // Resolve card objects from the player's hand.
     final List<CardModel> cards = [];
     for (final id in cardIds) {
-      try {
-        cards.add(player.hand.firstWhere((c) => c.id == id));
-      } catch (_) {
+      final card = player.hand.firstWhereOrNull((c) => c.id == id);
+      if (card == null) {
         _sendError(playerId, 'invalid_card', 'Card $id not found in hand.');
         return;
       }
+      cards.add(card);
     }
 
     final err = validatePlay(
@@ -510,10 +511,8 @@ class GameSession {
     final player = _state.playerById(playerId);
     if (player == null) return;
 
-    CardModel jokerCard;
-    try {
-      jokerCard = player.hand.firstWhere((c) => c.id == jokerCardId);
-    } catch (_) {
+    final jokerCard = player.hand.firstWhereOrNull((c) => c.id == jokerCardId);
+    if (jokerCard == null) {
       _sendError(playerId, 'invalid_card', 'Joker $jokerCardId not in hand.');
       return;
     }
@@ -682,7 +681,6 @@ class GameSession {
         tablePosition: _positionFor(i),
         hand: hand,
         cardCount: hand.length,
-        isActiveTurn: i == 0,
       ));
     }
 
@@ -860,17 +858,10 @@ class GameSession {
   }
 
   void _reshuffleDiscardIntoDraw() {
-    final rng = math.Random();
     final toShuffle = List<CardModel>.from(_discardUnderTop);
     _discardUnderTop.clear();
 
-    // Fisher-Yates shuffle
-    for (int i = toShuffle.length - 1; i > 0; i--) {
-      final j = rng.nextInt(i + 1);
-      final tmp = toShuffle[i];
-      toShuffle[i] = toShuffle[j];
-      toShuffle[j] = tmp;
-    }
+    fisherYatesShuffle(toShuffle);
 
     _drawPile.addAll(toShuffle);
     _state = _state.copyWith(drawPileCount: _drawPile.length);
@@ -900,6 +891,12 @@ class GameSession {
       TablePosition.left,
       TablePosition.top,
       TablePosition.right,
+      TablePosition.bottomLeft,
+      TablePosition.topLeft,
+      TablePosition.topRight,
+      TablePosition.bottomRight,
+      TablePosition.farLeft,
+      TablePosition.farRight,
     ];
 
     for (final entry in _players.entries) {
@@ -962,6 +959,12 @@ class GameSession {
       TablePosition.left,
       TablePosition.top,
       TablePosition.right,
+      TablePosition.bottomLeft,
+      TablePosition.topLeft,
+      TablePosition.topRight,
+      TablePosition.bottomRight,
+      TablePosition.farLeft,
+      TablePosition.farRight,
     ];
     return opponentPositions[(index - 1) % opponentPositions.length];
   }

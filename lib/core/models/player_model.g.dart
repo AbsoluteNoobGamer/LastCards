@@ -16,9 +16,6 @@ _$PlayerModelImpl _$$PlayerModelImplFromJson(Map<String, dynamic> json) =>
               .toList() ??
           const [],
       cardCount: (json['cardCount'] as num?)?.toInt() ?? 0,
-      isConnected: json['isConnected'] as bool? ?? true,
-      isActiveTurn: json['isActiveTurn'] as bool? ?? false,
-      isSkipped: json['isSkipped'] as bool? ?? false,
     );
 
 Map<String, dynamic> _$$PlayerModelImplToJson(_$PlayerModelImpl instance) =>
@@ -28,9 +25,6 @@ Map<String, dynamic> _$$PlayerModelImplToJson(_$PlayerModelImpl instance) =>
       'tablePosition': _$TablePositionEnumMap[instance.tablePosition]!,
       'hand': instance.hand,
       'cardCount': instance.cardCount,
-      'isConnected': instance.isConnected,
-      'isActiveTurn': instance.isActiveTurn,
-      'isSkipped': instance.isSkipped,
     };
 
 const _$TablePositionEnumMap = {
@@ -38,4 +32,10 @@ const _$TablePositionEnumMap = {
   TablePosition.top: 'top',
   TablePosition.left: 'left',
   TablePosition.right: 'right',
+  TablePosition.bottomLeft: 'bottomLeft',
+  TablePosition.topLeft: 'topLeft',
+  TablePosition.topRight: 'topRight',
+  TablePosition.bottomRight: 'bottomRight',
+  TablePosition.farLeft: 'farLeft',
+  TablePosition.farRight: 'farRight',
 };

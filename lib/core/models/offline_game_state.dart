@@ -53,9 +53,6 @@ abstract final class OfflineGameState {
         tablePosition: TablePosition.bottom,
         hand: localHand,
         cardCount: localHand.length,
-        isConnected: true,
-        isActiveTurn: true,
-        isSkipped: false,
       ),
     ];
 
@@ -76,9 +73,6 @@ abstract final class OfflineGameState {
         tablePosition: aiPositionCycle[i % aiPositionCycle.length],
         hand: aiHand,
         cardCount: aiHand.length,
-        isConnected: true,
-        isActiveTurn: false,
-        isSkipped: false,
       ));
     }
 
@@ -92,13 +86,11 @@ abstract final class OfflineGameState {
       currentPlayerId: localId,
       direction: PlayDirection.clockwise,
       discardTopCard: discardTop,
-      discardSecondCard: null,
       drawPileCount: drawPile.length,
       activePenaltyCount: 0,
       suitLock: null,
       queenSuitLock: null,
       winnerId: null,
-      lastUpdatedAt: 0,
     );
 
     return (state, drawPile);

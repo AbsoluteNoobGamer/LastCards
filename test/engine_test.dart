@@ -28,7 +28,6 @@ void main() {
       activePenaltyCount: activePenalty,
       suitLock: suitLock,
       queenSuitLock: queenSuitLock,
-      lastUpdatedAt: 0,
       players: [
         PlayerModel(
           id: 'p1',
@@ -36,9 +35,6 @@ void main() {
           tablePosition: TablePosition.bottom,
           hand: p1Hand,
           cardCount: p1Hand.length,
-          isConnected: true,
-          isActiveTurn: true,
-          isSkipped: false,
         ),
       ],
     );
@@ -563,19 +559,13 @@ void main() {
           displayName: 'P2',
           tablePosition: TablePosition.top,
           hand: [],
-          cardCount: 0,
-          isConnected: true,
-          isActiveTurn: false,
-          isSkipped: false);
+          cardCount: 0);
       final p3 = PlayerModel(
           id: 'p3',
           displayName: 'P3',
           tablePosition: TablePosition.left,
           hand: [],
-          cardCount: 0,
-          isConnected: true,
-          isActiveTurn: false,
-          isSkipped: false);
+          cardCount: 0);
       state = state.copyWith(players: [...state.players, p2, p3]);
 
       state = applyPlay(
@@ -592,28 +582,19 @@ void main() {
           displayName: 'P2',
           tablePosition: TablePosition.top,
           hand: [],
-          cardCount: 0,
-          isConnected: true,
-          isActiveTurn: false,
-          isSkipped: false);
+          cardCount: 0);
       final p3 = PlayerModel(
           id: 'p3',
           displayName: 'P3',
           tablePosition: TablePosition.left,
           hand: [],
-          cardCount: 0,
-          isConnected: true,
-          isActiveTurn: false,
-          isSkipped: false);
+          cardCount: 0);
       final p4 = PlayerModel(
           id: 'p4',
           displayName: 'P4',
           tablePosition: TablePosition.right,
           hand: [],
-          cardCount: 0,
-          isConnected: true,
-          isActiveTurn: false,
-          isSkipped: false);
+          cardCount: 0);
       state = state.copyWith(players: [...state.players, p2, p3, p4]);
 
       // Play 3 8s
@@ -637,28 +618,19 @@ void main() {
           displayName: 'P2',
           tablePosition: TablePosition.top,
           hand: [],
-          cardCount: 0,
-          isConnected: true,
-          isActiveTurn: false,
-          isSkipped: false);
+          cardCount: 0);
       final p3 = PlayerModel(
           id: 'p3',
           displayName: 'P3',
           tablePosition: TablePosition.left,
           hand: [],
-          cardCount: 0,
-          isConnected: true,
-          isActiveTurn: false,
-          isSkipped: false);
+          cardCount: 0);
       final p4 = PlayerModel(
           id: 'p4',
           displayName: 'P4',
           tablePosition: TablePosition.right,
           hand: [],
-          cardCount: 0,
-          isConnected: true,
-          isActiveTurn: false,
-          isSkipped: false);
+          cardCount: 0);
       state = state.copyWith(players: [...state.players, p2, p3, p4]);
 
       // First Eight — skip count becomes 1
@@ -687,19 +659,13 @@ void main() {
           displayName: 'P2',
           tablePosition: TablePosition.top,
           hand: [],
-          cardCount: 0,
-          isConnected: true,
-          isActiveTurn: false,
-          isSkipped: false);
+          cardCount: 0);
       final p3 = PlayerModel(
           id: 'p3',
           displayName: 'P3',
           tablePosition: TablePosition.left,
           hand: [],
-          cardCount: 0,
-          isConnected: true,
-          isActiveTurn: false,
-          isSkipped: false);
+          cardCount: 0);
       state = state.copyWith(players: [...state.players, p2, p3]);
 
       // Play ♠7 — matches discard suit (spades)
@@ -735,19 +701,13 @@ void main() {
           displayName: 'P2',
           tablePosition: TablePosition.top,
           hand: [],
-          cardCount: 0,
-          isConnected: true,
-          isActiveTurn: false,
-          isSkipped: false);
+          cardCount: 0);
       final p3 = PlayerModel(
           id: 'p3',
           displayName: 'P3',
           tablePosition: TablePosition.left,
           hand: [],
-          cardCount: 0,
-          isConnected: true,
-          isActiveTurn: false,
-          isSkipped: false);
+          cardCount: 0);
       state = state.copyWith(players: [...state.players, p2, p3]);
 
       // Play Eight — skip count becomes 1
@@ -775,28 +735,19 @@ void main() {
           displayName: 'P2',
           tablePosition: TablePosition.top,
           hand: [],
-          cardCount: 0,
-          isConnected: true,
-          isActiveTurn: false,
-          isSkipped: false);
+          cardCount: 0);
       final p3 = PlayerModel(
           id: 'p3',
           displayName: 'P3',
           tablePosition: TablePosition.left,
           hand: [],
-          cardCount: 0,
-          isConnected: true,
-          isActiveTurn: false,
-          isSkipped: false);
+          cardCount: 0);
       final p4 = PlayerModel(
           id: 'p4',
           displayName: 'P4',
           tablePosition: TablePosition.right,
           hand: [],
-          cardCount: 0,
-          isConnected: true,
-          isActiveTurn: false,
-          isSkipped: false);
+          cardCount: 0);
       state = state.copyWith(players: [...state.players, p2, p3, p4]);
 
       // Play two Eights — skip count becomes 2
@@ -828,9 +779,6 @@ void main() {
         tablePosition: TablePosition.top,
         hand: [],
         cardCount: 0,
-        isConnected: true,
-        isActiveTurn: false,
-        isSkipped: false,
       );
       state = state.copyWith(players: [...state.players, p2]);
 

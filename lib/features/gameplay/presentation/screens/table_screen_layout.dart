@@ -65,11 +65,6 @@ class _TableLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     var players = gameState.players;
 
-    // Update player models to accurately reflect `isActiveTurn` BEFORE extracting
-    players = players
-        .map((p) => p.copyWith(isActiveTurn: p.id == gameState.currentPlayerId))
-        .toList();
-
     // Create new player models masked by visible counts if dealing is active.
     if (isDealing) {
       players = players.map((p) {
@@ -181,6 +176,7 @@ class _TableLayout extends StatelessWidget {
                                 ? PlayerZoneWidget(
                                     key: playerZoneKeys[leftOpp.id],
                                     player: leftOpp,
+                                    isActiveTurn: gameState.currentPlayerId == leftOpp.id,
                                     isTournamentFinished:
                                         tournamentStatusBadges[leftOpp.id] !=
                                             null,
@@ -198,6 +194,7 @@ class _TableLayout extends StatelessWidget {
                                   ? PlayerZoneWidget(
                                       key: playerZoneKeys[topOpp.id],
                                       player: topOpp,
+                                      isActiveTurn: gameState.currentPlayerId == topOpp.id,
                                       isTournamentFinished:
                                           tournamentStatusBadges[topOpp.id] !=
                                               null,
@@ -216,6 +213,7 @@ class _TableLayout extends StatelessWidget {
                                   ? PlayerZoneWidget(
                                       key: playerZoneKeys[rightOpp.id],
                                       player: rightOpp,
+                                      isActiveTurn: gameState.currentPlayerId == rightOpp.id,
                                       isTournamentFinished:
                                           tournamentStatusBadges[rightOpp.id] !=
                                               null,
@@ -308,10 +306,10 @@ class _TableLayout extends StatelessWidget {
                                 maxHeight: double.infinity,
                                 child: DiscardPileWidget(
                                   topCard: gameState.discardTopCard,
-                                  secondCard: gameState.discardSecondCard,
-                                  discardPileHistory: gameState.discardPileHistory,
-                                  cardWidth: 100,
-                                  discardPileCount: discardPileCount,
+                                              secondCard: gameState.discardPileHistory.isNotEmpty ? gameState.discardPileHistory.first : null,
+                                              discardPileHistory: gameState.discardPileHistory,
+                                              cardWidth: 100,
+                                              discardPileCount: discardPileCount,
                                 ),
                               ),
                             ),
@@ -360,6 +358,7 @@ class _TableLayout extends StatelessWidget {
                 key: playerZoneKeys[localPlayer.id],
                 player: localPlayer,
                 isLocalPlayer: true,
+                isActiveTurn: gameState.currentPlayerId == localPlayer.id,
                 compact: false,
                 child: finishedPlayerIds.contains(localPlayer.id)
                         ? _TournamentLocalStatusBanner(
@@ -398,9 +397,6 @@ class _TableLayout extends StatelessWidget {
     tablePosition: TablePosition.bottom,
     hand: [],
     cardCount: 0,
-    isConnected: true,
-    isActiveTurn: false,
-    isSkipped: false,
   );
 
   PlayerModel? _opponentAt(List<PlayerModel> players, TablePosition pos) {
@@ -518,6 +514,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                               ? PlayerZoneWidget(
                                   key: playerZoneKeys[leftOpp!.id],
                                   player: leftOpp!,
+                                  isActiveTurn: gameState.currentPlayerId == leftOpp!.id,
                                   isTournamentFinished:
                                       tournamentStatusBadges[leftOpp!.id] !=
                                           null,
@@ -537,6 +534,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                               ? PlayerZoneWidget(
                                   key: playerZoneKeys[topOpp!.id],
                                   player: topOpp!,
+                                  isActiveTurn: gameState.currentPlayerId == topOpp!.id,
                                   isTournamentFinished:
                                       tournamentStatusBadges[topOpp!.id] !=
                                           null,
@@ -556,6 +554,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                               ? PlayerZoneWidget(
                                   key: playerZoneKeys[rightOpp!.id],
                                   player: rightOpp!,
+                                  isActiveTurn: gameState.currentPlayerId == rightOpp!.id,
                                   isTournamentFinished:
                                       tournamentStatusBadges[rightOpp!.id] !=
                                           null,
@@ -610,7 +609,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                     maxHeight: double.infinity,
                     child: DiscardPileWidget(
                       topCard: gameState.discardTopCard,
-                      secondCard: gameState.discardSecondCard,
+                      secondCard: gameState.discardPileHistory.isNotEmpty ? gameState.discardPileHistory.first : null,
                       discardPileHistory: gameState.discardPileHistory,
                       cardWidth: pileSize,
                       discardPileCount: discardPileCount,
@@ -663,6 +662,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                 key: playerZoneKeys[localPlayer.id],
                 player: localPlayer,
                 isLocalPlayer: true,
+                isActiveTurn: gameState.currentPlayerId == localPlayer.id,
                 compact: true,
                 child: finishedPlayerIds.contains(localPlayer.id)
                     ? _TournamentLocalStatusBanner(

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:last_cards/core/models/offline_game_state.dart';
 import 'package:last_cards/shared/engine/game_engine.dart';
+import 'package:last_cards/shared/engine/shuffle_utils.dart';
 
 export 'package:last_cards/shared/models/card_model.dart';
 export 'package:last_cards/shared/models/game_state_model.dart';
@@ -73,17 +74,22 @@ abstract final class BustEngine {
         tablePosition: TablePosition.bottom,
         hand: localHand,
         cardCount: localHand.length,
-        isConnected: true,
-        isActiveTurn: true,
-        isSkipped: false,
       ),
     ];
 
-    // 2. AI players — positions cycle so all counts work
+    // 2. AI players — positions cycle through all 9 opponent slots so up to
+    //    10-player Bust mode assigns unique positions (matching the server's
+    //    _positionFor logic in game_session.dart).
     const aiPositionCycle = [
       TablePosition.top,
       TablePosition.left,
       TablePosition.right,
+      TablePosition.bottomLeft,
+      TablePosition.topLeft,
+      TablePosition.topRight,
+      TablePosition.bottomRight,
+      TablePosition.farLeft,
+      TablePosition.farRight,
     ];
     for (int i = 0; i < playerCount - 1; i++) {
       final aiId = 'player-${i + 2}';
@@ -94,9 +100,6 @@ abstract final class BustEngine {
         tablePosition: aiPositionCycle[i % aiPositionCycle.length],
         hand: aiHand,
         cardCount: aiHand.length,
-        isConnected: true,
-        isActiveTurn: false,
-        isSkipped: false,
       ));
     }
 
@@ -112,19 +115,15 @@ abstract final class BustEngine {
     final state = GameState(
       sessionId: 'bust-session',
       phase: GamePhase.playing,
-      players: players
-          .map((p) => p.copyWith(isActiveTurn: p.id == firstId))
-          .toList(),
+      players: players,
       currentPlayerId: firstId,
       direction: PlayDirection.clockwise,
       discardTopCard: discardTop,
-      discardSecondCard: null,
       drawPileCount: drawPile.length,
       activePenaltyCount: 0,
       suitLock: null,
       queenSuitLock: null,
       winnerId: null,
-      lastUpdatedAt: 0,
     );
 
     return (gameState: state, drawPile: drawPile);
@@ -150,14 +149,7 @@ abstract final class BustEngine {
     final toShuffle =
         List<CardModel>.from(discardPile.sublist(0, discardPile.length - 1));
 
-    // Fisher-Yates shuffle
-    final rng = math.Random(seed);
-    for (int i = toShuffle.length - 1; i > 0; i--) {
-      final j = rng.nextInt(i + 1);
-      final tmp = toShuffle[i];
-      toShuffle[i] = toShuffle[j];
-      toShuffle[j] = tmp;
-    }
+    fisherYatesShuffle(toShuffle, seed);
 
     // Discard pile is managed by caller — they should clear it and add topCard back
     final newDrawPile = [...drawPile, ...toShuffle];

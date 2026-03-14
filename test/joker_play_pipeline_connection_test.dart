@@ -19,7 +19,6 @@ GameState _stateForJokerPipeline({
         tablePosition: TablePosition.bottom,
         hand: localHand,
         cardCount: localHand.length,
-        isActiveTurn: true,
       ),
       const PlayerModel(
         id: 'p2',

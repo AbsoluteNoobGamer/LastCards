@@ -31,15 +31,6 @@ mixin _$PlayerModel {
   /// Number of cards the player holds. Always accurate for all players.
   int get cardCount => throw _privateConstructorUsedError;
 
-  /// Whether the player is currently connected to the game session.
-  bool get isConnected => throw _privateConstructorUsedError;
-
-  /// Whether it is currently this player's turn.
-  bool get isActiveTurn => throw _privateConstructorUsedError;
-
-  /// Set to true when affected by an 8 (skip) card effect.
-  bool get isSkipped => throw _privateConstructorUsedError;
-
   /// Serializes this PlayerModel to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
 
@@ -61,10 +52,7 @@ abstract class $PlayerModelCopyWith<$Res> {
       String displayName,
       TablePosition tablePosition,
       List<CardModel> hand,
-      int cardCount,
-      bool isConnected,
-      bool isActiveTurn,
-      bool isSkipped});
+      int cardCount});
 }
 
 /// @nodoc
@@ -87,9 +75,6 @@ class _$PlayerModelCopyWithImpl<$Res, $Val extends PlayerModel>
     Object? tablePosition = null,
     Object? hand = null,
     Object? cardCount = null,
-    Object? isConnected = null,
-    Object? isActiveTurn = null,
-    Object? isSkipped = null,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -112,18 +97,6 @@ class _$PlayerModelCopyWithImpl<$Res, $Val extends PlayerModel>
           ? _value.cardCount
           : cardCount // ignore: cast_nullable_to_non_nullable
               as int,
-      isConnected: null == isConnected
-          ? _value.isConnected
-          : isConnected // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isActiveTurn: null == isActiveTurn
-          ? _value.isActiveTurn
-          : isActiveTurn // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isSkipped: null == isSkipped
-          ? _value.isSkipped
-          : isSkipped // ignore: cast_nullable_to_non_nullable
-              as bool,
     ) as $Val);
   }
 }
@@ -141,10 +114,7 @@ abstract class _$$PlayerModelImplCopyWith<$Res>
       String displayName,
       TablePosition tablePosition,
       List<CardModel> hand,
-      int cardCount,
-      bool isConnected,
-      bool isActiveTurn,
-      bool isSkipped});
+      int cardCount});
 }
 
 /// @nodoc
@@ -165,9 +135,6 @@ class __$$PlayerModelImplCopyWithImpl<$Res>
     Object? tablePosition = null,
     Object? hand = null,
     Object? cardCount = null,
-    Object? isConnected = null,
-    Object? isActiveTurn = null,
-    Object? isSkipped = null,
   }) {
     return _then(_$PlayerModelImpl(
       id: null == id
@@ -190,18 +157,6 @@ class __$$PlayerModelImplCopyWithImpl<$Res>
           ? _value.cardCount
           : cardCount // ignore: cast_nullable_to_non_nullable
               as int,
-      isConnected: null == isConnected
-          ? _value.isConnected
-          : isConnected // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isActiveTurn: null == isActiveTurn
-          ? _value.isActiveTurn
-          : isActiveTurn // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isSkipped: null == isSkipped
-          ? _value.isSkipped
-          : isSkipped // ignore: cast_nullable_to_non_nullable
-              as bool,
     ));
   }
 }
@@ -214,10 +169,7 @@ class _$PlayerModelImpl implements _PlayerModel {
       required this.displayName,
       required this.tablePosition,
       final List<CardModel> hand = const [],
-      this.cardCount = 0,
-      this.isConnected = true,
-      this.isActiveTurn = false,
-      this.isSkipped = false})
+      this.cardCount = 0})
       : _hand = hand;
 
   factory _$PlayerModelImpl.fromJson(Map<String, dynamic> json) =>
@@ -249,24 +201,9 @@ class _$PlayerModelImpl implements _PlayerModel {
   @JsonKey()
   final int cardCount;
 
-  /// Whether the player is currently connected to the game session.
-  @override
-  @JsonKey()
-  final bool isConnected;
-
-  /// Whether it is currently this player's turn.
-  @override
-  @JsonKey()
-  final bool isActiveTurn;
-
-  /// Set to true when affected by an 8 (skip) card effect.
-  @override
-  @JsonKey()
-  final bool isSkipped;
-
   @override
   String toString() {
-    return 'PlayerModel(id: $id, displayName: $displayName, tablePosition: $tablePosition, hand: $hand, cardCount: $cardCount, isConnected: $isConnected, isActiveTurn: $isActiveTurn, isSkipped: $isSkipped)';
+    return 'PlayerModel(id: $id, displayName: $displayName, tablePosition: $tablePosition, hand: $hand, cardCount: $cardCount)';
   }
 
   @override
@@ -281,27 +218,13 @@ class _$PlayerModelImpl implements _PlayerModel {
                 other.tablePosition == tablePosition) &&
             const DeepCollectionEquality().equals(other._hand, _hand) &&
             (identical(other.cardCount, cardCount) ||
-                other.cardCount == cardCount) &&
-            (identical(other.isConnected, isConnected) ||
-                other.isConnected == isConnected) &&
-            (identical(other.isActiveTurn, isActiveTurn) ||
-                other.isActiveTurn == isActiveTurn) &&
-            (identical(other.isSkipped, isSkipped) ||
-                other.isSkipped == isSkipped));
+                other.cardCount == cardCount));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      id,
-      displayName,
-      tablePosition,
-      const DeepCollectionEquality().hash(_hand),
-      cardCount,
-      isConnected,
-      isActiveTurn,
-      isSkipped);
+  int get hashCode => Object.hash(runtimeType, id, displayName, tablePosition,
+      const DeepCollectionEquality().hash(_hand), cardCount);
 
   /// Create a copy of PlayerModel
   /// with the given fields replaced by the non-null parameter values.
@@ -325,10 +248,7 @@ abstract class _PlayerModel implements PlayerModel {
       required final String displayName,
       required final TablePosition tablePosition,
       final List<CardModel> hand,
-      final int cardCount,
-      final bool isConnected,
-      final bool isActiveTurn,
-      final bool isSkipped}) = _$PlayerModelImpl;
+      final int cardCount}) = _$PlayerModelImpl;
 
   factory _PlayerModel.fromJson(Map<String, dynamic> json) =
       _$PlayerModelImpl.fromJson;
@@ -348,18 +268,6 @@ abstract class _PlayerModel implements PlayerModel {
   /// Number of cards the player holds. Always accurate for all players.
   @override
   int get cardCount;
-
-  /// Whether the player is currently connected to the game session.
-  @override
-  bool get isConnected;
-
-  /// Whether it is currently this player's turn.
-  @override
-  bool get isActiveTurn;
-
-  /// Set to true when affected by an 8 (skip) card effect.
-  @override
-  bool get isSkipped;
 
   /// Create a copy of PlayerModel
   /// with the given fields replaced by the non-null parameter values.

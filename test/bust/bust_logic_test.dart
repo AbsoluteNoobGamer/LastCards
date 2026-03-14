@@ -148,12 +148,11 @@ void main() {
       }
     });
 
-    test('exactly one player has isActiveTurn = true', () {
+    test('currentPlayerId points to exactly one player', () {
       final (:gameState, :drawPile) =
           BustEngine.buildRound(playerCount: 6, seed: 99);
-      final active = gameState.players.where((p) => p.isActiveTurn).toList();
+      final active = gameState.players.where((p) => p.id == gameState.currentPlayerId).toList();
       expect(active.length, 1);
-      expect(active.first.id, gameState.currentPlayerId);
     });
 
     test('assert fires for playerCount < 2', () {

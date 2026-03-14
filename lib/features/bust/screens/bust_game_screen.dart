@@ -1005,7 +1005,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                                     maxHeight: double.infinity,
                                     child: DiscardPileWidget(
                                       topCard: _gameState.discardTopCard,
-                                      secondCard: _gameState.discardSecondCard,
+                                      secondCard: _gameState.discardPileHistory.isNotEmpty ? _gameState.discardPileHistory.first : null,
                                       discardPileHistory: _gameState.discardPileHistory,
                                       cardWidth: 100,
                                       discardPileCount: _discardPile.length,
@@ -1049,12 +1049,12 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                             child: PlayerZoneWidget(
                               player:
                                   localPlayer.copyWith(
-                                    isActiveTurn: isMyTurn,
                                     cardCount: _isDealing
                                         ? (_visibleCardCounts[OfflineGameState.localId] ?? 0)
                                         : localPlayer.cardCount,
                                   ),
                               isLocalPlayer: true,
+                              isActiveTurn: isMyTurn,
                               child: PlayerHandWidget(
                                 cards: _orderedHand,
                                 selectedCardId: _selectedCardId,
