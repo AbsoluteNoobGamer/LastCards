@@ -474,7 +474,9 @@ GameState beginJokerPlay({
 ///
 /// After updating the discard top, applies the special effect of the resolved
 /// card (e.g. Joker declared as 2 adds penalty, as King reverses direction,
-/// as 8 applies skip, etc.).
+/// as 8 applies skip, etc.), then runs the same Sequence Penalty Override and
+/// Eight Skip Cancellation that [applyPlay] performs so that online (server)
+/// and offline (client) paths produce identical state.
 GameState resolveJokerPlay({
   required GameState state,
   required CardModel resolvedJokerCard,
@@ -490,6 +492,20 @@ GameState resolveJokerPlay({
     resolvedJokerCard,
     declaredSuit: resolvedJokerCard.effectiveSuit,
   );
+
+  // Sequence Penalty Override: mirror applyPlay — if the resolved card is not
+  // a penalty-generating card, clear any accumulated penalty.
+  if (shouldClearPenaltyAfterPlay(resolvedJokerCard)) {
+    resolved = resolved.copyWith(activePenaltyCount: 0);
+  }
+
+  // Eight Skip Cancellation: mirror applyPlay — if the resolved card is not
+  // an Eight, clear any accumulated skip count.
+  if (resolvedJokerCard.effectiveRank != Rank.eight &&
+      resolved.activeSkipCount > 0) {
+    resolved = resolved.copyWith(activeSkipCount: 0);
+  }
+
   return resolved;
 }
 

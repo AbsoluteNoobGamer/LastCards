@@ -77,11 +77,19 @@ abstract final class BustEngine {
       ),
     ];
 
-    // 2. AI players — positions cycle so all counts work
+    // 2. AI players — positions cycle through all 9 opponent slots so up to
+    //    10-player Bust mode assigns unique positions (matching the server's
+    //    _positionFor logic in game_session.dart).
     const aiPositionCycle = [
       TablePosition.top,
       TablePosition.left,
       TablePosition.right,
+      TablePosition.bottomLeft,
+      TablePosition.topLeft,
+      TablePosition.topRight,
+      TablePosition.bottomRight,
+      TablePosition.farLeft,
+      TablePosition.farRight,
     ];
     for (int i = 0; i < playerCount - 1; i++) {
       final aiId = 'player-${i + 2}';
