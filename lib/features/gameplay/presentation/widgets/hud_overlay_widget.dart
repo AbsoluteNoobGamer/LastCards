@@ -93,8 +93,14 @@ double _rotationForTarget(TablePosition? position) {
     case TablePosition.top:
       return 0;
     case TablePosition.right:
+    case TablePosition.farRight:
+    case TablePosition.bottomRight:
+    case TablePosition.topRight:
       return math.pi / 4;
     case TablePosition.left:
+    case TablePosition.farLeft:
+    case TablePosition.bottomLeft:
+    case TablePosition.topLeft:
       return -math.pi / 4;
     case TablePosition.bottom:
     case null:
