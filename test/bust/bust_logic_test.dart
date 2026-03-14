@@ -20,6 +20,42 @@ BustRoundManager makeManager(List<String> playerIds, String firstId) =>
       firstPlayerId: firstId,
     );
 
+/// Builds a GameState for finalizeRound/startNextRound. Uses [cardCounts] keys
+/// as player IDs. Works with both buildRound IDs (localId, player-2...) and
+/// custom IDs (a, b, c).
+GameState stateWithCardCounts(Map<String, int> cardCounts) {
+  final playerIds = cardCounts.keys.toList();
+  const positions = [
+    TablePosition.bottom,
+    TablePosition.left,
+    TablePosition.top,
+    TablePosition.right,
+  ];
+  final players = [
+    for (var i = 0; i < playerIds.length; i++)
+      PlayerModel(
+        id: playerIds[i],
+        displayName: playerIds[i],
+        tablePosition: positions[i % positions.length],
+        hand: List.generate(
+          cardCounts[playerIds[i]]!,
+          (j) => card(Rank.values[(j % 13) + 1], Suit.hearts),
+        ),
+        cardCount: cardCounts[playerIds[i]]!,
+      ),
+  ];
+  return GameState(
+    sessionId: 'test',
+    phase: GamePhase.playing,
+    players: players,
+    currentPlayerId: playerIds.first,
+    direction: PlayDirection.clockwise,
+    discardTopCard: card(Rank.two, Suit.spades),
+    drawPileCount: 10,
+    preTurnCentreSuit: Suit.spades,
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. BustEngine — deck & deal
 // ─────────────────────────────────────────────────────────────────────────────
@@ -280,27 +316,6 @@ void main() {
   // ─────────────────────────────────────────────────────────────────────────
 
   group('BustRoundManager.finalizeRound', () {
-    /// Builds a GameState for finalizeRound using real BustEngine.buildRound
-    /// then replaces player hands with custom card counts.
-    GameState stateWithCardCounts(Map<String, int> cardCounts) {
-      final playerIds = cardCounts.keys.toList();
-      final n = playerIds.length;
-      final (:gameState, :drawPile) =
-          BustEngine.buildRound(playerCount: n, seed: 0);
-
-      // Replace each player's hand with the desired count of dummy cards
-      final updatedPlayers = gameState.players.map((p) {
-        final count = cardCounts[p.id] ?? 0;
-        final hand = List.generate(
-          count,
-          (i) => card(Rank.values[(i % 13) + 1], Suit.hearts),
-        );
-        return p.copyWith(hand: hand, cardCount: count);
-      }).toList();
-
-      return gameState.copyWith(players: updatedPlayers);
-    }
-
     test('eliminates bottom 2 players with 5 active players', () {
       // 5 players, local has fewest cards → should survive
       final ids = [
@@ -408,7 +423,138 @@ void main() {
   });
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 8. BustRoundManager.resumed — clean slate per round
+  // 8. BustRoundManager.startNextRound
+  // ─────────────────────────────────────────────────────────────────────────
+
+  group('BustRoundManager.startNextRound', () {
+    test('resets turns to 0 for all survivors', () {
+      final ids = ['a', 'b', 'c'];
+      final mgr = makeManager(ids, 'a');
+      for (final id in ids) { mgr.recordTurn(id); mgr.recordTurn(id); }
+      expect(mgr.state.isRoundComplete, isTrue);
+
+      final cardCounts = {'a': 1, 'b': 3, 'c': 5};
+      final gs = stateWithCardCounts(cardCounts);
+      final result = mgr.finalizeRound(gs, {for (final id in ids) id: id});
+
+      mgr.startNextRound(
+        survivors: result.survivorIds,
+        firstPlayerId: result.survivorIds.first,
+        allEliminated: result.eliminatedThisRound,
+      );
+
+      for (final id in mgr.state.activePlayerIds) {
+        expect(mgr.state.turnsThisRound[id], 0);
+      }
+    });
+
+    test('increments round number', () {
+      final ids = ['a', 'b', 'c'];
+      final mgr = makeManager(ids, 'a');
+      for (final id in ids) { mgr.recordTurn(id); mgr.recordTurn(id); }
+      final gs = stateWithCardCounts({'a': 1, 'b': 3, 'c': 5});
+      final result = mgr.finalizeRound(gs, {for (final id in ids) id: id});
+
+      mgr.startNextRound(
+        survivors: result.survivorIds,
+        firstPlayerId: result.survivorIds.first,
+        allEliminated: result.eliminatedThisRound,
+      );
+
+      expect(mgr.state.roundNumber, 2);
+    });
+
+    test('updates activePlayerIds and eliminatedIds correctly', () {
+      final ids = [
+        OfflineGameState.localId,
+        'player-2',
+        'player-3',
+        'player-4',
+        'player-5',
+      ];
+      final cardCounts = {
+        OfflineGameState.localId: 1,
+        'player-2': 2,
+        'player-3': 5,
+        'player-4': 8,
+        'player-5': 10,
+      };
+      final mgr = makeManager(ids, ids.first);
+      for (final id in ids) { mgr.recordTurn(id); mgr.recordTurn(id); }
+      final gs = stateWithCardCounts(cardCounts);
+      final result = mgr.finalizeRound(gs, {for (final id in ids) id: id});
+
+      mgr.startNextRound(
+        survivors: result.survivorIds,
+        firstPlayerId: result.survivorIds.first,
+        allEliminated: result.eliminatedThisRound,
+      );
+
+      // Survivors ordered by penalty (lowest last); eliminated = worst 2
+      expect(mgr.state.activePlayerIds, containsAll([ids[0], ids[1], ids[2]]));
+      expect(mgr.state.activePlayerIds.length, 3);
+      expect(mgr.state.eliminatedIds, containsAll([ids[3], ids[4]]));
+      expect(mgr.state.eliminatedIds.length, 2);
+    });
+
+    test('preserves cumulative penalty points', () {
+      final ids = [OfflineGameState.localId, 'player-2', 'player-3'];
+      final cardCounts = {
+        OfflineGameState.localId: 2,
+        'player-2': 4,
+        'player-3': 6,
+      };
+      final mgr = makeManager(ids, ids.first);
+      for (final id in ids) { mgr.recordTurn(id); mgr.recordTurn(id); }
+      final gs = stateWithCardCounts(cardCounts);
+      final result = mgr.finalizeRound(gs, {for (final id in ids) id: id});
+
+      mgr.startNextRound(
+        survivors: result.survivorIds,
+        firstPlayerId: result.survivorIds.first,
+        allEliminated: result.eliminatedThisRound,
+      );
+
+      expect(mgr.state.penaltyPoints[OfflineGameState.localId], 2);
+      expect(mgr.state.penaltyPoints['player-2'], 4);
+      expect(mgr.state.penaltyPoints['player-3'], 6);
+    });
+
+    test('builds player order with firstPlayerId at head', () {
+      final ids = [
+        OfflineGameState.localId,
+        'player-2',
+        'player-3',
+        'player-4',
+        'player-5',
+      ];
+      final cardCounts = {
+        OfflineGameState.localId: 1,
+        'player-2': 2,
+        'player-3': 5,
+        'player-4': 8,
+        'player-5': 10,
+      };
+      final mgr = makeManager(ids, ids.first);
+      for (final id in ids) { mgr.recordTurn(id); mgr.recordTurn(id); }
+      final gs = stateWithCardCounts(cardCounts);
+      final result = mgr.finalizeRound(gs, {for (final id in ids) id: id});
+      // survivorIds = [player-3, player-2, localId] (worst to best of survivors)
+      final survivors = result.survivorIds;
+
+      mgr.startNextRound(
+        survivors: survivors,
+        firstPlayerId: survivors.last, // best survivor goes first
+        allEliminated: result.eliminatedThisRound,
+      );
+
+      expect(mgr.state.playerOrder.first, survivors.last);
+      expect(mgr.state.playerOrder, containsAll(survivors));
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 9. BustRoundManager.resumed — clean slate per round
   // ─────────────────────────────────────────────────────────────────────────
 
   group('BustRoundManager.resumed', () {
