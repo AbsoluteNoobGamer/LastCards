@@ -40,11 +40,14 @@ class RoomManager {
     webSocket.stream.listen(
       (raw) {
         _messageChains[webSocket] = _messageChains[webSocket]!
-            .then((_) => _onMessage(webSocket, raw as String));
+            .then((_) => _onMessage(webSocket, raw as String))
+            .catchError((e) {
+          Logger('RoomManager').error('Error handling message: $e');
+        });
       },
       onDone: () {
-        _messageChains.remove(webSocket);
-        _onDisconnect(webSocket);
+        final pending = _messageChains.remove(webSocket);
+        (pending ?? Future.value()).whenComplete(() => _onDisconnect(webSocket));
       },
     );
   }
