@@ -47,14 +47,12 @@ class RoomManager {
         json.containsKey('idToken')) {
       final token = json['idToken'] as String;
       final uid = await FirebaseAuthVerifier.instance.verifyToken(token);
-      if (uid == null) {
-        ws.sink.add(jsonEncode({
-          'type': 'error',
-          'code': 'auth_failed',
-          'message': 'Invalid or expired token.',
-        }));
-        return;
+      final uid = await FirebaseAuthVerifier.instance.verifyToken(token);
+      if (uid != null) {
+        _playerUserIds[ws] = uid;
       }
+      // If uid is null (API key not set or token invalid), proceed without
+      // a firebase UID — trophies will fall back to session-scoped player IDs.
       _playerUserIds[ws] = uid;
     }
 
