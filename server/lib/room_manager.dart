@@ -148,7 +148,10 @@ class RoomManager {
       final matched = queue.sublist(0, playerCount);
       queue.removeRange(0, playerCount);
 
-      final roomCode = _uuid.v4().substring(0, 6).toUpperCase();
+      var roomCode = _uuid.v4().substring(0, 6).toUpperCase();
+      while (_rooms.containsKey(roomCode)) {
+        roomCode = _uuid.v4().substring(0, 6).toUpperCase();
+      }
       final session = GameSession(roomCode,
           isPrivate: false,
           maxPlayerCount: playerCount,
