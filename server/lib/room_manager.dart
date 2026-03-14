@@ -157,13 +157,34 @@ class RoomManager {
   void _handleQuickplay(dynamic ws, Map<String, dynamic> json) {
     final gameMode = json['gameMode'] as String?;
     final isBust = gameMode == 'bust';
+    final isRanked = gameMode == 'ranked';
     final playerCount = isBust ? 10 : (json['playerCount'] as int? ?? 4);
     final displayName =
         sanitizeDisplayName(json['displayName'] as String? ?? 'Player');
     final firebaseUid = _playerUserIds[ws];
-    final queueKey = isBust ? 'bust' : playerCount;
+
+    // Ranked games require a verified Firebase identity.
+    if (isRanked && firebaseUid == null) {
+      ws.sink.add(jsonEncode({
+        'type': 'error',
+        'code': 'auth_required',
+        'message': 'Sign in is required for ranked games.',
+      }));
+      return;
+    }
+
+    // Each mode uses an isolated queue so ranked players only match each other.
+    final Object queueKey;
+    if (isBust) {
+      queueKey = 'bust';
+    } else if (isRanked) {
+      queueKey = 'ranked-$playerCount';
+    } else {
+      queueKey = playerCount;
+    }
     _log.info(
-        'Player "$displayName" queued for $playerCount-player ${isBust ? "Bust" : ""} match');
+        'Player "$displayName" queued for $playerCount-player '
+        '${isBust ? "Bust" : isRanked ? "Ranked" : ""} match');
 
     final queue = _quickplayQueues.putIfAbsent(queueKey, () => []);
 
@@ -184,7 +205,8 @@ class RoomManager {
       final session = GameSession(roomCode,
           isPrivate: false,
           maxPlayerCount: playerCount,
-          isBustMode: isBust);
+          isBustMode: isBust,
+          isRanked: isRanked);
       _rooms[roomCode] = session;
       _log.info(
           'Match found! Creating room $roomCode with $playerCount players');

@@ -766,6 +766,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         final isLocalWin = next.localPlayer?.id == next.winnerId;
         game_audio.AudioService.instance.playSound(
             isLocalWin ? GameSound.playerWin : GameSound.playerLose);
+        // Retrieve ranked rating delta for the local player, if any.
+        final localPlayerId = next.localPlayer?.id;
+        final ratingChanges = ref.read(rankedRatingChangesProvider);
+        final int? ratingDelta = (localPlayerId != null && ratingChanges != null)
+            ? ratingChanges[localPlayerId]
+            : null;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           showDialog<void>(
@@ -779,6 +785,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 navigator.pop(); // leave table
               },
               isOnlineMode: true,
+              ratingDelta: ratingDelta,
             ),
           );
         });

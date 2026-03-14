@@ -24,6 +24,7 @@ class GameNotifierState {
     this.pendingJokerResolution = false,
     this.pendingJokerCardId,
     this.lastError,
+    this.rankedRatingChanges,
   });
 
   /// The authoritative server game state. Null until the first snapshot arrives.
@@ -47,6 +48,11 @@ class GameNotifierState {
   /// Cleared automatically when a new [StateSnapshotEvent] arrives.
   final String? lastError;
 
+  /// Per-player rating deltas from the last ranked game_ended event.
+  ///
+  /// Key is server player ID. Null when the completed game was not ranked.
+  final Map<String, int>? rankedRatingChanges;
+
   GameNotifierState copyWith({
     GameState? gameState,
     bool? pendingSuitChoice,
@@ -54,6 +60,7 @@ class GameNotifierState {
     bool? pendingJokerResolution,
     String? pendingJokerCardId,
     String? lastError,
+    Map<String, int>? rankedRatingChanges,
     bool clearError = false,
     bool clearSuitChoice = false,
     bool clearJokerResolution = false,
@@ -72,6 +79,7 @@ class GameNotifierState {
           ? null
           : (pendingJokerCardId ?? this.pendingJokerCardId),
       lastError: clearError ? null : (lastError ?? this.lastError),
+      rankedRatingChanges: rankedRatingChanges ?? this.rankedRatingChanges,
     );
   }
 }
@@ -200,6 +208,7 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
             phase: GamePhase.ended,
             winnerId: e.winnerId,
           ),
+          rankedRatingChanges: e.ratingChanges,
         );
       }),
     );
@@ -364,4 +373,10 @@ final pendingJokerCardIdProvider = Provider<String?>((ref) {
 /// Call [GameNotifier.clearError] to dismiss.
 final gameErrorProvider = Provider<String?>((ref) {
   return ref.watch(gameNotifierProvider).lastError;
+});
+
+/// Per-player rating deltas from the most recent ranked game, or null.
+/// Key is server player ID; value is the rating delta (+25/-15).
+final rankedRatingChangesProvider = Provider<Map<String, int>?>((ref) {
+  return ref.watch(gameNotifierProvider).rankedRatingChanges;
 });

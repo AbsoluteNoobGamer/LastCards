@@ -89,10 +89,15 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
 
     // Connect to the server and send a quickplay matchmaking request.
     final isBust = ref.read(tournamentSessionProvider).subMode == GameSubMode.bust;
-    _connectAndRequestMatch(playerCount, isBust);
+    final isRanked = ref.read(onlineSessionProvider).mode == OnlineGameMode.ranked;
+    _connectAndRequestMatch(playerCount, isBust: isBust, isRanked: isRanked);
   }
 
-  Future<void> _connectAndRequestMatch(int playerCount, bool isBust) async {
+  Future<void> _connectAndRequestMatch(
+    int playerCount, {
+    bool isBust = false,
+    bool isRanked = false,
+  }) async {
     final wsClient = ref.read(wsClientProvider);
     final authService = ref.read(authServiceProvider);
     final idToken = await authService.getIdToken();
@@ -109,10 +114,18 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
       return;
     }
     if (!mounted) return;
+
+    String? gameMode;
+    if (isBust) {
+      gameMode = 'bust';
+    } else if (isRanked) {
+      gameMode = 'ranked';
+    }
+
     wsClient.send(jsonEncode({
       'type': 'quickplay',
       'playerCount': playerCount,
-      if (isBust) 'gameMode': 'bust',
+      if (gameMode != null) 'gameMode': gameMode,
       'displayName': 'Player',
       if (idToken != null) 'idToken': idToken,
     }));
