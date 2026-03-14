@@ -511,10 +511,8 @@ class GameSession {
     final player = _state.playerById(playerId);
     if (player == null) return;
 
-    CardModel jokerCard;
-    try {
-      jokerCard = player.hand.firstWhere((c) => c.id == jokerCardId);
-    } catch (_) {
+    final jokerCard = player.hand.firstWhereOrNull((c) => c.id == jokerCardId);
+    if (jokerCard == null) {
       _sendError(playerId, 'invalid_card', 'Joker $jokerCardId not in hand.');
       return;
     }
