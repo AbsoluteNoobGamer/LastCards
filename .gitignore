@@ -21,11 +21,8 @@ migrate_working_dir/
 # UUID named files (e.g. 73e28c7c-704c-4813-a3c5-d5144523fc57)
 [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-**/.vscode/settings.json
+# VS Code
+.vscode/
 
 # Flutter/Dart/Pub related
 **/doc/api/
@@ -87,3 +84,15 @@ GoogleService-Info.plist
 # Go modules (if applicable)
 vendor/
 go.sum
+
+# Test output & temp files (root-level)
+*.txt
+*.json
+!pubspec.lock
+
+# Root-level scripts / one-off generators
+/*.js
+/generate_audio.dart
+
+# .packages (legacy)
+.packages
