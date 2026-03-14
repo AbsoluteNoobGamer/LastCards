@@ -631,6 +631,48 @@ List<CardModel> buildShuffledDeck() {
   return deck;
 }
 
+/// Returns a 52-card deck (no Jokers) for Bust mode.
+/// Same card IDs as standard deck; used by server and client for Bust.
+List<CardModel> buildBustDeck({int? seed}) {
+  const ranks = [
+    Rank.two, Rank.three, Rank.four, Rank.five, Rank.six, Rank.seven,
+    Rank.eight, Rank.nine, Rank.ten, Rank.jack, Rank.queen, Rank.king,
+    Rank.ace,
+  ];
+  const suits = [Suit.spades, Suit.hearts, Suit.clubs, Suit.diamonds];
+
+  final deck = <CardModel>[];
+  for (final suit in suits) {
+    for (final rank in ranks) {
+      deck.add(CardModel(
+        id: '${rank.name}_${suit.name}',
+        rank: rank,
+        suit: suit,
+      ));
+    }
+  }
+  final rng = seed != null ? math.Random(seed) : math.Random();
+  for (int i = deck.length - 1; i > 0; i--) {
+    final j = rng.nextInt(i + 1);
+    final tmp = deck[i];
+    deck[i] = deck[j];
+    deck[j] = tmp;
+  }
+  return deck;
+}
+
+/// Bust mode hand size per player count (2–10).
+int handSizeForBust(int playerCount) {
+  return switch (playerCount) {
+    6 => 8,
+    7 => 7,
+    8 => 6,
+    9 => 5,
+    10 => 5,
+    _ => 10, // 2–5 players
+  };
+}
+
 // ── Shared turn advancement ───────────────────────────────────────────────────
 
 /// Advances to the next player and resets all per-turn state fields.

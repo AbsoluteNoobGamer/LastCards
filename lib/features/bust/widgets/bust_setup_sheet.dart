@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../online/providers/online_session_provider.dart';
+import '../../online/screens/matchmaking_screen.dart';
 import '../../single_player/providers/single_player_session_provider.dart';
 import '../../tournament/providers/tournament_session_provider.dart';
 import '../../tournament/widgets/tournament_sub_mode_sheet.dart';
@@ -25,33 +27,59 @@ class BustSetupSheet extends ConsumerWidget {
     );
   }
 
-  void _onStart(BuildContext context) {
+  void _onStart(BuildContext context, WidgetRef ref) {
     Navigator.of(context).pop();
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => BustGameScreen(
-          totalPlayers: 10,
-          aiDifficulty: AiDifficulty.hard,
-          isOnline: isOnline,
+
+    if (isOnline) {
+      ref.read(onlineSessionProvider.notifier).setPlayerCount(10);
+      Navigator.of(context).push(
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const MatchmakingScreen(),
+          transitionDuration: const Duration(milliseconds: 400),
+          transitionsBuilder: (_, animation, __, child) {
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.06),
+                  end: Offset.zero,
+                ).animate(CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOutCubic,
+                )),
+                child: child,
+              ),
+            );
+          },
         ),
-        transitionDuration: const Duration(milliseconds: 400),
-        transitionsBuilder: (_, animation, __, child) {
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.06),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-              )),
-              child: child,
-            ),
-          );
-        },
-      ),
-    );
+      );
+    } else {
+      Navigator.of(context).push(
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => BustGameScreen(
+            totalPlayers: 10,
+            aiDifficulty: AiDifficulty.hard,
+            isOnline: false,
+          ),
+          transitionDuration: const Duration(milliseconds: 400),
+          transitionsBuilder: (_, animation, __, child) {
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.06),
+                  end: Offset.zero,
+                ).animate(CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOutCubic,
+                )),
+                child: child,
+              ),
+            );
+          },
+        ),
+      );
+    }
   }
 
   @override
@@ -146,7 +174,7 @@ class BustSetupSheet extends ConsumerWidget {
                   children: [
                     _InfoRow(
                       icon: Icons.group_rounded,
-                      label: '10 players (vs AI)',
+                      label: isOnline ? '10 players (online)' : '10 players (vs AI)',
                       theme: theme,
                     ),
                     const SizedBox(height: 12),
@@ -179,7 +207,7 @@ class BustSetupSheet extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: _StartButton(
-                onTap: () => _onStart(context),
+                onTap: () => _onStart(context, ref),
                 theme: theme,
               ),
             ),

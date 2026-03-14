@@ -6,8 +6,9 @@ import 'package:last_cards/core/models/game_state.dart';
 import 'package:last_cards/core/models/offline_game_state.dart';
 import 'package:last_cards/core/models/player_model.dart';
 import 'package:last_cards/features/gameplay/presentation/screens/table_screen.dart';
+import 'package:last_cards/features/single_player/providers/single_player_session_provider.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/card_widget.dart';
-import 'package:last_cards/screens/tournament_screen.dart';
+import 'package:last_cards/features/tournament/screens/tournament_coordinator.dart';
 import 'package:last_cards/tournament/tournament_engine.dart';
 
 void main() {
@@ -363,12 +364,15 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            home: TournamentScreen(
+            home: TournamentCoordinator(
+              showStartButton: true,
+              playerCount: 4,
               roundGameBuilder: ({
                 required totalPlayers,
                 required isTournamentMode,
                 required onPlayerFinished,
                 required tournamentPlayerNameByTableId,
+                AiDifficulty? aiDifficulty,
               }) {
                 final names = [
                   tournamentPlayerNameByTableId['player-local'] ?? 'You',
@@ -390,7 +394,8 @@ void main() {
       );
 
       await tester.tap(find.text('Start Tournament'));
-      await tester.pump();
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+      await tester.tap(find.text("Let's Go!"));
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       expect(finishCalls.length, 4);
@@ -411,12 +416,14 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            home: TournamentScreen(
+            home: TournamentCoordinator(
+              showStartButton: true,
               roundGameBuilder: ({
                 required totalPlayers,
                 required isTournamentMode,
                 required onPlayerFinished,
                 required tournamentPlayerNameByTableId,
+                AiDifficulty? aiDifficulty,
               }) {
                 capturedTournamentMode = isTournamentMode;
                 final names = [
@@ -436,7 +443,8 @@ void main() {
       );
 
       await tester.tap(find.text('Start Tournament'));
-      await tester.pump();
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+      await tester.tap(find.text("Let's Go!"));
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       expect(capturedTournamentMode, isTrue);
@@ -453,13 +461,15 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            home: TournamentScreen(
+            home: TournamentCoordinator(
+              showStartButton: true,
               onRoundSummaryShown: (result) => summaryResult = result,
               roundGameBuilder: ({
                 required totalPlayers,
                 required isTournamentMode,
                 required onPlayerFinished,
                 required tournamentPlayerNameByTableId,
+                AiDifficulty? aiDifficulty,
               }) {
                 // Use actual display names from the engine so _onPlayerFinished
                 // can resolve them to player IDs (AI names are now randomised).
@@ -480,7 +490,8 @@ void main() {
       );
 
       await tester.tap(find.text('Start Tournament'));
-      await tester.pump();
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+      await tester.tap(find.text("Let's Go!"));
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       // Dismiss EliminationScreen so flow reaches onRoundSummaryShown.
@@ -500,13 +511,15 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            home: TournamentScreen(
+            home: TournamentCoordinator(
+              showStartButton: true,
               onRoundSummaryShown: (result) => summaryResult = result,
               roundGameBuilder: ({
                 required totalPlayers,
                 required isTournamentMode,
                 required onPlayerFinished,
                 required tournamentPlayerNameByTableId,
+                AiDifficulty? aiDifficulty,
               }) {
                 // 3 players finish; the 4th (tournament-ai-4) is auto-eliminated.
                 final names = [
@@ -529,7 +542,8 @@ void main() {
       );
 
       await tester.tap(find.text('Start Tournament'));
-      await tester.pump();
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+      await tester.tap(find.text("Let's Go!"));
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       // 3 callbacks fired; verify positions without depending on random AI names.
@@ -551,13 +565,15 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            home: TournamentScreen(
+            home: TournamentCoordinator(
+              showStartButton: true,
               onRoundSummaryShown: (result) => summaryResult = result,
               roundGameBuilder: ({
                 required totalPlayers,
                 required isTournamentMode,
                 required onPlayerFinished,
                 required tournamentPlayerNameByTableId,
+                AiDifficulty? aiDifficulty,
               }) {
                 // player-2 finishes 1st, local ('You') 2nd; player-4 finishes last.
                 final names = [
@@ -577,7 +593,8 @@ void main() {
       );
 
       await tester.tap(find.text('Start Tournament'));
-      await tester.pump();
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+      await tester.tap(find.text("Let's Go!"));
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       // Dismiss EliminationScreen so flow reaches onRoundSummaryShown.

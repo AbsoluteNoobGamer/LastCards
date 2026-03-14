@@ -10,8 +10,9 @@ class RoomManager {
   final _playerIds = <dynamic, String>{};
   final _uuid = const Uuid();
 
-  /// Quickplay matchmaking queues keyed by desired player count.
-  final _quickplayQueues = <int, List<_QueuedPlayer>>{};
+  /// Quickplay matchmaking queues. Key: playerCount (int) for standard,
+  /// 'bust' (String) for Bust mode (10 players).
+  final _quickplayQueues = <Object, List<_QueuedPlayer>>{};
 
   void handleConnection(dynamic webSocket) {
     webSocket.stream.listen(
@@ -105,18 +106,21 @@ class RoomManager {
   }
 
   void _handleQuickplay(dynamic ws, Map<String, dynamic> json) {
-    final playerCount = json['playerCount'] as int? ?? 4;
+    final gameMode = json['gameMode'] as String?;
+    final isBust = gameMode == 'bust';
+    final playerCount = isBust ? 10 : (json['playerCount'] as int? ?? 4);
     final displayName = json['displayName'] as String? ?? 'Player';
+    final queueKey = isBust ? 'bust' : playerCount;
     print(
-        '[Quickplay] Player "$displayName" queued for $playerCount-player match');
+        '[Quickplay] Player "$displayName" queued for $playerCount-player ${isBust ? "Bust" : ""} match');
 
-    final queue = _quickplayQueues.putIfAbsent(playerCount, () => []);
+    final queue = _quickplayQueues.putIfAbsent(queueKey, () => []);
 
     // Prevent duplicate entries for the same websocket.
     queue.removeWhere((q) => q.ws == ws);
     queue.add(_QueuedPlayer(ws: ws, displayName: displayName));
 
-    print('[Quickplay] Queue($playerCount) size: ${queue.length}/$playerCount');
+    print('[Quickplay] Queue($queueKey) size: ${queue.length}/$playerCount');
 
     if (queue.length >= playerCount) {
       final matched = queue.sublist(0, playerCount);
@@ -124,7 +128,9 @@ class RoomManager {
 
       final roomCode = _uuid.v4().substring(0, 6).toUpperCase();
       final session = GameSession(roomCode,
-          isPrivate: false, maxPlayerCount: playerCount);
+          isPrivate: false,
+          maxPlayerCount: playerCount,
+          isBustMode: isBust);
       _rooms[roomCode] = session;
       print(
           '[Quickplay] Match found! Creating room $roomCode with $playerCount players');

@@ -318,6 +318,7 @@ GameEvent parseServerEvent(String raw) {
         ),
       'player_left' => PlayerLeftEvent(json['playerId'] as String),
       'game_ended' => GameEndedEvent(json['winnerId'] as String),
+      'bust_game_ended' => GameEndedEvent(json['winnerId'] as String),
       'room_created' => RoomCreatedEvent(
           json['roomCode'] as String? ?? '',
           playerId: json['playerId'] as String? ?? ''),

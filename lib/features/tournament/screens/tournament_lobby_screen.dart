@@ -4,15 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/models/offline_game_state.dart';
 import '../../../../core/providers/theme_provider.dart';
-import '../../../../core/services/card_back_service.dart';
-import '../../../../services/audio_service.dart';
-import '../../../../services/game_sound.dart';
 import '../../../../tournament/tournament_engine.dart';
-import '../../gameplay/presentation/screens/table_screen.dart';
 import '../providers/tournament_session_provider.dart';
-import 'round_summary_screen.dart';
-import 'waiting_screen.dart';
-import 'winner_screen.dart';
+import 'tournament_coordinator.dart';
 
 class TournamentLobbyScreen extends ConsumerStatefulWidget {
   const TournamentLobbyScreen({super.key});
@@ -24,8 +18,6 @@ class TournamentLobbyScreen extends ConsumerStatefulWidget {
 
 class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
   late final TournamentEngine _engine;
-  Map<String, String> _playerIdByName = {};
-  bool _isDisposed = false;
 
   @override
   void initState() {
@@ -46,159 +38,24 @@ class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
 
   @override
   void dispose() {
-    _isDisposed = true;
     _engine.dispose();
     super.dispose();
   }
 
   void _onBeginTournament() {
-    _engine.startTournament();
-    _runTournamentLoop();
-  }
-
-  Future<void> _runTournamentLoop() async {
     final session = ref.read(tournamentSessionProvider);
-
-    while (mounted && !_isDisposed && !_engine.isComplete) {
-      final expectedRound = _engine.currentRound;
-      final playersInRound = _engine.activePlayerIds.length;
-
-      // Show waiting screen before each round
-      await Navigator.push(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (_, __, ___) => TournamentWaitingScreen(
-            roundNumber: _engine.currentRound,
-            players: _engine.activePlayerIds.map(_displayName).toList(),
-          ),
-          transitionDuration: const Duration(milliseconds: 400),
-          transitionsBuilder: (_, animation, __, child) =>
-              FadeTransition(opacity: animation, child: child),
-        ),
-      );
-
-      if (!mounted || _isDisposed) return;
-
-      _playerIdByName = {
-        for (final id in _engine.activePlayerIds) _displayName(id): id
-      };
-
-      final nameByTableId = <String, String>{};
-      for (var i = 0; i < _engine.activePlayerIds.length; i++) {
-        final tableId = i == 0
-            ? OfflineGameState.localId
-            : 'player-${i + 1}';
-        nameByTableId[tableId] = _displayName(_engine.activePlayerIds[i]);
-      }
-
-      final roundResult = await Navigator.push<TournamentRoundGameResult>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => TableScreen(
-            totalPlayers: playersInRound,
-            isTournamentMode: true,
-            // Pass difficulty scaling to AI if it's a vsAI tournament
-            aiDifficulty: session.type == TournamentType.vsAi
-                ? session.difficulty
-                : null,
-            onPlayerFinished: (playerName, finishPosition) {
-              final id = _playerIdByName[playerName] ?? '';
-              if (id.isEmpty) return;
-              if (_engine.finishingPositionFor(
-                    roundNumber: _engine.currentRound,
-                    playerId: id,
-                  ) !=
-                  null) {
-                return;
-              }
-              _engine.recordPlayerFinished(id, finishPosition: finishPosition);
-
-              if (_engine.isRoundInProgress) return;
-
-              final round = _engine.roundResults
-                  .where((r) => r.roundNumber == _engine.currentRound)
-                  .firstOrNull;
-              if (round == null) return;
-              if (!Navigator.of(context).canPop()) return;
-
-              Navigator.of(context).pop(
-                TournamentRoundGameResult(
-                  finishedPlayerIds: round.playerIdsInFinishOrder,
-                  eliminatedPlayerId: round.eliminatedPlayerId,
-                ),
-              );
-            },
-            tournamentPlayerNameByTableId: nameByTableId,
-          ),
-        ),
-      );
-
-      if (!mounted || _isDisposed || roundResult == null) return;
-
-      final round = _engine.roundResults
-          .where((r) => r.roundNumber == expectedRound)
-          .firstOrNull;
-      if (round == null) return;
-
-      // Only show the "Next Round" summary when there is actually a next round.
-      if (!_engine.isComplete) {
-        await Navigator.push(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (_, __, ___) => TournamentRoundSummaryScreen(
-              roundNumber: round.roundNumber,
-              advancedPlayerNames:
-                  round.advancedPlayerIds.map(_displayName).toList(),
-              eliminatedPlayerName: _displayName(round.eliminatedPlayerId),
-              nextRoundPlayerNames:
-                  round.advancedPlayerIds.map(_displayName).toList(),
-              onReady: () => Navigator.of(context).pop(),
-            ),
-            transitionsBuilder: (_, animation, __, child) =>
-                FadeTransition(opacity: animation, child: child),
-          ),
-        );
-
-        if (!mounted || _isDisposed) return;
-
-        _engine.startNextRound();
-      }
-    }
-
-    if (!mounted || _isDisposed || !_engine.isComplete) return;
-
-    if (_engine.winnerId == OfflineGameState.localId) {
-      CardBackService.instance.registerWin();
-    }
-    AudioService.instance.playSound(GameSound.tournamentWin);
-
-    await Navigator.pushReplacement(
-      context,
+    Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => TournamentWinnerScreen(
-      winnerName: _displayName(_engine.winnerId!),
-      onPlayAgain: (ctx) {
-        Navigator.of(ctx).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const TournamentLobbyScreen()),
-          (route) => route.isFirst,
-        );
-      },
-      onReturnToMenu: (ctx) {
-        Navigator.of(ctx).popUntil((route) => route.isFirst);
-      },
+        pageBuilder: (_, __, ___) => TournamentCoordinator(
+          isOnline: false,
+          playerCount: session.playerCount,
+          aiDifficulty: session.difficulty,
         ),
+        transitionDuration: const Duration(milliseconds: 400),
         transitionsBuilder: (_, animation, __, child) =>
             FadeTransition(opacity: animation, child: child),
       ),
     );
-  }
-
-  String _displayName(String playerId) {
-    return _engine.allPlayers
-            .where((p) => p.id == playerId)
-            .firstOrNull
-            ?.displayName ??
-        playerId;
   }
 
   Future<bool> _onWillPop() async {
