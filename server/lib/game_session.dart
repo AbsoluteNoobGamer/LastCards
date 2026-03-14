@@ -21,9 +21,11 @@ class _ConnectedPlayer {
   _ConnectedPlayer({
     required this.ws,
     required this.displayName,
+    this.firebaseUid,
   });
   final dynamic ws;
   final String displayName;
+  final String? firebaseUid;
   bool isReady = false;
 }
 
@@ -134,7 +136,7 @@ class GameSession {
 
   // ── Lobby ─────────────────────────────────────────────────────────────────
 
-  String addPlayer(dynamic ws, String displayName) {
+  String addPlayer(dynamic ws, String displayName, {String? firebaseUid}) {
     if (_started) {
       ws.sink.add(
           '{"type":"error","code":"game_started","message":"Game already in progress."}');
@@ -147,7 +149,11 @@ class GameSession {
       return '';
     }
     final id = 'player-${++_playerCounter}';
-    _players[id] = _ConnectedPlayer(ws: ws, displayName: displayName);
+    _players[id] = _ConnectedPlayer(
+      ws: ws,
+      displayName: displayName,
+      firebaseUid: firebaseUid,
+    );
 
     _broadcast({
       'type': 'player_joined',
@@ -182,6 +188,7 @@ class GameSession {
   }
 
   void removePlayer(String playerId) {
+    final firebaseUid = _players[playerId]?.firebaseUid;
     _players.remove(playerId);
     _broadcast({'type': 'player_left', 'playerId': playerId});
 
@@ -194,7 +201,8 @@ class GameSession {
 
       final trophyPenaltyForLeaver = _trophyEligible;
       if (trophyPenaltyForLeaver) {
-        _trophyRecorder.recordLeavePenalty(playerId);
+        final uid = firebaseUid ?? playerId;
+        _trophyRecorder.recordLeavePenalty(uid);
       }
 
       _broadcast({
@@ -645,7 +653,8 @@ class GameSession {
       _gameOver = true;
       _state = _state.copyWith(phase: GamePhase.ended, winnerId: winnerId);
       if (_trophyEligible && winnerId != null) {
-        _trophyRecorder.recordWin(winnerId);
+        final uid = _players[winnerId]?.firebaseUid ?? winnerId;
+        _trophyRecorder.recordWin(uid);
       }
       _broadcast({
         'type': 'bust_game_ended',
@@ -832,7 +841,8 @@ class GameSession {
 
     final trophyEligible = _trophyEligible;
     if (trophyEligible) {
-      _trophyRecorder.recordWin(winnerId);
+      final uid = _players[winnerId]?.firebaseUid ?? winnerId;
+      _trophyRecorder.recordWin(uid);
     }
 
     _broadcast({

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:uuid/uuid.dart';
 
+import 'firebase_auth_verifier.dart';
 import 'game_session.dart';
 import 'logger.dart';
 
@@ -24,22 +25,47 @@ class RoomManager {
   final _rooms = <String, GameSession>{};
   final _playerRooms = <dynamic, String>{};
   final _playerIds = <dynamic, String>{};
+  final _playerUserIds = <dynamic, String>{};
   final _uuid = const Uuid();
 
   /// Quickplay matchmaking queues. Key: playerCount (int) for standard,
   /// 'bust' (String) for Bust mode (10 players).
   final _quickplayQueues = <Object, List<_QueuedPlayer>>{};
 
+  /// Per-socket futures used to serialize async message handling.
+  final _messageChains = <dynamic, Future<void>>{};
+
   void handleConnection(dynamic webSocket) {
+    _messageChains[webSocket] = Future.value();
     webSocket.stream.listen(
-      (raw) => _onMessage(webSocket, raw as String),
-      onDone: () => _onDisconnect(webSocket),
+      (raw) {
+        _messageChains[webSocket] = _messageChains[webSocket]!
+            .then((_) => _onMessage(webSocket, raw as String))
+            .catchError((e) {
+          Logger('RoomManager').error('Error handling message: $e');
+        });
+      },
+      onDone: () {
+        final pending = _messageChains.remove(webSocket);
+        (pending ?? Future.value()).whenComplete(() => _onDisconnect(webSocket));
+      },
     );
   }
 
-  void _onMessage(dynamic ws, String raw) {
+  Future<void> _onMessage(dynamic ws, String raw) async {
     final json = jsonDecode(raw) as Map<String, dynamic>;
     final type = json['type'] as String;
+
+    if ((type == 'create_room' || type == 'join_room' || type == 'quickplay') &&
+        json.containsKey('idToken')) {
+      final token = json['idToken'] as String;
+      final uid = await FirebaseAuthVerifier.instance.verifyToken(token);
+      if (uid != null) {
+        _playerUserIds[ws] = uid;
+      }
+      // If uid is null (API key not set or token invalid), proceed without
+      // a firebase UID — trophies will fall back to session-scoped player IDs.
+    }
 
     switch (type) {
       case 'create_room':
@@ -75,10 +101,11 @@ class RoomManager {
     }
     final displayName =
         sanitizeDisplayName(json['displayName'] as String? ?? 'Player');
+    final firebaseUid = _playerUserIds[ws];
     final session = GameSession(roomCode, isPrivate: true);
     _rooms[roomCode] = session;
 
-    final playerId = session.addPlayer(ws, displayName);
+    final playerId = session.addPlayer(ws, displayName, firebaseUid: firebaseUid);
     _playerRooms[ws] = roomCode;
     _playerIds[ws] = playerId;
 
@@ -105,7 +132,8 @@ class RoomManager {
       return;
     }
 
-    final playerId = session.addPlayer(ws, displayName);
+    final firebaseUid = _playerUserIds[ws];
+    final playerId = session.addPlayer(ws, displayName, firebaseUid: firebaseUid);
     if (playerId.isEmpty) return; // rejected (room full or game started)
     _playerRooms[ws] = code;
     _playerIds[ws] = playerId;
@@ -132,6 +160,7 @@ class RoomManager {
     final playerCount = isBust ? 10 : (json['playerCount'] as int? ?? 4);
     final displayName =
         sanitizeDisplayName(json['displayName'] as String? ?? 'Player');
+    final firebaseUid = _playerUserIds[ws];
     final queueKey = isBust ? 'bust' : playerCount;
     _log.info(
         'Player "$displayName" queued for $playerCount-player ${isBust ? "Bust" : ""} match');
@@ -140,7 +169,7 @@ class RoomManager {
 
     // Prevent duplicate entries for the same websocket.
     queue.removeWhere((q) => q.ws == ws);
-    queue.add(_QueuedPlayer(ws: ws, displayName: displayName));
+    queue.add(_QueuedPlayer(ws: ws, displayName: displayName, firebaseUid: firebaseUid));
 
     _log.info('Queue($queueKey) size: ${queue.length}/$playerCount');
 
@@ -163,7 +192,7 @@ class RoomManager {
       // First pass: add all players to the session.
       final playerIds = <String>[];
       for (final qp in matched) {
-        final playerId = session.addPlayer(qp.ws, qp.displayName);
+        final playerId = session.addPlayer(qp.ws, qp.displayName, firebaseUid: qp.firebaseUid);
         playerIds.add(playerId);
         _playerRooms[qp.ws] = roomCode;
         _playerIds[qp.ws] = playerId;
@@ -188,6 +217,7 @@ class RoomManager {
   }
 
   void _onDisconnect(dynamic ws) {
+    _playerUserIds.remove(ws);
     // Remove from any quickplay queue.
     final emptyKeys = <Object>[];
     for (final entry in _quickplayQueues.entries) {
@@ -214,7 +244,8 @@ class RoomManager {
 
 /// A player waiting in the quickplay matchmaking queue.
 class _QueuedPlayer {
-  _QueuedPlayer({required this.ws, required this.displayName});
+  _QueuedPlayer({required this.ws, required this.displayName, this.firebaseUid});
   final dynamic ws;
   final String displayName;
+  final String? firebaseUid;
 }

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/models/game_event.dart';
+import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/connection_provider.dart';
 import '../../../../core/providers/game_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
@@ -93,6 +94,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
 
   Future<void> _connectAndRequestMatch(int playerCount, bool isBust) async {
     final wsClient = ref.read(wsClientProvider);
+    final authService = ref.read(authServiceProvider);
+    final idToken = await authService.getIdToken();
     try {
       await wsClient.connect();
     } catch (e) {
@@ -111,6 +114,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
       'playerCount': playerCount,
       if (isBust) 'gameMode': 'bust',
       'displayName': 'Player',
+      if (idToken != null) 'idToken': idToken,
     }));
   }
 
