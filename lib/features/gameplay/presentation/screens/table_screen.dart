@@ -97,8 +97,6 @@ bool shouldShowStandardWinOverlay({required bool isTournamentMode}) {
   return !isTournamentMode;
 }
 
-// ── imports extended for engine ───────────────────────────────────────────────
-// (already imported above)
 
 class _TableScreenState extends ConsumerState<TableScreen> {
   String? _selectedCardId;
@@ -436,7 +434,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       orderedPlayers.add(players[idx]);
     }
 
-    for (int i = 0; i < 7; i++) {
+    final dealCount = _offlineState.players.first.hand.length;
+    for (int i = 0; i < dealCount; i++) {
       for (var pi = 0; pi < orderedPlayers.length; pi++) {
         final p = orderedPlayers[pi];
         if (!mounted) return;
@@ -631,14 +630,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     });
 
     _engineTimer.cancel();
-    if (nextId != OfflineGameState.localId) {
-      _scheduleAiTurn(nextId);
+    if (resolvedNextId != OfflineGameState.localId) {
+      _scheduleAiTurn(resolvedNextId);
     } else {
       _startTimer();
     }
   }
-
-
 
   Future<void> _endTurn() async {
     if (_aiThinking) return;

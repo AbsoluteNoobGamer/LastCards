@@ -29,7 +29,6 @@ class WebSocketClient {
 
   Uri _uri;
 
-  // ignore: unused_field
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;
 
@@ -126,8 +125,8 @@ class WebSocketClient {
     _stateNotifier.value = WsConnectionState.disconnected;
   }
 
-  void dispose() {
-    disconnect();
+  Future<void> dispose() async {
+    await disconnect();
     _messageController.close();
     _stateNotifier.dispose();
   }
