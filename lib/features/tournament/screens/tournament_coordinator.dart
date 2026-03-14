@@ -313,9 +313,7 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
     for (var i = 0; i < activeIds.length; i++) {
       final tableId = switch (i) {
         0 => OfflineGameState.localId,
-        1 => 'player-2',
-        2 => 'player-3',
-        _ => 'player-4',
+        _ => 'player-${i + 1}',
       };
       map[tableId] = _displayName(activeIds[i]);
     }
