@@ -32,10 +32,20 @@ class RoomManager {
   /// 'bust' (String) for Bust mode (10 players).
   final _quickplayQueues = <Object, List<_QueuedPlayer>>{};
 
+  /// Per-socket futures used to serialize async message handling.
+  final _messageChains = <dynamic, Future<void>>{};
+
   void handleConnection(dynamic webSocket) {
+    _messageChains[webSocket] = Future.value();
     webSocket.stream.listen(
-      (raw) async => await _onMessage(webSocket, raw as String),
-      onDone: () => _onDisconnect(webSocket),
+      (raw) {
+        _messageChains[webSocket] = _messageChains[webSocket]!
+            .then((_) => _onMessage(webSocket, raw as String));
+      },
+      onDone: () {
+        _messageChains.remove(webSocket);
+        _onDisconnect(webSocket);
+      },
     );
   }
 
@@ -47,13 +57,11 @@ class RoomManager {
         json.containsKey('idToken')) {
       final token = json['idToken'] as String;
       final uid = await FirebaseAuthVerifier.instance.verifyToken(token);
-      final uid = await FirebaseAuthVerifier.instance.verifyToken(token);
       if (uid != null) {
         _playerUserIds[ws] = uid;
       }
       // If uid is null (API key not set or token invalid), proceed without
       // a firebase UID — trophies will fall back to session-scoped player IDs.
-      _playerUserIds[ws] = uid;
     }
 
     switch (type) {
