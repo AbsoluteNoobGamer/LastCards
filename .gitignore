@@ -85,10 +85,9 @@ GoogleService-Info.plist
 vendor/
 go.sum
 
-# Test output & temp files (root-level)
-*.txt
-*.json
-!pubspec.lock
+# Test output & temp files (root-level only)
+/*.txt
+/*.json
 
 # Root-level scripts / one-off generators
 /*.js
