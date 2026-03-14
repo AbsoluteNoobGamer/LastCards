@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:last_cards/core/models/offline_game_state.dart';
 import 'package:last_cards/shared/engine/game_engine.dart';
+import 'package:last_cards/shared/engine/shuffle_utils.dart';
 
 export 'package:last_cards/shared/models/card_model.dart';
 export 'package:last_cards/shared/models/game_state_model.dart';
@@ -140,14 +141,7 @@ abstract final class BustEngine {
     final toShuffle =
         List<CardModel>.from(discardPile.sublist(0, discardPile.length - 1));
 
-    // Fisher-Yates shuffle
-    final rng = math.Random(seed);
-    for (int i = toShuffle.length - 1; i > 0; i--) {
-      final j = rng.nextInt(i + 1);
-      final tmp = toShuffle[i];
-      toShuffle[i] = toShuffle[j];
-      toShuffle[j] = tmp;
-    }
+    fisherYatesShuffle(toShuffle, seed);
 
     // Discard pile is managed by caller — they should clear it and add topCard back
     final newDrawPile = [...drawPile, ...toShuffle];

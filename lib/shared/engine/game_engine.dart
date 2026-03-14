@@ -4,6 +4,7 @@ import '../models/card_model.dart';
 import '../models/game_state_model.dart';
 import '../rules/card_rules.dart';
 import '../rules/pickup_chain_rules.dart';
+import 'shuffle_utils.dart';
 
 export '../models/card_model.dart';
 export '../models/game_state_model.dart';
@@ -459,15 +460,26 @@ GameState beginJokerPlay({
 }
 
 /// Finalizes a previously committed Joker play after the user picks a represented card.
+///
+/// After updating the discard top, applies the special effect of the resolved
+/// card (e.g. Joker declared as 2 adds penalty, as King reverses direction,
+/// as 8 applies skip, etc.).
 GameState resolveJokerPlay({
   required GameState state,
   required CardModel resolvedJokerCard,
 }) {
-  return state.copyWith(
+  var resolved = state.copyWith(
     discardTopCard: resolvedJokerCard,
     lastPlayedThisTurn: resolvedJokerCard,
     pendingJokerResolution: false,
   );
+  // Apply the special effect of the card the Joker was declared as.
+  resolved = _applySpecialEffect(
+    resolved,
+    resolvedJokerCard,
+    declaredSuit: resolvedJokerCard.effectiveSuit,
+  );
+  return resolved;
 }
 
 GameState _applySpecialEffect(
@@ -619,14 +631,7 @@ List<CardModel> buildShuffledDeck() {
   deck.add(const CardModel(id: 'joker_r', rank: Rank.joker, suit: Suit.hearts));
   deck.add(const CardModel(id: 'joker_b', rank: Rank.joker, suit: Suit.spades));
 
-  // Fisher-Yates shuffle
-  final rng = math.Random();
-  for (int i = deck.length - 1; i > 0; i--) {
-    final j = rng.nextInt(i + 1);
-    final tmp = deck[i];
-    deck[i] = deck[j];
-    deck[j] = tmp;
-  }
+  fisherYatesShuffle(deck);
   return deck;
 }
 
@@ -650,13 +655,7 @@ List<CardModel> buildBustDeck({int? seed}) {
       ));
     }
   }
-  final rng = seed != null ? math.Random(seed) : math.Random();
-  for (int i = deck.length - 1; i > 0; i--) {
-    final j = rng.nextInt(i + 1);
-    final tmp = deck[i];
-    deck[i] = deck[j];
-    deck[j] = tmp;
-  }
+  fisherYatesShuffle(deck, seed);
   return deck;
 }
 

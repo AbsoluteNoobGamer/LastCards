@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/dealing_animation_overlay.dart';
 
 import '../../domain/usecases/offline_game_engine.dart';
+import 'package:last_cards/shared/engine/shuffle_utils.dart';
 import 'package:last_cards/shared/rules/win_condition_rules.dart';
 import '../../data/datasources/offline_game_state_datasource.dart';
 import '../../../../shared/engine/game_turn_timer.dart';
@@ -1743,13 +1744,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       ..add(topCard); // top card stays; everything else leaves
 
     // ── 2. Fisher-Yates shuffle ─────────────────────────────────────────────
-    final rng = math.Random();
-    for (int i = toShuffle.length - 1; i > 0; i--) {
-      final j = rng.nextInt(i + 1);
-      final tmp = toShuffle[i];
-      toShuffle[i] = toShuffle[j];
-      toShuffle[j] = tmp;
-    }
+    fisherYatesShuffle(toShuffle);
 
     // ── 3. Add shuffled cards to draw pile ──────────────────────────────────
     _drawPile.addAll(toShuffle);
