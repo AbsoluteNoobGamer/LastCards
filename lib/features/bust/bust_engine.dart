@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
-import 'package:last_cards/shared/engine/game_engine.dart';
 import 'package:last_cards/core/models/offline_game_state.dart';
+import 'package:last_cards/shared/engine/game_engine.dart';
 
 export 'package:last_cards/shared/models/card_model.dart';
 export 'package:last_cards/shared/models/game_state_model.dart';
@@ -28,50 +28,15 @@ abstract final class BustEngine {
   /// | 9–10    | 5          |
   ///
   /// Counts below 5 arise in later rounds as players are eliminated.
-  static int handSizeFor(int playerCount) {
-    assert(playerCount >= 2 && playerCount <= 10);
-    return switch (playerCount) {
-      6 => 8,
-      7 => 7,
-      8 => 6,
-      9 => 5,
-      10 => 5,
-      _ => 10, // 2–5 players
-    };
-  }
+  /// Delegates to [handSizeForBust] in the shared engine.
+  static int handSizeFor(int playerCount) => handSizeForBust(playerCount);
 
   // ── 52-card deck builder (no Jokers) ───────────────────────────────────────
 
-  static const _ranks = [
-    Rank.two, Rank.three, Rank.four, Rank.five, Rank.six,
-    Rank.seven, Rank.eight, Rank.nine, Rank.ten,
-    Rank.jack, Rank.queen, Rank.king, Rank.ace,
-  ];
-  static const _suits = [
-    Suit.spades, Suit.hearts, Suit.clubs, Suit.diamonds,
-  ];
-
   /// Returns a freshly shuffled 52-card deck (no Jokers).
-  static List<CardModel> buildShuffledDeck({int? seed}) {
-    final rng = math.Random(seed);
-    final deck = <CardModel>[];
-    for (final suit in _suits) {
-      for (final rank in _ranks) {
-        deck.add(CardModel(
-          id: '${rank.name}_${suit.name}',
-          rank: rank,
-          suit: suit,
-        ));
-      }
-    }
-    for (int i = deck.length - 1; i > 0; i--) {
-      final j = rng.nextInt(i + 1);
-      final tmp = deck[i];
-      deck[i] = deck[j];
-      deck[j] = tmp;
-    }
-    return deck;
-  }
+  /// Delegates to [buildBustDeck] in the shared engine.
+  static List<CardModel> buildShuffledDeck({int? seed}) =>
+      buildBustDeck(seed: seed);
 
   // ── Game builder ───────────────────────────────────────────────────────────
 

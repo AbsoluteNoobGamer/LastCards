@@ -10,7 +10,8 @@ import 'player_model.dart';
 ///   [CardDrawnEvent], [TurnChangedEvent], [PenaltyAppliedEvent],
 ///   [PlayerJoinedEvent], [PlayerLeftEvent], [GameEndedEvent], [ErrorEvent],
 ///   [SuitChoiceRequiredEvent], [JokerChoiceRequiredEvent],
-///   [TurnTimeoutEvent], [ReshuffleEvent]
+///   [TurnTimeoutEvent], [ReshuffleEvent], [BustRoundOverEvent],
+///   [BustRoundStartEvent]
 ///
 /// Outgoing (client → server): [PlayCardsAction], [DrawCardAction],
 ///   [DeclareJokerAction], [SuitChoiceAction], [EndTurnAction]
@@ -199,6 +200,37 @@ final class ReshuffleEvent extends GameEvent {
   String get type => 'reshuffle';
 }
 
+/// Bust mode: a round has ended — contains standings, eliminations, and
+/// whether the entire Bust game is over.
+final class BustRoundOverEvent extends GameEvent {
+  final int roundNumber;
+  final List<Map<String, dynamic>> standings;
+  final List<String> eliminatedThisRound;
+  final List<String> survivorIds;
+  final bool isGameOver;
+  final String? winnerId;
+  const BustRoundOverEvent({
+    required this.roundNumber,
+    required this.standings,
+    required this.eliminatedThisRound,
+    required this.survivorIds,
+    required this.isGameOver,
+    this.winnerId,
+  });
+
+  @override
+  String get type => 'bust_round_over';
+}
+
+/// Bust mode: a new round is starting.
+final class BustRoundStartEvent extends GameEvent {
+  final int roundNumber;
+  const BustRoundStartEvent({required this.roundNumber});
+
+  @override
+  String get type => 'bust_round_start';
+}
+
 // ── Outgoing actions (client → server) ───────────────────────────────────────
 
 /// Play one or more cards (same-rank stack allowed).
@@ -318,6 +350,27 @@ GameEvent parseServerEvent(String raw) {
         ),
       'player_left' => PlayerLeftEvent(json['playerId'] as String),
       'game_ended' => GameEndedEvent(json['winnerId'] as String),
+      'bust_game_ended' => GameEndedEvent(json['winnerId'] as String),
+      'bust_round_over' => BustRoundOverEvent(
+          roundNumber: json['roundNumber'] as int? ?? 0,
+          standings: (json['standings'] as List?)
+                  ?.map((e) => Map<String, dynamic>.from(e as Map))
+                  .toList() ??
+              [],
+          eliminatedThisRound: (json['eliminatedThisRound'] as List?)
+                  ?.map((e) => e as String)
+                  .toList() ??
+              [],
+          survivorIds: (json['survivorIds'] as List?)
+                  ?.map((e) => e as String)
+                  .toList() ??
+              [],
+          isGameOver: json['isGameOver'] as bool? ?? false,
+          winnerId: json['winnerId'] as String?,
+        ),
+      'bust_round_start' => BustRoundStartEvent(
+          roundNumber: json['roundNumber'] as int? ?? 0,
+        ),
       'room_created' => RoomCreatedEvent(
           json['roomCode'] as String? ?? '',
           playerId: json['playerId'] as String? ?? ''),

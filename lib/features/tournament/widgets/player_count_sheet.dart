@@ -3,15 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/providers/theme_provider.dart';
+import '../../online/providers/online_session_provider.dart';
+import '../../online/screens/matchmaking_screen.dart';
+import '../../single_player/providers/single_player_session_provider.dart';
 import '../providers/tournament_session_provider.dart';
-import 'difficulty_selection_sheet.dart';
-import 'format_selection_sheet.dart';
+import '../screens/tournament_lobby_screen.dart';
 import 'tournament_sub_mode_sheet.dart';
 
-/// Bottom Sheet 3 — Player Count Selection
-///
-/// Shown after difficulty or player setup.
-/// Lets the player pick 3–7 players (no 2 player option for tournament).
+/// Player Count (4–7) for Knockout. Start → lobby (vs AI) or matchmaking (Online).
 class TournamentPlayerCountSheet extends ConsumerStatefulWidget {
   const TournamentPlayerCountSheet({super.key});
 
@@ -100,19 +99,19 @@ class _TournamentPlayerCountSheetState
             ),
             const SizedBox(height: 20),
 
-            // 3–7 players cards (two rows: 3–4–5, then 6–7)
+            // 4–7 players (two rows: 4–5, then 6–7)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
-                    children: [3, 4, 5].map((count) {
+                    children: [4, 5].map((count) {
                       final isSelected = _selectedCount == count;
                       return Expanded(
                         child: Padding(
                           padding: EdgeInsets.only(
-                            left: count == 3 ? 0 : 8,
+                            left: count == 4 ? 0 : 8,
                             right: count == 5 ? 0 : 8,
                           ),
                           child: _PlayerCountCard(
@@ -169,31 +168,62 @@ class _TournamentPlayerCountSheetState
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) {
-        if (session.type == TournamentType.vsAi) {
-          return const TournamentDifficultySelectionSheet();
-        } else {
-          // Online knockout: go back to sub-mode sheet so user can switch
-          // between Knockout and Bust without restarting the whole flow.
-          return TournamentSubModeSheet(type: TournamentType.online);
-        }
-      },
+      builder: (_) => TournamentSubModeSheet(type: session.type!),
     );
   }
 
   void _onContinue(BuildContext context) {
     if (_selectedCount == null) return;
-    ref
-        .read(tournamentSessionProvider.notifier)
-        .setPlayerCount(_selectedCount!);
+    final session = ref.read(tournamentSessionProvider);
+    final count = _selectedCount!;
+    final notifier = ref.read(tournamentSessionProvider.notifier);
+    notifier.setPlayerCount(count);
+    notifier.setDifficulty(AiDifficulty.hard);
+    notifier.setFormat(TournamentFormat.knockout);
     Navigator.of(context).pop();
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const TournamentFormatSelectionSheet(),
-    );
+    if (session.type == TournamentType.vsAi) {
+      Navigator.of(context).push(
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const TournamentLobbyScreen(),
+          transitionDuration: const Duration(milliseconds: 400),
+          transitionsBuilder: (_, animation, __, child) => FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.06),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              )),
+              child: child,
+            ),
+          ),
+        ),
+      );
+    } else {
+      ref.read(onlineSessionProvider.notifier).setPlayerCount(count);
+      Navigator.of(context).push(
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const MatchmakingScreen(),
+          transitionDuration: const Duration(milliseconds: 400),
+          transitionsBuilder: (_, animation, __, child) => FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.06),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              )),
+              child: child,
+            ),
+          ),
+        ),
+      );
+    }
   }
 }
 
@@ -344,7 +374,7 @@ class _StartButton extends ConsumerWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Continue',
+                  'Start',
                   style: GoogleFonts.outfit(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,

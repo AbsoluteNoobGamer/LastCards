@@ -7,6 +7,8 @@ import 'package:last_cards/shared/rules/win_condition_rules.dart';
 
 import 'trophy_recorder.dart';
 
+// Bust mode: 52-card deck, 2 turns per player per round, eliminate bottom 2 each round.
+
 // ── Turn timer duration ───────────────────────────────────────────────────────
 
 const _turnDuration = Duration(seconds: 60);
@@ -42,6 +44,7 @@ class GameSession {
     this.roomCode, {
     this.isPrivate = true,
     this.maxPlayerCount,
+    this.isBustMode = false,
     TrophyRecorder? trophyRecorder,
   }) : _trophyRecorder = trophyRecorder ?? TrophyRecorder.instance;
 
@@ -54,9 +57,19 @@ class GameSession {
   /// Trophies are only earned if the game started with this many players.
   final int? maxPlayerCount;
 
+  /// True for Bust mode: 10 players, 52-card deck, multi-round with elimination.
+  final bool isBustMode;
+
   final TrophyRecorder _trophyRecorder;
 
   final _players = <String, _ConnectedPlayer>{};
+
+  // ── Bust round state ─────────────────────────────────────────────────────
+  int _bustRoundNumber = 1;
+  List<String> _bustSurvivorIds = [];
+  Map<String, int> _bustTurnsThisRound = {};
+  Map<String, int> _bustPenaltyPoints = {};
+  List<String> _bustEliminatedIds = [];
   int _playerCounter = 0;
 
   late GameState _state;
@@ -87,10 +100,16 @@ class GameSession {
   /// Callers must have already added players via [addPlayer] before calling
   /// this. The [drawPile] and optional [discardUnderTop] replace the server's
   /// internal piles.
+  ///
+  /// For Bust mode tests, pass [bustSurvivorIds], [bustTurnsThisRound], and
+  /// [bustPenaltyPoints] to seed the bust round state.
   void seedStateForTesting({
     required GameState state,
     required List<CardModel> drawPile,
     List<CardModel> discardUnderTop = const [],
+    List<String>? bustSurvivorIds,
+    Map<String, int>? bustTurnsThisRound,
+    Map<String, int>? bustPenaltyPoints,
   }) {
     _state = state;
     _drawPile = List<CardModel>.from(drawPile);
@@ -99,6 +118,9 @@ class GameSession {
       ..addAll(discardUnderTop);
     _started = true;
     _gameOver = false;
+    if (bustSurvivorIds != null) _bustSurvivorIds = bustSurvivorIds;
+    if (bustTurnsThisRound != null) _bustTurnsThisRound = bustTurnsThisRound;
+    if (bustPenaltyPoints != null) _bustPenaltyPoints = bustPenaltyPoints;
     _broadcastStateSnapshots();
   }
 
@@ -116,9 +138,10 @@ class GameSession {
           '{"type":"error","code":"game_started","message":"Game already in progress."}');
       return '';
     }
-    if (_players.length >= 7) {
+    final maxPlayers = isBustMode ? 10 : 7;
+    if (_players.length >= maxPlayers) {
       ws.sink.add(
-          '{"type":"error","code":"room_full","message":"Room is full (max 7 players)."}');
+          '{"type":"error","code":"room_full","message":"Room is full (max $maxPlayers players)."}');
       return '';
     }
     final id = 'player-${++_playerCounter}';
@@ -203,14 +226,25 @@ class GameSession {
     _wasFullRoster =
         maxPlayerCount == null || _players.length >= maxPlayerCount!;
 
-    final deck = buildShuffledDeck();
-    int idx = 0;
     final entries = _players.entries.toList();
     final totalPlayers = entries.length;
 
-    // Fixed 7 cards per hand for all player counts (2–7).
-    const handSize = 7;
+    final List<CardModel> deck;
+    final int handSize;
+    if (isBustMode) {
+      deck = buildBustDeck(seed: DateTime.now().millisecondsSinceEpoch);
+      handSize = handSizeForBust(totalPlayers);
+      _bustSurvivorIds = entries.map((e) => e.key).toList();
+      _bustTurnsThisRound = {for (final e in entries) e.key: 0};
+      _bustPenaltyPoints = {for (final e in entries) e.key: 0};
+      _bustEliminatedIds = [];
+      _bustRoundNumber = 1;
+    } else {
+      deck = buildShuffledDeck();
+      handSize = 7;
+    }
 
+    int idx = 0;
     final playerModels = <PlayerModel>[];
     for (int i = 0; i < totalPlayers; i++) {
       final hand = deck.sublist(idx, idx + handSize);
@@ -534,8 +568,19 @@ class GameSession {
   // ── Turn advancement (shared by end_turn and timeout) ─────────────────────
 
   /// Advances to the next player, broadcasts turn_changed, resets timer.
+  /// In Bust mode, records turns and finalizes the round when complete.
   void _advanceTurn() {
+    final completedPlayerId = _state.currentPlayerId;
     _state = advanceTurn(_state);
+
+    if (isBustMode) {
+      _bustTurnsThisRound[completedPlayerId] =
+          (_bustTurnsThisRound[completedPlayerId] ?? 0) + 1;
+      if (_isBustRoundComplete()) {
+        _finalizeBustRound();
+        return;
+      }
+    }
 
     _broadcast({
       'type': 'turn_changed',
@@ -543,6 +588,136 @@ class GameSession {
       'direction': _state.direction.name,
     });
 
+    _broadcastStateSnapshots();
+    _startTurnTimer();
+  }
+
+  bool _isBustRoundComplete() =>
+      _bustSurvivorIds.every((id) => (_bustTurnsThisRound[id] ?? 0) >= 2);
+
+  void _finalizeBustRound() {
+    _turnTimer?.cancel();
+
+    // 1. Add cards-remaining penalty for each survivor
+    final roundPenalties = <String, int>{};
+    for (final id in _bustSurvivorIds) {
+      final p = _state.playerById(id);
+      roundPenalties[id] = p?.hand.length ?? 0;
+    }
+    for (final id in _bustSurvivorIds) {
+      _bustPenaltyPoints[id] =
+          (_bustPenaltyPoints[id] ?? 0) + (roundPenalties[id] ?? 0);
+    }
+
+    // 2. Sort by cumulative penalty (highest = worst), eliminate bottom 2
+    final sorted = List<String>.from(_bustSurvivorIds)
+      ..sort((a, b) =>
+          (_bustPenaltyPoints[b] ?? 0).compareTo(_bustPenaltyPoints[a] ?? 0));
+    final activeCount = _bustSurvivorIds.length;
+    final eliminateCount = activeCount <= 2 ? 1 : 2;
+    final eliminatedThisRound = sorted.take(eliminateCount).toList();
+    final survivors = sorted.skip(eliminateCount).toList();
+    _bustEliminatedIds = [..._bustEliminatedIds, ...eliminatedThisRound];
+
+    final isGameOver = survivors.length <= 1;
+    final winnerId = isGameOver && survivors.isNotEmpty ? survivors.first : null;
+
+    final standings = sorted.reversed.map((id) {
+      final name = _players[id]?.displayName ?? id;
+      return {
+        'playerId': id,
+        'playerName': name,
+        'cardsThisRound': roundPenalties[id] ?? 0,
+        'totalPenalty': _bustPenaltyPoints[id] ?? 0,
+      };
+    }).toList();
+
+    _broadcast({
+      'type': 'bust_round_over',
+      'roundNumber': _bustRoundNumber,
+      'standings': standings,
+      'eliminatedThisRound': eliminatedThisRound,
+      'survivorIds': survivors,
+      'isGameOver': isGameOver,
+      if (winnerId != null) 'winnerId': winnerId,
+    });
+
+    if (isGameOver) {
+      _gameOver = true;
+      _state = _state.copyWith(phase: GamePhase.ended, winnerId: winnerId);
+      if (_trophyEligible && winnerId != null) {
+        _trophyRecorder.recordWin(winnerId);
+      }
+      _broadcast({
+        'type': 'bust_game_ended',
+        'winnerId': winnerId ?? '',
+        'trophyEligible': _trophyEligible,
+      });
+      return;
+    }
+
+    _bustRoundNumber++;
+    _bustSurvivorIds = survivors;
+    _bustTurnsThisRound = {for (final id in survivors) id: 0};
+    _startBustNextRound();
+  }
+
+  void _startBustNextRound() {
+    final entries = _bustSurvivorIds
+        .map((id) => MapEntry(id, _players[id]!))
+        .toList();
+    final totalPlayers = entries.length;
+    final deck =
+        buildBustDeck(seed: DateTime.now().millisecondsSinceEpoch + _bustRoundNumber);
+    final handSize = handSizeForBust(totalPlayers);
+
+    int idx = 0;
+    final playerModels = <PlayerModel>[];
+    for (int i = 0; i < totalPlayers; i++) {
+      final hand = deck.sublist(idx, idx + handSize);
+      idx += handSize;
+      playerModels.add(PlayerModel(
+        id: entries[i].key,
+        displayName: entries[i].value.displayName,
+        tablePosition: _positionFor(i),
+        hand: hand,
+        cardCount: hand.length,
+        isActiveTurn: i == 0,
+      ));
+    }
+
+    final discardTop = deck[idx];
+    idx++;
+    _drawPile = List<CardModel>.from(deck.sublist(idx));
+    _discardUnderTop.clear();
+
+    _state = GameState(
+      sessionId: roomCode,
+      phase: GamePhase.playing,
+      players: playerModels,
+      currentPlayerId: playerModels.first.id,
+      direction: PlayDirection.clockwise,
+      discardTopCard: discardTop,
+      drawPileCount: _drawPile.length,
+    );
+    _state = applyInitialFaceUpEffect(state: _state);
+    if (_state.activeSkipCount > 0) {
+      final skippedId = nextPlayerId(state: _state);
+      _state = _state.copyWith(
+        currentPlayerId: skippedId,
+        activeSkipCount: 0,
+        preTurnCentreSuit: _state.discardTopCard?.effectiveSuit,
+      );
+    } else {
+      _state = _state.copyWith(
+        preTurnCentreSuit: _state.discardTopCard?.effectiveSuit,
+      );
+    }
+
+    _broadcast({
+      'type': 'bust_round_start',
+      'roundNumber': _bustRoundNumber,
+    });
     _broadcastStateSnapshots();
     _startTurnTimer();
   }
@@ -647,6 +822,8 @@ class GameSession {
 
   void _checkWin() {
     if (_gameOver) return;
+    // Bust rounds end when everyone has 2 turns, not on first empty hand.
+    if (isBustMode) return;
     if (!wouldConfirmWin(_state)) return;
 
     final winnerId =

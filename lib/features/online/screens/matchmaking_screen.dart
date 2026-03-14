@@ -10,6 +10,7 @@ import '../../../../core/models/game_event.dart';
 import '../../../../core/providers/connection_provider.dart';
 import '../../../../core/providers/game_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
+import '../../tournament/providers/tournament_session_provider.dart';
 import '../providers/online_session_provider.dart';
 import 'lobby_ready_screen.dart';
 
@@ -86,10 +87,11 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     });
 
     // Connect to the server and send a quickplay matchmaking request.
-    _connectAndRequestMatch(playerCount);
+    final isBust = ref.read(tournamentSessionProvider).subMode == GameSubMode.bust;
+    _connectAndRequestMatch(playerCount, isBust);
   }
 
-  Future<void> _connectAndRequestMatch(int playerCount) async {
+  Future<void> _connectAndRequestMatch(int playerCount, bool isBust) async {
     final wsClient = ref.read(wsClientProvider);
     try {
       await wsClient.connect();
@@ -107,6 +109,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     wsClient.send(jsonEncode({
       'type': 'quickplay',
       'playerCount': playerCount,
+      if (isBust) 'gameMode': 'bust',
       'displayName': 'Player',
     }));
   }

@@ -143,6 +143,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   StreamSubscription<dynamic>? _onlineReshuffleSub;
   bool _timerWarningPlayed = false;
 
+  /// Cached for dispose — cannot use [ref] after widget is disposed.
+  WebSocketClient? _wsClientToDisconnectOnDispose;
+
   /// Toggled (not set) each time a reshuffle fires so DrawPileWidget can
   /// play the shuffle animation even on repeated reshuffles.
   final ValueNotifier<bool> _reshuffleNotifier = ValueNotifier<bool>(false);
@@ -487,9 +490,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   void dispose() {
     // Disconnect from online game so we don't receive stale state_snapshot
     // events when opening LobbyScreen for a private game.
-    if (ref.read(gameStateProvider) != null) {
-      ref.read(wsClientProvider).disconnect();
-    }
+    // Cannot use ref in dispose — use cached value from build.
+    _wsClientToDisconnectOnDispose?.disconnect();
     _timerWarningSub?.cancel();
     _onlineCardPlaysSub?.cancel();
     _onlineCardDrawsSub?.cancel();
@@ -722,6 +724,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final liveState = ref.watch(gameStateProvider);
     final connState = ref.watch(connectionStateProvider).valueOrNull ??
         WsConnectionState.disconnected;
+
+    // Cache wsClient for dispose — ref is invalid during dispose.
+    if (liveState != null) {
+      _wsClientToDisconnectOnDispose = ref.read(wsClientProvider);
+    }
 
     final isOfflineMode = liveState == null;
     final gameState = liveState ?? _offlineState;

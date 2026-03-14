@@ -15,7 +15,7 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../gameplay/presentation/screens/table_screen.dart';
-import '../../../../screens/tournament_screen.dart';
+import '../../../../features/tournament/screens/tournament_coordinator.dart';
 
 enum OnlineMode { standard, tournament }
 
@@ -333,9 +333,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     if (widget.onlineMode == OnlineMode.tournament) {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => TournamentScreen(
+          builder: (_) => TournamentCoordinator(
             isOnline: true,
             onlineLocalDisplayName: effectiveName,
+            showStartButton: true,
           ),
         ),
       );

@@ -5,20 +5,13 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../bust/widgets/bust_setup_sheet.dart';
 import '../providers/tournament_session_provider.dart';
-import 'difficulty_selection_sheet.dart';
 import 'player_count_sheet.dart';
 import 'tournament_type_sheet.dart';
 
-/// Bottom Sheet 2 — Sub-mode selection (Knockout vs Bust).
+/// Sub-mode selection (Knockout vs Bust).
 ///
-/// Shown after the user picks Single Player or Online in [TournamentTypeSheet].
-/// Routes to the appropriate next sheet based on the combination of
-/// [TournamentType] and [GameSubMode]:
-///
-/// | Sub-mode | vsAi                               | online                            |
-/// |----------|------------------------------------|-----------------------------------|
-/// | Knockout | [TournamentDifficultySelectionSheet]| [TournamentPlayerCountSheet]      |
-/// | Bust     | [BustSetupSheet] (isOnline: false)  | [BustSetupSheet] (isOnline: true) |
+/// Both Single Player and Online: Knockout → PlayerCount (4–7), Bust → BustSetupSheet.
+/// Difficulty is auto-set to Hard for Knockout; format is Knockout.
 class TournamentSubModeSheet extends ConsumerWidget {
   const TournamentSubModeSheet({required this.type, super.key});
 
@@ -94,22 +87,17 @@ class TournamentSubModeSheet extends ConsumerWidget {
             ),
             const SizedBox(height: 20),
 
-            // Sub-mode cards
+            // Sub-mode cards — Knockout and Bust both available for Single Player and Online
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 children: GameSubMode.values.map((subMode) {
-                  // Online Bust isn't wired up yet — gate it behind Coming Soon.
-                  final isComingSoon = subMode == GameSubMode.bust &&
-                      type == TournamentType.online;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _SubModeCard(
                       subMode: subMode,
-                      isComingSoon: isComingSoon,
-                      onTap: isComingSoon
-                          ? null
-                          : () => _onSubModeSelected(context, ref, subMode),
+                      isComingSoon: false,
+                      onTap: () => _onSubModeSelected(context, ref, subMode),
                     ),
                   );
                 }).toList(),
@@ -149,22 +137,13 @@ class TournamentSubModeSheet extends ConsumerWidget {
       return;
     }
 
-    // Knockout path — route based on type
-    if (type == TournamentType.vsAi) {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => const TournamentDifficultySelectionSheet(),
-      );
-    } else {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => const TournamentPlayerCountSheet(),
-      );
-    }
+    // Knockout path — both Single Player and Online go to PlayerCount (4–7)
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const TournamentPlayerCountSheet(),
+    );
   }
 }
 

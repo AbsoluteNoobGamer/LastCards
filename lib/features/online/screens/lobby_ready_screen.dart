@@ -12,7 +12,7 @@ import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../features/gameplay/presentation/screens/table_screen.dart';
 import '../../../../features/tournament/providers/tournament_session_provider.dart';
-import '../../../../screens/tournament_screen.dart';
+import '../../../../features/tournament/screens/tournament_coordinator.dart';
 import '../providers/online_session_provider.dart';
 
 /// Full-screen lobby ready screen.
@@ -108,15 +108,26 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
     _snapshotSub = null;
 
     final playerCount = ref.read(onlineSessionProvider).playerCount ?? 4;
-    final isTournament = ref.read(tournamentSessionProvider).format != null;
+    final session = ref.read(tournamentSessionProvider);
+    final isBust = session.subMode == GameSubMode.bust;
+    final isTournament = session.format != null;
 
     ref.read(onlineSessionProvider.notifier).reset();
 
+    // Online Bust uses TableScreen (server-driven). Server runs the game;
+    // BustGameScreen is for offline only (local engine + AI).
+    final Widget destination;
+    if (isBust) {
+      destination = TableScreen(totalPlayers: playerCount);
+    } else if (isTournament) {
+      destination = const TournamentCoordinator(isOnline: true);
+    } else {
+      destination = TableScreen(totalPlayers: playerCount);
+    }
+
     Navigator.of(context).pushAndRemoveUntil(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => isTournament
-            ? const TournamentScreen(isOnline: true)
-            : TableScreen(totalPlayers: playerCount),
+        pageBuilder: (_, __, ___) => destination,
         transitionDuration: const Duration(milliseconds: 600),
         transitionsBuilder: (_, animation, __, child) => FadeTransition(
           opacity: animation,
