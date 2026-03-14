@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'card_model.dart';
@@ -24,9 +25,6 @@ class GameState with _$GameState {
     /// Top card of the discard pile (null only before first card is turned).
     CardModel? discardTopCard,
 
-    /// Second-from-top card for visual stacking effect on the discard pile.
-    CardModel? discardSecondCard,
-
     /// Cards under the discard top (2nd, 3rd, ...) for visual stacking.
     @Default([]) List<CardModel> discardPileHistory,
 
@@ -51,9 +49,6 @@ class GameState with _$GameState {
 
     /// ID of the player who has won (null if game not yet ended).
     String? winnerId,
-
-    /// Server timestamp of the last state update (for stale detection).
-    @Default(0) int lastUpdatedAt,
 
     /// Number of valid actions (plays) taken by the current player this turn.
     /// Resets to 0 whenever the active player changes.
@@ -82,13 +77,8 @@ class GameState with _$GameState {
 extension GameStateX on GameState {
   PlayerModel? get localPlayer => players.isEmpty ? null : players.first;
 
-  PlayerModel? playerById(String id) {
-    try {
-      return players.firstWhere((p) => p.id == id);
-    } catch (_) {
-      return null;
-    }
-  }
+  PlayerModel? playerById(String id) =>
+      players.firstWhereOrNull((p) => p.id == id);
 
   bool get isLocalPlayerTurn =>
       localPlayer != null && currentPlayerId == localPlayer!.id;

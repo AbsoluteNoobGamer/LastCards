@@ -137,7 +137,6 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
                 state.gameState!.discardTopCard!,
               ...state.gameState!.discardPileHistory,
             ].take(5).toList(),
-            discardSecondCard: state.gameState!.discardTopCard,
             discardTopCard: e.newDiscardTop,
           ),
         );

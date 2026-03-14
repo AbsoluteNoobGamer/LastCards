@@ -10,8 +10,7 @@ import '../../../../core/theme/player_styles.dart';
 import '../../../../core/providers/theme_provider.dart';
 
 /// Wraps a player's card area with:
-/// - Accent glow ring when [isActiveTurn]
-/// - 40% opacity dim + pause icon when [isSkipped]
+/// - Accent glow ring when active turn
 /// - Opponent hands shown as a condensed face-down fan
 /// - Card count badge
 
@@ -20,6 +19,7 @@ class PlayerZoneWidget extends ConsumerWidget {
     super.key,
     required this.player,
     this.isLocalPlayer = false,
+    this.isActiveTurn = false,
     this.isTournamentFinished = false,
     this.isTournamentEliminated = false,
     this.aiConfig,
@@ -29,6 +29,7 @@ class PlayerZoneWidget extends ConsumerWidget {
 
   final PlayerModel player;
   final bool isLocalPlayer;
+  final bool isActiveTurn;
   final bool isTournamentFinished;
   final bool isTournamentEliminated;
 
@@ -61,6 +62,7 @@ class PlayerZoneWidget extends ConsumerWidget {
     if (!isLocalPlayer && child == null) {
       return _OpponentAvatarZone(
         player: playerWithReactiveCount,
+        isActiveTurn: isActiveTurn,
         isTournamentFinished: isTournamentFinished,
         isTournamentEliminated: isTournamentEliminated,
         appTheme: appTheme,
@@ -68,11 +70,9 @@ class PlayerZoneWidget extends ConsumerWidget {
       );
     }
 
-    final isActive = player.isActiveTurn;
-    final isSkipped = player.isSkipped;
-    final isOffline = !player.isConnected;
+    final isActive = isActiveTurn;
 
-    final double baseOpacity = isSkipped ? 0.40 : (isActive ? 1.0 : 0.50);
+    final double baseOpacity = isActive ? 1.0 : 0.50;
 
     return AnimatedOpacity(
       opacity: baseOpacity,
@@ -100,35 +100,6 @@ class PlayerZoneWidget extends ConsumerWidget {
                 childWrapper!,
 
                 // Skip indicator overlay
-                if (isSkipped)
-                  Positioned.fill(
-                    child: Center(
-                      child: Icon(
-                        Icons.pause_circle_outline_rounded,
-                        color: appTheme.textSecondary.withValues(alpha: 0.8),
-                        size: 32,
-                      ),
-                    ),
-                  ),
-
-                // Offline indicator
-                if (isOffline)
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE53935),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: appTheme.surfacePanel,
-                          width: 1.5,
-                        ),
-                      ),
-                    ),
-                  ),
               ],
             ),
           );
@@ -138,6 +109,7 @@ class PlayerZoneWidget extends ConsumerWidget {
           children: [
             _PlayerLabel(
               player: playerWithReactiveCount,
+              isActiveTurn: isActiveTurn,
               isLocalPlayer: isLocalPlayer,
               appTheme: appTheme,
               compact: compact,
@@ -155,6 +127,7 @@ class _OpponentAvatarZone extends StatelessWidget {
   const _OpponentAvatarZone({
     required this.player,
     required this.appTheme,
+    this.isActiveTurn = false,
     this.isTournamentFinished = false,
     this.isTournamentEliminated = false,
     this.aiConfig,
@@ -162,6 +135,7 @@ class _OpponentAvatarZone extends StatelessWidget {
 
   final PlayerModel player;
   final dynamic appTheme;
+  final bool isActiveTurn;
   final bool isTournamentFinished;
   final bool isTournamentEliminated;
   final AiPlayerConfig? aiConfig;
@@ -169,7 +143,7 @@ class _OpponentAvatarZone extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final positionColor = PlayerStyles.getColor(player.tablePosition);
-    final isActive = player.isActiveTurn;
+    final isActive = isActiveTurn;
     final hasTournamentStatus = isTournamentFinished;
 
     final avatarBaseColor = aiConfig?.avatarColor ?? positionColor;
@@ -351,12 +325,14 @@ class _PlayerLabel extends StatelessWidget {
   const _PlayerLabel({
     required this.player,
     required this.appTheme,
+    this.isActiveTurn = false,
     this.isLocalPlayer = false,
     this.compact = false,
   });
 
   final PlayerModel player;
   final dynamic appTheme;
+  final bool isActiveTurn;
   final bool isLocalPlayer;
   final bool compact;
 
@@ -365,7 +341,7 @@ class _PlayerLabel extends StatelessWidget {
     String? badgeText;
     Color? badgeColor;
 
-    if (player.isActiveTurn && isLocalPlayer) {
+    if (isActiveTurn && isLocalPlayer) {
       badgeText = "YOUR TURN";
       badgeColor = PlayerStyles.getColor(player.tablePosition);
     }
@@ -410,7 +386,7 @@ class _PlayerLabel extends StatelessWidget {
       children: [
         badgeWidget,
         Transform.scale(
-          scale: player.isActiveTurn && !compact ? 1.05 : 1.0,
+          scale: isActiveTurn && !compact ? 1.05 : 1.0,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -423,12 +399,12 @@ class _PlayerLabel extends StatelessWidget {
               Text(
                 player.displayName,
                 style: AppTypography.labelSmall.copyWith(
-                  color: player.isActiveTurn
+                  color: isActiveTurn
                       ? PlayerStyles.getColor(player.tablePosition)
                       : (appTheme.textPrimary as Color),
                   fontStyle: FontStyle.normal,
                   fontSize: nameFontSize,
-                  shadows: player.isActiveTurn && !compact
+                  shadows: isActiveTurn && !compact
                       ? [
                           Shadow(
                             color: PlayerStyles.getColor(player.tablePosition)

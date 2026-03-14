@@ -73,9 +73,6 @@ abstract final class BustEngine {
         tablePosition: TablePosition.bottom,
         hand: localHand,
         cardCount: localHand.length,
-        isConnected: true,
-        isActiveTurn: true,
-        isSkipped: false,
       ),
     ];
 
@@ -94,9 +91,6 @@ abstract final class BustEngine {
         tablePosition: aiPositionCycle[i % aiPositionCycle.length],
         hand: aiHand,
         cardCount: aiHand.length,
-        isConnected: true,
-        isActiveTurn: false,
-        isSkipped: false,
       ));
     }
 
@@ -112,19 +106,15 @@ abstract final class BustEngine {
     final state = GameState(
       sessionId: 'bust-session',
       phase: GamePhase.playing,
-      players: players
-          .map((p) => p.copyWith(isActiveTurn: p.id == firstId))
-          .toList(),
+      players: players,
       currentPlayerId: firstId,
       direction: PlayDirection.clockwise,
       discardTopCard: discardTop,
-      discardSecondCard: null,
       drawPileCount: drawPile.length,
       activePenaltyCount: 0,
       suitLock: null,
       queenSuitLock: null,
       winnerId: null,
-      lastUpdatedAt: 0,
     );
 
     return (gameState: state, drawPile: drawPile);

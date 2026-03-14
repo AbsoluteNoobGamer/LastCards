@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:collection/collection.dart';
 import 'package:last_cards/shared/engine/game_engine.dart';
 import 'package:last_cards/shared/rules/win_condition_rules.dart';
 
@@ -255,7 +256,6 @@ class GameSession {
         tablePosition: _positionFor(i),
         hand: hand,
         cardCount: hand.length,
-        isActiveTurn: i == 0,
       ));
     }
 
@@ -338,12 +338,12 @@ class GameSession {
     // Resolve card objects from the player's hand.
     final List<CardModel> cards = [];
     for (final id in cardIds) {
-      try {
-        cards.add(player.hand.firstWhere((c) => c.id == id));
-      } catch (_) {
+      final card = player.hand.firstWhereOrNull((c) => c.id == id);
+      if (card == null) {
         _sendError(playerId, 'invalid_card', 'Card $id not found in hand.');
         return;
       }
+      cards.add(card);
     }
 
     final err = validatePlay(
@@ -682,7 +682,6 @@ class GameSession {
         tablePosition: _positionFor(i),
         hand: hand,
         cardCount: hand.length,
-        isActiveTurn: i == 0,
       ));
     }
 

@@ -22,14 +22,6 @@ class PlayerModel with _$PlayerModel {
     /// Number of cards the player holds. Always accurate for all players.
     @Default(0) int cardCount,
 
-    /// Whether the player is currently connected to the game session.
-    @Default(true) bool isConnected,
-
-    /// Whether it is currently this player's turn.
-    @Default(false) bool isActiveTurn,
-
-    /// Set to true when affected by an 8 (skip) card effect.
-    @Default(false) bool isSkipped,
   }) = _PlayerModel;
 
   factory PlayerModel.fromJson(Map<String, dynamic> json) =>

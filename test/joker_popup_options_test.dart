@@ -18,7 +18,6 @@ GameState _baseState({
         tablePosition: TablePosition.bottom,
         hand: localHand ?? const [],
         cardCount: (localHand ?? const []).length,
-        isActiveTurn: true,
       ),
       const PlayerModel(
         id: 'p2',
@@ -30,7 +29,6 @@ GameState _baseState({
     currentPlayerId: 'p1',
     direction: PlayDirection.clockwise,
     discardTopCard: discardTop,
-    discardSecondCard: null,
     drawPileCount: 20,
     activePenaltyCount: activePenaltyCount,
     actionsThisTurn: actionsThisTurn,

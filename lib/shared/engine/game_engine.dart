@@ -350,7 +350,6 @@ GameState applyPlay({
       if (gs.discardTopCard != null) gs.discardTopCard!,
       ...gs.discardPileHistory,
     ].take(5).toList(),
-    discardSecondCard: gs.discardTopCard,
     discardTopCard: cards.last,
     suitLock: null,
     queenSuitLock: null,

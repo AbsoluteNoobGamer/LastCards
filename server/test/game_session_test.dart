@@ -126,7 +126,6 @@ TablePosition _positionFor(int index) {
         tablePosition: TablePosition.bottom,
         hand: p1Hand,
         cardCount: p1Hand.length,
-        isActiveTurn: true,
       ),
       PlayerModel(
         id: p2Id,
@@ -134,7 +133,6 @@ TablePosition _positionFor(int index) {
         tablePosition: TablePosition.top,
         hand: p2Hand,
         cardCount: p2Hand.length,
-        isActiveTurn: false,
       ),
     ],
     currentPlayerId: p1Id,
@@ -324,7 +322,6 @@ void main() {
             tablePosition: TablePosition.bottom,
             hand: p1Hand,
             cardCount: 1,
-            isActiveTurn: true,
           ),
           PlayerModel(
             id: p2Id,
@@ -414,7 +411,6 @@ void main() {
             tablePosition: TablePosition.bottom,
             hand: p1Hand,
             cardCount: 1,
-            isActiveTurn: true,
           ),
           PlayerModel(
             id: p2Id,
@@ -510,7 +506,6 @@ void main() {
             tablePosition: TablePosition.bottom,
             hand: p1Hand,
             cardCount: 1,
-            isActiveTurn: true,
           ),
           PlayerModel(
             id: p2Id,
@@ -574,7 +569,6 @@ void main() {
             tablePosition: TablePosition.bottom,
             hand: p1Hand,
             cardCount: 2,
-            isActiveTurn: true,
           ),
           PlayerModel(
             id: p2Id,
@@ -625,7 +619,6 @@ void main() {
             tablePosition: TablePosition.bottom,
             hand: p1Hand,
             cardCount: 2,
-            isActiveTurn: true,
           ),
           PlayerModel(
             id: p2Id,
@@ -695,7 +688,6 @@ void main() {
             tablePosition: TablePosition.bottom,
             hand: p1Hand,
             cardCount: 1,
-            isActiveTurn: true,
           ),
           PlayerModel(
             id: p2Id,
@@ -748,7 +740,6 @@ void main() {
             tablePosition: TablePosition.bottom,
             hand: [_card(Rank.three, Suit.spades)],
             cardCount: 1,
-            isActiveTurn: true,
           ),
           PlayerModel(
             id: p2Id,
@@ -801,7 +792,6 @@ void main() {
             tablePosition: TablePosition.bottom,
             hand: [winCard],
             cardCount: 1,
-            isActiveTurn: true,
           ),
           PlayerModel(
             id: p2Id,
@@ -856,7 +846,6 @@ void main() {
             tablePosition: TablePosition.bottom,
             hand: [lastCard],
             cardCount: 1,
-            isActiveTurn: true,
           ),
           PlayerModel(
             id: p2Id,
@@ -974,7 +963,6 @@ void main() {
                 cardCounts[idsList[i]]!,
                 (j) => _card(Rank.values[(j % 13) + 1], Suit.hearts)),
             cardCount: cardCounts[idsList[i]]!,
-            isActiveTurn: i == 4,
           ),
       ];
       final lastId = idsList[4];
@@ -1045,7 +1033,6 @@ void main() {
             tablePosition: TablePosition.bottom,
             hand: p1Hand,
             cardCount: 1,
-            isActiveTurn: false,
           ),
           PlayerModel(
             id: p2Id,
@@ -1053,7 +1040,6 @@ void main() {
             tablePosition: TablePosition.top,
             hand: p2Hand,
             cardCount: 5,
-            isActiveTurn: true,
           ),
         ],
         currentPlayerId: p2Id,
@@ -1104,7 +1090,6 @@ void main() {
                 cardCounts[idsList[i]]!,
                 (j) => _card(Rank.values[(j % 13) + 1], Suit.hearts)),
             cardCount: cardCounts[idsList[i]]!,
-            isActiveTurn: i == 4,
           ),
       ];
 
@@ -1167,7 +1152,6 @@ void main() {
             tablePosition: TablePosition.bottom,
             hand: [twoCard, _card(Rank.five, Suit.spades)],
             cardCount: 2,
-            isActiveTurn: true,
           ),
           PlayerModel(
             id: p2Id,

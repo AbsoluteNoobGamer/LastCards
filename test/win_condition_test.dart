@@ -26,9 +26,6 @@ GameState buildState({
     tablePosition: TablePosition.bottom,
     hand: p1Hand,
     cardCount: p1Hand.length,
-    isConnected: true,
-    isActiveTurn: true,
-    isSkipped: false,
   );
   final p2 = PlayerModel(
     id: 'p2',
@@ -36,9 +33,6 @@ GameState buildState({
     tablePosition: TablePosition.top,
     hand: p2Hand,
     cardCount: p2Hand.length,
-    isConnected: true,
-    isActiveTurn: false,
-    isSkipped: false,
   );
 
   return GameState(
@@ -50,7 +44,6 @@ GameState buildState({
     drawPileCount: 20,
     activePenaltyCount: activePenalty,
     queenSuitLock: queenSuitLock,
-    lastUpdatedAt: 0,
     players: [p1, p2],
   );
 }
