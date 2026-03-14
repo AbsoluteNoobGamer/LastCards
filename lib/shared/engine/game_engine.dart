@@ -449,14 +449,25 @@ GameState applyInitialFaceUpEffect({
 ///
 /// This ensures the Joker is consumed from hand and the turn action is recorded
 /// in the same play pipeline as any other card.
+///
+/// Because a raw Joker hits the Sequence Penalty Override and Eight Skip
+/// Cancellation paths inside [applyPlay] (it is neither a 2/Jack nor an 8),
+/// we save and restore [activePenaltyCount] and [activeSkipCount] so the
+/// penalty/skip chain is preserved for [resolveJokerPlay] to act on.
 GameState beginJokerPlay({
   required GameState state,
   required String playerId,
   required CardModel jokerCard,
 }) {
+  final savedPenalty = state.activePenaltyCount;
+  final savedSkip = state.activeSkipCount;
   final played =
       applyPlay(state: state, playerId: playerId, cards: [jokerCard]);
-  return played.copyWith(pendingJokerResolution: true);
+  return played.copyWith(
+    pendingJokerResolution: true,
+    activePenaltyCount: savedPenalty,
+    activeSkipCount: savedSkip,
+  );
 }
 
 /// Finalizes a previously committed Joker play after the user picks a represented card.
