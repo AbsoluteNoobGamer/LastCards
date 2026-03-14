@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/models/game_event.dart';
 import '../../../../core/models/game_state.dart';
 import '../../../../core/models/player_model.dart';
+import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/connection_provider.dart';
 import '../../../../core/providers/profile_provider.dart';
 import '../../../../core/providers/game_provider.dart';
@@ -257,6 +258,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     }
     setState(() => _pendingJoin = true);
     final wsClient = ref.read(wsClientProvider);
+    final authService = ref.read(authServiceProvider);
+    final idToken = await authService.getIdToken();
     try {
       await wsClient.connect();
     } catch (e) {
@@ -275,6 +278,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       'type': 'join_room',
       'roomCode': code,
       'displayName': ref.read(profileProvider).name,
+      if (idToken != null) 'idToken': idToken,
     }));
     // If no response after 8s, show hint (wrong server IP or room code).
     Future.delayed(const Duration(seconds: 8), () {
@@ -294,6 +298,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
   Future<void> _onCreate() async {
     final wsClient = ref.read(wsClientProvider);
+    final authService = ref.read(authServiceProvider);
+    final idToken = await authService.getIdToken();
     try {
       await wsClient.connect();
     } catch (e) {
@@ -310,6 +316,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     wsClient.send(jsonEncode({
       'type': 'create_room',
       'displayName': ref.read(profileProvider).name,
+      if (idToken != null) 'idToken': idToken,
     }));
     // Navigation happens when room_created is received (see initState listener).
   }
