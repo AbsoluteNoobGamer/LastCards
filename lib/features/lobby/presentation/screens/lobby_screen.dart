@@ -335,7 +335,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
   void _enterSelectedMode() {
     final displayName = ref.read(displayNameForGameProvider);
-    final effectiveName = displayName.isEmpty || displayName == 'Player' ? 'You' : displayName;
+    final isProfileLoaded = ref.read(userProfileProvider).hasValue;
+    final effectiveName = displayName.isEmpty || !isProfileLoaded ? 'You' : displayName;
 
     if (widget.onlineMode == OnlineMode.tournament) {
       Navigator.of(context).push(
