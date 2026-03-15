@@ -19,9 +19,6 @@ import '../../tournament/providers/tournament_session_provider.dart';
 import '../providers/online_session_provider.dart';
 import 'lobby_ready_screen.dart';
 
-/// Default MMR when no ranked_stats doc exists (from server trophy_recorder).
-const _kInitialRating = 1000;
-
 /// Full-screen matchmaking screen.
 ///
 /// Shows an animated waiting indicator and player slots that fill in
@@ -707,12 +704,19 @@ class _DotGridPainter extends CustomPainter {
 
 /// Shows current MMR when in ranked mode. Fetches from ranked_stats Firestore.
 /// Defaults to 1000 MMR if no doc exists (trophy_recorder._kInitialRating).
-class _RankedMmrDisplay extends StatelessWidget {
+class _RankedMmrDisplay extends StatefulWidget {
   const _RankedMmrDisplay({required this.theme});
 
   final AppThemeData theme;
 
+  @override
+  State<_RankedMmrDisplay> createState() => _RankedMmrDisplayState();
+}
+
+class _RankedMmrDisplayState extends State<_RankedMmrDisplay> {
   static const _defaultMmr = 1000;
+
+  late final Future<int> _mmrFuture = _fetchMmr();
 
   Future<int> _fetchMmr() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -733,7 +737,7 @@ class _RankedMmrDisplay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<int>(
-      future: _fetchMmr(),
+      future: _mmrFuture,
       builder: (context, snap) {
         final mmr = snap.data ?? _defaultMmr;
         return Padding(
@@ -742,7 +746,7 @@ class _RankedMmrDisplay extends StatelessWidget {
             '$mmr MMR',
             style: GoogleFonts.inter(
               fontSize: 12,
-              color: theme.accentPrimary,
+              color: widget.theme.accentPrimary,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.5,
             ),

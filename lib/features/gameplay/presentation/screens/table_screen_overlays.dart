@@ -114,7 +114,7 @@ class _WinDialog extends ConsumerWidget {
 }
 
 /// Ranked results section with MMR delta, and fetched stats (MMR, W/L, tier).
-class _RankedResultsSection extends StatelessWidget {
+class _RankedResultsSection extends StatefulWidget {
   const _RankedResultsSection({
     required this.ratingDelta,
     required this.theme,
@@ -122,6 +122,14 @@ class _RankedResultsSection extends StatelessWidget {
 
   final int ratingDelta;
   final AppThemeData theme;
+
+  @override
+  State<_RankedResultsSection> createState() => _RankedResultsSectionState();
+}
+
+class _RankedResultsSectionState extends State<_RankedResultsSection> {
+  late final Future<({int rating, int wins, int losses})?> _statsFuture =
+      _fetchRankedStats();
 
   Future<({int rating, int wins, int losses})?> _fetchRankedStats() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -148,10 +156,13 @@ class _RankedResultsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<({int rating, int wins, int losses})?>(
-      future: _fetchRankedStats(),
+      future: _statsFuture,
       builder: (context, snap) {
         final stats = snap.data;
         final tier = stats != null ? _rankTierForMmr(stats.rating) : null;
+
+        final theme = widget.theme;
+        final ratingDelta = widget.ratingDelta;
 
         return Container(
           padding: const EdgeInsets.all(16),
