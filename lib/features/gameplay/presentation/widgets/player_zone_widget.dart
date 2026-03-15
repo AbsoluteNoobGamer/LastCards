@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/player.dart';
 import '../controllers/game_provider.dart';
 import '../../../../core/models/ai_player_config.dart';
+import '../../../../core/utils/display_name_utils.dart';
+import '../../../../widgets/marquee_name.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/player_styles.dart';
@@ -212,24 +214,19 @@ class _OpponentAvatarZone extends StatelessWidget {
                         child: CircleAvatar(
                           radius: 30,
                           backgroundColor: Colors.transparent,
-                          child: aiConfig != null
-                              ? Text(
-                                  aiConfig!.initials,
-                                  style: TextStyle(
-                                    color: isActive
-                                        ? Colors.white
-                                        : Colors.white
-                                            .withValues(alpha: 0.85),
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.5,
-                                  ),
-                                )
-                              : Icon(
-                                  PlayerStyles.getIcon(player.tablePosition),
-                                  color: positionColor,
-                                  size: 28,
-                                ),
+                          child: Text(
+                              aiConfig?.initials ??
+                                  initialsFromDisplayName(player.displayName),
+                              style: TextStyle(
+                                color: isActive
+                                    ? Colors.white
+                                    : Colors.white
+                                        .withValues(alpha: 0.85),
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
                         ),
                       ),
                     ),
@@ -268,20 +265,20 @@ class _OpponentAvatarZone extends StatelessWidget {
 
         const SizedBox(height: 8),
 
-        // ── Player name ────────────────────────────────────────────────────
-        SizedBox(
-          width: 96,
-          child: Text(
-            player.displayName,
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
-            style: AppTypography.labelSmall.copyWith(
-              color: isActive
-                  ? (aiConfig?.nameColor ?? positionColor)
-                  : (appTheme.textPrimary as Color),
-              fontWeight: FontWeight.w700,
-            ),
+        // ── Player name (marquee when long) ───────────────────────────────────
+        MarqueeName(
+          text: player.displayName,
+          style: AppTypography.labelSmall.copyWith(
+            color: isActive
+                ? (aiConfig?.nameColor ?? positionColor)
+                : (appTheme.textPrimary as Color),
+            fontWeight: FontWeight.w700,
           ),
+          maxWidth: 96,
+          textAlign: TextAlign.center,
+          color: isActive
+              ? (aiConfig?.nameColor ?? positionColor)
+              : (appTheme.textPrimary as Color),
         ),
 
         // ── Tournament status badge ────────────────────────────────────────
@@ -381,6 +378,8 @@ class _PlayerLabel extends StatelessWidget {
       );
     }
 
+    final positionColor = PlayerStyles.getColor(player.tablePosition);
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -390,31 +389,42 @@ class _PlayerLabel extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                PlayerStyles.getIcon(player.tablePosition),
-                color: PlayerStyles.getColor(player.tablePosition),
-                size: iconSize,
+              CircleAvatar(
+                radius: iconSize / 2,
+                backgroundColor: positionColor.withValues(alpha: 0.25),
+                child: Text(
+                  initialsFromDisplayName(player.displayName),
+                  style: TextStyle(
+                    color: positionColor,
+                    fontSize: iconSize * 0.45,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.3,
+                  ),
+                ),
               ),
               SizedBox(width: gap),
-              Text(
-                player.displayName,
+              MarqueeName(
+                text: player.displayName,
                 style: AppTypography.labelSmall.copyWith(
                   color: isActiveTurn
-                      ? PlayerStyles.getColor(player.tablePosition)
+                      ? positionColor
                       : (appTheme.textPrimary as Color),
                   fontStyle: FontStyle.normal,
                   fontSize: nameFontSize,
                   shadows: isActiveTurn && !compact
                       ? [
                           Shadow(
-                            color: PlayerStyles.getColor(player.tablePosition)
-                                .withValues(alpha: 0.8),
+                            color: positionColor.withValues(alpha: 0.8),
                             blurRadius: 8,
                           )
                         ]
                       : null,
                 ),
-                overflow: TextOverflow.ellipsis,
+                maxWidth: 120,
+                textAlign: TextAlign.left,
+                color: isActiveTurn
+                    ? positionColor
+                    : (appTheme.textPrimary as Color),
               ),
             ],
           ),
