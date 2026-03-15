@@ -390,13 +390,13 @@ class _PlayerLabel extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               CircleAvatar(
-                radius: iconSize,
+                radius: iconSize / 2,
                 backgroundColor: positionColor.withValues(alpha: 0.25),
                 child: Text(
                   initialsFromDisplayName(player.displayName),
                   style: TextStyle(
                     color: positionColor,
-                    fontSize: iconSize * 0.8,
+                    fontSize: iconSize * 0.45,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.3,
                   ),

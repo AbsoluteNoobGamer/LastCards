@@ -58,8 +58,11 @@ class _MarqueeNameState extends State<MarqueeName>
       ),
       maxLines: 1,
       textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
     )..layout();
-    return textPainter.width;
+    final width = textPainter.width;
+    textPainter.dispose();
+    return width;
   }
 
   @override
