@@ -1,6 +1,6 @@
 import 'card_model.dart';
 
-enum MoveLogEntryType { play, draw, timeoutDraw }
+enum MoveLogEntryType { play, draw, timeoutDraw, invalidPlayDraw }
 
 class MoveCardAction {
   const MoveCardAction({
@@ -83,6 +83,19 @@ class MoveLogEntry {
       playerId: playerId,
       playerName: playerName,
       type: MoveLogEntryType.timeoutDraw,
+      drawCount: drawCount,
+    );
+  }
+
+  factory MoveLogEntry.invalidPlayDraw({
+    required String playerId,
+    required String playerName,
+    int drawCount = 2,
+  }) {
+    return MoveLogEntry(
+      playerId: playerId,
+      playerName: playerName,
+      type: MoveLogEntryType.invalidPlayDraw,
       drawCount: drawCount,
     );
   }

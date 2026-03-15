@@ -1,7 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/theme/app_theme_data.dart';
 
 /// Game mode categories for the leaderboard, aligned with main menu entry points.
 enum LeaderboardMode {
@@ -53,14 +57,14 @@ class _RankedEntry {
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
-class LeaderboardScreen extends StatefulWidget {
+class LeaderboardScreen extends ConsumerStatefulWidget {
   const LeaderboardScreen({super.key});
 
   @override
-  State<LeaderboardScreen> createState() => _LeaderboardScreenState();
+  ConsumerState<LeaderboardScreen> createState() => _LeaderboardScreenState();
 }
 
-class _LeaderboardScreenState extends State<LeaderboardScreen> {
+class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   LeaderboardMode _selectedMode = LeaderboardMode.ranked;
 
   // ── Ranked Firestore data ─────────────────────────────────────────────────
@@ -112,21 +116,22 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = ref.watch(themeProvider).theme;
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1117),
+      backgroundColor: theme.backgroundDeep,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF161B22),
+        backgroundColor: theme.backgroundMid,
         elevation: 0,
         title: Text(
           '${_selectedMode.label} Leaderboard',
           style: GoogleFonts.cinzel(
-            color: Colors.amber,
+            color: theme.accentPrimary,
             fontWeight: FontWeight.w700,
             fontSize: 17,
             letterSpacing: 1.5,
           ),
         ),
-        iconTheme: const IconThemeData(color: Colors.amber),
+        iconTheme: IconThemeData(color: theme.accentPrimary),
       ),
       body: Column(
         children: [
@@ -141,22 +146,26 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   padding: const EdgeInsets.only(right: 8),
                   child: FilterChip(
                     selected: isSelected,
-                    backgroundColor: const Color(0xFF21262D),
-                    selectedColor: Colors.amber,
-                    checkmarkColor: Colors.black,
+                    backgroundColor: theme.surfacePanel,
+                    selectedColor: theme.accentPrimary,
+                    checkmarkColor: theme.backgroundDeep,
                     label: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
                           mode.icon,
                           size: 15,
-                          color: isSelected ? Colors.black : Colors.amber,
+                          color: isSelected
+                              ? theme.backgroundDeep
+                              : theme.accentPrimary,
                         ),
                         const SizedBox(width: 6),
                         Text(
                           mode.label,
                           style: TextStyle(
-                            color: isSelected ? Colors.black : Colors.white70,
+                            color: isSelected
+                                ? theme.backgroundDeep
+                                : theme.textSecondary.withValues(alpha: 0.9),
                             fontWeight: isSelected
                                 ? FontWeight.w700
                                 : FontWeight.normal,
@@ -179,10 +188,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     fetchRanked: _fetchRanked,
                     findLocalEntry: _findLocalEntry,
                     localRank: _localRank,
+                    theme: theme,
                   )
                 : _MockLeaderboard(
                     mode: _selectedMode,
                     players: _mockPlayers,
+                    theme: theme,
                   ),
           ),
         ],
@@ -198,11 +209,13 @@ class _RankedLeaderboard extends StatefulWidget {
     required this.fetchRanked,
     required this.findLocalEntry,
     required this.localRank,
+    required this.theme,
   });
 
   final Future<List<_RankedEntry>> Function() fetchRanked;
   final _RankedEntry? Function(List<_RankedEntry>) findLocalEntry;
   final int Function(List<_RankedEntry>) localRank;
+  final AppThemeData theme;
 
   @override
   State<_RankedLeaderboard> createState() => _RankedLeaderboardState();
@@ -227,9 +240,10 @@ class _RankedLeaderboardState extends State<_RankedLeaderboard> {
     return FutureBuilder<List<_RankedEntry>>(
       future: _future,
       builder: (context, snap) {
+        final theme = widget.theme;
         if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(color: Colors.amber),
+          return Center(
+            child: CircularProgressIndicator(color: theme.accentPrimary),
           );
         }
 
@@ -238,18 +252,18 @@ class _RankedLeaderboardState extends State<_RankedLeaderboard> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.cloud_off, color: Colors.white38, size: 48),
+                Icon(Icons.cloud_off, color: theme.textSecondary.withValues(alpha: 0.6), size: 48),
                 const SizedBox(height: 12),
                 Text(
                   'Failed to load rankings.',
-                  style: GoogleFonts.inter(color: Colors.white38),
+                  style: GoogleFonts.inter(color: theme.textSecondary.withValues(alpha: 0.6)),
                 ),
                 const SizedBox(height: 16),
                 TextButton.icon(
                   onPressed: _refresh,
-                  icon: const Icon(Icons.refresh, color: Colors.amber),
+                  icon: Icon(Icons.refresh, color: theme.accentPrimary),
                   label: Text('Retry',
-                      style: GoogleFonts.inter(color: Colors.amber)),
+                      style: GoogleFonts.inter(color: theme.accentPrimary)),
                 ),
               ],
             ),
@@ -268,7 +282,7 @@ class _RankedLeaderboardState extends State<_RankedLeaderboard> {
                   'No ranked games yet.\nBe the first to compete!',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
-                    color: Colors.white54,
+                    color: theme.textSecondary.withValues(alpha: 0.8),
                     fontSize: 15,
                   ),
                 ),
@@ -282,8 +296,8 @@ class _RankedLeaderboardState extends State<_RankedLeaderboard> {
 
         return RefreshIndicator(
           onRefresh: _refresh,
-          color: Colors.amber,
-          backgroundColor: const Color(0xFF21262D),
+          color: theme.accentPrimary,
+          backgroundColor: theme.surfacePanel,
           child: CustomScrollView(
             slivers: [
               // "Your Rank" banner
@@ -291,13 +305,14 @@ class _RankedLeaderboardState extends State<_RankedLeaderboard> {
                 child: _YourRankBanner(
                   entry: localEntry,
                   rank: rank,
+                  theme: theme,
                 ),
               ),
 
               // Top-3 podium
               if (entries.length >= 3)
                 SliverToBoxAdapter(
-                  child: _Podium(top3: entries.take(3).toList()),
+                  child: _Podium(top3: entries.take(3).toList(), theme: theme),
                 ),
 
               // Full list
@@ -308,6 +323,7 @@ class _RankedLeaderboardState extends State<_RankedLeaderboard> {
                     entry: entries[i],
                     isLocal: entries[i].uid ==
                         FirebaseAuth.instance.currentUser?.uid,
+                    theme: theme,
                   ),
                   childCount: entries.length,
                 ),
@@ -325,10 +341,11 @@ class _RankedLeaderboardState extends State<_RankedLeaderboard> {
 // ── Your Rank Banner ──────────────────────────────────────────────────────────
 
 class _YourRankBanner extends StatelessWidget {
-  const _YourRankBanner({required this.entry, required this.rank});
+  const _YourRankBanner({required this.entry, required this.rank, required this.theme});
 
   final _RankedEntry? entry;
   final int rank;
+  final AppThemeData theme;
 
   @override
   Widget build(BuildContext context) {
@@ -337,10 +354,10 @@ class _YourRankBanner extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF21262D),
+        color: theme.surfacePanel,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: Colors.amber.withValues(alpha: 0.4),
+          color: theme.accentPrimary.withValues(alpha: 0.4),
           width: 1.5,
         ),
       ),
@@ -356,7 +373,7 @@ class _YourRankBanner extends StatelessWidget {
                       Text(
                         'Your Rank: #$rank',
                         style: GoogleFonts.outfit(
-                          color: Colors.amber,
+                          color: theme.accentPrimary,
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                         ),
@@ -365,7 +382,7 @@ class _YourRankBanner extends StatelessWidget {
                         'W ${entry!.wins}  ·  L ${entry!.losses}  ·  '
                         '${entry!.gamesPlayed} games',
                         style: GoogleFonts.inter(
-                          color: Colors.white54,
+                          color: theme.textSecondary.withValues(alpha: 0.8),
                           fontSize: 12,
                         ),
                       ),
@@ -378,7 +395,7 @@ class _YourRankBanner extends StatelessWidget {
                     Text(
                       '${entry!.rating}',
                       style: GoogleFonts.outfit(
-                        color: Colors.amber,
+                        color: theme.accentPrimary,
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
                       ),
@@ -386,7 +403,7 @@ class _YourRankBanner extends StatelessWidget {
                     Text(
                       'MMR',
                       style: GoogleFonts.inter(
-                        color: Colors.white38,
+                        color: theme.textSecondary.withValues(alpha: 0.6),
                         fontSize: 10,
                         letterSpacing: 0.5,
                       ),
@@ -397,7 +414,7 @@ class _YourRankBanner extends StatelessWidget {
             )
           : Text(
               'Play a ranked game to appear on the leaderboard.',
-              style: GoogleFonts.inter(color: Colors.white38, fontSize: 13),
+              style: GoogleFonts.inter(color: theme.textSecondary.withValues(alpha: 0.6), fontSize: 13),
             ),
     );
   }
@@ -406,9 +423,10 @@ class _YourRankBanner extends StatelessWidget {
 // ── Podium ────────────────────────────────────────────────────────────────────
 
 class _Podium extends StatelessWidget {
-  const _Podium({required this.top3});
+  const _Podium({required this.top3, required this.theme});
 
   final List<_RankedEntry> top3;
+  final AppThemeData theme;
 
   @override
   Widget build(BuildContext context) {
@@ -451,7 +469,7 @@ class _Podium extends StatelessWidget {
                 Text(
                   '${e.rating} MMR',
                   style: GoogleFonts.inter(
-                    color: Colors.white54,
+                    color: theme.textSecondary.withValues(alpha: 0.8),
                     fontSize: 11,
                   ),
                 ),
@@ -495,34 +513,36 @@ class _RankedTile extends StatelessWidget {
     required this.index,
     required this.entry,
     required this.isLocal,
+    required this.theme,
   });
 
   final int index;
   final _RankedEntry entry;
   final bool isLocal;
+  final AppThemeData theme;
 
   @override
   Widget build(BuildContext context) {
     final rank = index + 1;
     final isTop3 = rank <= 3;
-    final medalColors = [
-      const Color(0xFFFFD700),
-      const Color(0xFFB0BEC5),
-      const Color(0xFFBF8970),
+    const medalColors = [
+      Color(0xFFFFD700),
+      Color(0xFFB0BEC5),
+      Color(0xFFBF8970),
     ];
-    final rankColor = isTop3 ? medalColors[rank - 1] : Colors.white38;
+    final rankColor = isTop3 ? medalColors[rank - 1] : theme.textSecondary.withValues(alpha: 0.6);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
       decoration: BoxDecoration(
         color: isLocal
-            ? Colors.amber.withValues(alpha: 0.08)
-            : const Color(0xFF161B22),
+            ? theme.accentPrimary.withValues(alpha: 0.08)
+            : theme.backgroundMid,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isLocal
-              ? Colors.amber.withValues(alpha: 0.4)
-              : Colors.white.withValues(alpha: 0.05),
+              ? theme.accentPrimary.withValues(alpha: 0.4)
+              : theme.textPrimary.withValues(alpha: 0.05),
           width: isLocal ? 1.5 : 1,
         ),
       ),
@@ -544,7 +564,7 @@ class _RankedTile extends StatelessWidget {
               child: Text(
                 entry.displayName,
                 style: GoogleFonts.outfit(
-                  color: isLocal ? Colors.amber : Colors.white,
+                  color: isLocal ? theme.accentPrimary : theme.textPrimary,
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
                 ),
@@ -556,13 +576,13 @@ class _RankedTile extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.2),
+                  color: theme.accentPrimary.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   'YOU',
                   style: GoogleFonts.inter(
-                    color: Colors.amber,
+                    color: theme.accentPrimary,
                     fontSize: 9,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.5,
@@ -573,7 +593,7 @@ class _RankedTile extends StatelessWidget {
         ),
         subtitle: Text(
           'W ${entry.wins}  ·  L ${entry.losses}  ·  ${entry.gamesPlayed} games',
-          style: GoogleFonts.inter(color: Colors.white38, fontSize: 11),
+          style: GoogleFonts.inter(color: theme.textSecondary.withValues(alpha: 0.6), fontSize: 11),
         ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -582,14 +602,14 @@ class _RankedTile extends StatelessWidget {
             Text(
               '${entry.rating}',
               style: GoogleFonts.outfit(
-                color: Colors.amber,
+                color: theme.accentPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
               ),
             ),
             Text(
               'MMR',
-              style: GoogleFonts.inter(color: Colors.white38, fontSize: 9),
+              style: GoogleFonts.inter(color: theme.textSecondary.withValues(alpha: 0.6), fontSize: 9),
             ),
           ],
         ),
@@ -601,10 +621,11 @@ class _RankedTile extends StatelessWidget {
 // ── Mock leaderboard (non-ranked modes) ───────────────────────────────────────
 
 class _MockLeaderboard extends StatefulWidget {
-  const _MockLeaderboard({required this.mode, required this.players});
+  const _MockLeaderboard({required this.mode, required this.players, required this.theme});
 
   final LeaderboardMode mode;
   final List<Map<String, dynamic>> players;
+  final AppThemeData theme;
 
   @override
   State<_MockLeaderboard> createState() => _MockLeaderboardState();
@@ -621,27 +642,28 @@ class _MockLeaderboardState extends State<_MockLeaderboard> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = widget.theme;
     return Column(
       children: [
         Container(
           padding: const EdgeInsets.all(16),
-          color: const Color(0xFF21262D),
+          color: theme.surfacePanel,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 '${widget.mode.label} — Your Rank: #47',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: Colors.amber,
+                  color: theme.accentPrimary,
                 ),
               ),
               Text(
                 'Wins: 142 · Streak: 3',
                 style: TextStyle(
                   fontSize: 13,
-                  color: Colors.white.withValues(alpha: 0.7),
+                  color: theme.textPrimary.withValues(alpha: 0.7),
                 ),
               ),
             ],
@@ -650,44 +672,44 @@ class _MockLeaderboardState extends State<_MockLeaderboard> {
         Expanded(
           child: RefreshIndicator(
             onRefresh: _refresh,
-            color: Colors.amber,
+            color: theme.accentPrimary,
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(child: CircularProgressIndicator(color: theme.accentPrimary))
                 : ListView.builder(
                     itemCount: widget.players.length,
                     itemBuilder: (context, index) {
                       final player = widget.players[index];
                       final isTop3 = index < 3;
-                      final medalColors = [
-                        const Color(0xFFFFD700),
-                        const Color(0xFFB0BEC5),
-                        const Color(0xFFBF8970),
+                      const medalColors = [
+                        Color(0xFFFFD700),
+                        Color(0xFFB0BEC5),
+                        Color(0xFFBF8970),
                       ];
 
                       return ListTile(
                         leading: CircleAvatar(
                           backgroundColor: isTop3
                               ? medalColors[index].withValues(alpha: 0.2)
-                              : Colors.grey[800],
+                              : theme.surfacePanel,
                           child: Text(
                             '#${index + 1}',
                             style: TextStyle(
                               color:
-                                  isTop3 ? medalColors[index] : Colors.white,
+                                  isTop3 ? medalColors[index] : theme.textPrimary,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                         title: Text(
                           player['name'] as String,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: theme.textPrimary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         subtitle: Text(
                           'Streak: 🔥 ${player['streak']}',
-                          style: const TextStyle(color: Colors.white54),
+                          style: TextStyle(color: theme.textSecondary.withValues(alpha: 0.8)),
                         ),
                         trailing: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -695,16 +717,16 @@ class _MockLeaderboardState extends State<_MockLeaderboard> {
                           children: [
                             Text(
                               '${player['wins']}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.amber,
+                                color: theme.accentPrimary,
                               ),
                             ),
-                            const Text(
+                            Text(
                               'Wins',
                               style: TextStyle(
-                                  fontSize: 10, color: Colors.white54),
+                                  fontSize: 10, color: theme.textSecondary.withValues(alpha: 0.8)),
                             ),
                           ],
                         ),

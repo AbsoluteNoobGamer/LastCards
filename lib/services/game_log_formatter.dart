@@ -24,6 +24,8 @@ class GameLogFormatter {
         return 'timed out, drew ${_cardCountLabel(entry.drawCount)}';
       case MoveLogEntryType.draw:
         return 'drew ${_cardCountLabel(entry.drawCount)}';
+      case MoveLogEntryType.invalidPlayDraw:
+        return 'drew ${_cardCountLabel(entry.drawCount)} for invalid play';
       case MoveLogEntryType.play:
         return _formatPlay(entry);
     }

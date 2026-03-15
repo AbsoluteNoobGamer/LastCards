@@ -147,10 +147,20 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
     super.dispose();
   }
 
+  String _displayNameForSlot(GameState? gameState, int index, int playerCount) {
+    if (gameState != null &&
+        index < gameState.players.length &&
+        gameState.players[index].displayName.isNotEmpty) {
+      return gameState.players[index].displayName;
+    }
+    return index == 0 ? 'You' : 'Player ${index + 1}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = ref.watch(themeProvider).theme;
     final session = ref.watch(onlineSessionProvider);
+    final gameState = ref.watch(gameStateProvider);
     final playerCount = session.playerCount ?? 4;
 
     return PopScope(
@@ -187,11 +197,13 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
                       return _buildLandscapeLayout(
                         theme: theme,
                         playerCount: playerCount,
+                        gameState: gameState,
                       );
                     }
                     return _buildPortraitLayout(
                       theme: theme,
                       playerCount: playerCount,
+                      gameState: gameState,
                     );
                   },
                 ),
@@ -206,6 +218,7 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
   Widget _buildPortraitLayout({
     required AppThemeData theme,
     required int playerCount,
+    required GameState? gameState,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -225,6 +238,7 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
               return _ConfirmedPlayerAvatar(
                 index: i,
                 isLocalPlayer: i == 0,
+                displayName: _displayNameForSlot(gameState, i, playerCount),
               );
             }),
           ),
@@ -248,6 +262,7 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
   Widget _buildLandscapeLayout({
     required AppThemeData theme,
     required int playerCount,
+    required GameState? gameState,
   }) {
     return Row(
       children: [
@@ -261,6 +276,7 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
                 return _ConfirmedPlayerAvatar(
                   index: i,
                   isLocalPlayer: i == 0,
+                  displayName: _displayNameForSlot(gameState, i, playerCount),
                 );
               }),
             ),
@@ -407,10 +423,12 @@ class _ConfirmedPlayerAvatar extends ConsumerStatefulWidget {
   const _ConfirmedPlayerAvatar({
     required this.index,
     required this.isLocalPlayer,
+    required this.displayName,
   });
 
   final int index;
   final bool isLocalPlayer;
+  final String displayName;
 
   @override
   ConsumerState<_ConfirmedPlayerAvatar> createState() =>
@@ -495,7 +513,7 @@ class _ConfirmedPlayerAvatarState extends ConsumerState<_ConfirmedPlayerAvatar>
           ),
           const SizedBox(height: 6),
           Text(
-            widget.isLocalPlayer ? 'You' : 'Player ${widget.index + 1}',
+            widget.displayName,
             style: GoogleFonts.inter(
               fontSize: 11,
               fontWeight:
