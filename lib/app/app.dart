@@ -29,7 +29,7 @@ class _StackAndFlowAppState extends ConsumerState<StackAndFlowApp> {
       title: 'Last Cards',
       debugShowCheckedModeBanner: false,
       theme: buildThemeData(themeState.theme),
-      initialRoute: AppRoutes.start,
+      initialRoute: AppRoutes.splash,
       routes: appRoutes,
     );
   }
