@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../lobby/presentation/screens/lobby_screen.dart';
 import '../providers/online_session_provider.dart';
@@ -87,6 +88,21 @@ class ModeSelectionSheet extends ConsumerWidget {
 
   void _onModeSelected(
       BuildContext context, WidgetRef ref, OnlineGameMode mode) {
+    // Ranked requires a signed-in Firebase user (anonymous auth counts).
+    if (mode == OnlineGameMode.ranked) {
+      final user = ref.read(authStateProvider).value;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Sign in is required for Ranked mode. Please restart the app to sign in.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+    }
+
     ref.read(onlineSessionProvider.notifier).setMode(mode);
     Navigator.of(context).pop();
     if (mode == OnlineGameMode.privateGame) {

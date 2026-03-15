@@ -43,12 +43,19 @@ class _ConnectedPlayer {
 ///   • Reshuffle when draw pile ≤ 5 cards.
 ///   • Win detection after every state mutation.
 ///   • Personalised state_snapshot broadcasts (each client sees own hand only).
+// ── Rating deltas for ranked mode ─────────────────────────────────────────────
+
+const _rankedWinDelta = 25;
+const _rankedLossDelta = -15;
+const _rankedLeaveDelta = -20;
+
 class GameSession {
   GameSession(
     this.roomCode, {
     this.isPrivate = true,
     this.maxPlayerCount,
     this.isBustMode = false,
+    this.isRanked = false,
     TrophyRecorder? trophyRecorder,
   }) : _trophyRecorder = trophyRecorder ?? TrophyRecorder.instance;
 
@@ -63,6 +70,9 @@ class GameSession {
 
   /// True for Bust mode: 10 players, 52-card deck, multi-round with elimination.
   final bool isBustMode;
+
+  /// True for ranked matchmaking: enables MMR recording via [TrophyRecorder].
+  final bool isRanked;
 
   final TrophyRecorder _trophyRecorder;
 
@@ -188,7 +198,9 @@ class GameSession {
   }
 
   void removePlayer(String playerId) {
-    final firebaseUid = _players[playerId]?.firebaseUid;
+    final leavingPlayer = _players[playerId];
+    final firebaseUid = leavingPlayer?.firebaseUid;
+    final displayName = leavingPlayer?.displayName ?? playerId;
     _players.remove(playerId);
     _broadcast({'type': 'player_left', 'playerId': playerId});
 
@@ -200,9 +212,9 @@ class GameSession {
       _state = _state.copyWith(phase: GamePhase.ended);
 
       final trophyPenaltyForLeaver = _trophyEligible;
-      if (trophyPenaltyForLeaver) {
+      if (trophyPenaltyForLeaver && isRanked) {
         final uid = firebaseUid ?? playerId;
-        _trophyRecorder.recordLeavePenalty(uid);
+        _trophyRecorder.recordLeavePenalty(uid, displayName: displayName);
       }
 
       _broadcast({
@@ -211,6 +223,9 @@ class GameSession {
         'reason': 'player_disconnected',
         'disconnectedPlayerId': playerId,
         'trophyPenaltyForLeaver': trophyPenaltyForLeaver,
+        if (isRanked) 'ratingChanges': {
+          playerId: _rankedLeaveDelta,
+        },
       });
     }
   }
@@ -306,6 +321,7 @@ class GameSession {
     _broadcast({
       'type': 'session_config',
       'isPrivate': isPrivate,
+      'isRanked': isRanked,
       'trophyEligible': _trophyEligible,
     });
     _broadcastStateSnapshots();
@@ -652,14 +668,34 @@ class GameSession {
     if (isGameOver) {
       _gameOver = true;
       _state = _state.copyWith(phase: GamePhase.ended, winnerId: winnerId);
-      if (_trophyEligible && winnerId != null) {
-        final uid = _players[winnerId]?.firebaseUid ?? winnerId;
-        _trophyRecorder.recordWin(uid);
+      final bustTrophyEligible = _trophyEligible;
+
+      Map<String, int>? ratingChanges;
+      if (bustTrophyEligible && isRanked && winnerId != null) {
+        ratingChanges = {
+          for (final entry in _players.entries)
+            entry.key:
+                entry.key == winnerId ? _rankedWinDelta : _rankedLossDelta,
+        };
+        final winnerUid = _players[winnerId]?.firebaseUid ?? winnerId;
+        final allPlayerUids = _players.entries
+            .map((e) => (
+                  playerId: e.key,
+                  uid: e.value.firebaseUid ?? e.key,
+                  displayName: e.value.displayName,
+                ))
+            .toList();
+        _trophyRecorder.recordRankedResult(
+          winnerUid: winnerUid,
+          allPlayerUids: allPlayerUids,
+        );
       }
+
       _broadcast({
         'type': 'bust_game_ended',
         'winnerId': winnerId ?? '',
-        'trophyEligible': _trophyEligible,
+        'trophyEligible': bustTrophyEligible,
+        if (ratingChanges != null) 'ratingChanges': ratingChanges,
       });
       return;
     }
@@ -840,15 +876,33 @@ class GameSession {
     _turnTimer?.cancel();
 
     final trophyEligible = _trophyEligible;
-    if (trophyEligible) {
-      final uid = _players[winnerId]?.firebaseUid ?? winnerId;
-      _trophyRecorder.recordWin(uid);
+
+    // Compute per-player rating deltas for ranked games.
+    Map<String, int>? ratingChanges;
+    if (trophyEligible && isRanked) {
+      ratingChanges = {
+        for (final entry in _players.entries)
+          entry.key: entry.key == winnerId ? _rankedWinDelta : _rankedLossDelta,
+      };
+      final winnerUid = _players[winnerId]?.firebaseUid ?? winnerId;
+      final allPlayerUids = _players.entries
+          .map((e) => (
+                playerId: e.key,
+                uid: e.value.firebaseUid ?? e.key,
+                displayName: e.value.displayName,
+              ))
+          .toList();
+      _trophyRecorder.recordRankedResult(
+        winnerUid: winnerUid,
+        allPlayerUids: allPlayerUids,
+      );
     }
 
     _broadcast({
       'type': 'game_ended',
       'winnerId': winnerId,
       'trophyEligible': trophyEligible,
+      if (ratingChanges != null) 'ratingChanges': ratingChanges,
     });
   }
 

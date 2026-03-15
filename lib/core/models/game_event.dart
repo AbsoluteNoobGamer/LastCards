@@ -108,7 +108,14 @@ final class PlayerLeftEvent extends GameEvent {
 /// Game has concluded.
 final class GameEndedEvent extends GameEvent {
   final String winnerId;
-  const GameEndedEvent(this.winnerId);
+
+  /// Per-player rating deltas for ranked games.
+  ///
+  /// Key is the server-side player ID; value is the rating change (+25/-15).
+  /// Null when the game was not a ranked match.
+  final Map<String, int>? ratingChanges;
+
+  const GameEndedEvent(this.winnerId, {this.ratingChanges});
 
   @override
   String get type => 'game_ended';
@@ -349,8 +356,16 @@ GameEvent parseServerEvent(String raw) {
           PlayerModel.fromJson(json['player'] as Map<String, dynamic>),
         ),
       'player_left' => PlayerLeftEvent(json['playerId'] as String),
-      'game_ended' => GameEndedEvent(json['winnerId'] as String),
-      'bust_game_ended' => GameEndedEvent(json['winnerId'] as String),
+      'game_ended' => GameEndedEvent(
+          json['winnerId'] as String,
+          ratingChanges: (json['ratingChanges'] as Map<String, dynamic>?)
+              ?.map((k, v) => MapEntry(k, (v as num).toInt())),
+        ),
+      'bust_game_ended' => GameEndedEvent(
+          json['winnerId'] as String,
+          ratingChanges: (json['ratingChanges'] as Map<String, dynamic>?)
+              ?.map((k, v) => MapEntry(k, (v as num).toInt())),
+        ),
       'bust_round_over' => BustRoundOverEvent(
           roundNumber: json['roundNumber'] as int? ?? 0,
           standings: (json['standings'] as List?)
