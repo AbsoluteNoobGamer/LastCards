@@ -53,6 +53,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // Validation state
   String? _nameError;
   bool _nameValid = false;
+  bool _hasInitializedName = false;
 
   bool get _canSave {
     final currentName = ref.read(userProfileProvider).valueOrNull?.displayName ?? '';
@@ -67,15 +68,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _nameController = TextEditingController();
     _nameController.addListener(() => _validateName(_nameController.text));
 
-    // Initialize from userProfileProvider when available
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final profile = ref.read(userProfileProvider).valueOrNull;
-      if (profile != null) {
+    // Listen for the first emission from userProfileProvider to populate the
+    // name field. The Firestore stream may not have emitted yet when initState
+    // runs, so a one-shot read would see null.
+    ref.listenManual(userProfileProvider, (previous, next) {
+      if (_hasInitializedName) return;
+      final profile = next.valueOrNull;
+      if (profile != null && mounted) {
+        _hasInitializedName = true;
         _nameController.text = profile.displayName;
         _validateName(profile.displayName);
       }
-    });
+    }, fireImmediately: true);
   }
 
   @override
