@@ -170,15 +170,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final name = _nameController.text.trim();
     String? avatarUrl;
 
-    if (_pendingAvatarValid && _pendingAvatarBytes != null) {
-      avatarUrl = await firestoreService.uploadAvatar(user.uid, _pendingAvatarBytes!);
-    }
+    try {
+      if (_pendingAvatarValid && _pendingAvatarBytes != null) {
+        avatarUrl = await firestoreService.uploadAvatar(user.uid, _pendingAvatarBytes!);
+      }
 
-    await firestoreService.updateProfile(
-      uid: user.uid,
-      displayName: name,
-      avatarUrl: avatarUrl,
-    );
+      await firestoreService.updateProfile(
+        uid: user.uid,
+        displayName: name,
+        avatarUrl: avatarUrl,
+      );
+    } catch (e) {
+      if (mounted) _showError('Could not save profile. Please try again.');
+      return;
+    }
 
     if (mounted) {
       setState(() {

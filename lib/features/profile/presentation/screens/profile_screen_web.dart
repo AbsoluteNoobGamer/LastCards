@@ -95,10 +95,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ));
       return;
     }
-    await ref.read(firestoreProfileServiceProvider).updateProfile(
-          uid: user.uid,
-          displayName: _nameController.text.trim(),
-        );
+    try {
+      await ref.read(firestoreProfileServiceProvider).updateProfile(
+            uid: user.uid,
+            displayName: _nameController.text.trim(),
+          );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(const SnackBar(
+            content: Text('Could not save profile. Please try again.'),
+            behavior: SnackBarBehavior.floating,
+          ));
+      }
+      return;
+    }
     if (mounted) Navigator.of(context).pop();
   }
 

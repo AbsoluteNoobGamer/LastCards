@@ -97,7 +97,21 @@ class SignInScreen extends ConsumerWidget {
                       icon: Icons.person_outline_rounded,
                       subtitle: 'Same account on this device',
                       onPressed: () {
-                        ref.read(authServiceProvider).signInAnonymously();
+                        ref
+                            .read(authServiceProvider)
+                            .signInAnonymously()
+                            .catchError((e) {
+                          if (!context.mounted) return null;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Could not sign in as guest: $e',
+                              ),
+                              duration: const Duration(seconds: 5),
+                            ),
+                          );
+                          return null;
+                        });
                       },
                     ),
                   ],
