@@ -8,7 +8,7 @@ service cloud.firestore {
 
     // Users can read their own ranked stats (written by the server)
     match /ranked_stats/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null;
     }
   }
 }
