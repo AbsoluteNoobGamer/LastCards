@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:profanity_filter/profanity_filter.dart';
 
-import '../../../../core/providers/profile_provider.dart';
+import '../../../../core/providers/auth_provider.dart';
+import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 
 const Set<String> kReservedNames = {'Player 2', 'Player 3', 'Player 4'};
 const int kMaxNameLength = 17;
 
+/// Profile screen for web. Requires sign-in. Name editing only (no avatar upload).
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
@@ -21,9 +23,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final ProfanityFilter _filter = ProfanityFilter();
   String? _nameError;
   bool _nameValid = false;
+  bool _hasInitializedName = false;
 
   bool get _canSave {
-    final currentName = ref.read(profileProvider).name;
+    final currentName = ref.read(userProfileProvider).valueOrNull?.displayName ?? '';
     final nameChanged = _nameController.text.trim() != currentName;
     return nameChanged && _nameValid && _nameError == null;
   }
@@ -31,10 +34,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    final profile = ref.read(profileProvider);
-    _nameController = TextEditingController(text: profile.name);
-    _validateName(profile.name);
+    _nameController = TextEditingController();
     _nameController.addListener(() => _validateName(_nameController.text));
+
+    // Listen for the first emission from userProfileProvider to populate the
+    // name field. The Firestore stream may not have emitted yet when initState
+    // runs, so a one-shot read would see null.
+    ref.listenManual(userProfileProvider, (previous, next) {
+      if (_hasInitializedName) return;
+      final profile = next.valueOrNull;
+      if (profile != null && mounted) {
+        _hasInitializedName = true;
+        _nameController.text = profile.displayName;
+        _validateName(profile.displayName);
+      }
+    }, fireImmediately: true);
   }
 
   @override
@@ -71,9 +85,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _saveProfile() async {
     if (!_canSave) return;
-    await ref.read(profileProvider.notifier).updateProfile(
-          name: _nameController.text.trim(),
-        );
+    final user = ref.read(authStateProvider).value;
+    if (user == null) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(const SnackBar(
+          content: Text('You must be signed in to save your profile'),
+          behavior: SnackBarBehavior.floating,
+        ));
+      return;
+    }
+    try {
+      await ref.read(firestoreProfileServiceProvider).updateProfile(
+            uid: user.uid,
+            displayName: _nameController.text.trim(),
+          );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(const SnackBar(
+            content: Text('Could not save profile. Please try again.'),
+            behavior: SnackBarBehavior.floating,
+          ));
+      }
+      return;
+    }
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -88,6 +125,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authAsync = ref.watch(authStateProvider);
+
+    if (authAsync.value == null) {
+      return Scaffold(
+        backgroundColor: AppColors.feltDeep,
+        appBar: AppBar(
+          backgroundColor: AppColors.goldDark.withValues(alpha: 0.95),
+          foregroundColor: AppColors.feltDeep,
+          iconTheme: const IconThemeData(color: AppColors.feltDeep),
+          elevation: 0,
+          title: const Text(
+            'YOUR PROFILE',
+            style: TextStyle(
+              color: AppColors.feltDeep,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.4,
+              fontSize: 16,
+            ),
+          ),
+          centerTitle: true,
+        ),
+        body: const Center(
+          child: Text(
+            'Sign in to edit your profile',
+            style: TextStyle(color: AppColors.textPrimary, fontSize: 16),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.feltDeep,
       appBar: AppBar(

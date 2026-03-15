@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math';
 import 'dart:ui' as ui;
 
@@ -17,9 +16,10 @@ import '../../../../features/single_player/widgets/difficulty_selection_sheet.da
 import '../../../../features/online/widgets/mode_selection_sheet.dart';
 import '../widgets/card_back_selection_menu.dart';
 import '../../../../core/theme/theme_selector_modal.dart';
-import '../../../profile/presentation/screens/profile_screen.dart';
-import '../../../../core/providers/profile_provider.dart';
+import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/providers/user_profile_provider.dart';
+import '../../../../features/profile/presentation/screens/profile_screen.dart';
 import '../../../../features/tournament/widgets/tournament_type_sheet.dart';
 
 part 'start_screen_background.dart';
@@ -44,11 +44,6 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
         AnimationController(vsync: this, duration: const Duration(seconds: 10))
           ..repeat();
 
-    // Load the saved profile from SharedPreferences so the avatar and name
-    // are up-to-date when the menu appears.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(profileProvider.notifier).loadFromPrefs();
-    });
   }
 
   @override
@@ -263,13 +258,13 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
             ),
           ),
 
-          // 3. Profile badge — top-right corner
+          // 3. Auth profile badge — top-right corner
           Positioned(
             top: 0,
             right: 0,
             child: SafeArea(
-              child: _ProfileBadge(
-                onTap: () => _openProfileScreen(context),
+              child: _AuthProfileBadge(
+                onTap: () => _showAuthProfileSheet(context),
               ),
             ),
           ),
@@ -278,14 +273,15 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
     );
   }
 
-  void _openProfileScreen(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
-    ).then((_) {
-      // Refresh profile state when returning from ProfileScreen.
-      if (mounted) ref.read(profileProvider.notifier).loadFromPrefs();
-    });
+  void _showAuthProfileSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => const ProviderScope(
+        child: _AuthProfileSheet(),
+      ),
+    );
   }
 
   void _pushWithTransition(BuildContext context, Widget screen) {

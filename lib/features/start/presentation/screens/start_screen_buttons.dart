@@ -1,34 +1,38 @@
 part of 'start_screen.dart';
 
 // -----------------------------------------------------------------------------
-// Profile Badge (top-right corner of main menu)
+// Auth Profile Badge (top-right corner of main menu)
 // -----------------------------------------------------------------------------
 
-/// Displays the local player's avatar and display name in a compact chip.
-/// Watches [profileProvider] so it automatically rebuilds when the profile
-/// is saved and the user returns from [ProfileScreen].
-class _ProfileBadge extends ConsumerWidget {
-  const _ProfileBadge({required this.onTap});
+/// Displays the signed-in user's avatar and display name from Firebase Auth.
+/// Shows Google photo/name or Guest for anonymous. Tap to open account sheet.
+class _AuthProfileBadge extends ConsumerWidget {
+  const _AuthProfileBadge({required this.onTap});
 
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(profileProvider);
+    final userProfile = ref.watch(userProfileProvider).valueOrNull;
     final theme = ref.watch(themeProvider).theme;
-    final avatarPath = profile.avatarPath;
 
-    final Widget avatarWidget = avatarPath != null
+    final String displayName = userProfile?.displayName ?? 'Guest';
+    final String? avatarUrl = userProfile?.avatarUrl;
+
+    final Widget avatarWidget = avatarUrl != null
         ? CircleAvatar(
             radius: 22,
-            backgroundImage: FileImage(File(avatarPath)),
+            backgroundImage: NetworkImage(avatarUrl),
             backgroundColor: theme.surfacePanel,
           )
         : CircleAvatar(
             radius: 22,
             backgroundColor: theme.surfacePanel,
-            child: Icon(Icons.person_rounded,
-                size: 24, color: theme.accentPrimary),
+            child: Icon(
+              Icons.person_rounded,
+              size: 24,
+              color: theme.accentPrimary,
+            ),
           );
 
     return GestureDetector(
@@ -47,7 +51,6 @@ class _ProfileBadge extends ConsumerWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Avatar circle
             Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
@@ -59,11 +62,10 @@ class _ProfileBadge extends ConsumerWidget {
               child: avatarWidget,
             ),
             const SizedBox(width: 8),
-            // Player name
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 110),
               child: Text(
-                profile.name,
+                displayName,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 13,
@@ -75,13 +77,139 @@ class _ProfileBadge extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 4),
-            // Edit pencil icon
             Icon(
-              Icons.edit_rounded,
+              Icons.account_circle_rounded,
               color: theme.accentPrimary,
-              size: 14,
+              size: 16,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Auth Profile Sheet (account info + Sign out)
+// -----------------------------------------------------------------------------
+
+class _AuthProfileSheet extends ConsumerWidget {
+  const _AuthProfileSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userProfile = ref.watch(userProfileProvider).valueOrNull;
+    final theme = ref.watch(themeProvider).theme;
+    final authService = ref.read(authServiceProvider);
+
+    final String displayName = userProfile?.displayName ?? 'Guest';
+    final String? avatarUrl = userProfile?.avatarUrl;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade600,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: theme.accentPrimary, width: 2),
+                    ),
+                    child: avatarUrl != null
+                        ? CircleAvatar(
+                            radius: 40,
+                            backgroundImage: NetworkImage(avatarUrl),
+                            backgroundColor: theme.surfacePanel,
+                          )
+                        : CircleAvatar(
+                            radius: 40,
+                            backgroundColor: theme.surfacePanel,
+                            child: Icon(
+                              Icons.person_rounded,
+                              size: 48,
+                              color: theme.accentPrimary,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          displayName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ProfileScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.edit_rounded),
+                  label: const Text('Edit profile'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.accentPrimary,
+                    side: BorderSide(color: theme.accentPrimary),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    await authService.signOut();
+                    if (context.mounted) Navigator.of(context).pop();
+                  },
+                  icon: const Icon(Icons.logout_rounded),
+                  label: const Text('Sign out'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.accentPrimary,
+                    side: BorderSide(color: theme.accentPrimary),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

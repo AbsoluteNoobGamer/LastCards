@@ -29,12 +29,13 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyAY-ugyBa-hl8VlrKE_4adWwWcMxmrGP18',
-    appId: '1:941909760769:web:3a661ca339f01054ac9900',
+    apiKey: 'AIzaSyC6Rp3bE21zDcBBKuliUQXl5WRaSneAMkk',
+    appId: '1:941909760769:web:402d8f84119dc7f1ac9900',
     messagingSenderId: '941909760769',
     projectId: 'lastcards-d4396',
     authDomain: 'lastcards-d4396.firebaseapp.com',
     storageBucket: 'lastcards-d4396.firebasestorage.app',
+    measurementId: 'G-BHQP0P8F92',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
@@ -46,11 +47,13 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAY-ugyBa-hl8VlrKE_4adWwWcMxmrGP18',
-    appId: '1:941909760769:ios:3a661ca339f01054ac9900',
+    apiKey: 'AIzaSyDwBkGrLFvO1a2OAB04Y0FAyleSD26vwVY',
+    appId: '1:941909760769:ios:6663b3d45f9c45e8ac9900',
     messagingSenderId: '941909760769',
     projectId: 'lastcards-d4396',
     storageBucket: 'lastcards-d4396.firebasestorage.app',
-    iosBundleId: 'com.example.stackAndFlow',
+    iosClientId: '941909760769-72j3iqllj78rj81stoica21u7aeh3dak.apps.googleusercontent.com',
+    iosBundleId: 'LastCards',
   );
+
 }

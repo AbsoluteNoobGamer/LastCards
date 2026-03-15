@@ -330,14 +330,14 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                             letterSpacing: 0.5,
                           ),
                         ),
-                        const Spacer(flex: 2),
+                        const Spacer(flex: 1),
                         _AnimatedWaitingIndicator(
                           rotateController: _rotateController,
                           pulseController: _pulseController,
                           joinedCount: joinedCount,
                           totalCount: playerCount,
                         ),
-                        const SizedBox(height: 28),
+                        const SizedBox(height: 16),
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 300),
                           child: Text(
@@ -350,7 +350,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                             ),
                           ),
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 20),
                         Padding(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 32),
@@ -368,7 +368,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                             }),
                           ),
                         ),
-                        const Spacer(flex: 3),
+                        const Spacer(flex: 2),
                         Padding(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 40),
@@ -415,10 +415,14 @@ class _AnimatedWaitingIndicator extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(themeProvider).theme;
     final accent = theme.accentPrimary;
+    final shortestSide = MediaQuery.sizeOf(context).shortestSide;
+    final size = (shortestSide * 0.36).clamp(110.0, 150.0);
+
+    final centerSize = size * 0.46;
 
     return SizedBox(
-      width: 140,
-      height: 140,
+      width: size,
+      height: size,
       child: AnimatedBuilder(
         animation: Listenable.merge([rotateController, pulseController]),
         builder: (context, child) {
@@ -434,8 +438,8 @@ class _AnimatedWaitingIndicator extends ConsumerWidget {
               child: Transform.scale(
                 scale: pulse,
                 child: Container(
-                  width: 64,
-                  height: 64,
+                  width: centerSize,
+                  height: centerSize,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: accent.withValues(alpha: 0.10),
@@ -456,7 +460,7 @@ class _AnimatedWaitingIndicator extends ConsumerWidget {
                     child: Text(
                       '$joinedCount/$totalCount',
                       style: GoogleFonts.outfit(
-                        fontSize: 16,
+                        fontSize: (centerSize * 0.35).clamp(12, 18),
                         fontWeight: FontWeight.w700,
                         color: accent,
                       ),
