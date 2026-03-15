@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import '../../features/auth/presentation/widgets/auth_gate.dart';
 import '../../features/gameplay/presentation/screens/table_screen.dart';
-import '../../features/start/presentation/screens/start_screen.dart';
 
 abstract final class AppRoutes {
   static const start = '/';
@@ -9,6 +9,6 @@ abstract final class AppRoutes {
 }
 
 final Map<String, WidgetBuilder> appRoutes = {
-  AppRoutes.start: (_) => const LastCardsStartScreen(),
+  AppRoutes.start: (_) => const AuthGate(),
   AppRoutes.game: (_) => const TableScreen(),
 };

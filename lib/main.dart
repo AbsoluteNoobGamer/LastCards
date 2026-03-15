@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
-import 'core/services/auth_service.dart';
 import 'core/services/card_back_service.dart';
 import 'core/services/profile_service.dart';
 import 'firebase_options.dart';
@@ -17,7 +16,7 @@ Future<void> main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    await AuthService().signInAnonymouslyIfNeeded();
+    // No auto sign-in: AuthGate shows SignInScreen for user choice.
   } catch (e) {
     debugPrint('Firebase init skipped (run flutterfire configure if needed): $e');
   }

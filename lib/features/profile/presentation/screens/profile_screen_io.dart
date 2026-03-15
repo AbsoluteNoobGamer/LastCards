@@ -1,13 +1,16 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:profanity_filter/profanity_filter.dart';
 
+import '../../../../core/providers/auth_provider.dart';
+import '../../../../core/providers/user_profile_provider.dart';
+import '../../../../core/services/firestore_profile_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
-import '../../../../core/providers/profile_provider.dart';
 import '../../../../core/services/nsfw_scan_service.dart';
 
 /// The opponent display names that the local player cannot use.
@@ -26,10 +29,10 @@ final nsfwScanServiceProvider = Provider<NsfwScanService>(
 
 /// Profile customization screen.
 ///
-/// Allows the local player to:
-/// - Upload a custom avatar (gallery or camera) with NSFW scanning.
-/// - Edit their display name with real-time validation.
-/// - Save valid changes to SharedPreferences via [ProfileNotifier].
+/// Requires sign-in. Uses Firestore for display name and avatar.
+/// - Upload avatar (gallery or camera) with NSFW scanning.
+/// - Edit display name with real-time validation.
+/// - Save to Firestore via [FirestoreProfileService].
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
@@ -42,8 +45,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final ProfanityFilter _filter = ProfanityFilter();
   final ImagePicker _picker = ImagePicker();
 
-  // Pending image (not yet saved)
+  // Pending image (not yet saved) - store path for display, bytes for upload
   String? _pendingAvatarPath;
+  Uint8List? _pendingAvatarBytes;
   bool _pendingAvatarValid = false;
 
   // Validation state
@@ -51,7 +55,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _nameValid = false;
 
   bool get _canSave {
-    final currentName = ref.read(profileProvider).name;
+    final currentName = ref.read(userProfileProvider).valueOrNull?.displayName ?? '';
     final nameChanged = _nameController.text.trim() != currentName;
     final avatarChanged = _pendingAvatarPath != null && _pendingAvatarValid;
     return (nameChanged || avatarChanged) && _nameValid && _nameError == null;
@@ -60,19 +64,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    final profile = ref.read(profileProvider);
-    _nameController = TextEditingController(text: profile.name);
-    _validateName(profile.name);
+    _nameController = TextEditingController();
     _nameController.addListener(() => _validateName(_nameController.text));
 
-    // Load the latest profile from SharedPreferences asynchronously so saved
-    // name and avatar are reflected if they haven't been loaded yet.
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await ref.read(profileProvider.notifier).loadFromPrefs();
-      if (mounted) {
-        final latest = ref.read(profileProvider);
-        _nameController.text = latest.name;
-        _validateName(latest.name);
+    // Initialize from userProfileProvider when available
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final profile = ref.read(userProfileProvider).valueOrNull;
+      if (profile != null) {
+        _nameController.text = profile.displayName;
+        _validateName(profile.displayName);
       }
     });
   }
@@ -133,36 +134,59 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         _showError('Image contains inappropriate content');
         setState(() {
           _pendingAvatarPath = null;
+          _pendingAvatarBytes = null;
           _pendingAvatarValid = false;
         });
       } else {
-        setState(() {
-          _pendingAvatarPath = xfile.path;
-          _pendingAvatarValid = true;
-        });
+        final bytes = await xfile.readAsBytes();
+        if (mounted) {
+          setState(() {
+            _pendingAvatarPath = xfile.path;
+            _pendingAvatarBytes = bytes;
+            _pendingAvatarValid = true;
+          });
+        }
       }
     } catch (_) {
       if (mounted) _showError('Could not load image. Please try again.');
     }
   }
 
-  // ── Save ──────────────────────────────────────────────────────────────────
+  // ── Save ─────────────────────────────────────────────────────────────────
 
   Future<void> _saveProfile() async {
     if (!_canSave) return;
-    final name = _nameController.text.trim();
-    final currentProfile = ref.read(profileProvider);
-    final avatarPath =
-        _pendingAvatarValid ? _pendingAvatarPath : currentProfile.avatarPath;
+    final user = ref.read(authStateProvider).value;
+    if (user == null) {
+      _showError('You must be signed in to save your profile');
+      return;
+    }
 
-    await ref.read(profileProvider.notifier).updateProfile(
-          name: name,
-          avatarPath: avatarPath,
-        );
-    if (mounted) Navigator.of(context).pop();
+    final firestoreService = ref.read(firestoreProfileServiceProvider);
+    final name = _nameController.text.trim();
+    String? avatarUrl;
+
+    if (_pendingAvatarValid && _pendingAvatarBytes != null) {
+      avatarUrl = await firestoreService.uploadAvatar(user.uid, _pendingAvatarBytes!);
+    }
+
+    await firestoreService.updateProfile(
+      uid: user.uid,
+      displayName: name,
+      avatarUrl: avatarUrl,
+    );
+
+    if (mounted) {
+      setState(() {
+        _pendingAvatarPath = null;
+        _pendingAvatarBytes = null;
+        _pendingAvatarValid = false;
+      });
+      Navigator.of(context).pop();
+    }
   }
 
-  // ── Source sheet ──────────────────────────────────────────────────────────
+  // ── Source sheet ─────────────────────────────────────────────────────────
 
   void _showImageSourceSheet() {
     showModalBottomSheet<void>(
@@ -219,9 +243,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final profile = ref.watch(profileProvider);
-    final displayAvatarPath =
-        _pendingAvatarValid ? _pendingAvatarPath : profile.avatarPath;
+    final authAsync = ref.watch(authStateProvider);
+    final userProfileAsync = ref.watch(userProfileProvider);
+
+    // Must be signed in
+    if (authAsync.value == null) {
+      return Scaffold(
+        backgroundColor: AppColors.feltDeep,
+        appBar: AppBar(
+          backgroundColor: AppColors.goldDark.withValues(alpha: 0.95),
+          foregroundColor: AppColors.feltDeep,
+          iconTheme: const IconThemeData(color: AppColors.feltDeep),
+          elevation: 0,
+          title: const Text(
+            'YOUR PROFILE',
+            style: TextStyle(
+              color: AppColors.feltDeep,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.4,
+              fontSize: 16,
+            ),
+          ),
+          centerTitle: true,
+        ),
+        body: const Center(
+          child: Text(
+            'Sign in to edit your profile',
+            style: TextStyle(color: AppColors.textPrimary, fontSize: 16),
+          ),
+        ),
+      );
+    }
+
+    final profile = userProfileAsync.valueOrNull;
+    final displayAvatarPath = _pendingAvatarValid ? _pendingAvatarPath : null;
+    final displayAvatarUrl = displayAvatarPath == null ? profile?.avatarUrl : null;
 
     return Scaffold(
       backgroundColor: AppColors.feltDeep,
@@ -248,6 +304,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           children: [
             _AvatarSection(
               avatarPath: displayAvatarPath,
+              avatarUrl: displayAvatarUrl,
               onUpload: _showImageSourceSheet,
             ),
             const SizedBox(height: 32),
@@ -275,26 +332,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 // ── Avatar section ────────────────────────────────────────────────────────────
 
 class _AvatarSection extends StatelessWidget {
-  const _AvatarSection({required this.avatarPath, required this.onUpload});
+  const _AvatarSection({
+    this.avatarPath,
+    this.avatarUrl,
+    required this.onUpload,
+  });
 
   final String? avatarPath;
+  final String? avatarUrl;
   final VoidCallback onUpload;
 
   @override
   Widget build(BuildContext context) {
-    final Widget inner = avatarPath != null
-        ? CircleAvatar(
-            key: const ValueKey('avatar-image'),
-            radius: 55,
-            backgroundImage: FileImage(File(avatarPath!)),
-            backgroundColor: AppColors.surfacePanel,
-          )
-        : const CircleAvatar(
-            key: ValueKey('avatar-default'),
-            radius: 55,
-            backgroundColor: AppColors.surfacePanel,
-            child: Icon(Icons.person, size: 56, color: AppColors.goldPrimary),
-          );
+    final Widget inner;
+    if (avatarPath != null) {
+      inner = CircleAvatar(
+        key: const ValueKey('avatar-image-file'),
+        radius: 55,
+        backgroundImage: FileImage(File(avatarPath!)),
+        backgroundColor: AppColors.surfacePanel,
+      );
+    } else if (avatarUrl != null) {
+      inner = CircleAvatar(
+        key: const ValueKey('avatar-image-network'),
+        radius: 55,
+        backgroundImage: NetworkImage(avatarUrl!),
+        backgroundColor: AppColors.surfacePanel,
+      );
+    } else {
+      inner = const CircleAvatar(
+        key: ValueKey('avatar-default'),
+        radius: 55,
+        backgroundColor: AppColors.surfacePanel,
+        child: Icon(Icons.person, size: 56, color: AppColors.goldPrimary),
+      );
+    }
 
     return Column(
       children: [

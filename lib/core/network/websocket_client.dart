@@ -23,7 +23,7 @@ class WebSocketClient {
   static Uri get _defaultUri => Uri.parse(
         const String.fromEnvironment(
           'WS_URL',
-          defaultValue: 'wss://stackandflow-production.up.railway.app/game',
+          defaultValue: 'wss://lastcards.up.railway.app/game',
         ),
       );
 

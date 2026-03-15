@@ -10,7 +10,7 @@ import '../../../../core/models/game_state.dart';
 import '../../../../core/models/player_model.dart';
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/connection_provider.dart';
-import '../../../../core/providers/profile_provider.dart';
+import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/providers/game_provider.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_theme_data.dart';
@@ -277,7 +277,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     wsClient.send(jsonEncode({
       'type': 'join_room',
       'roomCode': code,
-      'displayName': ref.read(profileProvider).name,
+      'displayName': ref.read(displayNameForGameProvider),
       if (idToken != null) 'idToken': idToken,
     }));
     // If no response after 8s, show hint (wrong server IP or room code).
@@ -315,7 +315,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     if (!mounted) return;
     wsClient.send(jsonEncode({
       'type': 'create_room',
-      'displayName': ref.read(profileProvider).name,
+      'displayName': ref.read(displayNameForGameProvider),
       if (idToken != null) 'idToken': idToken,
     }));
     // Navigation happens when room_created is received (see initState listener).
@@ -334,8 +334,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   }
 
   void _enterSelectedMode() {
-    final displayName = ref.read(profileProvider).name;
-    final effectiveName = displayName.isEmpty ? 'You' : displayName;
+    final displayName = ref.read(displayNameForGameProvider);
+    final effectiveName = displayName.isEmpty || displayName == 'Player' ? 'You' : displayName;
 
     if (widget.onlineMode == OnlineMode.tournament) {
       Navigator.of(context).push(
