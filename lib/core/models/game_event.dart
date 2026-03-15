@@ -72,6 +72,19 @@ final class TurnChangedEvent extends GameEvent {
   String get type => 'turn_changed';
 }
 
+/// Player drew cards as penalty for attempting an invalid play.
+final class InvalidPlayPenaltyEvent extends GameEvent {
+  final String playerId;
+  final int drawCount;
+  const InvalidPlayPenaltyEvent({
+    required this.playerId,
+    this.drawCount = 2,
+  });
+
+  @override
+  String get type => 'invalid_play_penalty';
+}
+
 /// A draw penalty was applied to a player.
 final class PenaltyAppliedEvent extends GameEvent {
   final String targetPlayerId;
@@ -205,6 +218,22 @@ final class ReshuffleEvent extends GameEvent {
 
   @override
   String get type => 'reshuffle';
+}
+
+/// Session configuration broadcast (sent when game starts).
+/// Contains whether the match is ranked, private, trophy-eligible, etc.
+final class SessionConfigEvent extends GameEvent {
+  final bool isPrivate;
+  final bool isRanked;
+  final bool trophyEligible;
+  const SessionConfigEvent({
+    this.isPrivate = false,
+    this.isRanked = false,
+    this.trophyEligible = false,
+  });
+
+  @override
+  String get type => 'session_config';
 }
 
 /// Bust mode: a round has ended — contains standings, eliminations, and
@@ -347,6 +376,10 @@ GameEvent parseServerEvent(String raw) {
             json['direction'] as String,
           ),
         ),
+      'invalid_play_penalty' => InvalidPlayPenaltyEvent(
+          playerId: json['playerId'] as String? ?? '',
+          drawCount: (json['drawCount'] as num?)?.toInt() ?? 2,
+        ),
       'penalty_applied' => PenaltyAppliedEvent(
           targetPlayerId: json['targetPlayerId'] as String,
           cardsDrawn: json['cardsDrawn'] as int,
@@ -406,6 +439,11 @@ GameEvent parseServerEvent(String raw) {
         ),
       'reshuffle' => ReshuffleEvent(
           newDrawPileCount: json['newDrawPileCount'] as int? ?? 0,
+        ),
+      'session_config' => SessionConfigEvent(
+          isPrivate: json['isPrivate'] as bool? ?? false,
+          isRanked: json['isRanked'] as bool? ?? false,
+          trophyEligible: json['trophyEligible'] as bool? ?? false,
         ),
       'error' => ErrorEvent(
           code: json['code'] as String? ?? 'unknown',

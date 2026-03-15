@@ -56,9 +56,19 @@ class GameEventHandler {
   Stream<ReshuffleEvent> get reshuffles =>
       events.where((e) => e is ReshuffleEvent).cast<ReshuffleEvent>();
 
+  /// Session config broadcast (isPrivate, isRanked, trophyEligible).
+  Stream<SessionConfigEvent> get sessionConfigs =>
+      events.where((e) => e is SessionConfigEvent).cast<SessionConfigEvent>();
+
   /// Server rejected an action (invalid_play, invalid_end_turn, etc.).
   Stream<ErrorEvent> get errors =>
       events.where((e) => e is ErrorEvent).cast<ErrorEvent>();
+
+  /// Player drew cards for attempting an invalid play (consolidated log entry).
+  Stream<InvalidPlayPenaltyEvent> get invalidPlayPenalties =>
+      events
+          .where((e) => e is InvalidPlayPenaltyEvent)
+          .cast<InvalidPlayPenaltyEvent>();
 
   // ── Outgoing helpers ───────────────────────────────────────────────────────
 

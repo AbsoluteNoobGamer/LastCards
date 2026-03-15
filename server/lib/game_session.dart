@@ -839,6 +839,13 @@ class GameSession {
       },
     );
 
+    // Broadcast once so clients can show "drew N cards for invalid play" instead of N separate lines.
+    _broadcast({
+      'type': 'invalid_play_penalty',
+      'playerId': playerId,
+      'drawCount': drawnCards.length,
+    });
+
     for (final card in drawnCards) {
       _sendTo(playerId, {
         'type': 'card_drawn',

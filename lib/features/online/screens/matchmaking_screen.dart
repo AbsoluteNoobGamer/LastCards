@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -11,9 +13,14 @@ import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/connection_provider.dart';
 import '../../../../core/providers/game_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/providers/user_profile_provider.dart';
+import '../../../../core/theme/app_theme_data.dart';
 import '../../tournament/providers/tournament_session_provider.dart';
 import '../providers/online_session_provider.dart';
 import 'lobby_ready_screen.dart';
+
+/// Default MMR when no ranked_stats doc exists (from server trophy_recorder).
+const _kInitialRating = 1000;
 
 /// Full-screen matchmaking screen.
 ///
@@ -90,11 +97,13 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     // Connect to the server and send a quickplay matchmaking request.
     final isBust = ref.read(tournamentSessionProvider).subMode == GameSubMode.bust;
     final isRanked = ref.read(onlineSessionProvider).mode == OnlineGameMode.ranked;
-    _connectAndRequestMatch(playerCount, isBust: isBust, isRanked: isRanked);
+    final displayName = ref.read(displayNameForGameProvider);
+    _connectAndRequestMatch(playerCount, displayName: displayName, isBust: isBust, isRanked: isRanked);
   }
 
   Future<void> _connectAndRequestMatch(
     int playerCount, {
+    required String displayName,
     bool isBust = false,
     bool isRanked = false,
   }) async {
@@ -126,7 +135,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
       'type': 'quickplay',
       'playerCount': playerCount,
       if (gameMode != null) 'gameMode': gameMode,
-      'displayName': 'Player',
+      'displayName': displayName.isEmpty ? 'Player' : displayName,
       if (idToken != null) 'idToken': idToken,
     }));
   }
@@ -234,6 +243,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                                         letterSpacing: 0.5,
                                       ),
                                     ),
+                                    if (session.mode == OnlineGameMode.ranked)
+                                      _RankedMmrDisplay(theme: theme),
                                     const SizedBox(height: 16),
                                     _AnimatedWaitingIndicator(
                                       rotateController: _rotateController,
@@ -330,6 +341,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                             letterSpacing: 0.5,
                           ),
                         ),
+                        if (session.mode == OnlineGameMode.ranked)
+                          _RankedMmrDisplay(theme: theme),
                         const Spacer(flex: 1),
                         _AnimatedWaitingIndicator(
                           rotateController: _rotateController,
@@ -688,4 +701,54 @@ class _DotGridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DotGridPainter old) => old.dotColor != dotColor;
+}
+
+// ── Ranked MMR display ────────────────────────────────────────────────────────
+
+/// Shows current MMR when in ranked mode. Fetches from ranked_stats Firestore.
+/// Defaults to 1000 MMR if no doc exists (trophy_recorder._kInitialRating).
+class _RankedMmrDisplay extends StatelessWidget {
+  const _RankedMmrDisplay({required this.theme});
+
+  final AppThemeData theme;
+
+  static const _defaultMmr = 1000;
+
+  Future<int> _fetchMmr() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return _defaultMmr;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('ranked_stats')
+          .doc(uid)
+          .get();
+      if (!doc.exists) return _defaultMmr;
+      final d = doc.data() as Map<String, dynamic>? ?? {};
+      return (d['rating'] as num?)?.toInt() ?? _defaultMmr;
+    } catch (_) {
+      return _defaultMmr;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<int>(
+      future: _fetchMmr(),
+      builder: (context, snap) {
+        final mmr = snap.data ?? _defaultMmr;
+        return Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            '$mmr MMR',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: theme.accentPrimary,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

@@ -25,6 +25,7 @@ class GameNotifierState {
     this.pendingJokerCardId,
     this.lastError,
     this.rankedRatingChanges,
+    this.isRanked = false,
   });
 
   /// The authoritative server game state. Null until the first snapshot arrives.
@@ -53,6 +54,9 @@ class GameNotifierState {
   /// Key is server player ID. Null when the completed game was not ranked.
   final Map<String, int>? rankedRatingChanges;
 
+  /// True when the current session is a ranked match (from session_config).
+  final bool isRanked;
+
   GameNotifierState copyWith({
     GameState? gameState,
     bool? pendingSuitChoice,
@@ -61,6 +65,7 @@ class GameNotifierState {
     String? pendingJokerCardId,
     String? lastError,
     Map<String, int>? rankedRatingChanges,
+    bool? isRanked,
     bool clearError = false,
     bool clearSuitChoice = false,
     bool clearJokerResolution = false,
@@ -80,6 +85,7 @@ class GameNotifierState {
           : (pendingJokerCardId ?? this.pendingJokerCardId),
       lastError: clearError ? null : (lastError ?? this.lastError),
       rankedRatingChanges: rankedRatingChanges ?? this.rankedRatingChanges,
+      isRanked: isRanked ?? this.isRanked,
     );
   }
 }
@@ -265,6 +271,13 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
       }),
     );
 
+    // ── session_config ──────────────────────────────────────────────────────
+    _subs.add(
+      _eventHandler.sessionConfigs.listen((e) {
+        state = state.copyWith(isRanked: e.isRanked);
+      }),
+    );
+
     // ── error ───────────────────────────────────────────────────────────────
     _subs.add(
       _eventHandler.errors.listen((e) {
@@ -314,6 +327,11 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
 
   /// Clears the last error so the UI can dismiss an error banner.
   void clearError() => state = state.copyWith(clearError: true);
+
+  /// Clears all online game state. Call when the user leaves an online game
+  /// so that the next TableScreen (e.g. single player) does not inherit stale
+  /// ranked/online state.
+  void clearOnlineState() => state = const GameNotifierState();
 
   @override
   void dispose() {
@@ -379,4 +397,9 @@ final gameErrorProvider = Provider<String?>((ref) {
 /// Key is server player ID; value is the rating delta (+25/-15).
 final rankedRatingChangesProvider = Provider<Map<String, int>?>((ref) {
   return ref.watch(gameNotifierProvider).rankedRatingChanges;
+});
+
+/// True when the current online session is a ranked match (from session_config).
+final isRankedGameProvider = Provider<bool>((ref) {
+  return ref.watch(gameNotifierProvider).isRanked;
 });

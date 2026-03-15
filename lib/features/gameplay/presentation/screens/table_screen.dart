@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,6 +19,7 @@ import '../controllers/game_provider.dart';
 import '../../data/datasources/websocket_client.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
+import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/services/card_back_service.dart';
 import '../../../../core/models/move_log_entry.dart';
 import '../../../../core/models/game_event.dart';
@@ -137,10 +140,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   StreamSubscription<int>? _timerWarningSub;
   StreamSubscription<CardPlayedEvent>? _onlineCardPlaysSub;
   StreamSubscription<CardDrawnEvent>? _onlineCardDrawsSub;
+  StreamSubscription<InvalidPlayPenaltyEvent>? _onlineInvalidPlayPenaltySub;
   StreamSubscription<ErrorEvent>? _onlineErrorsSub;
   StreamSubscription<dynamic>? _onlineTurnTimeoutSub;
   StreamSubscription<dynamic>? _onlineReshuffleSub;
   bool _timerWarningPlayed = false;
+
+  /// When > 0, next N card_drawn for this player are part of an invalid-play
+  /// penalty (we already logged them via invalid_play_penalty). Skip adding.
+  final Map<String, int> _suppressDrawLogForPlayer = {};
 
   /// Cached for dispose — cannot use [ref] after widget is disposed.
   WebSocketClient? _wsClientToDisconnectOnDispose;
@@ -199,10 +207,35 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       });
     });
 
+    _onlineInvalidPlayPenaltySub = handler.invalidPlayPenalties.listen((e) {
+      if (!mounted) return;
+      final state = ref.read(gameStateProvider);
+      if (state == null) return;
+      final name = state.playerById(e.playerId)?.displayName ?? e.playerId;
+      setState(() {
+        _suppressDrawLogForPlayer[e.playerId] = e.drawCount;
+        _pushMoveLog(MoveLogEntry.invalidPlayDraw(
+          playerId: e.playerId,
+          playerName: name,
+          drawCount: e.drawCount,
+        ));
+      });
+    });
+
     _onlineCardDrawsSub = handler.cardDraws.listen((e) {
       if (!mounted) return;
       final state = ref.read(gameStateProvider);
       if (state == null) return;
+      final suppress = _suppressDrawLogForPlayer[e.playerId] ?? 0;
+      if (suppress > 0) {
+        setState(() {
+          _suppressDrawLogForPlayer[e.playerId] = suppress - 1;
+          if (_suppressDrawLogForPlayer[e.playerId] == 0) {
+            _suppressDrawLogForPlayer.remove(e.playerId);
+          }
+        });
+        return;
+      }
       final name = state.playerById(e.playerId)?.displayName ?? e.playerId;
       setState(() {
         _pushMoveLog(MoveLogEntry.draw(
@@ -495,6 +528,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _timerWarningSub?.cancel();
     _onlineCardPlaysSub?.cancel();
     _onlineCardDrawsSub?.cancel();
+    _onlineInvalidPlayPenaltySub?.cancel();
     _onlineErrorsSub?.cancel();
     _onlineTurnTimeoutSub?.cancel();
     _onlineReshuffleSub?.cancel();
@@ -509,16 +543,18 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       Navigator.of(context).pop();
       return;
     }
+    final isRanked = ref.read(isRankedGameProvider);
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         backgroundColor: Colors.grey.shade900,
         title: const Text('Leave game?', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'You will be disconnected and the game will continue without you. '
-          'Are you sure you want to leave?',
-          style: TextStyle(color: Colors.white70),
+        content: Text(
+          'You will be disconnected and the game will continue without you.'
+          '${isRanked ? '\n\nIn ranked mode, leaving counts as a loss and you will lose MMR (-20).' : ''}'
+          '\n\nAre you sure you want to leave?',
+          style: const TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
@@ -527,8 +563,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           ),
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pop();
+              ref.read(gameNotifierProvider.notifier).clearOnlineState();
+              ref.read(wsClientProvider).disconnect();
+              Navigator.of(context).pop(); // dismiss dialog
+              Navigator.of(context).pop(); // leave table
             },
             child: const Text('Leave', style: TextStyle(color: Colors.red)),
           ),
@@ -781,6 +819,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               winnerName: winner.displayName,
               isLocalWin: isLocalWin,
               onPlayAgain: () {
+                ref.read(gameNotifierProvider.notifier).clearOnlineState();
+                ref.read(wsClientProvider).disconnect();
                 navigator.pop(); // close dialog
                 navigator.pop(); // leave table
               },
@@ -809,6 +849,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               actions: [
                 TextButton(
                   onPressed: () {
+                    ref.read(gameNotifierProvider.notifier).clearOnlineState();
+                    ref.read(wsClientProvider).disconnect();
                     navigator.pop(); // close dialog
                     navigator.pop(); // leave table
                   },
@@ -1020,6 +1062,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         aiConfigs: {
                           for (final c in _aiPlayerConfigs) c.playerId: c,
                         },
+                        isRanked: ref.watch(isRankedGameProvider),
                       ),
                     ),
                   ],
@@ -1175,7 +1218,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     setState(() => _selectedCardId = null);
   }
 
-  /// Online play: same rules as single-player — validate, then Joker/Ace flows or send play.
+  /// Online play: Joker/Ace flows or send play. Server validates and applies
+  /// penalty for invalid plays (client does not block invalid attempts).
   Future<void> _onPlayTap({required String cardId}) async {
     if (!ref.read(isLocalTurnProvider)) return;
     final gameState = ref.read(gameStateProvider);
@@ -1184,16 +1228,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (local == null) return;
     final card = local.hand.where((c) => c.id == cardId).firstOrNull;
     if (card == null) return;
-
-    final err = validatePlay(
-      cards: [card],
-      discardTop: gameState.discardTopCard!,
-      state: gameState,
-    );
-    if (err != null) {
-      _showError(err);
-      return;
-    }
 
     // Joker: show sheet, then send declare_joker (same flow as single-player).
     if (card.isJoker && mounted) {

@@ -26,7 +26,11 @@ class _TableLayout extends StatelessWidget {
     this.tournamentStatusBadges = const <String, String>{},
     this.finishedPlayerIds = const <String>{},
     this.aiConfigs = const <String, AiPlayerConfig>{},
+    this.isRanked = false,
   });
+
+  /// True when this is a ranked online match (from session_config).
+  final bool isRanked;
 
   final GameState gameState;
   final String? selectedCardId;
@@ -242,6 +246,9 @@ class _TableLayout extends StatelessWidget {
                       SizedBox(
                           height:
                               isMobile ? AppDimensions.sm : AppDimensions.md),
+                      if (isRanked)
+                        _RankedBadge(isMobile: isMobile),
+                      if (isRanked) const SizedBox(height: AppDimensions.xs),
                       Opacity(
                         opacity: 0.0,
                         child: Container(
@@ -762,6 +769,47 @@ class _TournamentLocalStatusBanner extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── RANKED badge (theme-aware) ────────────────────────────────────────────────
+
+/// Badge shown during ranked online matches. Uses theme.accentPrimary and
+/// theme.surfacePanel to match HUD badge patterns.
+class _RankedBadge extends ConsumerWidget {
+  const _RankedBadge({required this.isMobile});
+
+  final bool isMobile;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(themeProvider).theme;
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: AppDimensions.sm + 2,
+        vertical: 3,
+      ),
+      decoration: BoxDecoration(
+        color: theme.surfacePanel.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusButton),
+        border: Border.all(color: theme.accentPrimary, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: theme.accentPrimary.withValues(alpha: 0.3),
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: Text(
+        'RANKED',
+        style: TextStyle(
+          color: theme.accentPrimary,
+          fontSize: isMobile ? 8 : 9,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.5,
+        ),
       ),
     );
   }
