@@ -116,61 +116,86 @@ class _FirestoreClient {
     }
   }
 
-  /// Atomically increments a numeric field in a Firestore document.
+  /// Atomically updates a Firestore document with multiple field increments
+  /// and string overwrites in a single commit.
   ///
-  /// If the document does not exist it is created with [defaultFields] merged
-  /// into the update, so new users start at a sensible baseline.
-  Future<void> incrementField({
+  /// If the document does not exist it is created with [defaultFields] as
+  /// baseline values, then the [increments] are applied on top via field
+  /// transforms. If the document already exists, only the increments and
+  /// [stringFields] are applied.
+  ///
+  /// This avoids the race condition of multiple parallel calls each trying to
+  /// create the same document, and avoids double-counting because default
+  /// values do NOT include the deltas.
+  Future<void> atomicUpdate({
     required String collection,
     required String docId,
-    required String field,
-    required int delta,
+    required Map<String, int> increments,
     Map<String, dynamic> defaultFields = const {},
+    Map<String, String> stringFields = const {},
   }) async {
     final token = await _getAccessToken();
     if (token == null) return;
 
-    // Build a Firestore write with a field transform (increment).
-    // We also set default values for missing fields using a merge patch.
     final url = Uri.parse(
         'https://firestore.googleapis.com/v1/projects/$_projectId'
         '/databases/(default)/documents:commit');
 
-    // Compute the full document path.
     final docPath =
         'projects/$_projectId/databases/(default)/documents/$collection/$docId';
 
-    // Build field transforms for atomic increment.
+    // Build field transforms for atomic increments.
     final transforms = <Map<String, dynamic>>[
-      {
-        'fieldPath': field,
-        'increment': {'integerValue': '$delta'},
-      },
+      for (final e in increments.entries)
+        {
+          'fieldPath': e.key,
+          'increment': {'integerValue': '${e.value}'},
+        },
     ];
+
+    // Merge all baseline + string fields for the conditional create.
+    final allDefaults = <String, dynamic>{...defaultFields, ...stringFields};
 
     final body = jsonEncode({
       'writes': [
-        // Patch with defaults (creates the doc if missing, merges otherwise).
+        // Conditional create: only applies when the doc does NOT exist.
+        // Sets baseline values (without deltas) so increments work correctly.
         {
           'updateMask': {
-            'fieldPaths': defaultFields.keys.toList(),
+            'fieldPaths': allDefaults.keys.toList(),
           },
           'update': {
             'name': docPath,
             'fields': {
-              for (final e in defaultFields.entries)
+              for (final e in allDefaults.entries)
                 e.key: _firestoreValue(e.value),
             },
           },
           'currentDocument': {'exists': false},
         },
-        // Field transform (increment) — always applied.
+        // Field transforms (increments) — always applied whether the doc was
+        // just created or already existed.
         {
           'transform': {
             'document': docPath,
             'fieldTransforms': transforms,
           },
         },
+        // Overwrite string fields (e.g. displayName) on every update so they
+        // stay current even for existing documents.
+        if (stringFields.isNotEmpty)
+          {
+            'updateMask': {
+              'fieldPaths': stringFields.keys.toList(),
+            },
+            'update': {
+              'name': docPath,
+              'fields': {
+                for (final e in stringFields.entries)
+                  e.key: _firestoreValue(e.value),
+              },
+            },
+          },
       ],
     });
 
@@ -184,30 +209,32 @@ class _FirestoreClient {
         body: body,
       );
       if (response.statusCode != 200) {
-        // 400 with "document already exists" is OK — fall through to plain increment.
+        // 400 with ALREADY_EXISTS means the conditional create was skipped
+        // (doc exists). Re-send with only the transforms + string overwrites.
         if (response.statusCode == 400 &&
             response.body.contains('ALREADY_EXISTS')) {
-          await _plainIncrement(
-              token: token,
-              docPath: docPath,
-              field: field,
-              delta: delta);
+          await _updateExisting(
+            token: token,
+            docPath: docPath,
+            transforms: transforms,
+            stringFields: stringFields,
+          );
           return;
         }
         _log.error(
-            'Firestore increment failed (${response.statusCode}): ${response.body}');
+            'Firestore atomicUpdate failed (${response.statusCode}): ${response.body}');
       }
     } catch (e) {
-      _log.error('Firestore increment error: $e');
+      _log.error('Firestore atomicUpdate error: $e');
     }
   }
 
-  /// Plain increment for an already-existing document.
-  Future<void> _plainIncrement({
+  /// Applies increments and string overwrites to an already-existing document.
+  Future<void> _updateExisting({
     required String token,
     required String docPath,
-    required String field,
-    required int delta,
+    required List<Map<String, dynamic>> transforms,
+    Map<String, String> stringFields = const {},
   }) async {
     final url = Uri.parse(
         'https://firestore.googleapis.com/v1/projects/$_projectId'
@@ -218,14 +245,22 @@ class _FirestoreClient {
         {
           'transform': {
             'document': docPath,
-            'fieldTransforms': [
-              {
-                'fieldPath': field,
-                'increment': {'integerValue': '$delta'},
-              },
-            ],
+            'fieldTransforms': transforms,
           },
         },
+        if (stringFields.isNotEmpty)
+          {
+            'updateMask': {
+              'fieldPaths': stringFields.keys.toList(),
+            },
+            'update': {
+              'name': docPath,
+              'fields': {
+                for (final e in stringFields.entries)
+                  e.key: _firestoreValue(e.value),
+              },
+            },
+          },
       ],
     });
 
@@ -240,10 +275,10 @@ class _FirestoreClient {
       );
       if (response.statusCode != 200) {
         _log.error(
-            'Firestore plain increment failed (${response.statusCode}): ${response.body}');
+            'Firestore _updateExisting failed (${response.statusCode}): ${response.body}');
       }
     } catch (e) {
-      _log.error('Firestore plain increment error: $e');
+      _log.error('Firestore _updateExisting error: $e');
     }
   }
 
@@ -266,6 +301,7 @@ class _FirestoreClient {
 ///
 /// **Firestore schema** (`ranked_stats/{uid}`)
 /// ```
+/// displayName: string
 /// rating:      int   (starts at 1000, clamped to 0)
 /// wins:        int
 /// losses:      int
@@ -292,17 +328,21 @@ class TrophyRecorder {
   ///
   /// [winnerUid] receives +[_kWinDelta] rating; all other [allPlayerUids]
   /// receive [_kLossDelta] rating. All get gamesPlayed incremented.
+  /// Each player's [displayName] is persisted for leaderboard display.
   void recordRankedResult({
     required String winnerUid,
-    required List<({String playerId, String uid})> allPlayerUids,
+    required List<({String playerId, String uid, String displayName})>
+        allPlayerUids,
   }) {
     // Fire-and-forget — game flow does not wait for persistence.
-    unawaited(_persistResult(winnerUid: winnerUid, allPlayerUids: allPlayerUids));
+    unawaited(
+        _persistResult(winnerUid: winnerUid, allPlayerUids: allPlayerUids));
   }
 
   Future<void> _persistResult({
     required String winnerUid,
-    required List<({String playerId, String uid})> allPlayerUids,
+    required List<({String playerId, String uid, String displayName})>
+        allPlayerUids,
   }) async {
     _log.info('Recording ranked result — winner: $winnerUid, '
         'players: ${allPlayerUids.map((e) => e.uid).join(', ')}');
@@ -313,29 +353,31 @@ class TrophyRecorder {
       final isWinner = uid == winnerUid;
       final ratingDelta = isWinner ? _kWinDelta : _kLossDelta;
 
-      futures.addAll([
-        _firestoreClient.incrementField(
+      // Single atomic commit per player: creates with baseline defaults if the
+      // doc is missing, then applies all increments. No double-counting, no
+      // race between parallel calls for the same document.
+      futures.add(
+        _firestoreClient.atomicUpdate(
           collection: _collection,
           docId: uid,
-          field: 'rating',
-          delta: ratingDelta,
-          defaultFields: {'rating': _kInitialRating + ratingDelta},
+          increments: {
+            'rating': ratingDelta,
+            if (isWinner) 'wins': 1,
+            if (!isWinner) 'losses': 1,
+            'gamesPlayed': 1,
+          },
+          defaultFields: {
+            'rating': _kInitialRating,
+            'wins': 0,
+            'losses': 0,
+            'leaves': 0,
+            'gamesPlayed': 0,
+          },
+          stringFields: {
+            'displayName': entry.displayName,
+          },
         ),
-        _firestoreClient.incrementField(
-          collection: _collection,
-          docId: uid,
-          field: isWinner ? 'wins' : 'losses',
-          delta: 1,
-          defaultFields: {isWinner ? 'wins' : 'losses': 1},
-        ),
-        _firestoreClient.incrementField(
-          collection: _collection,
-          docId: uid,
-          field: 'gamesPlayed',
-          delta: 1,
-          defaultFields: {'gamesPlayed': 1},
-        ),
-      ]);
+      );
     }
 
     await Future.wait(futures);
@@ -343,35 +385,32 @@ class TrophyRecorder {
   }
 
   /// Records a leave penalty for a player who disconnected during a ranked game.
-  void recordLeavePenalty(String uid) {
-    unawaited(_persistLeavePenalty(uid));
+  void recordLeavePenalty(String uid, {required String displayName}) {
+    unawaited(_persistLeavePenalty(uid, displayName: displayName));
   }
 
-  Future<void> _persistLeavePenalty(String uid) async {
+  Future<void> _persistLeavePenalty(String uid,
+      {required String displayName}) async {
     _log.info('Recording leave penalty for $uid');
-    await Future.wait([
-      _firestoreClient.incrementField(
-        collection: _collection,
-        docId: uid,
-        field: 'rating',
-        delta: _kLeaveDelta,
-        defaultFields: {'rating': _kInitialRating + _kLeaveDelta},
-      ),
-      _firestoreClient.incrementField(
-        collection: _collection,
-        docId: uid,
-        field: 'leaves',
-        delta: 1,
-        defaultFields: {'leaves': 1},
-      ),
-      _firestoreClient.incrementField(
-        collection: _collection,
-        docId: uid,
-        field: 'gamesPlayed',
-        delta: 1,
-        defaultFields: {'gamesPlayed': 1},
-      ),
-    ]);
+    await _firestoreClient.atomicUpdate(
+      collection: _collection,
+      docId: uid,
+      increments: {
+        'rating': _kLeaveDelta,
+        'leaves': 1,
+        'gamesPlayed': 1,
+      },
+      defaultFields: {
+        'rating': _kInitialRating,
+        'wins': 0,
+        'losses': 0,
+        'leaves': 0,
+        'gamesPlayed': 0,
+      },
+      stringFields: {
+        'displayName': displayName,
+      },
+    );
   }
 
   /// Legacy no-op — superseded by [recordRankedResult].

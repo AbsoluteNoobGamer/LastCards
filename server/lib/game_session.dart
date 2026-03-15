@@ -198,7 +198,9 @@ class GameSession {
   }
 
   void removePlayer(String playerId) {
-    final firebaseUid = _players[playerId]?.firebaseUid;
+    final leavingPlayer = _players[playerId];
+    final firebaseUid = leavingPlayer?.firebaseUid;
+    final displayName = leavingPlayer?.displayName ?? playerId;
     _players.remove(playerId);
     _broadcast({'type': 'player_left', 'playerId': playerId});
 
@@ -212,7 +214,7 @@ class GameSession {
       final trophyPenaltyForLeaver = _trophyEligible;
       if (trophyPenaltyForLeaver && isRanked) {
         final uid = firebaseUid ?? playerId;
-        _trophyRecorder.recordLeavePenalty(uid);
+        _trophyRecorder.recordLeavePenalty(uid, displayName: displayName);
       }
 
       _broadcast({
@@ -677,7 +679,11 @@ class GameSession {
         };
         final winnerUid = _players[winnerId]?.firebaseUid ?? winnerId;
         final allPlayerUids = _players.entries
-            .map((e) => (playerId: e.key, uid: e.value.firebaseUid ?? e.key))
+            .map((e) => (
+                  playerId: e.key,
+                  uid: e.value.firebaseUid ?? e.key,
+                  displayName: e.value.displayName,
+                ))
             .toList();
         _trophyRecorder.recordRankedResult(
           winnerUid: winnerUid,
@@ -880,7 +886,11 @@ class GameSession {
       };
       final winnerUid = _players[winnerId]?.firebaseUid ?? winnerId;
       final allPlayerUids = _players.entries
-          .map((e) => (playerId: e.key, uid: e.value.firebaseUid ?? e.key))
+          .map((e) => (
+                playerId: e.key,
+                uid: e.value.firebaseUid ?? e.key,
+                displayName: e.value.displayName,
+              ))
           .toList();
       _trophyRecorder.recordRankedResult(
         winnerUid: winnerUid,
