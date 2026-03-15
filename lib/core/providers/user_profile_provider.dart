@@ -8,8 +8,14 @@ import 'profile_provider.dart';
 class UserProfile {
   final String displayName;
   final String? avatarUrl;
+  /// When the profile (name/avatar) was last changed. Used for 14-day edit cooldown.
+  final DateTime? profileLastChangedAt;
 
-  const UserProfile({required this.displayName, this.avatarUrl});
+  const UserProfile({
+    required this.displayName,
+    this.avatarUrl,
+    this.profileLastChangedAt,
+  });
 }
 
 /// Firestore profile service. Use for updateProfile, uploadAvatar, clearAvatar.
@@ -20,7 +26,7 @@ final firestoreProfileServiceProvider =
 final userProfileProvider = StreamProvider<UserProfile>((ref) async* {
   final user = ref.watch(authStateProvider).value;
   if (user == null) {
-    yield const UserProfile(displayName: 'Guest');
+    yield const UserProfile(displayName: 'Guest', profileLastChangedAt: null);
     return;
   }
 
@@ -36,7 +42,12 @@ final userProfileProvider = StreamProvider<UserProfile>((ref) async* {
         ? firestore.displayName
         : (authDisplayName ?? 'Guest');
     final avatarUrl = firestore?.avatarUrl ?? authAvatarUrl;
-    yield UserProfile(displayName: displayName, avatarUrl: avatarUrl);
+    final profileLastChangedAt = firestore?.profileLastChangedAt;
+    yield UserProfile(
+      displayName: displayName,
+      avatarUrl: avatarUrl,
+      profileLastChangedAt: profileLastChangedAt,
+    );
   }
 });
 

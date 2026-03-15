@@ -24,6 +24,7 @@ class FirestoreProfileService {
   }
 
   /// Updates display name and optionally avatar URL in Firestore.
+  /// Also sets [profileLastChangedAt] for the 14-day edit cooldown.
   Future<void> updateProfile({
     required String uid,
     String? displayName,
@@ -35,7 +36,9 @@ class FirestoreProfileService {
     if (avatarUrl != null) updates['avatarUrl'] = avatarUrl;
 
     if (updates.isEmpty) return;
-    updates['updatedAt'] = FieldValue.serverTimestamp();
+    final now = FieldValue.serverTimestamp();
+    updates['updatedAt'] = now;
+    updates['profileLastChangedAt'] = now;
 
     await ref.set(updates, SetOptions(merge: true));
   }
@@ -51,8 +54,13 @@ class FirestoreProfileService {
 
   /// Clears the avatar (sets avatarUrl to null in Firestore).
   Future<void> clearAvatar(String uid) async {
+    final now = FieldValue.serverTimestamp();
     await _firestore.collection(_usersCollection).doc(uid).set(
-      {'avatarUrl': null, 'updatedAt': FieldValue.serverTimestamp()},
+      {
+        'avatarUrl': null,
+        'updatedAt': now,
+        'profileLastChangedAt': now,
+      },
       SetOptions(merge: true),
     );
   }
@@ -61,17 +69,25 @@ class FirestoreProfileService {
 class FirestoreUserProfile {
   final String displayName;
   final String? avatarUrl;
+  final DateTime? profileLastChangedAt;
 
   const FirestoreUserProfile({
     required this.displayName,
     this.avatarUrl,
+    this.profileLastChangedAt,
   });
 
   factory FirestoreUserProfile.fromDoc(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? {};
+    final profileLastChangedAtRaw = data['profileLastChangedAt'] ?? data['updatedAt'];
+    DateTime? profileLastChangedAt;
+    if (profileLastChangedAtRaw is Timestamp) {
+      profileLastChangedAt = profileLastChangedAtRaw.toDate();
+    }
     return FirestoreUserProfile(
       displayName: data['displayName'] as String? ?? '',
       avatarUrl: data['avatarUrl'] as String?,
+      profileLastChangedAt: profileLastChangedAt,
     );
   }
 }
