@@ -283,13 +283,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  if (!canEdit && nextEditDate != null) {
-                    _showCooldownDialog(nextEditDate!);
-                    return;
-                  }
-                  if (_canSave) _saveProfile();
-                },
+                onPressed: !canEdit && nextEditDate != null
+                    ? () => _showCooldownDialog(nextEditDate!)
+                    : _canSave
+                        ? _saveProfile
+                        : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.goldPrimary,
                   disabledBackgroundColor:
