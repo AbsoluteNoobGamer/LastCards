@@ -57,14 +57,12 @@ class _AuthGateState extends ConsumerState<AuthGate> {
           return const SignInScreen();
         }
         // Cold start: first null before any user. Start grace period if not yet started.
-        if (_gracePeriodTimer == null) {
-          _gracePeriodTimer = Timer(_kAuthRestoreGracePeriod, () {
-            _gracePeriodTimer = null;
-            if (mounted) {
-              setState(() => _gracePeriodElapsed = true);
-            }
-          });
-        }
+        _gracePeriodTimer ??= Timer(_kAuthRestoreGracePeriod, () {
+          _gracePeriodTimer = null;
+          if (mounted) {
+            setState(() => _gracePeriodElapsed = true);
+          }
+        });
         return const Scaffold(
           body: Center(
             child: CircularProgressIndicator(),

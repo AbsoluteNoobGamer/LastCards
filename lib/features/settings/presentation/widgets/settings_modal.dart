@@ -167,18 +167,14 @@ class _SliderRow extends StatelessWidget {
   final double value;
   final double min;
   final double max;
-  final int? divisions;
   final ValueChanged<double> onChanged;
-  final String? valueLabel;
 
   const _SliderRow({
     required this.label,
     required this.value,
     required this.min,
     required this.max,
-    this.divisions,
     required this.onChanged,
-    this.valueLabel,
   });
 
   @override
@@ -190,7 +186,7 @@ class _SliderRow extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(label, style: const TextStyle(fontSize: 16)),
-            Text(valueLabel ?? '${value.toInt()}%',
+            Text('${value.toInt()}%',
                 style: const TextStyle(
                     fontWeight: FontWeight.bold, color: Colors.amber)),
           ],
@@ -199,7 +195,6 @@ class _SliderRow extends StatelessWidget {
           value: value,
           min: min,
           max: max,
-          divisions: divisions,
           activeColor: Colors.amber,
           onChanged: onChanged,
         ),

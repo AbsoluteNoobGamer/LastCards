@@ -23,9 +23,7 @@ import 'package:last_cards/features/gameplay/presentation/widgets/last_move_pane
 import 'package:last_cards/features/gameplay/presentation/widgets/player_hand_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/player_zone_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/quick_chat_panel.dart' show kQuickMessages, QuickChatPanel;
-import 'package:last_cards/features/gameplay/presentation/widgets/quick_chat_bubble.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/turn_indicator_overlay.dart';
-import 'package:last_cards/shared/models/game_state_model.dart';
 import 'package:last_cards/features/single_player/providers/single_player_session_provider.dart';
 
 import '../bust_engine.dart';
@@ -607,7 +605,6 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     }
 
     final isPenaltyDraw = _gameState.activePenaltyCount > 0;
-    final isQueenDraw = _gameState.queenSuitLock != null;
     final drawCount = isPenaltyDraw ? _gameState.activePenaltyCount : 1;
     final local = _localPlayer;
 

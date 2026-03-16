@@ -907,7 +907,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         return;
       }
 
-      final prevFinished = prev!.players
+      final prevFinished = prev.players
           .where((p) => canConfirmPlayerWin(state: prev, playerId: p.id))
           .map((p) => p.id)
           .toSet();
@@ -1619,7 +1619,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
 
     final isPenaltyDraw = _offlineState.activePenaltyCount > 0;
-    final isQueenPenaltyDraw = _offlineState.queenSuitLock != null;
     final drawCount = isPenaltyDraw ? _offlineState.activePenaltyCount : 1;
 
     var newState = applyDraw(

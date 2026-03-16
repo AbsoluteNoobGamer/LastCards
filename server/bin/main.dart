@@ -4,8 +4,8 @@ import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf/shelf_io.dart' as io;
 import 'package:shelf_web_socket/shelf_web_socket.dart';
 
-import '../lib/firebase_auth_verifier.dart';
-import '../lib/room_manager.dart';
+import 'package:last_cards_server/firebase_auth_verifier.dart';
+import 'package:last_cards_server/room_manager.dart';
 
 void main() async {
   FirebaseAuthVerifier.setApiKey(Platform.environment['FIREBASE_API_KEY']);

@@ -345,7 +345,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               avatarUrl: displayAvatarUrl,
               onUpload: () {
                 if (!canEdit && nextEditDate != null) {
-                  _showCooldownDialog(nextEditDate!);
+                  _showCooldownDialog(nextEditDate);
                   return;
                 }
                 _showImageSourceSheet();
@@ -359,7 +359,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               errorText: _nameError,
               readOnly: !canEdit,
               onTapWhenLocked: (!canEdit && nextEditDate != null)
-                  ? () => _showCooldownDialog(nextEditDate!)
+                  ? () => _showCooldownDialog(nextEditDate)
                   : null,
             ),
             const SizedBox(height: 36),
@@ -369,7 +369,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 enabled: _canSave || (!canEdit && nextEditDate != null),
                 onPressed: () {
                   if (!canEdit && nextEditDate != null) {
-                    _showCooldownDialog(nextEditDate!);
+                    _showCooldownDialog(nextEditDate);
                     return;
                   }
                   _saveProfile();
