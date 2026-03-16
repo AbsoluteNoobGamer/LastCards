@@ -5,6 +5,8 @@ import 'package:last_cards/core/theme/app_dimensions.dart';
 import 'package:last_cards/core/theme/app_typography.dart';
 import 'package:last_cards/core/utils/display_name_utils.dart';
 import 'package:last_cards/widgets/marquee_name.dart';
+import 'package:last_cards/features/gameplay/presentation/widgets/player_zone_widget.dart';
+import 'package:last_cards/features/gameplay/presentation/widgets/quick_chat_bubble.dart';
 import '../models/bust_player_view_model.dart';
 
 class BustPlayerSlot extends ConsumerWidget {
@@ -12,12 +14,20 @@ class BustPlayerSlot extends ConsumerWidget {
     super.key,
     required this.player,
     this.compact = false,
+    this.chatBubble,
+    this.onRemoveQuickChatBubble,
   });
 
   final BustPlayerViewModel player;
 
   /// When true, uses smaller avatar and text for landscape/constrained layouts.
   final bool compact;
+
+  /// Active quick chat bubble for this player, if any.
+  final QuickChatBubbleData? chatBubble;
+
+  /// Callback to remove a bubble by id.
+  final void Function(String id)? onRemoveQuickChatBubble;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -61,6 +71,17 @@ class BustPlayerSlot extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (chatBubble != null && onRemoveQuickChatBubble != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: QuickChatBubble(
+                key: ValueKey(chatBubble!.id),
+                playerName: chatBubble!.playerName,
+                message: chatBubble!.message,
+                isLocal: chatBubble!.isLocal,
+                onDismiss: () => onRemoveQuickChatBubble!(chatBubble!.id),
+              ),
+            ),
           Stack(
             clipBehavior: Clip.none,
             children: [

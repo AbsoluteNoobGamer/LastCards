@@ -11,10 +11,10 @@ import 'player_model.dart';
 ///   [PlayerJoinedEvent], [PlayerLeftEvent], [GameEndedEvent], [ErrorEvent],
 ///   [SuitChoiceRequiredEvent], [JokerChoiceRequiredEvent],
 ///   [TurnTimeoutEvent], [ReshuffleEvent], [BustRoundOverEvent],
-///   [BustRoundStartEvent]
+///   [BustRoundStartEvent], [QuickChatEvent]
 ///
 /// Outgoing (client → server): [PlayCardsAction], [DrawCardAction],
-///   [DeclareJokerAction], [SuitChoiceAction], [EndTurnAction]
+///   [DeclareJokerAction], [SuitChoiceAction], [EndTurnAction], [QuickChatAction]
 sealed class GameEvent {
   const GameEvent();
 
@@ -267,6 +267,16 @@ final class BustRoundStartEvent extends GameEvent {
   String get type => 'bust_round_start';
 }
 
+/// A player sent a quick chat message.
+final class QuickChatEvent extends GameEvent {
+  final String playerId;
+  final int messageIndex;
+  const QuickChatEvent({required this.playerId, required this.messageIndex});
+
+  @override
+  String get type => 'quick_chat';
+}
+
 // ── Outgoing actions (client → server) ───────────────────────────────────────
 
 /// Play one or more cards (same-rank stack allowed).
@@ -340,6 +350,17 @@ final class SuitChoiceAction extends GameEvent {
   String get type => 'suit_choice';
 
   String toJsonString() => jsonEncode({'type': type, 'suit': suit.name});
+}
+
+/// Send a quick chat message to all players.
+final class QuickChatAction extends GameEvent {
+  final int messageIndex;
+  const QuickChatAction({required this.messageIndex});
+
+  @override
+  String get type => 'quick_chat';
+
+  String toJsonString() => jsonEncode({'type': type, 'messageIndex': messageIndex});
 }
 
 // ── Event parsing ─────────────────────────────────────────────────────────────
@@ -444,6 +465,10 @@ GameEvent parseServerEvent(String raw) {
           isPrivate: json['isPrivate'] as bool? ?? false,
           isRanked: json['isRanked'] as bool? ?? false,
           trophyEligible: json['trophyEligible'] as bool? ?? false,
+        ),
+      'quick_chat' => QuickChatEvent(
+          playerId: json['playerId'] as String? ?? '',
+          messageIndex: json['messageIndex'] as int? ?? 0,
         ),
       'error' => ErrorEvent(
           code: json['code'] as String? ?? 'unknown',

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:last_cards/core/theme/app_dimensions.dart';
+import 'package:last_cards/features/gameplay/presentation/widgets/player_zone_widget.dart';
 import '../models/bust_player_view_model.dart';
 import 'bust_player_slot.dart';
 
@@ -12,6 +13,8 @@ class BustPlayerRail extends StatefulWidget {
     this.slotKeyBuilder,
     this.height,
     this.compact = false,
+    this.quickChatBubblesByPlayer = const {},
+    this.onRemoveQuickChatBubble,
   });
 
   final List<BustPlayerViewModel> players;
@@ -27,6 +30,12 @@ class BustPlayerRail extends StatefulWidget {
 
   /// When true, uses compact slots (smaller avatar/name) for landscape.
   final bool compact;
+
+  /// Active quick chat bubble per player id (most recent per player).
+  final Map<String, QuickChatBubbleData> quickChatBubblesByPlayer;
+
+  /// Callback to remove a bubble by id.
+  final void Function(String id)? onRemoveQuickChatBubble;
 
   @override
   State<BustPlayerRail> createState() => _BustPlayerRailState();
@@ -89,7 +98,13 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
 
     Widget buildSlot(BustPlayerViewModel player) {
       final slotKey = widget.slotKeyBuilder?.call(player);
-      Widget slot = BustPlayerSlot(player: player, compact: widget.compact);
+      final chatBubble = widget.quickChatBubblesByPlayer[player.id];
+      Widget slot = BustPlayerSlot(
+        player: player,
+        compact: widget.compact,
+        chatBubble: chatBubble,
+        onRemoveQuickChatBubble: widget.onRemoveQuickChatBubble,
+      );
       if (slotKey != null) {
         slot = KeyedSubtree(key: slotKey, child: slot);
       }

@@ -22,6 +22,8 @@ import 'package:last_cards/features/gameplay/presentation/widgets/hud_overlay_wi
 import 'package:last_cards/features/gameplay/presentation/widgets/last_move_panel_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/player_hand_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/player_zone_widget.dart';
+import 'package:last_cards/features/gameplay/presentation/widgets/quick_chat_panel.dart' show kQuickMessages, QuickChatPanel;
+import 'package:last_cards/features/gameplay/presentation/widgets/quick_chat_bubble.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/turn_indicator_overlay.dart';
 import 'package:last_cards/shared/models/game_state_model.dart';
 import 'package:last_cards/features/single_player/providers/single_player_session_provider.dart';
@@ -120,6 +122,11 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   final ValueNotifier<bool> _reshuffleNotifier = ValueNotifier(false);
   final List<MoveLogEntry> _moveLogEntries = [];
 
+  bool _showQuickChatPanel = false;
+  int _quickChatCooldownRemaining = 0;
+  Timer? _quickChatCooldownTimer;
+  List<({String id, String playerId, String playerName, String message, bool isLocal})> _quickChatBubbles = [];
+
   bool _isDealing = false;
   final Map<String, int> _visibleCardCounts = {};
   final GlobalKey _drawPileKey = GlobalKey();
@@ -138,6 +145,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   @override
   void dispose() {
     _reshuffleNotifier.dispose();
+    _quickChatCooldownTimer?.cancel();
     super.dispose();
   }
 
@@ -807,6 +815,14 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     _recordSkippedTurns(result.preTurnAdvanceState, nextId);
     _onTurnComplete(aiId);
 
+    // AI quick chat: 30% chance after playing cards (same as TableScreen).
+    if (result.playedCards.isNotEmpty &&
+        _aiDelayRng.nextDouble() < 0.30 &&
+        mounted) {
+      final msgIndex = _aiDelayRng.nextInt(kQuickMessages.length);
+      _showQuickChatBubble(aiId, aiName, msgIndex, isLocal: false);
+    }
+
     if (nextId != OfflineGameState.localId &&
         !_roundManager.state.isRoundComplete) {
       _scheduleAiTurn(nextId);
@@ -908,6 +924,65 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     });
   }
 
+  // ── Quick chat ────────────────────────────────────────────────────────────
+
+  void _showQuickChatBubble(String playerId, String playerName, int messageIndex,
+      {bool isLocal = false}) {
+    if (messageIndex < 0 || messageIndex >= kQuickMessages.length) return;
+    final message = kQuickMessages[messageIndex];
+    final bubbleId =
+        '${playerId}_${messageIndex}_${DateTime.now().millisecondsSinceEpoch}';
+    setState(() {
+      _quickChatBubbles = [
+        ..._quickChatBubbles,
+        (
+          id: bubbleId,
+          playerId: playerId,
+          playerName: playerName,
+          message: message,
+          isLocal: isLocal,
+        ),
+      ];
+      if (_quickChatBubbles.length > 2) {
+        _quickChatBubbles =
+            _quickChatBubbles.sublist(_quickChatBubbles.length - 2);
+      }
+    });
+  }
+
+  void _removeQuickChatBubble(String bubbleId) {
+    setState(() => _quickChatBubbles.removeWhere((b) => b.id == bubbleId));
+  }
+
+  void _sendQuickChat(int messageIndex) {
+    if (_quickChatCooldownRemaining > 0) return;
+
+    _showQuickChatBubble(
+      OfflineGameState.localId,
+      'You',
+      messageIndex,
+      isLocal: true,
+    );
+
+    setState(() {
+      _showQuickChatPanel = false;
+      _quickChatCooldownRemaining = 10;
+    });
+
+    _quickChatCooldownTimer?.cancel();
+    _quickChatCooldownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {
+        _quickChatCooldownRemaining =
+            (_quickChatCooldownRemaining - 1).clamp(0, 10);
+      });
+      if (_quickChatCooldownRemaining <= 0) {
+        _quickChatCooldownTimer?.cancel();
+        _quickChatCooldownTimer = null;
+      }
+    });
+  }
+
   void _showError(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -960,6 +1035,11 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                     BustPlayerRail(
                       players: opponents,
                       slotKeyBuilder: (p) => _playerZoneKeys[p.id],
+                      quickChatBubblesByPlayer: {
+                        for (final b in _quickChatBubbles)
+                          b.playerId: (id: b.id, playerName: b.playerName, message: b.message, isLocal: b.isLocal),
+                      },
+                      onRemoveQuickChatBubble: _removeQuickChatBubble,
                     ),
 
                     // 2. Round indicator
@@ -1055,6 +1135,15 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                                   ),
                               isLocalPlayer: true,
                               isActiveTurn: isMyTurn,
+                              chatBubble: () {
+                                final b = _quickChatBubbles
+                                    .where((b) => b.playerId == OfflineGameState.localId)
+                                    .lastOrNull;
+                                return b != null
+                                    ? (id: b.id, playerName: b.playerName, message: b.message, isLocal: b.isLocal)
+                                    : null;
+                              }(),
+                              onRemoveQuickChatBubble: _removeQuickChatBubble,
                               child: PlayerHandWidget(
                                 cards: _orderedHand,
                                 selectedCardId: _selectedCardId,
@@ -1153,6 +1242,89 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                   ),
                 ),
               ),
+
+              // Quick chat toggle and panel (bottom right, opposite back)
+              if (!_isDealing && _gameState.phase != GamePhase.ended)
+                Positioned(
+                  bottom: 210,
+                  right: 0,
+                  child: SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppDimensions.xs),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          if (_showQuickChatPanel)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxWidth: MediaQuery.of(context).size.width * 0.55,
+                                  maxHeight: 200,
+                                ),
+                                child: SingleChildScrollView(
+                                  child: QuickChatPanel(
+                                    onMessageSelected: _sendQuickChat,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: _quickChatCooldownRemaining > 0
+                                      ? Colors.black.withValues(alpha: 0.50)
+                                      : Colors.black.withValues(alpha: 0.30),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: IconButton(
+                                  tooltip: _quickChatCooldownRemaining > 0
+                                      ? 'Quick chat (${_quickChatCooldownRemaining}s)'
+                                      : 'Quick chat',
+                                  icon: const Icon(
+                                    Icons.chat_bubble_outline,
+                                    size: 20,
+                                    color: Colors.white,
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: _quickChatCooldownRemaining > 0
+                                      ? null
+                                      : () {
+                                          setState(() => _showQuickChatPanel = !_showQuickChatPanel);
+                                        },
+                                ),
+                              ),
+                              if (_quickChatCooldownRemaining > 0)
+                                Positioned(
+                                  right: -4,
+                                  top: -4,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      color: AppColors.goldDark,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Text(
+                                      '$_quickChatCooldownRemaining',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
             ],
           );
         },

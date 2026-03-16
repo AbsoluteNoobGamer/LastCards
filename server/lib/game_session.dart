@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
+import 'package:last_cards/shared/constants/quick_chat_messages.dart';
 import 'package:last_cards/shared/engine/game_engine.dart';
 import 'package:last_cards/shared/engine/shuffle_utils.dart';
 import 'package:last_cards/shared/rules/win_condition_rules.dart';
@@ -77,6 +78,9 @@ class GameSession {
   final TrophyRecorder _trophyRecorder;
 
   final _players = <String, _ConnectedPlayer>{};
+
+  /// Per-player timestamp of last quick chat message (server-side rate limit).
+  final _lastQuickChatTime = <String, DateTime>{};
 
   // ── Bust round state ─────────────────────────────────────────────────────
   int _bustRoundNumber = 1;
@@ -1020,6 +1024,28 @@ class GameSession {
 
   void _sendError(String playerId, String code, String message) {
     _sendTo(playerId, {'type': 'error', 'code': code, 'message': message});
+  }
+
+  // ── Quick chat ─────────────────────────────────────────────────────────────
+
+  /// Broadcasts a preset quick chat message to all players.
+  /// Message index must be in range [0, kQuickMessages.length).
+  void handleQuickChat(String playerId, Map<String, dynamic> json) {
+    if (!_started || _gameOver) return;
+    final messageIndex = json['messageIndex'] as int?;
+    if (messageIndex == null || messageIndex < 0 || messageIndex >= kQuickMessages.length) return;
+
+    // Server-side rate limit: 10 seconds between messages per player.
+    final now = DateTime.now();
+    final lastTime = _lastQuickChatTime[playerId];
+    if (lastTime != null && now.difference(lastTime).inSeconds < 10) return;
+    _lastQuickChatTime[playerId] = now;
+
+    _broadcast({
+      'type': 'quick_chat',
+      'playerId': playerId,
+      'messageIndex': messageIndex,
+    });
   }
 
   // ── Position helper ───────────────────────────────────────────────────────

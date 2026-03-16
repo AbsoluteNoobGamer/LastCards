@@ -27,10 +27,18 @@ class _TableLayout extends StatelessWidget {
     this.finishedPlayerIds = const <String>{},
     this.aiConfigs = const <String, AiPlayerConfig>{},
     this.isRanked = false,
+    this.quickChatBubblesByPlayer = const {},
+    this.onRemoveQuickChatBubble,
   });
 
   /// True when this is a ranked online match (from session_config).
   final bool isRanked;
+
+  /// Active quick chat bubble per player id (most recent per player).
+  final Map<String, QuickChatBubbleData> quickChatBubblesByPlayer;
+
+  /// Callback to remove a bubble by id.
+  final void Function(String id)? onRemoveQuickChatBubble;
 
   final GameState gameState;
   final String? selectedCardId;
@@ -138,6 +146,8 @@ class _TableLayout extends StatelessWidget {
             tournamentStatusBadges: tournamentStatusBadges,
             finishedPlayerIds: finishedPlayerIds,
             aiConfigs: aiConfigs,
+            quickChatBubblesByPlayer: quickChatBubblesByPlayer,
+            onRemoveQuickChatBubble: onRemoveQuickChatBubble,
           );
         }
 
@@ -170,6 +180,8 @@ class _TableLayout extends StatelessWidget {
                         slotKeyBuilder: (player) =>
                             playerZoneKeys[player.id],
                         height: tournamentStatusBadges.isNotEmpty ? 112 : 96,
+                        quickChatBubblesByPlayer: quickChatBubblesByPlayer,
+                        onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                       )
                     : Row(
                         children: [
@@ -188,6 +200,8 @@ class _TableLayout extends StatelessWidget {
                                       tournamentStatusBadges[leftOpp.id],
                                     ),
                                     aiConfig: aiConfigs[leftOpp.id],
+                                    chatBubble: quickChatBubblesByPlayer[leftOpp.id],
+                                    onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                                   )
                                 : const SizedBox(height: 96),
                           )),
@@ -206,6 +220,8 @@ class _TableLayout extends StatelessWidget {
                                         tournamentStatusBadges[topOpp.id],
                                       ),
                                       aiConfig: aiConfigs[topOpp.id],
+                                      chatBubble: quickChatBubblesByPlayer[topOpp.id],
+                                      onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                                     )
                                   : const _EmptyOpponentZone(),
                             ),
@@ -225,6 +241,8 @@ class _TableLayout extends StatelessWidget {
                                         tournamentStatusBadges[rightOpp.id],
                                       ),
                                       aiConfig: aiConfigs[rightOpp.id],
+                                      chatBubble: quickChatBubblesByPlayer[rightOpp.id],
+                                      onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                                     )
                                   : const SizedBox(height: 96),
                             ),
@@ -367,6 +385,8 @@ class _TableLayout extends StatelessWidget {
                 isLocalPlayer: true,
                 isActiveTurn: gameState.currentPlayerId == localPlayer.id,
                 compact: false,
+                chatBubble: quickChatBubblesByPlayer[localPlayer.id],
+                onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                 child: finishedPlayerIds.contains(localPlayer.id)
                         ? _TournamentLocalStatusBanner(
                             isEliminated: _isEliminatedBadge(
@@ -453,7 +473,12 @@ class _LandscapeTableLayout extends StatelessWidget {
     required this.tournamentStatusBadges,
     required this.finishedPlayerIds,
     required this.aiConfigs,
+    this.quickChatBubblesByPlayer = const {},
+    this.onRemoveQuickChatBubble,
   });
+
+  final Map<String, QuickChatBubbleData> quickChatBubblesByPlayer;
+  final void Function(String id)? onRemoveQuickChatBubble;
 
   final GameState gameState;
   final String? selectedCardId;
@@ -511,6 +536,8 @@ class _LandscapeTableLayout extends StatelessWidget {
                     slotKeyBuilder: (player) => playerZoneKeys[player.id],
                     height: tournamentStatusBadges.isNotEmpty ? 88 : 72,
                     compact: true,
+                    quickChatBubblesByPlayer: quickChatBubblesByPlayer,
+                    onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                   )
                 : Row(
                     children: [
@@ -529,6 +556,8 @@ class _LandscapeTableLayout extends StatelessWidget {
                                     tournamentStatusBadges[leftOpp!.id],
                                   ),
                                   aiConfig: aiConfigs[leftOpp!.id],
+                                  chatBubble: quickChatBubblesByPlayer[leftOpp!.id],
+                                  onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                                   compact: true,
                                 )
                               : const SizedBox.shrink(),
@@ -549,6 +578,8 @@ class _LandscapeTableLayout extends StatelessWidget {
                                     tournamentStatusBadges[topOpp!.id],
                                   ),
                                   aiConfig: aiConfigs[topOpp!.id],
+                                  chatBubble: quickChatBubblesByPlayer[topOpp!.id],
+                                  onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                                   compact: true,
                                 )
                               : const _EmptyOpponentZone(),
@@ -569,6 +600,8 @@ class _LandscapeTableLayout extends StatelessWidget {
                                     tournamentStatusBadges[rightOpp!.id],
                                   ),
                                   aiConfig: aiConfigs[rightOpp!.id],
+                                  chatBubble: quickChatBubblesByPlayer[rightOpp!.id],
+                                  onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                                   compact: true,
                                 )
                               : const SizedBox.shrink(),
@@ -670,6 +703,8 @@ class _LandscapeTableLayout extends StatelessWidget {
                 player: localPlayer,
                 isLocalPlayer: true,
                 isActiveTurn: gameState.currentPlayerId == localPlayer.id,
+                chatBubble: quickChatBubblesByPlayer[localPlayer.id],
+                onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                 compact: true,
                 child: finishedPlayerIds.contains(localPlayer.id)
                     ? _TournamentLocalStatusBanner(
