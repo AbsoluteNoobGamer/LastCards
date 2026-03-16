@@ -536,6 +536,8 @@ class _LandscapeTableLayout extends StatelessWidget {
                     slotKeyBuilder: (player) => playerZoneKeys[player.id],
                     height: tournamentStatusBadges.isNotEmpty ? 88 : 72,
                     compact: true,
+                    quickChatBubblesByPlayer: quickChatBubblesByPlayer,
+                    onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                   )
                 : Row(
                     children: [
