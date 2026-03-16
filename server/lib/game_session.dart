@@ -78,6 +78,9 @@ class GameSession {
 
   final _players = <String, _ConnectedPlayer>{};
 
+  /// Per-player timestamp of last quick chat message (server-side rate limit).
+  final _lastQuickChatTime = <String, DateTime>{};
+
   // ── Bust round state ─────────────────────────────────────────────────────
   int _bustRoundNumber = 1;
   List<String> _bustSurvivorIds = [];
@@ -1030,6 +1033,13 @@ class GameSession {
     if (!_started || _gameOver) return;
     final messageIndex = json['messageIndex'] as int?;
     if (messageIndex == null || messageIndex < 0 || messageIndex > 12) return;
+
+    // Server-side rate limit: 10 seconds between messages per player.
+    final now = DateTime.now();
+    final lastTime = _lastQuickChatTime[playerId];
+    if (lastTime != null && now.difference(lastTime).inSeconds < 10) return;
+    _lastQuickChatTime[playerId] = now;
+
     _broadcast({
       'type': 'quick_chat',
       'playerId': playerId,

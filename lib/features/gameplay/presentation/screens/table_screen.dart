@@ -2260,8 +2260,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     final isOfflineMode = ref.read(gameStateProvider) == null;
 
+    final localPlayerId = ref.read(gameStateProvider)?.players
+        .where((p) => p.tablePosition == TablePosition.bottom)
+        .firstOrNull?.id ?? OfflineGameState.localId;
+
     _showQuickChatBubble(
-      OfflineGameState.localId,
+      localPlayerId,
       'You',
       messageIndex,
       isLocal: true,
