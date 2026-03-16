@@ -6,6 +6,7 @@ import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
+import '../../../../core/utils/profile_cooldown_utils.dart';
 
 const Set<String> kReservedNames = {'Player 2', 'Player 3', 'Player 4'};
 const int kMaxNameLength = 17;
@@ -123,9 +124,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ));
   }
 
+  void _showCooldownDialog(DateTime nextEditDate) {
+    final formatted = formatProfileCooldownDate(nextEditDate);
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfacePanel,
+        title: const Text(
+          'Profile change cooldown',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
+        content: Text(
+          'You can change your profile name and photo again on $formatted.',
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('OK', style: TextStyle(color: AppColors.goldPrimary)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authAsync = ref.watch(authStateProvider);
+    final userProfileAsync = ref.watch(userProfileProvider);
 
     if (authAsync.value == null) {
       return Scaffold(
@@ -154,6 +180,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
       );
     }
+
+    final profile = userProfileAsync.valueOrNull;
+    final profileLoaded = userProfileAsync.hasValue;
+    final cooldown = profileEditCooldown(profile?.profileLastChangedAt);
+    final canEdit = profileLoaded && cooldown.canEdit;
+    final nextEditDate = cooldown.nextEditDate;
 
     return Scaffold(
       backgroundColor: AppColors.feltDeep,
@@ -185,7 +217,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
             const SizedBox(height: 14),
             TextButton.icon(
-              onPressed: _showUnsupported,
+              onPressed: () {
+                if (!canEdit && nextEditDate != null) {
+                  _showCooldownDialog(nextEditDate!);
+                  return;
+                }
+                _showUnsupported();
+              },
               icon: const Icon(Icons.upload_rounded,
                   color: AppColors.goldPrimary, size: 18),
               label: const Text(
@@ -198,27 +236,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 32),
-            TextField(
-              controller: _nameController,
-              maxLength: kMaxNameLength,
-              style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: AppColors.surfacePanel,
-                counterText: '',
-                hintText: 'Enter your name…',
-                hintStyle: const TextStyle(color: AppColors.textSecondary),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius:
-                      BorderRadius.circular(AppDimensions.radiusButton),
-                  borderSide:
-                      BorderSide(color: _nameError != null ? AppColors.redAccent : AppColors.goldDark, width: 1.8),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius:
-                      BorderRadius.circular(AppDimensions.radiusButton),
-                  borderSide:
-                      BorderSide(color: _nameError != null ? AppColors.redAccent : AppColors.goldDark, width: 2.2),
+            GestureDetector(
+              onTap: !canEdit && nextEditDate != null
+                  ? () => _showCooldownDialog(nextEditDate!)
+                  : null,
+              child: AbsorbPointer(
+                absorbing: !canEdit && nextEditDate != null,
+                child: TextField(
+                  controller: _nameController,
+                  maxLength: kMaxNameLength,
+                  readOnly: !canEdit,
+                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: AppColors.surfacePanel,
+                    counterText: '',
+                    hintText: 'Enter your name…',
+                    hintStyle: const TextStyle(color: AppColors.textSecondary),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppDimensions.radiusButton),
+                      borderSide:
+                          BorderSide(color: _nameError != null ? AppColors.redAccent : AppColors.goldDark, width: 1.8),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppDimensions.radiusButton),
+                      borderSide:
+                          BorderSide(color: _nameError != null ? AppColors.redAccent : AppColors.goldDark, width: 2.2),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -238,7 +285,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _canSave ? _saveProfile : null,
+                onPressed: !canEdit && nextEditDate != null
+                    ? () => _showCooldownDialog(nextEditDate!)
+                    : _canSave
+                        ? _saveProfile
+                        : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.goldPrimary,
                   disabledBackgroundColor:
@@ -249,7 +300,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     borderRadius:
                         BorderRadius.circular(AppDimensions.radiusButton),
                   ),
-                  elevation: _canSave ? 4 : 0,
+                  elevation: (_canSave && canEdit) || (!canEdit && nextEditDate != null) ? 4 : 0,
                 ),
                 child: Text(
                   'SAVE PROFILE',
@@ -257,7 +308,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.4,
                     fontSize: 15,
-                    color: _canSave
+                    color: (_canSave && canEdit) || (!canEdit && nextEditDate != null)
                         ? AppColors.feltDeep
                         : AppColors.textSecondary,
                   ),

@@ -12,6 +12,7 @@ import '../../../../core/services/firestore_profile_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/services/nsfw_scan_service.dart';
+import '../../../../core/utils/profile_cooldown_utils.dart';
 
 /// The opponent display names that the local player cannot use.
 const Set<String> kReservedNames = {'Player 2', 'Player 3', 'Player 4'};
@@ -248,6 +249,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ));
   }
 
+  void _showCooldownDialog(DateTime nextEditDate) {
+    final formatted = formatProfileCooldownDate(nextEditDate);
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfacePanel,
+        title: const Text(
+          'Profile change cooldown',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
+        content: Text(
+          'You can change your profile name and photo again on $formatted.',
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('OK', style: TextStyle(color: AppColors.goldPrimary)),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
@@ -287,6 +312,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final profile = userProfileAsync.valueOrNull;
     final displayAvatarPath = _pendingAvatarValid ? _pendingAvatarPath : null;
     final displayAvatarUrl = displayAvatarPath == null ? profile?.avatarUrl : null;
+    final profileLoaded = userProfileAsync.hasValue;
+    final cooldown = profileEditCooldown(profile?.profileLastChangedAt);
+    final canEdit = profileLoaded && cooldown.canEdit;
+    final nextEditDate = cooldown.nextEditDate;
 
     return Scaffold(
       backgroundColor: AppColors.feltDeep,
@@ -314,7 +343,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             _AvatarSection(
               avatarPath: displayAvatarPath,
               avatarUrl: displayAvatarUrl,
-              onUpload: _showImageSourceSheet,
+              onUpload: () {
+                if (!canEdit && nextEditDate != null) {
+                  _showCooldownDialog(nextEditDate!);
+                  return;
+                }
+                _showImageSourceSheet();
+              },
             ),
             const SizedBox(height: 32),
             _NameField(
@@ -322,13 +357,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               maxLength: kMaxNameLength,
               isValid: _nameValid,
               errorText: _nameError,
+              readOnly: !canEdit,
+              onTapWhenLocked: (!canEdit && nextEditDate != null)
+                  ? () => _showCooldownDialog(nextEditDate!)
+                  : null,
             ),
             const SizedBox(height: 36),
             SizedBox(
               width: double.infinity,
               child: _SaveButton(
-                enabled: _canSave,
-                onPressed: _saveProfile,
+                enabled: _canSave || (!canEdit && nextEditDate != null),
+                onPressed: () {
+                  if (!canEdit && nextEditDate != null) {
+                    _showCooldownDialog(nextEditDate!);
+                    return;
+                  }
+                  _saveProfile();
+                },
               ),
             ),
           ],
@@ -414,12 +459,16 @@ class _NameField extends StatelessWidget {
     required this.maxLength,
     required this.isValid,
     this.errorText,
+    this.readOnly = false,
+    this.onTapWhenLocked,
   });
 
   final TextEditingController controller;
   final int maxLength;
   final bool isValid;
   final String? errorText;
+  final bool readOnly;
+  final VoidCallback? onTapWhenLocked;
 
   @override
   Widget build(BuildContext context) {
@@ -445,26 +494,33 @@ class _NameField extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
-          key: const ValueKey('name-field'),
-          controller: controller,
-          maxLength: maxLength,
-          style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: AppColors.surfacePanel,
-            counterText: '',
-            hintText: 'Enter your name…',
-            hintStyle: const TextStyle(color: AppColors.textSecondary),
-            enabledBorder: OutlineInputBorder(
-              borderRadius:
-                  BorderRadius.circular(AppDimensions.radiusButton),
-              borderSide: BorderSide(color: borderColor, width: 1.8),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius:
-                  BorderRadius.circular(AppDimensions.radiusButton),
-              borderSide: BorderSide(color: borderColor, width: 2.2),
+        GestureDetector(
+          onTap: readOnly && onTapWhenLocked != null ? onTapWhenLocked : null,
+          child: AbsorbPointer(
+            absorbing: readOnly && onTapWhenLocked != null,
+            child: TextField(
+              key: const ValueKey('name-field'),
+              controller: controller,
+              maxLength: maxLength,
+              readOnly: readOnly,
+              style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: AppColors.surfacePanel,
+                counterText: '',
+                hintText: 'Enter your name…',
+                hintStyle: const TextStyle(color: AppColors.textSecondary),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius:
+                      BorderRadius.circular(AppDimensions.radiusButton),
+                  borderSide: BorderSide(color: borderColor, width: 1.8),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius:
+                      BorderRadius.circular(AppDimensions.radiusButton),
+                  borderSide: BorderSide(color: borderColor, width: 2.2),
+                ),
+              ),
             ),
           ),
         ),
