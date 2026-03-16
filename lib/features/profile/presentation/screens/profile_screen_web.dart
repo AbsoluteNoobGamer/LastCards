@@ -182,8 +182,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
 
     final profile = userProfileAsync.valueOrNull;
+    final profileLoaded = userProfileAsync.hasValue;
     final cooldown = profileEditCooldown(profile?.profileLastChangedAt);
-    final canEdit = cooldown.canEdit;
+    final canEdit = profileLoaded && cooldown.canEdit;
     final nextEditDate = cooldown.nextEditDate;
 
     return Scaffold(

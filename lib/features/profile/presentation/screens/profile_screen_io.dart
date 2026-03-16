@@ -312,8 +312,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final profile = userProfileAsync.valueOrNull;
     final displayAvatarPath = _pendingAvatarValid ? _pendingAvatarPath : null;
     final displayAvatarUrl = displayAvatarPath == null ? profile?.avatarUrl : null;
+    final profileLoaded = userProfileAsync.hasValue;
     final cooldown = profileEditCooldown(profile?.profileLastChangedAt);
-    final canEdit = cooldown.canEdit;
+    final canEdit = profileLoaded && cooldown.canEdit;
     final nextEditDate = cooldown.nextEditDate;
 
     return Scaffold(
