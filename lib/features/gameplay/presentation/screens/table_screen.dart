@@ -2235,7 +2235,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         '${playerId}_${messageIndex}_${DateTime.now().millisecondsSinceEpoch}';
     setState(() {
       _quickChatBubbles = [
-        ..._quickChatBubbles,
+        ..._quickChatBubbles.where((b) => b.playerId != playerId),
         (
           id: bubbleId,
           playerId: playerId,
