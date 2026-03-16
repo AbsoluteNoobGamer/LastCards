@@ -4,23 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/theme/app_theme_data.dart';
+import '../../../../shared/constants/quick_chat_messages.dart';
 
-/// Preset quick chat messages.
-const kQuickMessages = [
-  'Good luck!',
-  'Well played',
-  'Oops!',
-  'Nice one!',
-  'Sorry!',
-  'Good game',
-  'Too good!',
-  'GG!',
-  'I Have A Joker',
-  'Pick up',
-  'Ahahaha',
-  'Sh*t',
-  'Damn',
-];
+export '../../../../shared/constants/quick_chat_messages.dart' show kQuickMessages;
 
 /// Compact panel listing preset quick chat messages.
 /// Styled to match the game log box — same font, background, and accent border.

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
+import 'package:last_cards/shared/constants/quick_chat_messages.dart';
 import 'package:last_cards/shared/engine/game_engine.dart';
 import 'package:last_cards/shared/engine/shuffle_utils.dart';
 import 'package:last_cards/shared/rules/win_condition_rules.dart';
@@ -1028,11 +1029,11 @@ class GameSession {
   // ── Quick chat ─────────────────────────────────────────────────────────────
 
   /// Broadcasts a preset quick chat message to all players.
-  /// Message index must be in range [0, kQuickChatMaxIndex] (13 messages).
+  /// Message index must be in range [0, kQuickMessages.length).
   void handleQuickChat(String playerId, Map<String, dynamic> json) {
     if (!_started || _gameOver) return;
     final messageIndex = json['messageIndex'] as int?;
-    if (messageIndex == null || messageIndex < 0 || messageIndex > 12) return;
+    if (messageIndex == null || messageIndex < 0 || messageIndex >= kQuickMessages.length) return;
 
     // Server-side rate limit: 10 seconds between messages per player.
     final now = DateTime.now();
