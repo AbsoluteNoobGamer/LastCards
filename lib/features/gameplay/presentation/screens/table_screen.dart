@@ -33,6 +33,7 @@ import '../widgets/card_widget.dart';
 import '../widgets/floating_action_bar_widget.dart';
 import '../widgets/turn_indicator_overlay.dart';
 import '../widgets/last_move_panel_widget.dart';
+import '../widgets/quick_chat_panel.dart';
 
 import '../../../../widgets/turn_timer_bar.dart';
 import '../../../../services/audio_service.dart' as game_audio;
@@ -144,7 +145,18 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   StreamSubscription<ErrorEvent>? _onlineErrorsSub;
   StreamSubscription<dynamic>? _onlineTurnTimeoutSub;
   StreamSubscription<dynamic>? _onlineReshuffleSub;
+  StreamSubscription<QuickChatEvent>? _onlineQuickChatSub;
   bool _timerWarningPlayed = false;
+
+  bool _showQuickChatPanel = false;
+
+  /// Seconds remaining until next quick chat can be sent (10s cooldown).
+  int _quickChatCooldownRemaining = 0;
+  Timer? _quickChatCooldownTimer;
+
+  /// Active quick chat bubbles. Each entry: (id, playerId, playerName, message, isLocal).
+  /// Max 2 visible at once.
+  List<({String id, String playerId, String playerName, String message, bool isLocal})> _quickChatBubbles = [];
 
   /// When > 0, next N card_drawn for this player are part of an invalid-play
   /// penalty (we already logged them via invalid_play_penalty). Skip adding.
@@ -161,15 +173,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   /// avatar colors). Regenerated each time [_initNewGame] is called.
   List<AiPlayerConfig> _aiPlayerConfigs = [];
 
-  /// The chat notification currently shown in the center of the screen.
-  /// Null when no notification is active.
-  ({AiPlayerConfig config, String message})? _activeChatItem;
-
-  /// Keeps the last chat item alive so the fade-out animation can finish
-  /// before the widget disappears.
-  ({AiPlayerConfig config, String message})? _lastChatItem;
-
-  static const _chatBubbleDuration = Duration(milliseconds: 4000);
   final math.Random _chatRng = math.Random();
   @override
   void initState() {
@@ -300,6 +303,21 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         );
     });
 
+    // ── Quick chat ─────────────────────────────────────────────────────────
+    // Incoming quick chat from other players (local player's own messages
+    // are shown immediately in _sendQuickChat).
+    _onlineQuickChatSub = handler.quickChats.listen((e) {
+      if (!mounted) return;
+      final state = ref.read(gameStateProvider);
+      if (state == null) return;
+      final localPlayer = state.players
+          .where((p) => p.tablePosition == TablePosition.bottom)
+          .firstOrNull;
+      if (localPlayer != null && e.playerId == localPlayer.id) return;
+      final senderName = state.playerById(e.playerId)?.displayName ?? e.playerId;
+      _showQuickChatBubble(e.playerId, senderName, e.messageIndex, isLocal: false);
+    });
+
     // Start turn timer when it's our turn in online mode (e.g. game just started)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted &&
@@ -368,9 +386,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         count: widget.totalPlayers - 1,
         seed: DateTime.now().millisecondsSinceEpoch,
       );
-      _activeChatItem = null;
-      _lastChatItem = null;
-
       final aiNameMap = {
         for (final c in _aiPlayerConfigs) c.playerId: c.name,
       };
@@ -532,6 +547,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _onlineErrorsSub?.cancel();
     _onlineTurnTimeoutSub?.cancel();
     _onlineReshuffleSub?.cancel();
+    _onlineQuickChatSub?.cancel();
+    _quickChatCooldownTimer?.cancel();
     _engineTimer.dispose();
     _reshuffleNotifier.dispose();
     super.dispose();
@@ -1063,6 +1080,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                           for (final c in _aiPlayerConfigs) c.playerId: c,
                         },
                         isRanked: ref.watch(isRankedGameProvider),
+                        quickChatBubblesByPlayer: {
+                          for (final b in _quickChatBubbles)
+                            b.playerId: (id: b.id, playerName: b.playerName, message: b.message, isLocal: b.isLocal),
+                        },
+                        onRemoveQuickChatBubble: _removeQuickChatBubble,
                       ),
                     ),
                   ],
@@ -1088,35 +1110,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         vertical: 6,
                       ),
                       child: LastMovePanelWidget(entries: _moveLogEntries),
-                    ),
-                  ),
-                ),
-
-              // ── AI chat notification banner ─────────────────────────────
-              if (isOfflineMode)
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 108,
-                  left: 0,
-                  right: 0,
-                  child: IgnorePointer(
-                    child: Center(
-                      child: AnimatedOpacity(
-                        opacity: _activeChatItem != null ? 1.0 : 0.0,
-                        duration: const Duration(milliseconds: 350),
-                        child: AnimatedSlide(
-                          offset: _activeChatItem != null
-                              ? Offset.zero
-                              : const Offset(0, -0.4),
-                          duration: const Duration(milliseconds: 350),
-                          curve: Curves.easeOutBack,
-                          child: _lastChatItem != null
-                              ? _AiChatBanner(
-                                  config: _lastChatItem!.config,
-                                  message: _lastChatItem!.message,
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      ),
                     ),
                   ),
                 ),
@@ -1148,6 +1141,89 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   ),
                 ),
               ),
+
+              // ── Quick chat toggle and panel (bottom right, opposite back) ─
+              if (!_isDealing && gameState.phase != GamePhase.ended)
+                Positioned(
+                  bottom: isLandscapeMobile ? 130 : 210,
+                  right: 0,
+                  child: SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppDimensions.xs),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          if (_showQuickChatPanel)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxWidth: MediaQuery.of(context).size.width * 0.55,
+                                  maxHeight: 200,
+                                ),
+                                child: SingleChildScrollView(
+                                  child: QuickChatPanel(
+                                    onMessageSelected: _sendQuickChat,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: _quickChatCooldownRemaining > 0
+                                      ? Colors.black.withValues(alpha: 0.50)
+                                      : Colors.black.withValues(alpha: 0.30),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: IconButton(
+                                  tooltip: _quickChatCooldownRemaining > 0
+                                      ? 'Quick chat (${_quickChatCooldownRemaining}s)'
+                                      : 'Quick chat',
+                                  icon: const Icon(
+                                    Icons.chat_bubble_outline,
+                                    size: 20,
+                                    color: Colors.white,
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: _quickChatCooldownRemaining > 0
+                                      ? null
+                                      : () {
+                                          setState(() => _showQuickChatPanel = !_showQuickChatPanel);
+                                        },
+                                ),
+                              ),
+                              if (_quickChatCooldownRemaining > 0)
+                                Positioned(
+                                  right: -4,
+                                  top: -4,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      color: AppColors.goldDark,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Text(
+                                      '$_quickChatCooldownRemaining',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
 
               // ── HUD overlay (suit badge, penalty, queen lock) ───────────
               // In landscape mobile, HUD is rendered inline in _LandscapeTableLayout.
@@ -1705,14 +1781,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       );
     }
 
-    // Chat bubble: trigger on special plays or at random (30% base chance).
-    if (aiConfig != null && playedByAi.isNotEmpty) {
-      _maybeTriggerChatBubble(
-        aiId: aiId,
-        config: aiConfig,
-        playedCards: playedByAi,
-        resultState: result.state,
-      );
+    // AI quick chat: use preset messages like human players (30% chance).
+    if (aiConfig != null && playedByAi.isNotEmpty && _chatRng.nextDouble() < 0.30) {
+      final msgIndex = _chatRng.nextInt(kQuickMessages.length);
+      _showQuickChatBubble(aiId, aiPlayerName, msgIndex, isLocal: false);
     }
 
     setState(() {
@@ -2153,158 +2225,67 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     );
   }
 
-  // ── AI chat bubbles ────────────────────────────────────────────────────────
+  // ── Quick chat ──────────────────────────────────────────────────────────
 
-  void _maybeTriggerChatBubble({
-    required String aiId,
-    required AiPlayerConfig config,
-    required List<CardModel> playedCards,
-    required GameState resultState,
-  }) {
-    bool shouldChat = false;
-
-    // Last card — AI is about to win.
-    final aiAfter = resultState.players.where((p) => p.id == aiId).firstOrNull;
-    if (aiAfter != null && aiAfter.cardCount <= 1) {
-      shouldChat = true;
-    }
-
-    // Aggressive personality fires on penalty cards.
-    if (!shouldChat &&
-        config.personality == AiPersonality.aggressive &&
-        playedCards.any((c) => c.isBlackJack || c.effectiveRank == Rank.two)) {
-      shouldChat = true;
-    }
-
-    // Tricky personality fires on skips / kings / jokers.
-    if (!shouldChat &&
-        config.personality == AiPersonality.tricky &&
-        playedCards.any((c) =>
-            c.effectiveRank == Rank.eight ||
-            c.effectiveRank == Rank.king ||
-            c.isJoker)) {
-      shouldChat = true;
-    }
-
-    // 20% random chance for any remaining plays.
-    if (!shouldChat && _chatRng.nextDouble() < 0.20) shouldChat = true;
-
-    if (shouldChat) {
-      _triggerChatBubble(aiId, config.randomChatLine(_chatRng));
-    }
-  }
-
-  void _triggerChatBubble(String aiId, String message) {
-    final config =
-        _aiPlayerConfigs.where((c) => c.playerId == aiId).firstOrNull;
-    if (config == null) return;
-    final item = (config: config, message: message);
+  void _showQuickChatBubble(String playerId, String playerName, int messageIndex,
+      {bool isLocal = false}) {
+    if (messageIndex < 0 || messageIndex >= kQuickMessages.length) return;
+    final message = kQuickMessages[messageIndex];
+    final bubbleId =
+        '${playerId}_${messageIndex}_${DateTime.now().millisecondsSinceEpoch}';
     setState(() {
-      _activeChatItem = item;
-      _lastChatItem = item;
-    });
-    Future.delayed(_chatBubbleDuration, () {
-      if (mounted) {
-        setState(() => _activeChatItem = null);
-        // Keep _lastChatItem alive for the fade-out, then clear it.
-        Future.delayed(const Duration(milliseconds: 400), () {
-          if (mounted) setState(() => _lastChatItem = null);
-        });
+      _quickChatBubbles = [
+        ..._quickChatBubbles,
+        (
+          id: bubbleId,
+          playerId: playerId,
+          playerName: playerName,
+          message: message,
+          isLocal: isLocal,
+        ),
+      ];
+      if (_quickChatBubbles.length > 2) {
+        _quickChatBubbles =
+            _quickChatBubbles.sublist(_quickChatBubbles.length - 2);
       }
     });
   }
-}
 
-// ── AI chat notification banner ───────────────────────────────────────────────
+  void _removeQuickChatBubble(String bubbleId) {
+    setState(() => _quickChatBubbles.removeWhere((b) => b.id == bubbleId));
+  }
 
-class _AiChatBanner extends StatelessWidget {
-  const _AiChatBanner({required this.config, required this.message});
+  void _sendQuickChat(int messageIndex) {
+    if (_quickChatCooldownRemaining > 0) return;
 
-  final AiPlayerConfig config;
-  final String message;
+    final isOfflineMode = ref.read(gameStateProvider) == null;
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 32),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.90),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: config.nameColor.withValues(alpha: 0.85),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: config.nameColor.withValues(alpha: 0.35),
-            blurRadius: 18,
-            spreadRadius: 2,
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 8,
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Mini avatar circle
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: config.avatarColor,
-              boxShadow: [
-                BoxShadow(
-                  color: config.avatarColor.withValues(alpha: 0.5),
-                  blurRadius: 6,
-                ),
-              ],
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              config.initials,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.3,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Flexible(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  config.name,
-                  style: TextStyle(
-                    color: config.nameColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  '"$message"',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    _showQuickChatBubble(
+      OfflineGameState.localId,
+      'You',
+      messageIndex,
+      isLocal: true,
     );
+
+    if (!isOfflineMode) {
+      final handler = ref.read(gameEventHandlerProvider);
+      handler.sendQuickChat(QuickChatAction(messageIndex: messageIndex));
+    }
+
+    setState(() {
+      _showQuickChatPanel = false;
+      _quickChatCooldownRemaining = 10;
+    });
+    _quickChatCooldownTimer?.cancel();
+    _quickChatCooldownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {
+        _quickChatCooldownRemaining = (_quickChatCooldownRemaining - 1).clamp(0, 10);
+      });
+      if (_quickChatCooldownRemaining <= 0) {
+        _quickChatCooldownTimer?.cancel();
+        _quickChatCooldownTimer = null;
+      }
+    });
   }
 }

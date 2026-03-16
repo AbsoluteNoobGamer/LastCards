@@ -10,6 +10,10 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/player_styles.dart';
 import '../../../../core/providers/theme_provider.dart';
+import 'quick_chat_bubble.dart';
+
+/// Data for a quick chat bubble shown above a player's avatar.
+typedef QuickChatBubbleData = ({String id, String playerName, String message, bool isLocal});
 
 /// Wraps a player's card area with:
 /// - Accent glow ring when active turn
@@ -27,6 +31,8 @@ class PlayerZoneWidget extends ConsumerWidget {
     this.aiConfig,
     this.child,
     this.compact = false,
+    this.chatBubble,
+    this.onRemoveQuickChatBubble,
   });
 
   final PlayerModel player;
@@ -45,6 +51,12 @@ class PlayerZoneWidget extends ConsumerWidget {
 
   /// When true, uses smaller padding and label for landscape layout.
   final bool compact;
+
+  /// Active quick chat bubble for this player, if any.
+  final QuickChatBubbleData? chatBubble;
+
+  /// Callback to remove a bubble by id.
+  final void Function(String id)? onRemoveQuickChatBubble;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -69,6 +81,8 @@ class PlayerZoneWidget extends ConsumerWidget {
         isTournamentEliminated: isTournamentEliminated,
         appTheme: appTheme,
         aiConfig: aiConfig,
+        chatBubble: chatBubble,
+        onRemoveQuickChatBubble: onRemoveQuickChatBubble,
       );
     }
 
@@ -109,6 +123,17 @@ class PlayerZoneWidget extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (chatBubble != null && onRemoveQuickChatBubble != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: QuickChatBubble(
+                  key: ValueKey(chatBubble!.id),
+                  playerName: chatBubble!.playerName,
+                  message: chatBubble!.message,
+                  isLocal: chatBubble!.isLocal,
+                  onDismiss: () => onRemoveQuickChatBubble!(chatBubble!.id),
+                ),
+              ),
             _PlayerLabel(
               player: playerWithReactiveCount,
               isActiveTurn: isActiveTurn,
@@ -133,6 +158,8 @@ class _OpponentAvatarZone extends StatelessWidget {
     this.isTournamentFinished = false,
     this.isTournamentEliminated = false,
     this.aiConfig,
+    this.chatBubble,
+    this.onRemoveQuickChatBubble,
   });
 
   final PlayerModel player;
@@ -141,6 +168,8 @@ class _OpponentAvatarZone extends StatelessWidget {
   final bool isTournamentFinished;
   final bool isTournamentEliminated;
   final AiPlayerConfig? aiConfig;
+  final QuickChatBubbleData? chatBubble;
+  final void Function(String id)? onRemoveQuickChatBubble;
 
   @override
   Widget build(BuildContext context) {
@@ -178,6 +207,17 @@ class _OpponentAvatarZone extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (chatBubble != null && onRemoveQuickChatBubble != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: QuickChatBubble(
+              key: ValueKey(chatBubble!.id),
+              playerName: chatBubble!.playerName,
+              message: chatBubble!.message,
+              isLocal: chatBubble!.isLocal,
+              onDismiss: () => onRemoveQuickChatBubble!(chatBubble!.id),
+            ),
+          ),
         // ── Avatar circle ──────────────────────────────────────────────────
         Material(
           color: Colors.transparent,

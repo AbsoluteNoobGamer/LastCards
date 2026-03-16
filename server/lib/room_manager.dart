@@ -91,6 +91,13 @@ class RoomManager {
           _rooms[roomCode]?.handleAction(playerId, json);
         }
         break;
+      case 'quick_chat':
+        final roomCode = _playerRooms[ws];
+        final playerId = _playerIds[ws];
+        if (roomCode != null && playerId != null) {
+          _rooms[roomCode]?.handleQuickChat(playerId, json);
+        }
+        break;
     }
   }
 

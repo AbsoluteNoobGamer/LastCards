@@ -1022,6 +1022,21 @@ class GameSession {
     _sendTo(playerId, {'type': 'error', 'code': code, 'message': message});
   }
 
+  // ── Quick chat ─────────────────────────────────────────────────────────────
+
+  /// Broadcasts a preset quick chat message to all players.
+  /// Message index must be in range [0, kQuickChatMaxIndex] (13 messages).
+  void handleQuickChat(String playerId, Map<String, dynamic> json) {
+    if (!_started || _gameOver) return;
+    final messageIndex = json['messageIndex'] as int?;
+    if (messageIndex == null || messageIndex < 0 || messageIndex > 12) return;
+    _broadcast({
+      'type': 'quick_chat',
+      'playerId': playerId,
+      'messageIndex': messageIndex,
+    });
+  }
+
   // ── Position helper ───────────────────────────────────────────────────────
 
   TablePosition _positionFor(int index) {

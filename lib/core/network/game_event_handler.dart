@@ -64,6 +64,10 @@ class GameEventHandler {
   Stream<ErrorEvent> get errors =>
       events.where((e) => e is ErrorEvent).cast<ErrorEvent>();
 
+  /// Quick chat messages from any player.
+  Stream<QuickChatEvent> get quickChats =>
+      events.where((e) => e is QuickChatEvent).cast<QuickChatEvent>();
+
   /// Player drew cards for attempting an invalid play (consolidated log entry).
   Stream<InvalidPlayPenaltyEvent> get invalidPlayPenalties =>
       events
@@ -83,6 +87,9 @@ class GameEventHandler {
   void sendEndTurn() => _wsClient.send(const EndTurnAction().toJsonString());
 
   void sendSuitChoice(SuitChoiceAction action) =>
+      _wsClient.send(action.toJsonString());
+
+  void sendQuickChat(QuickChatAction action) =>
       _wsClient.send(action.toJsonString());
 
   // ── Internal ───────────────────────────────────────────────────────────────
