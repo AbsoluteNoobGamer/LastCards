@@ -246,26 +246,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   maxLength: kMaxNameLength,
                   readOnly: !canEdit,
                   style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: AppColors.surfacePanel,
-                counterText: '',
-                hintText: 'Enter your name…',
-                hintStyle: const TextStyle(color: AppColors.textSecondary),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius:
-                      BorderRadius.circular(AppDimensions.radiusButton),
-                  borderSide:
-                      BorderSide(color: _nameError != null ? AppColors.redAccent : AppColors.goldDark, width: 1.8),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius:
-                      BorderRadius.circular(AppDimensions.radiusButton),
-                  borderSide:
-                      BorderSide(color: _nameError != null ? AppColors.redAccent : AppColors.goldDark, width: 2.2),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: AppColors.surfacePanel,
+                    counterText: '',
+                    hintText: 'Enter your name…',
+                    hintStyle: const TextStyle(color: AppColors.textSecondary),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppDimensions.radiusButton),
+                      borderSide:
+                          BorderSide(color: _nameError != null ? AppColors.redAccent : AppColors.goldDark, width: 1.8),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppDimensions.radiusButton),
+                      borderSide:
+                          BorderSide(color: _nameError != null ? AppColors.redAccent : AppColors.goldDark, width: 2.2),
+                    ),
+                  ),
                 ),
               ),
-            ),
             ),
             if (_nameError != null)
               Padding(
