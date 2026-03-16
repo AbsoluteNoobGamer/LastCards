@@ -180,6 +180,8 @@ class _TableLayout extends StatelessWidget {
                         slotKeyBuilder: (player) =>
                             playerZoneKeys[player.id],
                         height: tournamentStatusBadges.isNotEmpty ? 112 : 96,
+                        quickChatBubblesByPlayer: quickChatBubblesByPlayer,
+                        onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                       )
                     : Row(
                         children: [
