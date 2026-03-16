@@ -7,8 +7,9 @@ const Duration kProfileEditCooldown = Duration(days: 14);
 ) {
   if (profileLastChangedAt == null) return (canEdit: true, nextEditDate: null);
   final nextEdit = profileLastChangedAt.add(kProfileEditCooldown);
-  final canEdit = DateTime.now().isAfter(nextEdit) ||
-      DateTime.now().isAtSameMomentAs(nextEdit);
+  final now = DateTime.now();
+  final canEdit = now.isAfter(nextEdit) ||
+      now.isAtSameMomentAs(nextEdit);
   return (canEdit: canEdit, nextEditDate: canEdit ? null : nextEdit);
 }
 
