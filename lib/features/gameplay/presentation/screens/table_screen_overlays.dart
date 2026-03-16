@@ -142,11 +142,12 @@ class _RankedResultsSectionState extends State<_RankedResultsSection> {
           .doc(uid)
           .get();
       if (!doc.exists) return null;
-      final d = doc.data() as Map<String, dynamic>? ?? {};
+      final d = doc.data() ?? <String, dynamic>{};
+      int toInt(Object? v, int def) => v is num ? v.toInt() : def;
       return (
-        rating: (d['rating'] as num?)?.toInt() ?? 1000,
-        wins: (d['wins'] as num?)?.toInt() ?? 0,
-        losses: (d['losses'] as num?)?.toInt() ?? 0,
+        rating: toInt(d['rating'], 1000),
+        wins: toInt(d['wins'], 0),
+        losses: toInt(d['losses'], 0),
       );
     } catch (_) {
       return null;

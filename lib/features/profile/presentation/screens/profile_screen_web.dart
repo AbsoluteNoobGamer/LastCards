@@ -219,7 +219,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             TextButton.icon(
               onPressed: () {
                 if (!canEdit && nextEditDate != null) {
-                  _showCooldownDialog(nextEditDate!);
+                  _showCooldownDialog(nextEditDate);
                   return;
                 }
                 _showUnsupported();
@@ -238,7 +238,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             const SizedBox(height: 32),
             GestureDetector(
               onTap: !canEdit && nextEditDate != null
-                  ? () => _showCooldownDialog(nextEditDate!)
+                  ? () => _showCooldownDialog(nextEditDate)
                   : null,
               child: AbsorbPointer(
                 absorbing: !canEdit && nextEditDate != null,
@@ -286,7 +286,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: !canEdit && nextEditDate != null
-                    ? () => _showCooldownDialog(nextEditDate!)
+                    ? () => _showCooldownDialog(nextEditDate)
                     : _canSave
                         ? _saveProfile
                         : null,

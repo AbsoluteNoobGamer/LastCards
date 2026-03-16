@@ -160,11 +160,11 @@ class BustPlayerSlot extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: player.isTournamentEliminated
                     ? const Color(0x22FF3333)
-                    : (theme.accentPrimary as Color).withValues(alpha: 0.13),
+                    : theme.accentPrimary.withValues(alpha: 0.13),
                 border: Border.all(
                   color: player.isTournamentEliminated
                       ? const Color(0xFFFF3333)
-                      : (theme.accentPrimary as Color),
+                      : theme.accentPrimary,
                   width: 1,
                 ),
                 borderRadius: BorderRadius.circular(20),
@@ -174,7 +174,7 @@ class BustPlayerSlot extends ConsumerWidget {
                 style: TextStyle(
                   color: player.isTournamentEliminated
                       ? const Color(0xFFFF3333)
-                      : (theme.accentPrimary as Color),
+                      : theme.accentPrimary,
                   fontSize: compact ? 8 : 10,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.5,

@@ -727,8 +727,9 @@ class _RankedMmrDisplayState extends State<_RankedMmrDisplay> {
           .doc(uid)
           .get();
       if (!doc.exists) return _defaultMmr;
-      final d = doc.data() as Map<String, dynamic>? ?? {};
-      return (d['rating'] as num?)?.toInt() ?? _defaultMmr;
+      final d = doc.data() ?? <String, dynamic>{};
+      final v = d['rating'];
+      return v is num ? v.toInt() : _defaultMmr;
     } catch (_) {
       return _defaultMmr;
     }
