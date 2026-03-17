@@ -518,98 +518,102 @@ class _LandscapeTableLayout extends StatelessWidget {
       child: Column(
         children: [
           // ── Band 1: Compact opponents rail (taller when tournament badges) ─
-          SizedBox(
-            height: tournamentStatusBadges.isNotEmpty ? 88 : 72,
-            child: useRail
-                ? BustPlayerRail(
-                    players: opponents.asMap().entries.map((e) {
-                      return BustPlayerViewModel.fromPlayerModel(
-                        e.value,
-                        currentPlayerId: gameState.currentPlayerId,
-                        isEliminated: false,
-                        isLocal: false,
-                        colorIndex: e.key,
-                        tournamentStatusBadge:
-                            tournamentStatusBadges[e.value.id],
-                      );
-                    }).toList(),
-                    slotKeyBuilder: (player) => playerZoneKeys[player.id],
-                    height: tournamentStatusBadges.isNotEmpty ? 88 : 72,
-                    compact: true,
-                    quickChatBubblesByPlayer: quickChatBubblesByPlayer,
-                    onRemoveQuickChatBubble: onRemoveQuickChatBubble,
-                  )
-                : Row(
-                    children: [
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: leftOpp != null
-                              ? PlayerZoneWidget(
-                                  key: playerZoneKeys[leftOpp!.id],
-                                  player: leftOpp!,
-                                  isActiveTurn: gameState.currentPlayerId == leftOpp!.id,
-                                  isTournamentFinished:
-                                      tournamentStatusBadges[leftOpp!.id] !=
-                                          null,
-                                  isTournamentEliminated: _isEliminatedBadge(
-                                    tournamentStatusBadges[leftOpp!.id],
-                                  ),
-                                  aiConfig: aiConfigs[leftOpp!.id],
-                                  chatBubble: quickChatBubblesByPlayer[leftOpp!.id],
-                                  onRemoveQuickChatBubble: onRemoveQuickChatBubble,
-                                  compact: true,
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      ),
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.center,
-                          child: topOpp != null
-                              ? PlayerZoneWidget(
-                                  key: playerZoneKeys[topOpp!.id],
-                                  player: topOpp!,
-                                  isActiveTurn: gameState.currentPlayerId == topOpp!.id,
-                                  isTournamentFinished:
-                                      tournamentStatusBadges[topOpp!.id] !=
-                                          null,
-                                  isTournamentEliminated: _isEliminatedBadge(
-                                    tournamentStatusBadges[topOpp!.id],
-                                  ),
-                                  aiConfig: aiConfigs[topOpp!.id],
-                                  chatBubble: quickChatBubblesByPlayer[topOpp!.id],
-                                  onRemoveQuickChatBubble: onRemoveQuickChatBubble,
-                                  compact: true,
-                                )
-                              : const _EmptyOpponentZone(),
-                        ),
-                      ),
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: rightOpp != null
-                              ? PlayerZoneWidget(
-                                  key: playerZoneKeys[rightOpp!.id],
-                                  player: rightOpp!,
-                                  isActiveTurn: gameState.currentPlayerId == rightOpp!.id,
-                                  isTournamentFinished:
-                                      tournamentStatusBadges[rightOpp!.id] !=
-                                          null,
-                                  isTournamentEliminated: _isEliminatedBadge(
-                                    tournamentStatusBadges[rightOpp!.id],
-                                  ),
-                                  aiConfig: aiConfigs[rightOpp!.id],
-                                  chatBubble: quickChatBubblesByPlayer[rightOpp!.id],
-                                  onRemoveQuickChatBubble: onRemoveQuickChatBubble,
-                                  compact: true,
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      ),
-                    ],
+          // When using the rail, let BustPlayerRail control its own height
+          // (it adds extra space when chat bubbles are visible).
+          // The Row branch (≤4 players) keeps a fixed SizedBox.
+          if (useRail)
+            BustPlayerRail(
+              players: opponents.asMap().entries.map((e) {
+                return BustPlayerViewModel.fromPlayerModel(
+                  e.value,
+                  currentPlayerId: gameState.currentPlayerId,
+                  isEliminated: false,
+                  isLocal: false,
+                  colorIndex: e.key,
+                  tournamentStatusBadge:
+                      tournamentStatusBadges[e.value.id],
+                );
+              }).toList(),
+              slotKeyBuilder: (player) => playerZoneKeys[player.id],
+              height: tournamentStatusBadges.isNotEmpty ? 88 : 72,
+              compact: true,
+              quickChatBubblesByPlayer: quickChatBubblesByPlayer,
+              onRemoveQuickChatBubble: onRemoveQuickChatBubble,
+            )
+          else
+            SizedBox(
+              height: tournamentStatusBadges.isNotEmpty ? 88 : 72,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: leftOpp != null
+                          ? PlayerZoneWidget(
+                              key: playerZoneKeys[leftOpp!.id],
+                              player: leftOpp!,
+                              isActiveTurn: gameState.currentPlayerId == leftOpp!.id,
+                              isTournamentFinished:
+                                  tournamentStatusBadges[leftOpp!.id] !=
+                                      null,
+                              isTournamentEliminated: _isEliminatedBadge(
+                                tournamentStatusBadges[leftOpp!.id],
+                              ),
+                              aiConfig: aiConfigs[leftOpp!.id],
+                              chatBubble: quickChatBubblesByPlayer[leftOpp!.id],
+                              onRemoveQuickChatBubble: onRemoveQuickChatBubble,
+                              compact: true,
+                            )
+                          : const SizedBox.shrink(),
+                    ),
                   ),
-          ),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: topOpp != null
+                          ? PlayerZoneWidget(
+                              key: playerZoneKeys[topOpp!.id],
+                              player: topOpp!,
+                              isActiveTurn: gameState.currentPlayerId == topOpp!.id,
+                              isTournamentFinished:
+                                  tournamentStatusBadges[topOpp!.id] !=
+                                      null,
+                              isTournamentEliminated: _isEliminatedBadge(
+                                tournamentStatusBadges[topOpp!.id],
+                              ),
+                              aiConfig: aiConfigs[topOpp!.id],
+                              chatBubble: quickChatBubblesByPlayer[topOpp!.id],
+                              onRemoveQuickChatBubble: onRemoveQuickChatBubble,
+                              compact: true,
+                            )
+                          : const _EmptyOpponentZone(),
+                    ),
+                  ),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: rightOpp != null
+                          ? PlayerZoneWidget(
+                              key: playerZoneKeys[rightOpp!.id],
+                              player: rightOpp!,
+                              isActiveTurn: gameState.currentPlayerId == rightOpp!.id,
+                              isTournamentFinished:
+                                  tournamentStatusBadges[rightOpp!.id] !=
+                                      null,
+                              isTournamentEliminated: _isEliminatedBadge(
+                                tournamentStatusBadges[rightOpp!.id],
+                              ),
+                              aiConfig: aiConfigs[rightOpp!.id],
+                              chatBubble: quickChatBubblesByPlayer[rightOpp!.id],
+                              onRemoveQuickChatBubble: onRemoveQuickChatBubble,
+                              compact: true,
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
           // ── Band 2: Centre strip — draw, discard, HUD inline, turn bar ───
           Padding(
