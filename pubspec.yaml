@@ -56,6 +56,7 @@ dev_dependencies:
   riverpod_generator: ^2.6.4
   analyzer: 7.3.0
   mockito: ^5.4.4
+  flutter_launcher_icons: ^0.14.3
 
 flutter:
   uses-material-design: true
@@ -69,3 +70,19 @@ flutter:
     - assets/images/jokercover/
 
   # Fonts loaded via google_fonts package at runtime (no local files needed)
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  web:
+    generate: true
+    image_path: "assets/images/app_icon.png"
+    background_color: "#000000"
+    theme_color: "#000000"
+  windows:
+    generate: true
+    image_path: "assets/images/app_icon.png"
+    icon_size: 48
+  image_path: "assets/images/app_icon.png"
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: "assets/images/app_icon.png"
