@@ -46,7 +46,8 @@ class RulesScreen extends StatelessWidget {
                 sectionSpacing,
                 _SectionHeader('SETUP'),
                 _BulletPoint('Standard 52-card deck plus 2 Jokers (54 cards total)'),
-                _BulletPoint('Each player receives 7 random cards'),
+                _BulletPoint('Cards are shuffled before each game'),
+                _BulletPoint('2–7 players; each receives 7 random cards'),
                 _BulletPoint('One card placed face-up starts the discard pile'),
                 _BulletPoint('Remaining cards form the draw pile'),
                 _BulletPoint(
@@ -121,7 +122,10 @@ class RulesScreen extends StatelessWidget {
                 _SectionHeader('EDGE CASES'),
                 _BulletPoint(
                     'If the draw pile is empty, reshuffle the discard pile (except the top card) into a new draw pile'),
-                _BulletPoint('A player cannot win on a forced penalty draw'),
+                _BulletPoint(
+                    'A player cannot win on a forced penalty draw unless a rule explicitly allows it'),
+                _BulletPoint(
+                    'Playing a Queen as your last card does not win immediately — you must cover the Queen or draw first; if you cannot cover, you draw and do not win'),
                 _SectionDivider(),
                 sectionSpacing,
                 _SectionHeader('GAME MODES'),
@@ -136,8 +140,17 @@ class RulesScreen extends StatelessWidget {
                     'The last player to empty their hand each round is eliminated'),
                 _BulletPoint('Remaining players advance to the next round'),
                 _BulletPoint(
-                    'Rounds continue (4 → 3 → 2 players) until one player remains'),
-                _BulletPoint('The last player standing is the Tournament Winner'),
+                    'Rounds continue until one player remains (Tournament Winner)'),
+                _BodyText('Bust Mode'),
+                _BulletPoint('52-card deck (no Jokers); 2–10 players'),
+                _BulletPoint(
+                    'Variable hand size per player count (e.g. 5–10 cards each)'),
+                _BulletPoint('2 turns per player per round; round ends when all have played twice'),
+                _BulletPoint(
+                    'Cards left in hand = penalty points; bottom 2 eliminated each round'),
+                _BulletPoint(
+                    'Placement pile rule: when discard reaches 5 cards, bottom 4 shuffle back into draw pile'),
+                _BulletPoint('Last player standing wins'),
                 SizedBox(height: 16),
               ],
             ),
