@@ -6,6 +6,7 @@ import '../../../../services/game_sound.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/services/card_back_service.dart';
 import 'card_back_widget.dart';
 import 'joker_card_widget.dart';
 
@@ -106,13 +107,40 @@ class CardWidget extends StatelessWidget {
           ),
         );
       },
-      child: RepaintBoundary(
-        child: _CardFaceContent(
-          card: card,
-          suitColor: suitColor,
-          width: width,
-          height: height,
-        ),
+      child: ValueListenableBuilder<String>(
+        valueListenable: CardBackService.instance.selectedCardFaceSetId,
+        builder: (context, faceSetId, _) {
+          final assetPath = CardBackService.cardFaceAssetPathFor(
+              faceSetId, card.rank, card.suit);
+          if (assetPath != null) {
+            return RepaintBoundary(
+              child: ClipRRect(
+                borderRadius:
+                    BorderRadius.circular(AppDimensions.radiusCard),
+                child: Image.asset(
+                  assetPath,
+                  width: width,
+                  height: height,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => _CardFaceContent(
+                    card: card,
+                    suitColor: suitColor,
+                    width: width,
+                    height: height,
+                  ),
+                ),
+              ),
+            );
+          }
+          return RepaintBoundary(
+            child: _CardFaceContent(
+              card: card,
+              suitColor: suitColor,
+              width: width,
+              height: height,
+            ),
+          );
+        },
       ),
     );
   }

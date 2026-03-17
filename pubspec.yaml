@@ -68,6 +68,7 @@ flutter:
     - assets/images/
     - assets/images/cardbackcover/
     - assets/images/jokercover/
+    - assets/images/cardfaces/default/
 
   # Fonts loaded via google_fonts package at runtime (no local files needed)
 

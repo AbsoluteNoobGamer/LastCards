@@ -35,6 +35,7 @@ enum _CardStyleMenuView {
   animatedBacks,
   coverBacks,
   jokerCovers,
+  cardFaces,
 }
 
 class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
@@ -59,6 +60,7 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
             _buildCoverStylesMenu(selectedDesignId),
           _CardStyleMenuView.jokerCovers =>
             _buildJokerCoversMenu(selectedDesignId),
+          _CardStyleMenuView.cardFaces => _buildCardFacesMenu(),
         };
 
         return Column(
@@ -135,7 +137,71 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
               const Icon(Icons.chevron_right_rounded, color: Colors.white70),
           onTap: () => setState(() => _view = _CardStyleMenuView.jokerCovers),
         ),
+        const SizedBox(height: 8),
+        _CardStyleTile(
+          option: const _CardStyleOption(
+            id: 'cardfaces_root',
+            title: 'Card Faces',
+            subtitle: 'Default or classic',
+            icon: Icons.dashboard_rounded,
+          ),
+          isSelected: false,
+          trailing:
+              const Icon(Icons.chevron_right_rounded, color: Colors.white70),
+          onTap: () => setState(() => _view = _CardStyleMenuView.cardFaces),
+        ),
       ],
+    );
+  }
+
+  Widget _buildCardFacesMenu() {
+    return ValueListenableBuilder<String>(
+      valueListenable: CardBackService.instance.selectedCardFaceSetId,
+      builder: (context, selectedId, _) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SubmenuHeader(
+              title: 'Card Faces',
+              onBack: () => setState(() => _view = _CardStyleMenuView.root),
+            ),
+            const SizedBox(height: 8),
+            _CardStyleTile(
+              option: const _CardStyleOption(
+                id: 'default',
+                title: 'Default',
+                subtitle: 'Traditional face cards',
+                icon: Icons.style_rounded,
+              ),
+              isSelected: selectedId == 'default',
+              trailing: selectedId == 'default'
+                  ? const Icon(Icons.check_rounded, color: Colors.green)
+                  : null,
+              onTap: () async {
+                await CardBackService.instance.selectCardFaceSet('default');
+                setState(() {});
+              },
+            ),
+            const SizedBox(height: 8),
+            _CardStyleTile(
+              option: const _CardStyleOption(
+                id: 'classic',
+                title: 'Classic',
+                subtitle: 'Symbols and pips',
+                icon: Icons.abc_rounded,
+              ),
+              isSelected: selectedId == 'classic',
+              trailing: selectedId == 'classic'
+                  ? const Icon(Icons.check_rounded, color: Colors.green)
+                  : null,
+              onTap: () async {
+                await CardBackService.instance.selectCardFaceSet('classic');
+                setState(() {});
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 
