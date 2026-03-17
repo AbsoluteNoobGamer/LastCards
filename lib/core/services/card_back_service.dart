@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/card_model.dart';
+
 class CardBackDesign {
   const CardBackDesign({
     required this.id,
@@ -28,7 +30,12 @@ class CardBackService {
   static const String _prefsWinsKey = 'card_back_total_wins';
   static const String _prefsAnimatedEffectsKey = 'card_back_animated_effects';
   static const String _prefsJokerCoverKey = 'joker_cover_selected';
+  static const String _prefsCardFaceSetKey = 'card_face_set';
   static const String _cardBackCoverPrefix = 'assets/images/cardbackcover/';
+  static const String _cardFacePrefix = 'assets/images/cardfaces/';
+
+  /// Default card back when no preference is saved.
+  static const String _defaultCardBackId = 'assets/images/cardbackcover/Purple Complex.png';
   static const String _jokerCoverPrefix = 'assets/images/jokercover/';
   static const String _animatedCardsPrefix = 'assets/animated_cards/';
   static const Set<String> _builtInAnimatedNames = {
@@ -54,7 +61,7 @@ class CardBackService {
   ];
 
   final ValueNotifier<String> selectedDesignId =
-      ValueNotifier<String>('classic');
+      ValueNotifier<String>(_defaultCardBackId);
   final ValueNotifier<bool> animatedEffectsEnabled = ValueNotifier<bool>(true);
   final ValueNotifier<String?> uploadedAnimatedAssetPath =
       ValueNotifier<String?>(null);
@@ -66,6 +73,8 @@ class CardBackService {
       ValueNotifier<String>('classic');
   final ValueNotifier<List<CardBackDesign>> jokerCoverDesigns =
       ValueNotifier<List<CardBackDesign>>([]);
+  final ValueNotifier<String> selectedCardFaceSetId =
+      ValueNotifier<String>('default');
 
   bool _initialized = false;
   int _totalWins = 0;
@@ -86,7 +95,7 @@ class CardBackService {
   Future<void> init() async {
     if (_initialized) return;
     final prefs = await SharedPreferences.getInstance();
-    final selected = prefs.getString(_prefsSelectedKey) ?? 'classic';
+    final selected = prefs.getString(_prefsSelectedKey) ?? _defaultCardBackId;
     final unlockedRaw = prefs.getString(_prefsUnlockedKey);
     final wins = prefs.getInt(_prefsWinsKey) ?? 0;
     final animatedEnabled = prefs.getBool(_prefsAnimatedEffectsKey) ?? true;
@@ -120,8 +129,9 @@ class CardBackService {
       await prefs.setString(_prefsSelectedKey, selectedDesignId.value);
     }
 
+    const defaultJokerId = 'assets/images/jokercover/Red Joker.png';
     final jokerSelected =
-        prefs.getString(_prefsJokerCoverKey) ?? 'classic';
+        prefs.getString(_prefsJokerCoverKey) ?? defaultJokerId;
     final jokerCovers = jokerCoverDesigns.value;
     final isValidJoker = jokerSelected == 'classic' ||
         jokerCovers.any((d) => d.id == jokerSelected);
@@ -131,7 +141,29 @@ class CardBackService {
       await prefs.setString(_prefsJokerCoverKey, selectedJokerCoverId.value);
     }
 
+    final cardFaceSet = prefs.getString(_prefsCardFaceSetKey) ?? 'default';
+    selectedCardFaceSetId.value =
+        (cardFaceSet == 'classic' || cardFaceSet == 'default')
+            ? cardFaceSet
+            : 'default';
+
     _initialized = true;
+  }
+
+  /// Returns the asset path for a card face when using a custom face set, or null for classic.
+  static String? cardFaceAssetPathFor(String faceSetId, Rank rank, Suit suit) {
+    if (faceSetId != 'default' || rank == Rank.joker) return null;
+    return '$_cardFacePrefix$faceSetId/${rank.name}_${suit.name}.png';
+  }
+
+  Future<bool> selectCardFaceSet(String faceSetId) async {
+    await init();
+    if (faceSetId != 'classic' && faceSetId != 'default') return false;
+    if (selectedCardFaceSetId.value == faceSetId) return true;
+    selectedCardFaceSetId.value = faceSetId;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefsCardFaceSetKey, faceSetId);
+    return true;
   }
 
   Future<List<CardBackDesign>> _loadJokerCoverDesigns() async {
