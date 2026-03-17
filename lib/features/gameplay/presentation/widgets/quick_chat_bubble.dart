@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 /// A chat bubble for quick chat messages.
-/// Shows player name above the message, with green background for local
-/// player and dark grey for opponents.
+/// Shows only the message (player name is already visible below the avatar).
+/// Green background for local player, dark grey for opponents.
 /// Animates in (scale 0.8 → 1.0) and out (opacity 1.0 → 0.0) before removal.
 class QuickChatBubble extends StatefulWidget {
   const QuickChatBubble({
@@ -90,28 +90,13 @@ class _QuickChatBubbleState extends State<QuickChatBubble>
           color: bgColor,
           borderRadius: BorderRadius.circular(18),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.playerName,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.9),
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              widget.message,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+        child: Text(
+          widget.message,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ),
     );

@@ -1,0 +1,16 @@
+---
+description: Run flutter analyze after every code change
+alwaysApply: true
+---
+
+# Flutter Analyze After Changes
+
+After making any change to Dart/Flutter code in this project, **always run**:
+
+```bash
+flutter analyze
+```
+
+- Run it in the project root
+- Fix any reported issues before considering the task complete
+- Do not skip this step even for small edits
