@@ -91,9 +91,17 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
     super.dispose();
   }
 
+  /// Extra height when chat bubbles are visible to prevent overflow.
+  static const double _chatBubbleExtraHeight = 40;
+
   @override
   Widget build(BuildContext context) {
-    final railHeight = widget.height ?? 96;
+    final baseHeight = widget.height ?? 96;
+    final hasChatBubbles = widget.players.any(
+        (p) => widget.quickChatBubblesByPlayer.containsKey(p.id));
+    final railHeight = hasChatBubbles
+        ? baseHeight + _chatBubbleExtraHeight
+        : baseHeight;
     final slotPadding = AppDimensions.xs;
 
     Widget buildSlot(BustPlayerViewModel player) {
