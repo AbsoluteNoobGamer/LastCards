@@ -97,7 +97,8 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
   @override
   Widget build(BuildContext context) {
     final baseHeight = widget.height ?? 96;
-    final hasChatBubbles = widget.quickChatBubblesByPlayer.isNotEmpty;
+    final hasChatBubbles = widget.players.any(
+        (p) => widget.quickChatBubblesByPlayer.containsKey(p.id));
     final railHeight = hasChatBubbles
         ? baseHeight + _chatBubbleExtraHeight
         : baseHeight;
