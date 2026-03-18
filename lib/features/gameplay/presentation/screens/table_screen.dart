@@ -1646,11 +1646,31 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     // Auto-advance if this play guarantees we get another turn immediately and
     // there are no unresolved obligations (like covering a Queen).
     // This happens when playing a Skip (8) or a King in a 2-player game.
+    // NOTE: We inline the turn-advance logic here instead of calling _endTurn()
+    // because _localActionInProgress is still true (we're inside the try block).
+    // _endTurn() would be blocked by the guard. The auto-advance case is simpler
+    // anyway: no Ace suit picker needed (the card is a Skip/King).
     var nextId = nextPlayerId(state: newState);
     nextId = _resolveTournamentNextPlayerId(newState, nextId);
 
     if (nextId == playerId && newState.queenSuitLock == null) {
-      _endTurn();
+      setState(() {
+        _finalizeTurnLogForPlayer(playerId);
+        _offlineState = _offlineState.copyWith(
+          currentPlayerId: nextId,
+          actionsThisTurn: 0,
+          cardsPlayedThisTurn: 0,
+          lastPlayedThisTurn: null,
+          activeSkipCount: 0,
+          preTurnCentreSuit: _offlineState.discardTopCard?.effectiveSuit,
+        );
+      });
+
+      if (nextId != OfflineGameState.localId) {
+        _scheduleAiTurn(nextId);
+      } else {
+        _startTimer();
+      }
     }
 
     } finally {
