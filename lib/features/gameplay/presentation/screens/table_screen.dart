@@ -144,6 +144,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   /// In online mode we don't have the full discard list; track count for stack depth.
   int _onlineDiscardCount = 1;
   bool _onlineWinDialogShown = false;
+  /// Prevents overlapping online plays while a last-card flight runs.
+  bool _onlineLastCardFlightInProgress = false;
   // ── Turn timer ────────────────────────────────────────────────────
   late final GameTurnTimer _engineTimer = GameTurnTimer();
   StreamSubscription<int>? _timerWarningSub;
@@ -1378,16 +1380,38 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     setState(() => _selectedCardId = null);
   }
 
+  /// Online: optional last-card flight, then [send] (play / declare_joker).
+  Future<void> _onlineMaybeLastCardFlightThen({
+    required CardModel cardToFly,
+    required bool lastCardFromHand,
+    required void Function() send,
+  }) async {
+    if (!lastCardFromHand) {
+      send();
+      return;
+    }
+    _onlineLastCardFlightInProgress = true;
+    try {
+      await _animateLocalCardToDiscard(cardToFly, lastCardFromHand: true);
+      if (!mounted) return;
+      send();
+    } finally {
+      if (mounted) _onlineLastCardFlightInProgress = false;
+    }
+  }
+
   /// Online play: Joker/Ace flows or send play. Server validates and applies
   /// penalty for invalid plays (client does not block invalid attempts).
   Future<void> _onPlayTap({required String cardId}) async {
     if (!ref.read(isLocalTurnProvider)) return;
+    if (_onlineLastCardFlightInProgress) return;
     final gameState = ref.read(gameStateProvider);
     if (gameState == null) return;
     final local = gameState.localPlayer;
     if (local == null) return;
     final card = local.hand.where((c) => c.id == cardId).firstOrNull;
     if (card == null) return;
+    final isLastCardFromHand = local.hand.length == 1;
 
     // Joker: show sheet, then send declare_joker (same flow as single-player).
     if (card.isJoker && mounted) {
@@ -1425,10 +1449,18 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (!mounted) return;
       setState(() => _selectedCardId = null);
       if (chosenCard == null) return;
-      ref.read(gameNotifierProvider.notifier).declareJoker(
-        jokerCardId: cardId,
-        suitName: chosenCard.suit.name,
-        rankName: chosenCard.rank.name,
+      final assignedJoker = card.copyWith(
+        jokerDeclaredRank: chosenCard.rank,
+        jokerDeclaredSuit: chosenCard.suit,
+      );
+      await _onlineMaybeLastCardFlightThen(
+        cardToFly: assignedJoker,
+        lastCardFromHand: isLastCardFromHand,
+        send: () => ref.read(gameNotifierProvider.notifier).declareJoker(
+              jokerCardId: cardId,
+              suitName: chosenCard.suit.name,
+              rankName: chosenCard.rank.name,
+            ),
       );
       return;
     }
@@ -1446,16 +1478,27 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (!mounted) return;
       setState(() => _selectedCardId = null);
       if (chosenAceSuit == null) return;
-      ref.read(gameNotifierProvider.notifier).playCards(
-        [cardId],
-        declaredSuit: chosenAceSuit.name,
+      final aceSuit = chosenAceSuit;
+      await _onlineMaybeLastCardFlightThen(
+        cardToFly: card,
+        lastCardFromHand: isLastCardFromHand,
+        send: () => ref.read(gameNotifierProvider.notifier).playCards(
+              [cardId],
+              declaredSuit: aceSuit.name,
+            ),
       );
       return;
     }
 
     // Normal play
-    ref.read(gameNotifierProvider.notifier).playCards([cardId]);
-    setState(() => _selectedCardId = null);
+    await _onlineMaybeLastCardFlightThen(
+      cardToFly: card,
+      lastCardFromHand: isLastCardFromHand,
+      send: () {
+        ref.read(gameNotifierProvider.notifier).playCards([cardId]);
+        setState(() => _selectedCardId = null);
+      },
+    );
   }
 
   // ── Offline mode: play cards ───────────────────────────────────────────────
@@ -1998,7 +2041,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           game_audio.AudioService.instance
               .playSound(GameSound.directionReversed);
         }
-        if (result.state.activeSkipCount > stateBeforeAiTurn.activeSkipCount) {
+        // preTurnAdvanceState — result.state has activeSkipCount cleared by advanceTurn.
+        if (result.preTurnAdvanceState.activeSkipCount >
+            stateBeforeAiTurn.activeSkipCount) {
           game_audio.AudioService.instance.playSound(GameSound.skipApplied);
         }
       }
