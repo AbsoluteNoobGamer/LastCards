@@ -70,14 +70,15 @@ class _TurnTimerBarState extends State<TurnTimerBar>
 
         final barHeight = widget.compact ? 6.0 : 10.0;
         final radius = widget.compact ? 3.0 : 5.0;
-        final pulse =
-            seconds <= 10 ? 1.0 + 0.08 * math.sin(_urgentCtrl.value * 2 * math.pi) : 1.0;
 
         return AnimatedBuilder(
           animation: _urgentCtrl,
           builder: (context, _) {
+            final pulse = seconds <= 10
+                ? 1.0 + 0.08 * math.sin(_urgentCtrl.value * 2 * math.pi)
+                : 1.0;
             return Transform.scale(
-              scale: seconds <= 10 ? pulse : 1.0,
+              scale: pulse,
               alignment: Alignment.center,
               child: TweenAnimationBuilder<double>(
                 tween: Tween<double>(begin: progress, end: progress),

@@ -131,6 +131,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   late GameState _offlineState;
 
   bool _aiThinking = false;
+  /// Guards against concurrent local async actions (play/draw/penalty).
+  /// Set true before any await in those methods, reset at every exit.
+  bool _localActionInProgress = false;
   final math.Random _aiDelayRng = math.Random();
   final List<String> _tournamentFinishedPlayerIds = <String>[];
   bool _tournamentRoundComplete = false;
@@ -1458,11 +1461,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   Future<void> _offlinePlayCards(String playerId,
       {required String cardId}) async {
     if (_aiThinking) return;
+    if (_localActionInProgress) return;
     if (_offlineState.currentPlayerId != playerId) return;
     if (widget.isTournamentMode &&
         _tournamentFinishedPlayerIds.contains(playerId)) {
       return;
     }
+    _localActionInProgress = true;
+    try {
 
     final local = _offlineState.players.firstWhere((p) => p.id == playerId);
     final played = local.hand.where((c) => c.id == cardId).toList();
@@ -1644,6 +1650,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (nextId == playerId && newState.queenSuitLock == null) {
       _endTurn();
     }
+
+    } finally {
+      _localActionInProgress = false;
+    }
   }
 
   // ── Offline mode: invalid play penalty sequence ────────────────────────────
@@ -1657,6 +1667,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   Future<void> _applyInvalidPlayPenalty(
       String playerId, List<CardModel> attemptedCards) async {
     _showError('Invalid play! Drawing 2 cards as penalty.');
+
+    try {
 
     if (playerId == OfflineGameState.localId) {
       HapticFeedback.lightImpact();
@@ -1694,12 +1706,17 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     } else {
       _startTimer();
     }
+
+    } finally {
+      _localActionInProgress = false;
+    }
   }
 
   // ── Offline mode: draw card ────────────────────────────────────────────────
 
   Future<void> _offlineDrawCard(String playerId) async {
     if (_aiThinking) return;
+    if (_localActionInProgress) return;
     if (_offlineState.currentPlayerId != playerId) return;
     if (widget.isTournamentMode &&
         _tournamentFinishedPlayerIds.contains(playerId)) {
@@ -1722,6 +1739,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         _offlineState.queenSuitLock == null) {
       return;
     }
+
+    _localActionInProgress = true;
+    try {
 
     final isPenaltyDraw = _offlineState.activePenaltyCount > 0;
     final drawCount = isPenaltyDraw ? _offlineState.activePenaltyCount : 1;
@@ -1758,6 +1778,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       newState: newState,
       localAfterDraw: localAfterDraw,
     );
+
+    } finally {
+      _localActionInProgress = false;
+    }
   }
 
   /// Shared helper for draw-and-advance logic used by _offlineDrawCard.

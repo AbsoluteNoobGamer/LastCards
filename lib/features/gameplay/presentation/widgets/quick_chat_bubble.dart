@@ -48,7 +48,6 @@ class _QuickChatBubbleState extends State<QuickChatBubble>
     _scaleAnimation = Tween<double>(begin: 0.82, end: 1.0).animate(
       CurvedAnimation(parent: _scaleController, curve: Curves.easeOutBack),
     );
-    _fadeController.forward();
     _scaleController.forward();
 
     _dismissTimer = Timer(const Duration(seconds: 3), () {
