@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../domain/entities/card.dart';
 import '../../../../services/audio_service.dart' as game_audio;
@@ -57,6 +58,7 @@ class CardWidget extends StatelessWidget {
           child: GestureDetector(
             onTap: () {
               if (onTap != null) {
+                HapticFeedback.selectionClick();
                 game_audio.AudioService.instance.playSound(GameSound.cardSelect);
                 onTap!();
               }

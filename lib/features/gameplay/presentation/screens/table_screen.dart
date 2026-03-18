@@ -4,8 +4,10 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:last_cards/features/gameplay/presentation/widgets/card_flight_overlay.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/dealing_animation_overlay.dart';
 
 import '../../domain/usecases/offline_game_engine.dart';
@@ -119,8 +121,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   // Animation overlay keys
   final GlobalKey<DealingAnimationOverlayState> _overlayKey =
       GlobalKey<DealingAnimationOverlayState>();
+  final GlobalKey<CardFlightOverlayState> _playFlightKey =
+      GlobalKey<CardFlightOverlayState>();
   final GlobalKey _drawPileKey = GlobalKey();
+  final GlobalKey _discardPileKey = GlobalKey();
   final Map<String, GlobalKey> _playerZoneKeys = {};
+  final ValueNotifier<int> _discardLandingPulse = ValueNotifier<int>(0);
 
   /// Mutable offline state — set by initState via buildWithDeck().
   late GameState _offlineState;
@@ -551,7 +557,67 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _quickChatCooldownTimer?.cancel();
     _engineTimer.dispose();
     _reshuffleNotifier.dispose();
+    _discardLandingPulse.dispose();
     super.dispose();
+  }
+
+  Future<void> _animateLocalCardToDiscard(CardModel card) async {
+    final flight = _playFlightKey.currentState;
+    final origin = _playerZoneKeys[OfflineGameState.localId];
+    if (flight != null &&
+        origin?.currentContext != null &&
+        _discardPileKey.currentContext != null) {
+      await flight.flyCard(
+        originKey: origin,
+        targetKey: _discardPileKey,
+        card: card,
+        faceUp: true,
+      );
+    } else {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+  }
+
+  Future<void> _animateOpponentCardToDiscard(
+      String playerId, CardModel card) async {
+    final flight = _playFlightKey.currentState;
+    final origin = _playerZoneKeys[playerId];
+    if (flight != null &&
+        origin?.currentContext != null &&
+        _discardPileKey.currentContext != null) {
+      await flight.flyCard(
+        originKey: origin,
+        targetKey: _discardPileKey,
+        card: card,
+        faceUp: false,
+      );
+    } else {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+  }
+
+  Future<void> _animateDrawFlightsToPlayer(String playerId, int count) async {
+    final flight = _playFlightKey.currentState;
+    final n = math.min(count, 4);
+    for (var i = 0; i < n; i++) {
+      if (flight != null &&
+          _drawPileKey.currentContext != null &&
+          _playerZoneKeys[playerId]?.currentContext != null) {
+        await flight.flyDrawToPlayer(
+          drawPileKey: _drawPileKey,
+          playerKey: _playerZoneKeys[playerId],
+        );
+      } else {
+        await Future<void>.delayed(const Duration(milliseconds: 70));
+      }
+    }
+  }
+
+  void _feedbackDiscardLand() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _discardLandingPulse.value++;
+    });
   }
 
   void _onBackPressed() {
@@ -1057,10 +1123,17 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         isDealing: _isDealing,
                         visibleCardCounts: _visibleCardCounts,
                         drawPileKey: _drawPileKey,
+                        discardPileKey: _discardPileKey,
+                        discardLandingPulse: _discardLandingPulse,
+                        thinkingOpponentId: isOfflineMode && _aiThinking
+                            ? _offlineState.currentPlayerId
+                            : null,
                         playerZoneKeys: _playerZoneKeys,
                         onCardTap: _onCardTap,
                         onDrawTap: isOfflineMode
-                            ? () => _offlineDrawCard(OfflineGameState.localId)
+                            ? () {
+                                _offlineDrawCard(OfflineGameState.localId);
+                              }
                             : _onDrawTap,
                         onHandReorder: _onHandReorder,
                         onEndTurnTap: isOfflineMode
@@ -1250,6 +1323,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   ),
                 ),
 
+              // ── Card flight (play / draw arcs) ─────────────────────────
+              Positioned.fill(
+                child: CardFlightOverlay(key: _playFlightKey),
+              ),
+
               // ── Dealing Animation Overlay ──────────────────────────────
               Positioned.fill(
                 child: DealingAnimationOverlay(
@@ -1290,6 +1368,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   void _onDrawTap() {
     if (!ref.read(isLocalTurnProvider)) return;
+    HapticFeedback.lightImpact();
     ref.read(gameNotifierProvider.notifier).drawCard();
     setState(() => _selectedCardId = null);
   }
@@ -1451,6 +1530,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         jokerDeclaredSuit: chosenCard.suit,
       );
 
+      await _animateLocalCardToDiscard(assignedJoker);
+      if (!mounted) return;
+      HapticFeedback.mediumImpact();
+
       final previousState = _offlineState;
       var newState = applyPlay(
         state: _offlineState,
@@ -1482,6 +1565,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           afterState: newState,
         );
       });
+      _feedbackDiscardLand();
 
       _reshuffleCentrePileIntoDrawPile();
       if (_checkWin(playerId, newState)) return;
@@ -1489,6 +1573,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       // Allow the player to continue their turn (stack more cards if they want).
       return;
     }
+
+    await _animateLocalCardToDiscard(played.first);
+    if (!mounted) return;
+    HapticFeedback.mediumImpact();
 
     // Apply play + special effects
     final previousState = _offlineState;
@@ -1532,6 +1620,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         afterState: newState,
       );
     });
+    _feedbackDiscardLand();
 
     _reshuffleCentrePileIntoDrawPile();
     if (_checkWin(playerId, newState)) return;
@@ -1593,7 +1682,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   // ── Offline mode: draw card ────────────────────────────────────────────────
 
-  void _offlineDrawCard(String playerId) {
+  Future<void> _offlineDrawCard(String playerId) async {
     if (_aiThinking) return;
     if (_offlineState.currentPlayerId != playerId) return;
     if (widget.isTournamentMode &&
@@ -1620,6 +1709,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     final isPenaltyDraw = _offlineState.activePenaltyCount > 0;
     final drawCount = isPenaltyDraw ? _offlineState.activePenaltyCount : 1;
+
+    if (playerId == OfflineGameState.localId) {
+      HapticFeedback.lightImpact();
+      await _animateDrawFlightsToPlayer(playerId, drawCount);
+      if (!mounted) return;
+    }
 
     var newState = applyDraw(
       state: _offlineState,
@@ -1753,20 +1848,42 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (!mounted) return;
     }
 
-    // Track AI-played cards into discard pile.
     if (playedByAi.isNotEmpty) {
-      _discardPile.addAll(playedByAi);
-      // Every card uses card_place.wav; special cards also get their effect sound.
-      for (final c in playedByAi) {
+      for (var i = 0; i < playedByAi.length; i++) {
+        if (i > 0) {
+          await Future.delayed(
+              Duration(milliseconds: _randomAiDelayMs(280, 500)));
+          if (!mounted) return;
+        }
+        await _animateOpponentCardToDiscard(aiId, playedByAi[i]);
+        if (!mounted) return;
         game_audio.AudioService.instance.playSound(GameSound.cardPlace);
-        final s = soundForCard(c);
+        final s = soundForCard(playedByAi[i]);
         if (s != null) game_audio.AudioService.instance.playSound(s);
       }
+      if (mounted) HapticFeedback.mediumImpact();
+      _discardPile.addAll(playedByAi);
+      if (result.state.direction != stateBeforeAiTurn.direction) {
+        game_audio.AudioService.instance
+            .playSound(GameSound.directionReversed);
+      }
+      if (result.state.activeSkipCount > stateBeforeAiTurn.activeSkipCount) {
+        game_audio.AudioService.instance.playSound(GameSound.skipApplied);
+      }
+    } else {
+      final drawN = stateBeforeAiTurn.activePenaltyCount > 0
+          ? stateBeforeAiTurn.activePenaltyCount
+          : 1;
+      await _animateDrawFlightsToPlayer(aiId, drawN);
+      if (mounted) HapticFeedback.lightImpact();
     }
 
     final aiPlayerName = _offlineState.playerById(aiId)?.displayName ?? aiId;
 
-    if (_checkWin(aiId, result.state)) return;
+    if (_checkWin(aiId, result.state)) {
+      setState(() => _aiThinking = false);
+      return;
+    }
 
     var finalState = result.state;
     var nextId = finalState.currentPlayerId;
@@ -1816,6 +1933,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         ));
       }
     });
+    if (playedByAi.isNotEmpty) _feedbackDiscardLand();
 
     if (nextId != OfflineGameState.localId) {
       _scheduleAiTurn(nextId);

@@ -4,6 +4,7 @@ import '../../domain/entities/card.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../animations/special_card_fx.dart';
 import 'card_back_widget.dart';
 import 'card_widget.dart';
 
@@ -15,6 +16,8 @@ import 'card_widget.dart';
 /// When the top card is a Joker that has been declared ([CardModel.jokerDeclaredSuit]
 /// and [CardModel.jokerDeclaredRank] are set), the card renders as the declared face
 /// and shows a looping animated gold outline to signal it is a Joker in disguise.
+///
+/// [landingPulseNotifier] — increment to play a brief slam / ripple on the top card.
 class DiscardPileWidget extends StatefulWidget {
   const DiscardPileWidget({
     super.key,
@@ -23,6 +26,7 @@ class DiscardPileWidget extends StatefulWidget {
     this.discardPileHistory,
     this.cardWidth = AppDimensions.cardWidthDiscardTop,
     this.discardPileCount = 0,
+    this.landingPulseNotifier,
   });
 
   final CardModel? topCard;
@@ -35,6 +39,9 @@ class DiscardPileWidget extends StatefulWidget {
 
   /// Number of cards currently in the discard pile. Used to compute stack depth.
   final int discardPileCount;
+
+  /// Increment (e.g. after a card lands) to trigger landing feedback on the pile.
+  final ValueNotifier<int>? landingPulseNotifier;
 
   @override
   State<DiscardPileWidget> createState() => _DiscardPileWidgetState();
@@ -53,6 +60,37 @@ int _stackLayers(int count) {
 
 class _DiscardPileWidgetState extends State<DiscardPileWidget> {
   bool _isHovering = false;
+  bool _slamming = false;
+  int _slamGen = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.landingPulseNotifier?.addListener(_onLandingPulse);
+  }
+
+  @override
+  void didUpdateWidget(DiscardPileWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.landingPulseNotifier != widget.landingPulseNotifier) {
+      oldWidget.landingPulseNotifier?.removeListener(_onLandingPulse);
+      widget.landingPulseNotifier?.addListener(_onLandingPulse);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.landingPulseNotifier?.removeListener(_onLandingPulse);
+    super.dispose();
+  }
+
+  void _onLandingPulse() {
+    if (!mounted || widget.topCard == null) return;
+    setState(() {
+      _slamming = true;
+      _slamGen++;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -128,20 +166,41 @@ class _DiscardPileWidgetState extends State<DiscardPileWidget> {
                     )),
                     child: FadeTransition(opacity: animation, child: child),
                   ),
-                  child: Hero(
-                    key: ValueKey(topCard.id),
-                    tag: 'card-${topCard.id}',
-                    child: _ClippedCardWithRing(
-                      cardWidth: widget.cardWidth,
-                      isHovering: _isHovering,
-                      isJokerDisguised: isJokerDisguised,
-                      child: CardWidget(
-                        card: displayCard!,
-                        width: widget.cardWidth,
-                        faceUp: true,
-                      ),
-                    ),
-                  ),
+                  child: _slamming
+                      ? SlamEffect(
+                          key: ValueKey('slam-$_slamGen-${topCard.id}'),
+                          onComplete: () {
+                            if (mounted) setState(() => _slamming = false);
+                          },
+                          child: Hero(
+                            key: ValueKey(topCard.id),
+                            tag: 'card-${topCard.id}',
+                            child: _ClippedCardWithRing(
+                              cardWidth: widget.cardWidth,
+                              isHovering: _isHovering,
+                              isJokerDisguised: isJokerDisguised,
+                              child: CardWidget(
+                                card: displayCard!,
+                                width: widget.cardWidth,
+                                faceUp: true,
+                              ),
+                            ),
+                          ),
+                        )
+                      : Hero(
+                          key: ValueKey(topCard.id),
+                          tag: 'card-${topCard.id}',
+                          child: _ClippedCardWithRing(
+                            cardWidth: widget.cardWidth,
+                            isHovering: _isHovering,
+                            isJokerDisguised: isJokerDisguised,
+                            child: CardWidget(
+                              card: displayCard!,
+                              width: widget.cardWidth,
+                              faceUp: true,
+                            ),
+                          ),
+                        ),
                 ),
               ),
           ],

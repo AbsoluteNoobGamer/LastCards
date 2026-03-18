@@ -14,6 +14,9 @@ class _TableLayout extends StatelessWidget {
     required this.isDealing,
     required this.visibleCardCounts,
     required this.drawPileKey,
+    required this.discardPileKey,
+    required this.discardLandingPulse,
+    this.thinkingOpponentId,
     required this.playerZoneKeys,
     required this.onCardTap,
     required this.onDrawTap,
@@ -51,6 +54,9 @@ class _TableLayout extends StatelessWidget {
   final bool isDealing;
   final Map<String, int> visibleCardCounts;
   final GlobalKey drawPileKey;
+  final GlobalKey discardPileKey;
+  final ValueNotifier<int> discardLandingPulse;
+  final String? thinkingOpponentId;
   final Map<String, GlobalKey> playerZoneKeys;
   final ValueChanged<String> onCardTap;
   final VoidCallback onDrawTap;
@@ -129,6 +135,9 @@ class _TableLayout extends StatelessWidget {
             isDealing: isDealing,
             visibleCardCounts: visibleCardCounts,
             drawPileKey: drawPileKey,
+            discardPileKey: discardPileKey,
+            discardLandingPulse: discardLandingPulse,
+            thinkingOpponentId: thinkingOpponentId,
             playerZoneKeys: playerZoneKeys,
             localPlayer: localPlayer,
             useRail: useRail,
@@ -180,6 +189,7 @@ class _TableLayout extends StatelessWidget {
                         slotKeyBuilder: (player) =>
                             playerZoneKeys[player.id],
                         height: tournamentStatusBadges.isNotEmpty ? 112 : 96,
+                        thinkingPlayerId: thinkingOpponentId,
                         quickChatBubblesByPlayer: quickChatBubblesByPlayer,
                         onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                       )
@@ -193,6 +203,7 @@ class _TableLayout extends StatelessWidget {
                                     key: playerZoneKeys[leftOpp.id],
                                     player: leftOpp,
                                     isActiveTurn: gameState.currentPlayerId == leftOpp.id,
+                                    isAiThinking: thinkingOpponentId == leftOpp.id,
                                     isTournamentFinished:
                                         tournamentStatusBadges[leftOpp.id] !=
                                             null,
@@ -213,6 +224,7 @@ class _TableLayout extends StatelessWidget {
                                       key: playerZoneKeys[topOpp.id],
                                       player: topOpp,
                                       isActiveTurn: gameState.currentPlayerId == topOpp.id,
+                                      isAiThinking: thinkingOpponentId == topOpp.id,
                                       isTournamentFinished:
                                           tournamentStatusBadges[topOpp.id] !=
                                               null,
@@ -234,6 +246,7 @@ class _TableLayout extends StatelessWidget {
                                       key: playerZoneKeys[rightOpp.id],
                                       player: rightOpp,
                                       isActiveTurn: gameState.currentPlayerId == rightOpp.id,
+                                      isAiThinking: thinkingOpponentId == rightOpp.id,
                                       isTournamentFinished:
                                           tournamentStatusBadges[rightOpp.id] !=
                                               null,
@@ -330,11 +343,13 @@ class _TableLayout extends StatelessWidget {
                                 maxWidth: double.infinity,
                                 maxHeight: double.infinity,
                                 child: DiscardPileWidget(
+                                  key: discardPileKey,
                                   topCard: gameState.discardTopCard,
                                               secondCard: gameState.discardPileHistory.isNotEmpty ? gameState.discardPileHistory.first : null,
                                               discardPileHistory: gameState.discardPileHistory,
                                               cardWidth: 100,
                                               discardPileCount: discardPileCount,
+                                  landingPulseNotifier: discardLandingPulse,
                                 ),
                               ),
                             ),
@@ -367,6 +382,7 @@ class _TableLayout extends StatelessWidget {
                       direction: gameState.direction,
                       canEndTurn: canEndTurn,
                       onEndTurn: onEndTurnTap,
+                      pulseLocalTurn: isMyTurn,
                     ),
                   ],
                 ),
@@ -456,6 +472,9 @@ class _LandscapeTableLayout extends StatelessWidget {
     required this.isDealing,
     required this.visibleCardCounts,
     required this.drawPileKey,
+    required this.discardPileKey,
+    required this.discardLandingPulse,
+    this.thinkingOpponentId,
     required this.playerZoneKeys,
     required this.localPlayer,
     required this.useRail,
@@ -489,6 +508,9 @@ class _LandscapeTableLayout extends StatelessWidget {
   final bool isDealing;
   final Map<String, int> visibleCardCounts;
   final GlobalKey drawPileKey;
+  final GlobalKey discardPileKey;
+  final ValueNotifier<int> discardLandingPulse;
+  final String? thinkingOpponentId;
   final Map<String, GlobalKey> playerZoneKeys;
   final PlayerModel localPlayer;
   final bool useRail;
@@ -537,6 +559,7 @@ class _LandscapeTableLayout extends StatelessWidget {
               slotKeyBuilder: (player) => playerZoneKeys[player.id],
               height: tournamentStatusBadges.isNotEmpty ? 88 : 72,
               compact: true,
+              thinkingPlayerId: thinkingOpponentId,
               quickChatBubblesByPlayer: quickChatBubblesByPlayer,
               onRemoveQuickChatBubble: onRemoveQuickChatBubble,
             )
@@ -553,6 +576,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                               key: playerZoneKeys[leftOpp!.id],
                               player: leftOpp!,
                               isActiveTurn: gameState.currentPlayerId == leftOpp!.id,
+                              isAiThinking: thinkingOpponentId == leftOpp!.id,
                               isTournamentFinished:
                                   tournamentStatusBadges[leftOpp!.id] !=
                                       null,
@@ -575,6 +599,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                               key: playerZoneKeys[topOpp!.id],
                               player: topOpp!,
                               isActiveTurn: gameState.currentPlayerId == topOpp!.id,
+                              isAiThinking: thinkingOpponentId == topOpp!.id,
                               isTournamentFinished:
                                   tournamentStatusBadges[topOpp!.id] !=
                                       null,
@@ -597,6 +622,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                               key: playerZoneKeys[rightOpp!.id],
                               player: rightOpp!,
                               isActiveTurn: gameState.currentPlayerId == rightOpp!.id,
+                              isAiThinking: thinkingOpponentId == rightOpp!.id,
                               isTournamentFinished:
                                   tournamentStatusBadges[rightOpp!.id] !=
                                       null,
@@ -652,11 +678,13 @@ class _LandscapeTableLayout extends StatelessWidget {
                     maxWidth: double.infinity,
                     maxHeight: double.infinity,
                     child: DiscardPileWidget(
+                      key: discardPileKey,
                       topCard: gameState.discardTopCard,
                       secondCard: gameState.discardPileHistory.isNotEmpty ? gameState.discardPileHistory.first : null,
                       discardPileHistory: gameState.discardPileHistory,
                       cardWidth: pileSize,
                       discardPileCount: discardPileCount,
+                      landingPulseNotifier: discardLandingPulse,
                     ),
                   ),
                 ),
@@ -695,6 +723,7 @@ class _LandscapeTableLayout extends StatelessWidget {
             canEndTurn: canEndTurn,
             onEndTurn: onEndTurnTap,
             compact: true,
+            pulseLocalTurn: isMyTurn,
           ),
           const SizedBox(height: 2),
 

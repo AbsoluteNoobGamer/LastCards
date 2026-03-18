@@ -54,6 +54,8 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget> {
   /// Where the dragged card would be inserted if dropped now.
   int? _insertIndex;
 
+  bool _hoverWiden = false;
+
   /// Fixed horizontal offset between successive cards in the fan.
   static const double _fixedSpread = 45.0;
 
@@ -135,12 +137,13 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget> {
         final double spread;
         final bool useScroll;
 
+        final baseSpread = _fixedSpread + (_hoverWiden ? 6.0 : 0.0);
         if (n <= 1) {
           spread = 0;
           useScroll = false;
         } else {
-          spread = _fixedSpread;
-          final totalContentWidth = targetWidth + (n - 1) * _fixedSpread;
+          spread = baseSpread;
+          final totalContentWidth = targetWidth + (n - 1) * baseSpread;
           useScroll = totalContentWidth > maxWidth;
         }
 
@@ -283,6 +286,12 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget> {
           },
         );
 
+        final wrappedStack = MouseRegion(
+          onEnter: (_) => setState(() => _hoverWiden = true),
+          onExit: (_) => setState(() => _hoverWiden = false),
+          child: cardStack,
+        );
+
         // ── Outer SizedBox is always exactly maxWidth wide ─────────────
         if (!useScroll) {
           return SizedBox(
@@ -293,7 +302,7 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget> {
               child: SizedBox(
                 width: stackWidth,
                 height: cardH,
-                child: cardStack,
+                child: wrappedStack,
               ),
             ),
           );
@@ -320,7 +329,7 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget> {
               child: SizedBox(
                 width: stackWidth,
                 height: cardH,
-                child: cardStack,
+                child: wrappedStack,
               ),
             ),
           ),

@@ -2,22 +2,72 @@ part of 'table_screen.dart';
 
 // ── Background ────────────────────────────────────────────────────────────────
 
-class _FeltTableBackground extends ConsumerWidget {
+class _FeltTableBackground extends ConsumerStatefulWidget {
   const _FeltTableBackground();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_FeltTableBackground> createState() =>
+      _FeltTableBackgroundState();
+}
+
+class _FeltTableBackgroundState extends ConsumerState<_FeltTableBackground>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _breath;
+
+  @override
+  void initState() {
+    super.initState();
+    _breath = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 9),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _breath.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = ref.watch(themeProvider).theme;
     return Positioned.fill(
       child: RepaintBoundary(
-        child: CustomPaint(
-          painter: _TableBackgroundPainter(
-            themeId: theme.id,
-            baseColor: theme.backgroundDeep,
-            midColor: theme.backgroundMid,
-            accentColor: theme.accentPrimary,
-            accentDark: theme.accentDark,
-          ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            CustomPaint(
+              painter: _TableBackgroundPainter(
+                themeId: theme.id,
+                baseColor: theme.backgroundDeep,
+                midColor: theme.backgroundMid,
+                accentColor: theme.accentPrimary,
+                accentDark: theme.accentDark,
+              ),
+            ),
+            AnimatedBuilder(
+              animation: _breath,
+              builder: (_, __) {
+                final v = 0.5 + 0.5 * math.sin(_breath.value * 2 * math.pi);
+                return IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        center: const Alignment(0, -0.15),
+                        radius: 0.85 + 0.04 * v,
+                        colors: [
+                          theme.accentPrimary.withValues(alpha: 0.04 * v),
+                          Colors.transparent,
+                        ],
+                        stops: const [0.0, 1.0],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
       ),
     );

@@ -33,11 +33,14 @@ class PlayerZoneWidget extends ConsumerWidget {
     this.compact = false,
     this.chatBubble,
     this.onRemoveQuickChatBubble,
+    this.isAiThinking = false,
   });
 
   final PlayerModel player;
   final bool isLocalPlayer;
   final bool isActiveTurn;
+  /// Opponent seat: show "thinking" affordance while AI chooses a move.
+  final bool isAiThinking;
   final bool isTournamentFinished;
   final bool isTournamentEliminated;
 
@@ -77,6 +80,7 @@ class PlayerZoneWidget extends ConsumerWidget {
       return _OpponentAvatarZone(
         player: playerWithReactiveCount,
         isActiveTurn: isActiveTurn,
+        isAiThinking: isAiThinking,
         isTournamentFinished: isTournamentFinished,
         isTournamentEliminated: isTournamentEliminated,
         appTheme: appTheme,
@@ -95,18 +99,30 @@ class PlayerZoneWidget extends ConsumerWidget {
       duration: const Duration(milliseconds: 300),
       child: TweenAnimationBuilder<double>(
         tween: Tween<double>(
-          begin: isActive ? 0.9 : 0.0,
+          begin: isActive ? 0.85 : 0.0,
           end: isActive ? 1.0 : 0.0,
         ),
-        duration: const Duration(milliseconds: 1500),
+        duration: Duration(milliseconds: isActive && isLocalPlayer ? 1100 : 1500),
         curve: Curves.easeInOutCubic,
         builder: (context, glowValue, childWrapper) {
+          final glowMul =
+              isLocalPlayer && isActive ? 0.26 : (isActive ? 0.22 : 0.16);
           return Container(
             padding: EdgeInsets.all(compact ? 4 : AppDimensions.sm),
             decoration: BoxDecoration(
               color: isActive
-                  ? appTheme.accentPrimary.withValues(alpha: glowValue * 0.13)
+                  ? appTheme.accentPrimary.withValues(alpha: glowValue * glowMul)
                   : Colors.transparent,
+              boxShadow: isActive
+                  ? [
+                      BoxShadow(
+                        color: appTheme.accentPrimary
+                            .withValues(alpha: 0.35 * glowValue),
+                        blurRadius: 16 + 10 * glowValue,
+                        spreadRadius: 1 + glowValue,
+                      ),
+                    ]
+                  : null,
               borderRadius:
                   BorderRadius.circular(AppDimensions.radiusCard + 4),
             ),
@@ -155,6 +171,7 @@ class _OpponentAvatarZone extends StatelessWidget {
     required this.player,
     required this.appTheme,
     this.isActiveTurn = false,
+    this.isAiThinking = false,
     this.isTournamentFinished = false,
     this.isTournamentEliminated = false,
     this.aiConfig,
@@ -165,6 +182,7 @@ class _OpponentAvatarZone extends StatelessWidget {
   final PlayerModel player;
   final dynamic appTheme;
   final bool isActiveTurn;
+  final bool isAiThinking;
   final bool isTournamentFinished;
   final bool isTournamentEliminated;
   final AiPlayerConfig? aiConfig;
@@ -182,16 +200,21 @@ class _OpponentAvatarZone extends StatelessWidget {
     final ringColor = isActive
         ? (appTheme.accentPrimary as Color)
         : (appTheme.textSecondary as Color).withValues(alpha: 0.35);
-    final ringWidth = isActive ? 3.0 : 1.5;
+    final ringWidth = isActive ? 3.5 : 1.5;
 
     // Aggressive AI gets a subtle persistent red glow even when idle.
     final isAggressive = aiConfig?.personality == AiPersonality.aggressive;
     final List<BoxShadow>? boxShadows = isActive
         ? [
             BoxShadow(
-              color: ringColor.withValues(alpha: 0.55),
-              blurRadius: 14,
-              spreadRadius: 2,
+              color: ringColor.withValues(alpha: 0.62),
+              blurRadius: 18 + (isAiThinking ? 6 : 0),
+              spreadRadius: 2 + (isAiThinking ? 1 : 0),
+            ),
+            BoxShadow(
+              color: ringColor.withValues(alpha: isAiThinking ? 0.35 : 0.2),
+              blurRadius: 28,
+              spreadRadius: 0,
             ),
           ]
         : isAggressive
@@ -270,6 +293,15 @@ class _OpponentAvatarZone extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (isAiThinking)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 2,
+                        child: IgnorePointer(
+                          child: Center(child: _ThinkingEllipsis()),
+                        ),
+                      ),
                     // Card count badge
                     Positioned(
                       right: -2,
@@ -493,6 +525,52 @@ class _PlayerLabel extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ThinkingEllipsis extends StatefulWidget {
+  const _ThinkingEllipsis();
+
+  @override
+  State<_ThinkingEllipsis> createState() => _ThinkingEllipsisState();
+}
+
+class _ThinkingEllipsisState extends State<_ThinkingEllipsis>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) => Opacity(
+        opacity: 0.4 + 0.6 * _ctrl.value,
+        child: const Text(
+          '···',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            shadows: [Shadow(blurRadius: 6, color: Colors.black87)],
+          ),
+        ),
+      ),
     );
   }
 }

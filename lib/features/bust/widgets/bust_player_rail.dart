@@ -15,9 +15,13 @@ class BustPlayerRail extends StatefulWidget {
     this.compact = false,
     this.quickChatBubblesByPlayer = const {},
     this.onRemoveQuickChatBubble,
+    this.thinkingPlayerId,
   });
 
   final List<BustPlayerViewModel> players;
+
+  /// When non-null, that player's slot shows a thinking indicator.
+  final String? thinkingPlayerId;
   final Duration autoScrollDuration;
   final Curve autoScrollCurve;
 
@@ -110,6 +114,7 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
       Widget slot = BustPlayerSlot(
         player: player,
         compact: widget.compact,
+        showThinking: widget.thinkingPlayerId == player.id,
         chatBubble: chatBubble,
         onRemoveQuickChatBubble: widget.onRemoveQuickChatBubble,
       );

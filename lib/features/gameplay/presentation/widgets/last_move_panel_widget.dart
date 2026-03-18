@@ -23,10 +23,27 @@ class LastMovePanelWidget extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final entry in visibleEntries)
+        for (var i = 0; i < visibleEntries.length; i++)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 2),
-            child: _MoveLabel(entry: entry),
+            child: i == 0
+                ? TweenAnimationBuilder<double>(
+                    key: ValueKey(
+                      '${visibleEntries[i].playerId}_${visibleEntries[i].type}_${GameLogFormatter.formatMove(visibleEntries[i])}',
+                    ),
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    duration: const Duration(milliseconds: 380),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, t, child) => Opacity(
+                      opacity: t,
+                      child: Transform.translate(
+                        offset: Offset(16 * (1 - t), 0),
+                        child: child,
+                      ),
+                    ),
+                    child: _MoveLabel(entry: visibleEntries[i]),
+                  )
+                : _MoveLabel(entry: visibleEntries[i]),
           ),
       ],
     );
