@@ -145,17 +145,21 @@ class _DrawPileWidgetState extends State<DrawPileWidget>
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovering = true),
       onExit: (_) => setState(() => _isHovering = false),
-      child: GestureDetector(
-        onTapDown:
-            widget.enabled ? (_) => setState(() => _isPressed = true) : null,
-        onTapUp: widget.enabled
-            ? (_) {
-                setState(() => _isPressed = false);
-                widget.onTap?.call();
-              }
-            : null,
-        onTapCancel: () => setState(() => _isPressed = false),
-        child: AnimatedBuilder(
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: widget.enabled ? () => widget.onTap?.call() : null,
+          onTapDown:
+              widget.enabled ? (_) => setState(() => _isPressed = true) : null,
+          onTapUp: widget.enabled
+              ? (_) => setState(() => _isPressed = false)
+              : null,
+          onTapCancel: () => setState(() => _isPressed = false),
+          splashColor: AppColors.goldPrimary.withValues(alpha: 0.35),
+          highlightColor: AppColors.goldLight.withValues(alpha: 0.12),
+          child: AnimatedBuilder(
           animation: _shuffleAnim,
           builder: (context, child) {
             final t = _shuffleAnim.value;
@@ -284,6 +288,7 @@ class _DrawPileWidgetState extends State<DrawPileWidget>
               ),
             );
           },
+        ),
         ),
       ),
     );

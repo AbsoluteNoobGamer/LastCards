@@ -1195,9 +1195,9 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
               // Direction indicator
               Positioned.fill(
                 child: IgnorePointer(
-                  child: Center(
-                    child:
-                        TurnIndicatorOverlay(direction: _gameState.direction),
+                  child: TurnIndicatorOverlay(
+                    direction: _gameState.direction,
+                    bannerAlignment: const Alignment(0, 0.22),
                   ),
                 ),
               ),

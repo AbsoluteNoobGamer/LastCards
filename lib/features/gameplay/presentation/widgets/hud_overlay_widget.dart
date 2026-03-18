@@ -108,61 +108,82 @@ double _rotationForTarget(TablePosition? position) {
   }
 }
 
-class _PenaltyBadge extends StatelessWidget {
+class _PenaltyBadge extends StatefulWidget {
   const _PenaltyBadge({required this.count, this.targetPosition, this.compact = false});
 
   final int count;
-
-  /// Where the penalty-receiving player sits — determines arrow direction.
   final TablePosition? targetPosition;
-
   final bool compact;
 
   @override
+  State<_PenaltyBadge> createState() => _PenaltyBadgeState();
+}
+
+class _PenaltyBadgeState extends State<_PenaltyBadge> {
+  int _bumpKey = 0;
+
+  @override
+  void didUpdateWidget(_PenaltyBadge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.count > oldWidget.count) {
+      _bumpKey++;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    const badgeColor = Color(0xFFE53935); // always red for danger signal
-    final padding = compact ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2) : const EdgeInsets.symmetric(horizontal: 8, vertical: 4);
-    final iconSize = compact ? 10.0 : 12.0;
-    final fontSize = compact ? 10.0 : 12.0;
-    final radius = compact ? 8.0 : 12.0;
-    return AnimatedScale(
-      scale: 1.0,
-      duration: const Duration(milliseconds: 200),
-      child: Container(
-        padding: padding,
-        decoration: BoxDecoration(
-          color: badgeColor,
-          borderRadius: BorderRadius.circular(radius),
-          boxShadow: [
-            BoxShadow(
-              color: badgeColor.withValues(alpha: 0.5),
-              blurRadius: 8,
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Transform.rotate(
-              angle: _rotationForTarget(targetPosition),
-              child: Icon(
-                Icons.arrow_upward_rounded,
-                size: iconSize,
-                color: Colors.white,
-              ),
-            ),
-            SizedBox(width: compact ? 2 : 3),
-            Text(
-              '+$count',
-              style: AppTypography.labelSmall.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: fontSize,
-              ),
-            ),
-          ],
-        ),
+    const badgeColor = Color(0xFFE53935);
+    final padding = widget.compact
+        ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2)
+        : const EdgeInsets.symmetric(horizontal: 8, vertical: 4);
+    final iconSize = widget.compact ? 10.0 : 12.0;
+    final fontSize = widget.compact ? 10.0 : 12.0;
+    final radius = widget.compact ? 8.0 : 12.0;
+
+    final child = Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: badgeColor,
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: [
+          BoxShadow(
+            color: badgeColor.withValues(alpha: 0.5),
+            blurRadius: 8,
+          ),
+        ],
       ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Transform.rotate(
+            angle: _rotationForTarget(widget.targetPosition),
+            child: Icon(
+              Icons.arrow_upward_rounded,
+              size: iconSize,
+              color: Colors.white,
+            ),
+          ),
+          SizedBox(width: widget.compact ? 2 : 3),
+          Text(
+            '+${widget.count}',
+            style: AppTypography.labelSmall.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: fontSize,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final startScale = _bumpKey > 0 ? 1.22 : 1.0;
+    return TweenAnimationBuilder<double>(
+      key: ValueKey('p$_bumpKey-${widget.count}'),
+      tween: Tween(begin: startScale, end: 1.0),
+      duration: Duration(milliseconds: _bumpKey > 0 ? 420 : 1),
+      curve: Curves.elasticOut,
+      builder: (context, scale, c) => Transform.scale(scale: scale, child: c),
+      child: child,
     );
   }
 }

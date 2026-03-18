@@ -4,8 +4,10 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:last_cards/features/gameplay/presentation/widgets/card_flight_overlay.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/dealing_animation_overlay.dart';
 
 import '../../domain/usecases/offline_game_engine.dart';
@@ -119,13 +121,19 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   // Animation overlay keys
   final GlobalKey<DealingAnimationOverlayState> _overlayKey =
       GlobalKey<DealingAnimationOverlayState>();
+  final GlobalKey<CardFlightOverlayState> _playFlightKey =
+      GlobalKey<CardFlightOverlayState>();
   final GlobalKey _drawPileKey = GlobalKey();
+  final GlobalKey _discardPileKey = GlobalKey();
   final Map<String, GlobalKey> _playerZoneKeys = {};
 
   /// Mutable offline state — set by initState via buildWithDeck().
   late GameState _offlineState;
 
   bool _aiThinking = false;
+  /// Guards against concurrent local async actions (play/draw/penalty).
+  /// Set true before any await in those methods, reset at every exit.
+  bool _localActionInProgress = false;
   final math.Random _aiDelayRng = math.Random();
   final List<String> _tournamentFinishedPlayerIds = <String>[];
   bool _tournamentRoundComplete = false;
@@ -554,6 +562,65 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     super.dispose();
   }
 
+  Future<void> _animateLocalCardToDiscard(
+    CardModel card, {
+    bool lastCardFromHand = false,
+  }) async {
+    final flight = _playFlightKey.currentState;
+    final origin = _playerZoneKeys[OfflineGameState.localId];
+    if (lastCardFromHand) {
+      HapticFeedback.heavyImpact();
+    }
+    if (flight != null &&
+        origin?.currentContext != null &&
+        _discardPileKey.currentContext != null) {
+      await flight.flyCard(
+        originKey: origin,
+        targetKey: _discardPileKey,
+        card: card,
+        faceUp: true,
+        lastCardFromHand: lastCardFromHand,
+      );
+    } else {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+  }
+
+  Future<void> _animateOpponentCardToDiscard(
+      String playerId, CardModel card) async {
+    final flight = _playFlightKey.currentState;
+    final origin = _playerZoneKeys[playerId];
+    if (flight != null &&
+        origin?.currentContext != null &&
+        _discardPileKey.currentContext != null) {
+      await flight.flyCard(
+        originKey: origin,
+        targetKey: _discardPileKey,
+        card: card,
+        faceUp: true,
+      );
+    } else {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+  }
+
+  Future<void> _animateDrawFlightsToPlayer(String playerId, int count) async {
+    final flight = _playFlightKey.currentState;
+    final n = math.min(count, 4);
+    for (var i = 0; i < n; i++) {
+      if (flight != null &&
+          _drawPileKey.currentContext != null &&
+          _playerZoneKeys[playerId]?.currentContext != null) {
+        await flight.flyDrawToPlayer(
+          drawPileKey: _drawPileKey,
+          playerKey: _playerZoneKeys[playerId],
+        );
+      } else {
+        await Future<void>.delayed(const Duration(milliseconds: 70));
+      }
+    }
+  }
+
   void _onBackPressed() {
     final isOfflineMode = ref.read(gameStateProvider) == null;
     if (isOfflineMode) {
@@ -650,6 +717,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   void _forcedTimeoutDrawAndEnd() {
     if (_aiThinking) return;
+    if (_localActionInProgress) return;
 
     _showError('Timeout! Drew 1 card as penalty.');
 
@@ -695,6 +763,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   Future<void> _endTurn() async {
     if (_aiThinking) return;
+    if (_localActionInProgress) return;
     if (_offlineState.currentPlayerId != OfflineGameState.localId) return;
 
     final err = validateEndTurn(_offlineState);
@@ -1025,11 +1094,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             children: [
               const _FeltTableBackground(),
 
-              // ── Turn indicator ring ──────────────────────────────────────
-              Positioned.fill(
-                child: TurnIndicatorOverlay(direction: gameState.direction),
-              ),
-
               SafeArea(
                 child: Column(
                   children: [
@@ -1057,10 +1121,16 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         isDealing: _isDealing,
                         visibleCardCounts: _visibleCardCounts,
                         drawPileKey: _drawPileKey,
+                        discardPileKey: _discardPileKey,
+                        thinkingOpponentId: isOfflineMode && _aiThinking
+                            ? _offlineState.currentPlayerId
+                            : null,
                         playerZoneKeys: _playerZoneKeys,
                         onCardTap: _onCardTap,
                         onDrawTap: isOfflineMode
-                            ? () => _offlineDrawCard(OfflineGameState.localId)
+                            ? () {
+                                _offlineDrawCard(OfflineGameState.localId);
+                              }
                             : _onDrawTap,
                         onHandReorder: _onHandReorder,
                         onEndTurnTap: isOfflineMode
@@ -1250,12 +1320,25 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   ),
                 ),
 
+              // ── Card flight (play / draw arcs) ─────────────────────────
+              Positioned.fill(
+                child: CardFlightOverlay(key: _playFlightKey),
+              ),
+
               // ── Dealing Animation Overlay ──────────────────────────────
               Positioned.fill(
                 child: DealingAnimationOverlay(
                   key: _overlayKey,
                   drawPileKey: _drawPileKey,
                   playerKeys: _playerZoneKeys,
+                ),
+              ),
+
+              // ── King / direction banner (below central piles, above flight reads)
+              Positioned.fill(
+                child: TurnIndicatorOverlay(
+                  direction: gameState.direction,
+                  bannerAlignment: const Alignment(0, 0.22),
                 ),
               ),
             ],
@@ -1290,6 +1373,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   void _onDrawTap() {
     if (!ref.read(isLocalTurnProvider)) return;
+    HapticFeedback.lightImpact();
     ref.read(gameNotifierProvider.notifier).drawCard();
     setState(() => _selectedCardId = null);
   }
@@ -1379,11 +1463,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   Future<void> _offlinePlayCards(String playerId,
       {required String cardId}) async {
     if (_aiThinking) return;
+    if (_localActionInProgress) return;
     if (_offlineState.currentPlayerId != playerId) return;
     if (widget.isTournamentMode &&
         _tournamentFinishedPlayerIds.contains(playerId)) {
       return;
     }
+    _localActionInProgress = true;
+    try {
 
     final local = _offlineState.players.firstWhere((p) => p.id == playerId);
     final played = local.hand.where((c) => c.id == cardId).toList();
@@ -1398,7 +1485,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       state: _offlineState,
     );
     if (err != null) {
-      _applyInvalidPlayPenalty(playerId, played);
+      await _applyInvalidPlayPenalty(playerId, played);
       return;
     }
 
@@ -1451,6 +1538,16 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         jokerDeclaredSuit: chosenCard.suit,
       );
 
+      final lastFromHand = local.hand.length == 1;
+      await _animateLocalCardToDiscard(assignedJoker,
+          lastCardFromHand: lastFromHand);
+      if (!mounted) return;
+      if (lastFromHand) {
+        HapticFeedback.lightImpact();
+      } else {
+        HapticFeedback.mediumImpact();
+      }
+
       final previousState = _offlineState;
       var newState = applyPlay(
         state: _offlineState,
@@ -1488,6 +1585,16 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
       // Allow the player to continue their turn (stack more cards if they want).
       return;
+    }
+
+    final lastFromHand = local.hand.length == played.length;
+    await _animateLocalCardToDiscard(played.first,
+        lastCardFromHand: lastFromHand);
+    if (!mounted) return;
+    if (lastFromHand) {
+      HapticFeedback.lightImpact();
+    } else {
+      HapticFeedback.mediumImpact();
     }
 
     // Apply play + special effects
@@ -1539,11 +1646,35 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     // Auto-advance if this play guarantees we get another turn immediately and
     // there are no unresolved obligations (like covering a Queen).
     // This happens when playing a Skip (8) or a King in a 2-player game.
+    // NOTE: We inline the turn-advance logic here instead of calling _endTurn()
+    // because _localActionInProgress is still true (we're inside the try block).
+    // _endTurn() would be blocked by the guard. The auto-advance case is simpler
+    // anyway: no Ace suit picker needed (the card is a Skip/King).
     var nextId = nextPlayerId(state: newState);
     nextId = _resolveTournamentNextPlayerId(newState, nextId);
 
     if (nextId == playerId && newState.queenSuitLock == null) {
-      _endTurn();
+      setState(() {
+        _finalizeTurnLogForPlayer(playerId);
+        _offlineState = _offlineState.copyWith(
+          currentPlayerId: nextId,
+          actionsThisTurn: 0,
+          cardsPlayedThisTurn: 0,
+          lastPlayedThisTurn: null,
+          activeSkipCount: 0,
+          preTurnCentreSuit: _offlineState.discardTopCard?.effectiveSuit,
+        );
+      });
+
+      if (nextId != OfflineGameState.localId) {
+        _scheduleAiTurn(nextId);
+      } else {
+        _startTimer();
+      }
+    }
+
+    } finally {
+      _localActionInProgress = false;
     }
   }
 
@@ -1555,9 +1686,17 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   ///   1. Return card to hand   — already satisfied: [applyPlay] was never called.
   ///   2. Draw up to 2 cards from the draw pile.
   ///   3. End the player's turn immediately.
-  void _applyInvalidPlayPenalty(
-      String playerId, List<CardModel> attemptedCards) {
+  Future<void> _applyInvalidPlayPenalty(
+      String playerId, List<CardModel> attemptedCards) async {
     _showError('Invalid play! Drawing 2 cards as penalty.');
+
+    try {
+
+    if (playerId == OfflineGameState.localId) {
+      HapticFeedback.lightImpact();
+      await _animateDrawFlightsToPlayer(playerId, 2);
+      if (!mounted) return;
+    }
 
     // Step 2: draw 2 cards and preserve the active penalty chain.
     var newState = applyInvalidPlayPenalty(
@@ -1589,12 +1728,17 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     } else {
       _startTimer();
     }
+
+    } finally {
+      _localActionInProgress = false;
+    }
   }
 
   // ── Offline mode: draw card ────────────────────────────────────────────────
 
-  void _offlineDrawCard(String playerId) {
+  Future<void> _offlineDrawCard(String playerId) async {
     if (_aiThinking) return;
+    if (_localActionInProgress) return;
     if (_offlineState.currentPlayerId != playerId) return;
     if (widget.isTournamentMode &&
         _tournamentFinishedPlayerIds.contains(playerId)) {
@@ -1618,8 +1762,17 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       return;
     }
 
+    _localActionInProgress = true;
+    try {
+
     final isPenaltyDraw = _offlineState.activePenaltyCount > 0;
     final drawCount = isPenaltyDraw ? _offlineState.activePenaltyCount : 1;
+
+    if (playerId == OfflineGameState.localId) {
+      HapticFeedback.lightImpact();
+      await _animateDrawFlightsToPlayer(playerId, drawCount);
+      if (!mounted) return;
+    }
 
     var newState = applyDraw(
       state: _offlineState,
@@ -1647,6 +1800,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       newState: newState,
       localAfterDraw: localAfterDraw,
     );
+
+    } finally {
+      _localActionInProgress = false;
+    }
   }
 
   /// Shared helper for draw-and-advance logic used by _offlineDrawCard.
@@ -1683,6 +1840,34 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   int _randomAiDelayMs(int min, int max) {
     if (max <= min) return min;
     return min + _aiDelayRng.nextInt((max - min) + 1);
+  }
+
+  /// Whether each AI-played card can be applied one-at-a-time (same end state).
+  bool _offlineAiPlayedCardsReplaySequentially(
+    GameState start,
+    String aiId,
+    List<CardModel> played,
+    Suit? aceDeclaredSuit,
+  ) {
+    if (played.isEmpty) return true;
+    var s = start;
+    for (final c in played) {
+      final top = s.discardTopCard;
+      if (top == null) return false;
+      if (validatePlay(cards: [c], discardTop: top, state: s) != null) {
+        return false;
+      }
+      final decl = s.actionsThisTurn == 0 && c.effectiveRank == Rank.ace
+          ? aceDeclaredSuit
+          : null;
+      s = applyPlay(
+        state: s,
+        playerId: aiId,
+        cards: [c],
+        declaredSuit: decl,
+      );
+    }
+    return true;
   }
 
   Future<void> _scheduleAiTurn(String aiId) async {
@@ -1730,6 +1915,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     );
 
     final playedByAi = result.playedCards;
+    final sequentialReplay = playedByAi.isNotEmpty &&
+        _offlineAiPlayedCardsReplaySequentially(
+          stateBeforeAiTurn,
+          aiId,
+          playedByAi,
+          result.aceDeclaredSuit,
+        );
 
     // Add extra thought time for Ace/Joker declaration turns.
     if (playedByAi.isNotEmpty &&
@@ -1739,34 +1931,91 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           Duration(milliseconds: _randomAiDelayMs(1500, 3000)));
     }
 
-    // Multi-card pacing gap so chained plays are not instantaneous.
-    if (playedByAi.length > 1) {
-      for (int i = 1; i < playedByAi.length; i++) {
-        await Future.delayed(
-            Duration(milliseconds: _randomAiDelayMs(400, 700)));
-        if (!mounted) return;
-      }
-    }
-
     if (!hasPlayable) {
       await Future.delayed(const Duration(milliseconds: 600));
       if (!mounted) return;
     }
 
-    // Track AI-played cards into discard pile.
     if (playedByAi.isNotEmpty) {
-      _discardPile.addAll(playedByAi);
-      // Every card uses card_place.wav; special cards also get their effect sound.
-      for (final c in playedByAi) {
-        game_audio.AudioService.instance.playSound(GameSound.cardPlace);
-        final s = soundForCard(c);
-        if (s != null) game_audio.AudioService.instance.playSound(s);
+      if (sequentialReplay) {
+        var working = stateBeforeAiTurn;
+        for (var i = 0; i < playedByAi.length; i++) {
+          if (i > 0) {
+            await Future.delayed(
+                Duration(milliseconds: _randomAiDelayMs(280, 500)));
+            if (!mounted) return;
+          }
+          await _animateOpponentCardToDiscard(aiId, playedByAi[i]);
+          if (!mounted) return;
+          game_audio.AudioService.instance.playSound(GameSound.cardPlace);
+          final snd = soundForCard(playedByAi[i]);
+          if (snd != null) game_audio.AudioService.instance.playSound(snd);
+
+          final c = playedByAi[i];
+          final decl = working.actionsThisTurn == 0 && c.effectiveRank == Rank.ace
+              ? result.aceDeclaredSuit
+              : null;
+          final dirBefore = working.direction;
+          final skipBefore = working.activeSkipCount;
+          working = applyPlay(
+            state: working,
+            playerId: aiId,
+            cards: [c],
+            declaredSuit: decl,
+          );
+          _discardPile.add(c);
+          if (mounted) {
+            setState(() {
+              _offlineState =
+                  working.copyWith(drawPileCount: _drawPile.length);
+            });
+          }
+          if (working.direction != dirBefore) {
+            game_audio.AudioService.instance
+                .playSound(GameSound.directionReversed);
+          }
+          if (working.activeSkipCount != skipBefore) {
+            game_audio.AudioService.instance.playSound(GameSound.skipApplied);
+          }
+        }
+        if (mounted) HapticFeedback.mediumImpact();
+      } else {
+        for (var i = 0; i < playedByAi.length; i++) {
+          if (i > 0) {
+            await Future.delayed(
+                Duration(milliseconds: _randomAiDelayMs(280, 500)));
+            if (!mounted) return;
+          }
+          await _animateOpponentCardToDiscard(aiId, playedByAi[i]);
+          if (!mounted) return;
+          game_audio.AudioService.instance.playSound(GameSound.cardPlace);
+          final snd = soundForCard(playedByAi[i]);
+          if (snd != null) game_audio.AudioService.instance.playSound(snd);
+        }
+        if (mounted) HapticFeedback.mediumImpact();
+        _discardPile.addAll(playedByAi);
+        if (result.state.direction != stateBeforeAiTurn.direction) {
+          game_audio.AudioService.instance
+              .playSound(GameSound.directionReversed);
+        }
+        if (result.state.activeSkipCount > stateBeforeAiTurn.activeSkipCount) {
+          game_audio.AudioService.instance.playSound(GameSound.skipApplied);
+        }
       }
+    } else {
+      final drawN = stateBeforeAiTurn.activePenaltyCount > 0
+          ? stateBeforeAiTurn.activePenaltyCount
+          : 1;
+      await _animateDrawFlightsToPlayer(aiId, drawN);
+      if (mounted) HapticFeedback.lightImpact();
     }
 
     final aiPlayerName = _offlineState.playerById(aiId)?.displayName ?? aiId;
 
-    if (_checkWin(aiId, result.state)) return;
+    if (_checkWin(aiId, result.state)) {
+      setState(() => _aiThinking = false);
+      return;
+    }
 
     var finalState = result.state;
     var nextId = finalState.currentPlayerId;

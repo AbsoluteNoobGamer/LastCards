@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/game_state.dart';
@@ -9,11 +10,12 @@ import '../../../../services/game_sound.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/providers/theme_provider.dart';
 
-class FloatingActionBarWidget extends ConsumerWidget {
+class FloatingActionBarWidget extends ConsumerStatefulWidget {
   final String activePlayerName;
   final PlayDirection direction;
   final bool canEndTurn;
   final VoidCallback? onEndTurn;
+  final bool pulseLocalTurn;
 
   const FloatingActionBarWidget({
     super.key,
@@ -22,13 +24,57 @@ class FloatingActionBarWidget extends ConsumerWidget {
     required this.canEndTurn,
     this.onEndTurn,
     this.compact = false,
+    this.pulseLocalTurn = false,
   });
 
   /// When true, uses smaller padding/fonts for landscape layout.
   final bool compact;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FloatingActionBarWidget> createState() =>
+      _FloatingActionBarWidgetState();
+}
+
+class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncPulse());
+  }
+
+  void _syncPulse() {
+    if (!mounted) return;
+    if (widget.pulseLocalTurn) {
+      if (!_pulseCtrl.isAnimating) {
+        _pulseCtrl.repeat();
+      }
+    } else {
+      _pulseCtrl.stop();
+      _pulseCtrl.value = 0;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant FloatingActionBarWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.pulseLocalTurn != widget.pulseLocalTurn) _syncPulse();
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = ref.watch(themeProvider).theme;
     final accent = theme.accentPrimary;
     final accentLight = theme.accentLight;
@@ -37,7 +83,7 @@ class FloatingActionBarWidget extends ConsumerWidget {
     final textSec = theme.textSecondary;
     final bgDeep = theme.backgroundDeep;
 
-    final bool isCw = direction == PlayDirection.clockwise;
+    final bool isCw = widget.direction == PlayDirection.clockwise;
     final String dirIcon = isCw ? '↻' : '↺';
     final String dirText = isCw ? 'Clockwise' : 'Counter-Clockwise';
 
@@ -46,16 +92,17 @@ class FloatingActionBarWidget extends ConsumerWidget {
         // Use shorter dimension: in landscape, maxWidth is the long axis.
         final isMobile = math.min(constraints.maxWidth, constraints.maxHeight) <
             AppDimensions.breakpointMobile;
-        final useCompact = compact || (isMobile && constraints.maxWidth > constraints.maxHeight);
+        final useCompact = widget.compact ||
+            (isMobile && constraints.maxWidth > constraints.maxHeight);
 
         Widget endTurnButton() {
           return AnimatedOpacity(
-            opacity: canEndTurn ? 1.0 : 0.5,
+            opacity: widget.canEndTurn ? 1.0 : 0.5,
             duration: const Duration(milliseconds: 250),
             child: Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: canEndTurn
+                  colors: widget.canEndTurn
                       ? [accentLight, accentDark]
                       : [surface, surface],
                   begin: Alignment.topCenter,
@@ -63,7 +110,7 @@ class FloatingActionBarWidget extends ConsumerWidget {
                 ),
                 borderRadius:
                     BorderRadius.circular(AppDimensions.radiusButton),
-                boxShadow: canEndTurn
+                boxShadow: widget.canEndTurn
                     ? [
                         BoxShadow(
                           color: accent.withValues(alpha: 0.4),
@@ -74,17 +121,18 @@ class FloatingActionBarWidget extends ConsumerWidget {
                     : null,
               ),
               child: ElevatedButton(
-                onPressed: canEndTurn && onEndTurn != null
+                onPressed: widget.canEndTurn && widget.onEndTurn != null
                     ? () {
+                        HapticFeedback.heavyImpact();
                         game_audio.AudioService.instance
                             .playSound(GameSound.endTurnButton);
-                        onEndTurn!();
+                        widget.onEndTurn!();
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
-                  foregroundColor: canEndTurn ? bgDeep : textSec,
+                  foregroundColor: widget.canEndTurn ? bgDeep : textSec,
                   disabledForegroundColor: textSec,
                   padding: EdgeInsets.symmetric(
                     horizontal: useCompact ? 8 : (isMobile ? 12 : 20),
@@ -165,19 +213,32 @@ class FloatingActionBarWidget extends ConsumerWidget {
 
               // Center: Whose turn
               Expanded(
-                child: Text(
-                  activePlayerName == 'You'
-                      ? 'Your Turn'
-                      : "$activePlayerName's Turn",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: accent,
-                    fontSize: useCompact ? 12 : (isMobile ? 14 : 16),
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.5,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: AnimatedBuilder(
+                  animation: _pulseCtrl,
+                  builder: (_, __) {
+                    final pulse = widget.pulseLocalTurn
+                        ? 1.0 +
+                            0.055 *
+                                math.sin(_pulseCtrl.value * 2 * math.pi)
+                        : 1.0;
+                    return Transform.scale(
+                      scale: pulse,
+                      child: Text(
+                        widget.activePlayerName == 'You'
+                            ? 'Your Turn'
+                            : "${widget.activePlayerName}'s Turn",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: accent,
+                          fontSize: useCompact ? 12 : (isMobile ? 14 : 16),
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  },
                 ),
               ),
 

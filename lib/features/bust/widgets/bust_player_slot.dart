@@ -14,11 +14,13 @@ class BustPlayerSlot extends ConsumerWidget {
     super.key,
     required this.player,
     this.compact = false,
+    this.showThinking = false,
     this.chatBubble,
     this.onRemoveQuickChatBubble,
   });
 
   final BustPlayerViewModel player;
+  final bool showThinking;
 
   /// When true, uses smaller avatar and text for landscape/constrained layouts.
   final bool compact;
@@ -110,6 +112,27 @@ class BustPlayerSlot extends ConsumerWidget {
                   ),
                 ),
               ),
+              if (showThinking)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 2,
+                  child: IgnorePointer(
+                    child: Center(
+                      child: Text(
+                        '···',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: compact ? 12 : 16,
+                          fontWeight: FontWeight.w900,
+                          shadows: const [
+                            Shadow(blurRadius: 4, color: Colors.black87),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               Positioned(
                 right: 0,
                 bottom: 0,

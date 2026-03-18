@@ -38,15 +38,15 @@ class _QuickChatBubbleState extends State<QuickChatBubble>
   void initState() {
     super.initState();
     _scaleController = AnimationController(
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 240),
       vsync: this,
     );
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _scaleController, curve: Curves.easeOut),
+    _scaleAnimation = Tween<double>(begin: 0.82, end: 1.0).animate(
+      CurvedAnimation(parent: _scaleController, curve: Curves.easeOutBack),
     );
     _scaleController.forward();
 
@@ -75,9 +75,10 @@ class _QuickChatBubbleState extends State<QuickChatBubble>
     return AnimatedBuilder(
       animation: Listenable.merge([_scaleController, _fadeController]),
       builder: (context, child) {
-        final opacity = 1.0 - _fadeController.value;
+        final outOpacity = 1.0 - _fadeController.value;
+        final inOpacity = _scaleController.value.clamp(0.0, 1.0);
         return Opacity(
-          opacity: opacity,
+          opacity: outOpacity * (0.2 + 0.8 * inOpacity),
           child: Transform.scale(
             scale: _scaleAnimation.value,
             child: child,
