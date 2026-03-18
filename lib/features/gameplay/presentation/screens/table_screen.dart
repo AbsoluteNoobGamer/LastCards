@@ -717,6 +717,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   void _forcedTimeoutDrawAndEnd() {
     if (_aiThinking) return;
+    if (_localActionInProgress) return;
 
     _showError('Timeout! Drew 1 card as penalty.');
 
@@ -762,6 +763,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   Future<void> _endTurn() async {
     if (_aiThinking) return;
+    if (_localActionInProgress) return;
     if (_offlineState.currentPlayerId != OfflineGameState.localId) return;
 
     final err = validateEndTurn(_offlineState);
