@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../domain/entities/card.dart';
 import 'card_back_widget.dart';
@@ -22,7 +23,7 @@ class CardFlightOverlayState extends State<CardFlightOverlay>
   final List<_Flight> _flights = [];
 
   /// Animates one card from [originKey] centre to [targetKey] centre.
-  /// [faceUp] false uses card back (opponent plays).
+  /// [faceUp] false uses card back (e.g. draw flight).
   Future<void> flyCard({
     required GlobalKey? originKey,
     required GlobalKey? targetKey,
@@ -30,6 +31,8 @@ class CardFlightOverlayState extends State<CardFlightOverlay>
     bool faceUp = true,
     Duration duration = const Duration(milliseconds: 420),
     double arcLift = 140,
+    /// Winning / go-out play: taller arc, glow, and wobble.
+    bool lastCardFromHand = false,
   }) {
     final completer = Completer<void>();
     final origin = _centerGlobal(originKey);
@@ -42,13 +45,20 @@ class CardFlightOverlayState extends State<CardFlightOverlay>
       return completer.future;
     }
 
-    final controller = AnimationController(vsync: this, duration: duration);
+    final effectiveDuration = lastCardFromHand
+        ? const Duration(milliseconds: 680)
+        : duration;
+    final effectiveArc = lastCardFromHand ? math.max(arcLift, 220.0) : arcLift;
+
+    final controller =
+        AnimationController(vsync: this, duration: effectiveDuration);
     final flight = _Flight(
       origin: origin,
       target: target,
       card: card,
       faceUp: faceUp,
-      arcLift: arcLift,
+      arcLift: effectiveArc,
+      lastCardFromHand: lastCardFromHand,
       controller: controller,
     );
 
@@ -128,20 +138,49 @@ class CardFlightOverlayState extends State<CardFlightOverlay>
               final y = invT * invT * p0.dy +
                   2 * invT * t * cp.dy +
                   t * t * p2.dy;
-              final scale = 1.0 + math.sin(t * math.pi) * 0.15;
-              final rot = t * 0.4 * math.pi;
+              final baseScale =
+                  1.0 + math.sin(t * math.pi) * (f.lastCardFromHand ? 0.2 : 0.12);
+              final scale = f.lastCardFromHand
+                  ? baseScale * (1.0 + 0.06 * math.sin(t * math.pi * 3))
+                  : baseScale;
+
+              Widget child = f.faceUp
+                  ? CardWidget(card: f.card, width: w, faceUp: true)
+                  : CardBackWidget(width: w);
+
+              if (f.lastCardFromHand) {
+                final pulse = (math.sin(t * math.pi * 2) + 1) / 2;
+                final glowAlpha = 0.25 + 0.55 * pulse;
+                child = Transform.rotate(
+                  angle: 0.1 * math.sin(t * math.pi * 2.5),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.goldPrimary
+                              .withValues(alpha: glowAlpha),
+                          blurRadius: 32 + 28 * t,
+                          spreadRadius: 2 + 8 * pulse,
+                        ),
+                        BoxShadow(
+                          color: AppColors.goldLight
+                              .withValues(alpha: 0.15 + 0.35 * pulse),
+                          blurRadius: 48 + 24 * math.sin(t * math.pi),
+                          spreadRadius: 0,
+                        ),
+                      ],
+                    ),
+                    child: child,
+                  ),
+                );
+              }
 
               return Positioned(
                 left: x - w / 2,
                 top: y - h / 2,
-                child: Transform(
-                  alignment: Alignment.center,
-                  transform: Matrix4.diagonal3Values(scale, scale, 1)
-                    ..rotateZ(rot),
-                  child: f.faceUp
-                      ? CardWidget(card: f.card, width: w, faceUp: true)
-                      : CardBackWidget(width: w),
-                ),
+                child: Transform.scale(scale: scale, child: child),
               );
             },
           );
@@ -158,6 +197,7 @@ class _Flight {
     required this.card,
     required this.faceUp,
     required this.arcLift,
+    required this.lastCardFromHand,
     required this.controller,
   });
 
@@ -166,5 +206,6 @@ class _Flight {
   final CardModel card;
   final bool faceUp;
   final double arcLift;
+  final bool lastCardFromHand;
   final AnimationController controller;
 }

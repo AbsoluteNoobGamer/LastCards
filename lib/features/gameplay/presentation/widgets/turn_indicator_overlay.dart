@@ -7,9 +7,13 @@ import '../../../../core/theme/app_colors.dart';
 class TurnIndicatorOverlay extends StatelessWidget {
   final PlayDirection direction;
 
+  /// Where the “direction reversed” banner sits (below central draw/discard).
+  final Alignment bannerAlignment;
+
   const TurnIndicatorOverlay({
     super.key,
     required this.direction,
+    this.bannerAlignment = const Alignment(0, 0.20),
   });
 
   @override
@@ -19,30 +23,23 @@ class TurnIndicatorOverlay extends StatelessWidget {
 
     return IgnorePointer(
       child: Stack(
-        alignment: Alignment.center,
+        fit: StackFit.expand,
         children: [
-          // Direction Reversed Text FX
-          // Using a ValueKey forces the TweenAnimationBuilder to restart from 0->1
-          // every time the direction changes!
-          TweenAnimationBuilder<double>(
+          Align(
+            alignment: bannerAlignment,
+            child: TweenAnimationBuilder<double>(
               key: ValueKey(direction),
               tween: Tween<double>(begin: 0.0, end: 1.0),
               duration: const Duration(seconds: 1),
               curve: Curves.easeOutCubic,
               builder: (context, val, child) {
                 if (val >= 1.0) {
-                  return const SizedBox.shrink(); // Hide when done
+                  return const SizedBox.shrink();
                 }
-
-                // Fade out towards the end
                 final opacity = (1.0 - val).clamp(0.0, 1.0);
-
-                // Slide left -> right (quick shake effect)
-                final offsetX = math.sin(val * math.pi * 4) * 10 * (1 - val);
-
-                // Slight zoom
+                final offsetX =
+                    math.sin(val * math.pi * 4) * 10 * (1 - val);
                 final scale = 1.0 + (val * 0.2);
-
                 return Opacity(
                   opacity: opacity,
                   child: Transform.translate(
@@ -78,7 +75,9 @@ class TurnIndicatorOverlay extends StatelessWidget {
                     ),
                   ),
                 );
-              })
+              },
+            ),
+          ),
         ],
       ),
     );

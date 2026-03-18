@@ -24,8 +24,13 @@ bool aiHasPlayableTurn({
   return choices.isNotEmpty;
 }
 
-({GameState state, List<CardModel> playedCards, GameState preTurnAdvanceState, int queenCoverDrawCount})
-    aiTakeTurn({
+({
+  GameState state,
+  List<CardModel> playedCards,
+  GameState preTurnAdvanceState,
+  int queenCoverDrawCount,
+  Suit? aceDeclaredSuit,
+}) aiTakeTurn({
   required GameState state,
   required String aiPlayerId,
   required List<CardModel> Function(int n) cardFactory,
@@ -51,7 +56,11 @@ bool aiHasPlayableTurn({
       choice: oneCardChoice,
       playedCards: playedCards,
     );
-    return _finalizeAiTurn(state: result, playedCards: playedCards);
+    final aceDecl = oneCardChoice.cards.first.effectiveRank == Rank.ace
+        ? oneCardChoice.declaredSuit
+        : null;
+    return _finalizeAiTurn(
+        state: result, playedCards: playedCards, aceDeclaredSuit: aceDecl);
   }
 
   final choices = _generateAiChoices(
@@ -75,6 +84,10 @@ bool aiHasPlayableTurn({
 
   choices.sort((a, b) => b.score.compareTo(a.score));
   final best = choices.first;
+  final aceDecl = best.cards.isNotEmpty &&
+          best.cards.first.effectiveRank == Rank.ace
+      ? best.declaredSuit
+      : null;
   var afterPlay = _executeChoice(
     state: state,
     aiPlayerId: aiPlayerId,
@@ -147,20 +160,28 @@ bool aiHasPlayableTurn({
     state: afterPlay,
     playedCards: playedCards,
     queenCoverDrawCount: queenCoverDrawCount,
+    aceDeclaredSuit: aceDecl,
   );
 }
 
-({GameState state, List<CardModel> playedCards, GameState preTurnAdvanceState, int queenCoverDrawCount})
-    _finalizeAiTurn({
+({
+  GameState state,
+  List<CardModel> playedCards,
+  GameState preTurnAdvanceState,
+  int queenCoverDrawCount,
+  Suit? aceDeclaredSuit,
+}) _finalizeAiTurn({
   required GameState state,
   required List<CardModel> playedCards,
   int queenCoverDrawCount = 0,
+  Suit? aceDeclaredSuit,
 }) {
   return (
     state: advanceTurn(state),
     playedCards: playedCards,
     preTurnAdvanceState: state,
     queenCoverDrawCount: queenCoverDrawCount,
+    aceDeclaredSuit: aceDeclaredSuit,
   );
 }
 

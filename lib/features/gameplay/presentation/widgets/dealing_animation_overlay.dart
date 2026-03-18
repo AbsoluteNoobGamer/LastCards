@@ -110,11 +110,8 @@ class DealingAnimationOverlayState extends State<DealingAnimationOverlay>
               final currentX = invT * invT * p0.dx + 2 * invT * t * controlPoint.dx + t * t * p2.dx;
               final currentY = invT * invT * p0.dy + 2 * invT * t * controlPoint.dy + t * t * p2.dy;
 
-              // Scale animation: starts at 1.0, peaks at 1.4 midway, returns to 1.0
-              final scale = 1.0 + (math.sin(t * math.pi) * 0.4);
-
-              // Rotation animation: spins a bit during flight
-              final rotation = t * math.pi;
+              // Scale animation: starts at 1.0, peaks midway, returns to 1.0
+              final scale = 1.0 + (math.sin(t * math.pi) * 0.35);
 
               const cardW = AppDimensions.cardWidthMedium;
               const cardH = cardW * 1.4; // approximate standard height
@@ -122,10 +119,8 @@ class DealingAnimationOverlayState extends State<DealingAnimationOverlay>
               return Positioned(
                 left: currentX - (cardW / 2),
                 top: currentY - (cardH / 2),
-                child: Transform(
-                  alignment: Alignment.center,
-                  transform: Matrix4.diagonal3Values(scale, scale, 1.0)
-                    ..rotateZ(rotation),
+                child: Transform.scale(
+                  scale: scale,
                   child: Container(
                     decoration: BoxDecoration(
                       boxShadow: [

@@ -15,7 +15,6 @@ class _TableLayout extends StatelessWidget {
     required this.visibleCardCounts,
     required this.drawPileKey,
     required this.discardPileKey,
-    required this.discardLandingPulse,
     this.thinkingOpponentId,
     required this.playerZoneKeys,
     required this.onCardTap,
@@ -55,7 +54,6 @@ class _TableLayout extends StatelessWidget {
   final Map<String, int> visibleCardCounts;
   final GlobalKey drawPileKey;
   final GlobalKey discardPileKey;
-  final ValueNotifier<int> discardLandingPulse;
   final String? thinkingOpponentId;
   final Map<String, GlobalKey> playerZoneKeys;
   final ValueChanged<String> onCardTap;
@@ -136,7 +134,6 @@ class _TableLayout extends StatelessWidget {
             visibleCardCounts: visibleCardCounts,
             drawPileKey: drawPileKey,
             discardPileKey: discardPileKey,
-            discardLandingPulse: discardLandingPulse,
             thinkingOpponentId: thinkingOpponentId,
             playerZoneKeys: playerZoneKeys,
             localPlayer: localPlayer,
@@ -349,7 +346,6 @@ class _TableLayout extends StatelessWidget {
                                               discardPileHistory: gameState.discardPileHistory,
                                               cardWidth: 100,
                                               discardPileCount: discardPileCount,
-                                  landingPulseNotifier: discardLandingPulse,
                                 ),
                               ),
                             ),
@@ -473,7 +469,6 @@ class _LandscapeTableLayout extends StatelessWidget {
     required this.visibleCardCounts,
     required this.drawPileKey,
     required this.discardPileKey,
-    required this.discardLandingPulse,
     this.thinkingOpponentId,
     required this.playerZoneKeys,
     required this.localPlayer,
@@ -509,7 +504,6 @@ class _LandscapeTableLayout extends StatelessWidget {
   final Map<String, int> visibleCardCounts;
   final GlobalKey drawPileKey;
   final GlobalKey discardPileKey;
-  final ValueNotifier<int> discardLandingPulse;
   final String? thinkingOpponentId;
   final Map<String, GlobalKey> playerZoneKeys;
   final PlayerModel localPlayer;
@@ -684,7 +678,6 @@ class _LandscapeTableLayout extends StatelessWidget {
                       discardPileHistory: gameState.discardPileHistory,
                       cardWidth: pileSize,
                       discardPileCount: discardPileCount,
-                      landingPulseNotifier: discardLandingPulse,
                     ),
                   ),
                 ),
