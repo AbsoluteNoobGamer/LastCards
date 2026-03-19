@@ -17,6 +17,9 @@ class FloatingActionBarWidget extends ConsumerStatefulWidget {
   final VoidCallback? onEndTurn;
   final bool pulseLocalTurn;
 
+  /// Who follows when the current turn ends (8 / K / direction). Null to hide.
+  final String? nextTurnLabel;
+
   const FloatingActionBarWidget({
     super.key,
     required this.activePlayerName,
@@ -25,6 +28,7 @@ class FloatingActionBarWidget extends ConsumerStatefulWidget {
     this.onEndTurn,
     this.compact = false,
     this.pulseLocalTurn = false,
+    this.nextTurnLabel,
   });
 
   /// When true, uses smaller padding/fonts for landscape layout.
@@ -211,7 +215,7 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
                 margin: EdgeInsets.symmetric(horizontal: useCompact ? 4 : 8),
               ),
 
-              // Center: Whose turn
+              // Center: Whose turn + next player (8 / K aware)
               Expanded(
                 child: AnimatedBuilder(
                   animation: _pulseCtrl,
@@ -221,21 +225,49 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
                             0.055 *
                                 math.sin(_pulseCtrl.value * 2 * math.pi)
                         : 1.0;
+                    final next = widget.nextTurnLabel;
+                    final hasNext =
+                        next != null && next.isNotEmpty;
                     return Transform.scale(
                       scale: pulse,
-                      child: Text(
-                        widget.activePlayerName == 'You'
-                            ? 'Your Turn'
-                            : "${widget.activePlayerName}'s Turn",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: accent,
-                          fontSize: useCompact ? 12 : (isMobile ? 14 : 16),
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.5,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.activePlayerName == 'You'
+                                ? 'Your Turn'
+                                : "${widget.activePlayerName}'s Turn",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: accent,
+                              fontSize: useCompact ? 12 : (isMobile ? 14 : 16),
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (hasNext) ...[
+                            SizedBox(height: useCompact ? 1 : 2),
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 280),
+                              child: Text(
+                                'Next: $next',
+                                key: ValueKey(next),
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: textSec.withValues(alpha: 0.92),
+                                  fontSize:
+                                      useCompact ? 8 : (isMobile ? 10 : 11),
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     );
                   },

@@ -31,7 +31,11 @@ class _TableLayout extends StatelessWidget {
     this.isRanked = false,
     this.quickChatBubblesByPlayer = const {},
     this.onRemoveQuickChatBubble,
+    this.nextTurnLabel,
   });
+
+  /// Shown under current turn — who follows (8 / K / direction).
+  final String? nextTurnLabel;
 
   /// True when this is a ranked online match (from session_config).
   final bool isRanked;
@@ -135,6 +139,7 @@ class _TableLayout extends StatelessWidget {
             drawPileKey: drawPileKey,
             discardPileKey: discardPileKey,
             thinkingOpponentId: thinkingOpponentId,
+            nextTurnLabel: nextTurnLabel,
             playerZoneKeys: playerZoneKeys,
             localPlayer: localPlayer,
             useRail: useRail,
@@ -379,6 +384,7 @@ class _TableLayout extends StatelessWidget {
                       canEndTurn: canEndTurn,
                       onEndTurn: onEndTurnTap,
                       pulseLocalTurn: isMyTurn,
+                      nextTurnLabel: nextTurnLabel,
                     ),
                   ],
                 ),
@@ -489,7 +495,10 @@ class _LandscapeTableLayout extends StatelessWidget {
     required this.aiConfigs,
     this.quickChatBubblesByPlayer = const {},
     this.onRemoveQuickChatBubble,
+    this.nextTurnLabel,
   });
+
+  final String? nextTurnLabel;
 
   final Map<String, QuickChatBubbleData> quickChatBubblesByPlayer;
   final void Function(String id)? onRemoveQuickChatBubble;
@@ -717,6 +726,7 @@ class _LandscapeTableLayout extends StatelessWidget {
             onEndTurn: onEndTurnTap,
             compact: true,
             pulseLocalTurn: isMyTurn,
+            nextTurnLabel: nextTurnLabel,
           ),
           const SizedBox(height: 2),
 

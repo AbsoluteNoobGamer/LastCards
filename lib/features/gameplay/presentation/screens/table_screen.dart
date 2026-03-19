@@ -865,6 +865,29 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         ? _offlineState.activePenaltyCount
         : ref.watch(penaltyCountProvider);
 
+    final viewerPlayerId = gameState.players
+        .where((p) => p.tablePosition == TablePosition.bottom)
+        .firstOrNull
+        ?.id;
+    // Online state reorders players (local at index 0); nextPlayerId walks by index — wrong for 3+.
+    // Tournament: resolve past finished players so "Next:" matches actual advance.
+    String? nextTurnLabel;
+    if (isOfflineMode &&
+        gameState.phase == GamePhase.playing &&
+        viewerPlayerId != null &&
+        viewerPlayerId.isNotEmpty) {
+      final rawNextId = nextPlayerId(state: gameState);
+      final resolvedNextId =
+          _resolveTournamentNextPlayerId(gameState, rawNextId);
+      String label(String id) {
+        if (id == viewerPlayerId) return 'You';
+        return gameState.playerById(id)?.displayName ?? id;
+      }
+      nextTurnLabel = resolvedNextId == gameState.currentPlayerId
+          ? '${label(resolvedNextId)} again'
+          : label(resolvedNextId);
+    }
+
     // In online mode, start turn timer when it becomes our turn (e.g. after opponent ends)
     ref.listen(isLocalTurnProvider, (prev, next) {
       if (ref.read(gameStateProvider) == null || !mounted) return;
@@ -1157,6 +1180,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             b.playerId: (id: b.id, playerName: b.playerName, message: b.message, isLocal: b.isLocal),
                         },
                         onRemoveQuickChatBubble: _removeQuickChatBubble,
+                        nextTurnLabel: nextTurnLabel,
                       ),
                     ),
                   ],

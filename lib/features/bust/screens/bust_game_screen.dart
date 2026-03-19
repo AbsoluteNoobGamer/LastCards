@@ -1003,6 +1003,12 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
         _gameState.currentPlayerId == OfflineGameState.localId;
     final canEndTurn = isMyTurn && validateEndTurn(_gameState) == null;
     final rs = _roundManager.state;
+    final nextTurnLabel = _gameState.phase == GamePhase.playing
+        ? nextPlayerAfterTurnLabel(
+            state: _gameState,
+            viewerPlayerId: OfflineGameState.localId,
+          )
+        : null;
 
     return Scaffold(
       backgroundColor: theme.backgroundDeep,
@@ -1111,6 +1117,8 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                         direction: _gameState.direction,
                         canEndTurn: canEndTurn,
                         onEndTurn: isMyTurn && !_isDealing ? _endTurn : null,
+                        pulseLocalTurn: isMyTurn,
+                        nextTurnLabel: nextTurnLabel,
                       ),
                     ),
 

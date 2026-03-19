@@ -630,6 +630,27 @@ String nextPlayerId({
   return players[next].id;
 }
 
+/// Human-readable name for who goes after [state.currentPlayerId] ends this turn,
+/// reflecting Eights (skip), King (reverse), and 2-player King (same again).
+///
+/// [viewerPlayerId] is shown as `"You"` when it matches that player.
+String nextPlayerAfterTurnLabel({
+  required GameState state,
+  required String viewerPlayerId,
+}) {
+  if (state.players.isEmpty) return '';
+  final nextId = nextPlayerId(state: state);
+  final curId = state.currentPlayerId;
+  String label(String id) {
+    if (id == viewerPlayerId) return 'You';
+    return state.playerById(id)?.displayName ?? id;
+  }
+  if (nextId == curId) {
+    return '${label(nextId)} again';
+  }
+  return label(nextId);
+}
+
 // ── Shared deck builder ───────────────────────────────────────────────────────
 
 /// Returns a freshly shuffled 54-card deck with stable, human-readable IDs.
