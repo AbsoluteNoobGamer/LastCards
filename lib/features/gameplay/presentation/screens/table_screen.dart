@@ -870,15 +870,23 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         .firstOrNull
         ?.id;
     // Online state reorders players (local at index 0); nextPlayerId walks by index — wrong for 3+.
-    final nextTurnLabel = isOfflineMode &&
-            gameState.phase == GamePhase.playing &&
-            viewerPlayerId != null &&
-            viewerPlayerId.isNotEmpty
-        ? nextPlayerAfterTurnLabel(
-            state: gameState,
-            viewerPlayerId: viewerPlayerId,
-          )
-        : null;
+    // Tournament: resolve past finished players so "Next:" matches actual advance.
+    String? nextTurnLabel;
+    if (isOfflineMode &&
+        gameState.phase == GamePhase.playing &&
+        viewerPlayerId != null &&
+        viewerPlayerId.isNotEmpty) {
+      final rawNextId = nextPlayerId(state: gameState);
+      final resolvedNextId =
+          _resolveTournamentNextPlayerId(gameState, rawNextId);
+      String label(String id) {
+        if (id == viewerPlayerId) return 'You';
+        return gameState.playerById(id)?.displayName ?? id;
+      }
+      nextTurnLabel = resolvedNextId == gameState.currentPlayerId
+          ? '${label(resolvedNextId)} again'
+          : label(resolvedNextId);
+    }
 
     // In online mode, start turn timer when it becomes our turn (e.g. after opponent ends)
     ref.listen(isLocalTurnProvider, (prev, next) {
