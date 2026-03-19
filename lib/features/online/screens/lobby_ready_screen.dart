@@ -121,9 +121,9 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
     } else if (isTournament) {
       // Online tournaments are not server-backed; avoid fake AI bracket coordinator.
       ref.read(tournamentSessionProvider.notifier).reset();
+      final messenger = ScaffoldMessenger.of(context);
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(
             content: Text('Online tournaments are coming soon!'),
           ),
