@@ -22,7 +22,7 @@ import '../../data/datasources/websocket_client.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_theme_data.dart';
-import '../../../../core/services/card_back_service.dart';
+import '../../../../core/services/player_level_service.dart';
 import '../../../../core/models/move_log_entry.dart';
 import '../../../../core/models/game_event.dart';
 import '../../../../core/providers/theme_provider.dart';
@@ -2227,9 +2227,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         .where((p) => p.hand.isEmpty && p.cardCount == 0)
         .firstOrNull!;
     if (winner.id == OfflineGameState.localId) {
-      CardBackService.instance.registerWin();
+      unawaited(PlayerLevelService.instance.awardWinXP());
       game_audio.AudioService.instance.playSound(GameSound.playerWin);
     } else {
+      unawaited(PlayerLevelService.instance.awardLossXP());
       game_audio.AudioService.instance.playSound(GameSound.playerLose);
     }
 

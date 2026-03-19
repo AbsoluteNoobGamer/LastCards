@@ -1,10 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/models/offline_game_state.dart';
 import '../../../../core/providers/theme_provider.dart';
-import '../../../../core/services/card_back_service.dart';
+import '../../../../core/services/player_level_service.dart';
 import '../../../../services/audio_service.dart';
 import '../../../../services/game_sound.dart';
 import '../../../../tournament/tournament_engine.dart';
@@ -246,7 +248,7 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
     if (!mounted || _isDisposed || !_engine.isComplete) return;
 
     if (_engine.winnerId == OfflineGameState.localId) {
-      CardBackService.instance.registerWin();
+      unawaited(PlayerLevelService.instance.awardTournamentWinXP());
     }
     AudioService.instance.playSound(GameSound.tournamentWin);
 

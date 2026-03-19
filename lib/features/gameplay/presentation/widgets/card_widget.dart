@@ -36,7 +36,11 @@ class CardWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!faceUp) return CardBackWidget(width: width);
     if (card.isJoker) {
-      return JokerCardWidget(width: width, onTap: onTap);
+      return JokerCardWidget(
+        width: width,
+        isRedJoker: card.suit.isRed,
+        onTap: onTap,
+      );
     }
 
     final height = AppDimensions.cardHeight(width);

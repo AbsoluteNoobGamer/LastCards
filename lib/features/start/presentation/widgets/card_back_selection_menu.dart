@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../../core/services/card_back_service.dart';
+import '../../../../core/services/player_level_service.dart';
 import '../../../../core/theme/app_dimensions.dart';
 
 /// Defines the supported style sections so we can add more tabs/sections later.
@@ -206,118 +207,148 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
   }
 
   Widget _buildAnimatedStylesMenu(String selectedDesignId) {
-    return ValueListenableBuilder<List<CardBackDesign>>(
-      valueListenable: CardBackService.instance.animatedGifDesigns,
-      builder: (context, animatedGifDesigns, _) {
-        final options = <_CardStyleOption>[
-          ...CardBackService.designs.map(
-            (design) => _CardStyleOption(
-              id: design.id,
-              title: design.label,
-              subtitle: null,
-              icon: Icons.auto_awesome_rounded,
-              previewDesignId: design.id,
-            ),
-          ),
-          ...animatedGifDesigns.map(
-            (gifDesign) => _CardStyleOption(
-              id: gifDesign.id,
-              title: gifDesign.label,
-              subtitle: null,
-              icon: Icons.auto_awesome_rounded,
-              previewAssetPath: gifDesign.id,
-            ),
-          ),
-        ];
+    return ValueListenableBuilder<int>(
+      valueListenable: PlayerLevelService.instance.currentLevel,
+      builder: (context, currentLevel, _) {
+        return ValueListenableBuilder<List<CardBackDesign>>(
+          valueListenable: CardBackService.instance.animatedGifDesigns,
+          builder: (context, animatedGifDesigns, _) {
+            final options = <_CardStyleOption>[
+              ...CardBackService.designs.map(
+                (design) => _CardStyleOption(
+                  id: design.id,
+                  title: design.label,
+                  subtitle: null,
+                  requiredUnlockLevel: design.unlockLevel,
+                  icon: Icons.auto_awesome_rounded,
+                  previewDesignId: design.id,
+                ),
+              ),
+              ...animatedGifDesigns.map(
+                (gifDesign) => _CardStyleOption(
+                  id: gifDesign.id,
+                  title: gifDesign.label,
+                  subtitle: null,
+                  requiredUnlockLevel: null,
+                  icon: Icons.auto_awesome_rounded,
+                  previewAssetPath: gifDesign.id,
+                ),
+              ),
+            ];
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SubmenuHeader(
-              title: 'Animated Cards',
-              onBack: () => setState(() => _view = _CardStyleMenuView.root),
-            ),
-            ...options.map(
-              (option) {
-                final unlocked = option.id == 'uploaded'
-                    ? true
-                    : CardBackService.instance.isUnlocked(option.id);
-                final isSelected = selectedDesignId == option.id;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _CardStyleTile(
-                    option: _CardStyleOption(
-                      id: option.id,
-                      title:
-                          unlocked ? option.title : '${option.title} (locked)',
-                      subtitle: option.subtitle,
-                      icon: option.icon,
-                    ),
-                    isSelected: isSelected,
-                    onTap: () => _selectOption(context, option.id),
-                  ),
-                );
-              },
-            ),
-          ],
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SubmenuHeader(
+                  title: 'Animated Cards',
+                  onBack: () =>
+                      setState(() => _view = _CardStyleMenuView.root),
+                ),
+                ...options.map(
+                  (option) {
+                    final requiredLevel = option.requiredUnlockLevel;
+                    final unlocked = option.id == 'uploaded'
+                        ? true
+                        : requiredLevel != null
+                            ? currentLevel >= requiredLevel
+                            : CardBackService.instance.isUnlocked(option.id);
+                    final isSelected = selectedDesignId == option.id;
+
+                    final lockedTitle = requiredLevel == null
+                        ? '${option.title} (locked)'
+                        : '${option.title} (Level $requiredLevel)';
+
+                    final lockedSubtitle = requiredLevel != null
+                        ? 'Your level: $currentLevel / Required: $requiredLevel'
+                        : option.subtitle;
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _CardStyleTile(
+                        option: _CardStyleOption(
+                          id: option.id,
+                          title: unlocked ? option.title : lockedTitle,
+                          subtitle: unlocked ? option.subtitle : lockedSubtitle,
+                          icon: option.icon,
+                        ),
+                        isSelected: isSelected,
+                        onTap: () => _selectOption(context, option.id),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            );
+          },
         );
       },
     );
   }
 
   Widget _buildJokerCoversMenu(String selectedDesignId) {
-    return ValueListenableBuilder<String>(
-      valueListenable: CardBackService.instance.selectedJokerCoverId,
-      builder: (context, selectedJokerId, _) {
-        return ValueListenableBuilder<List<CardBackDesign>>(
-          valueListenable: CardBackService.instance.jokerCoverDesigns,
-          builder: (context, jokerDesigns, _) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _SubmenuHeader(
-                  title: 'Joker Cover',
-                  onBack: () => setState(() => _view = _CardStyleMenuView.root),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _CardStyleTile(
-                    option: const _CardStyleOption(
-                      id: 'classic',
-                      title: 'Classic',
-                      subtitle: 'Default design',
-                      icon: Icons.celebration_rounded,
-                      previewDesignId: 'classic',
+    return ValueListenableBuilder<int>(
+      valueListenable: PlayerLevelService.instance.currentLevel,
+      builder: (context, currentLevel, _) {
+        return ValueListenableBuilder<String>(
+          valueListenable: CardBackService.instance.selectedJokerCoverId,
+          builder: (context, selectedJokerId, _) {
+            return ValueListenableBuilder<List<CardBackDesign>>(
+              valueListenable: CardBackService.instance.jokerCoverDesigns,
+              builder: (context, jokerDesigns, _) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SubmenuHeader(
+                      title: 'Joker Cover',
+                      onBack: () =>
+                          setState(() => _view = _CardStyleMenuView.root),
                     ),
-                    isSelected: selectedJokerId == 'classic',
-                    onTap: () => _selectJokerOption(context, 'classic'),
-                  ),
-                ),
-                if (jokerDesigns.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      'Add images to assets/images/jokercover/',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                  ),
-                ...jokerDesigns.map(
-                  (design) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _CardStyleTile(
-                      option: _CardStyleOption(
-                        id: design.id,
-                        title: design.label,
-                        subtitle: null,
-                        icon: Icons.celebration_rounded,
-                        previewAssetPath: design.assetPath,
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _CardStyleTile(
+                        option: const _CardStyleOption(
+                          id: 'classic',
+                          title: 'Classic',
+                          subtitle: 'Default design',
+                          icon: Icons.celebration_rounded,
+                          previewDesignId: 'classic',
+                        ),
+                        isSelected: selectedJokerId == 'classic',
+                        onTap: () => _selectJokerOption(context, 'classic'),
                       ),
-                      isSelected: selectedJokerId == design.id,
-                      onTap: () => _selectJokerOption(context, design.id),
                     ),
-                  ),
-                ),
-              ],
+                    if (jokerDesigns.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          'Add images to assets/images/jokercover/',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ),
+                    ...jokerDesigns.map((design) {
+                      final unlocked = currentLevel >= design.unlockLevel;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _CardStyleTile(
+                          option: _CardStyleOption(
+                            id: design.id,
+                            title: unlocked
+                                ? design.label
+                                : '${design.label} (Level ${design.unlockLevel})',
+                            subtitle: unlocked
+                                ? null
+                                : 'Your level: $currentLevel / Required: ${design.unlockLevel}',
+                            icon: Icons.celebration_rounded,
+                            previewAssetPath: design.assetPath,
+                          ),
+                          isSelected: selectedJokerId == design.id,
+                          onTap: () => _selectJokerOption(context, design.id),
+                        ),
+                      );
+                    }),
+                  ],
+                );
+              },
             );
           },
         );
@@ -328,7 +359,33 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
   Future<void> _selectJokerOption(BuildContext context, String designId) async {
     final ok = await CardBackService.instance.selectJokerCover(designId);
     if (!context.mounted) return;
-    if (ok) widget.onSelectionApplied?.call();
+    if (ok) {
+      widget.onSelectionApplied?.call();
+      return;
+    }
+
+    // Locked: show why selection failed.
+    CardBackDesign? design;
+    for (final candidate in CardBackService.instance.jokerCoverDesigns.value) {
+      if (candidate.id == designId) {
+        design = candidate;
+        break;
+      }
+    }
+
+    final requiredLevel = design?.unlockLevel;
+    final msg = requiredLevel == null
+        ? 'Could not select this joker cover.'
+        : 'Unlock ${design!.label} at Level $requiredLevel.';
+
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
   }
 
   Widget _buildCoverStylesMenu(String selectedDesignId) {
@@ -339,7 +396,7 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _SubmenuHeader(
-              title: 'Cards (Back Over)',
+              title: 'Cards (Back Cover)',
               onBack: () => setState(() => _view = _CardStyleMenuView.root),
             ),
             if (coverDesigns.isEmpty)
@@ -397,7 +454,7 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
           SnackBar(
             content: Text(
               isLockedAnimated
-                  ? 'Unlock ${design.label} at ${design.unlockWins} wins.'
+                  ? 'Unlock ${design.label} at Level ${design.unlockLevel}.'
                   : 'Could not select this card style.',
             ),
             behavior: SnackBarBehavior.floating,
@@ -473,6 +530,7 @@ class _CardStyleOption {
     required this.id,
     required this.title,
     this.subtitle,
+    this.requiredUnlockLevel,
     required this.icon,
     this.previewAssetPath,
     this.previewDesignId,
@@ -481,6 +539,7 @@ class _CardStyleOption {
   final String id;
   final String title;
   final String? subtitle;
+  final int? requiredUnlockLevel;
   final IconData icon;
   final String? previewAssetPath;
   final String? previewDesignId;

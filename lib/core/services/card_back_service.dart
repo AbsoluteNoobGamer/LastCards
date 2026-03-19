@@ -1,20 +1,23 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/card_model.dart';
+import 'player_level_service.dart';
 
 class CardBackDesign {
   const CardBackDesign({
     required this.id,
     required this.label,
-    this.unlockWins = 0,
+    this.unlockLevel = 1,
     this.assetPath,
   });
 
   final String id;
   final String label;
-  final int unlockWins;
+  final int unlockLevel;
 
   /// If set, this design is a cardbackcover image at this asset path.
   final String? assetPath;
@@ -27,7 +30,6 @@ class CardBackService {
 
   static const String _prefsSelectedKey = 'card_back_selected';
   static const String _prefsUnlockedKey = 'card_back_unlocked';
-  static const String _prefsWinsKey = 'card_back_total_wins';
   static const String _prefsAnimatedEffectsKey = 'card_back_animated_effects';
   static const String _prefsJokerCoverKey = 'joker_cover_selected';
   static const String _prefsCardFaceSetKey = 'card_face_set';
@@ -54,10 +56,10 @@ class CardBackService {
   };
 
   static const List<CardBackDesign> designs = [
-    CardBackDesign(id: 'classic', label: 'Classic', unlockWins: 0),
-    CardBackDesign(id: 'obsidian', label: 'Obsidian', unlockWins: 3),
-    CardBackDesign(id: 'ruby', label: 'Ruby', unlockWins: 8),
-    CardBackDesign(id: 'royal', label: 'Royal', unlockWins: 15),
+    CardBackDesign(id: 'classic', label: 'Classic', unlockLevel: 1),
+    CardBackDesign(id: 'obsidian', label: 'Obsidian', unlockLevel: 3),
+    CardBackDesign(id: 'ruby', label: 'Ruby', unlockLevel: 5),
+    CardBackDesign(id: 'royal', label: 'Royal', unlockLevel: 8),
   ];
 
   final ValueNotifier<String> selectedDesignId =
@@ -77,10 +79,8 @@ class CardBackService {
       ValueNotifier<String>('default');
 
   bool _initialized = false;
-  int _totalWins = 0;
   Set<String> _unlocked = <String>{'classic'};
 
-  int get totalWins => _totalWins;
   Set<String> get unlockedDesigns => _unlocked;
 
   static String _labelFromFilename(String filename) {
@@ -95,26 +95,24 @@ class CardBackService {
   Future<void> init() async {
     if (_initialized) return;
     final prefs = await SharedPreferences.getInstance();
+    await PlayerLevelService.instance.init();
     final selected = prefs.getString(_prefsSelectedKey) ?? _defaultCardBackId;
     final unlockedRaw = prefs.getString(_prefsUnlockedKey);
-    final wins = prefs.getInt(_prefsWinsKey) ?? 0;
     final animatedEnabled = prefs.getBool(_prefsAnimatedEffectsKey) ?? true;
 
-    _totalWins = wins;
     animatedEffectsEnabled.value = animatedEnabled;
     animatedGifDesigns.value = await _loadAnimatedGifDesigns();
     uploadedAnimatedAssetPath.value = await _findUploadedAnimatedAsset();
     cardBackCoverDesigns.value = await _loadCardBackCoverDesigns();
     jokerCoverDesigns.value = await _loadJokerCoverDesigns();
-    _unlocked = unlockedRaw == null || unlockedRaw.trim().isEmpty
-        ? <String>{'classic'}
-        : unlockedRaw
-            .split(',')
-            .where((entry) => entry.trim().isNotEmpty)
-            .toSet();
-    _unlocked.add('classic');
-    // Temporary testing mode: unlock all card backs.
-    _unlocked.addAll(designs.map((d) => d.id));
+    _unlocked = _unlockedDesignsForLevel(PlayerLevelService.instance.currentLevel.value);
+
+    // Ensure prefs are consistent with level-based unlocking (and migrate
+    // away from any legacy/unrelated unlocked state).
+    final computedUnlocked = _unlocked.join(',');
+    if (unlockedRaw == null || unlockedRaw.trim().isEmpty || unlockedRaw != computedUnlocked) {
+      await prefs.setString(_prefsUnlockedKey, computedUnlocked);
+    }
 
     final covers = cardBackCoverDesigns.value;
     final animatedGifs = animatedGifDesigns.value;
@@ -133,11 +131,25 @@ class CardBackService {
     final jokerSelected =
         prefs.getString(_prefsJokerCoverKey) ?? defaultJokerId;
     final jokerCovers = jokerCoverDesigns.value;
-    final isValidJoker = jokerSelected == 'classic' ||
-        jokerCovers.any((d) => d.id == jokerSelected);
-    selectedJokerCoverId.value =
-        isValidJoker ? jokerSelected : (jokerCovers.isNotEmpty ? jokerCovers.first.id : 'classic');
-    if (!isValidJoker) {
+    final currentLevel = PlayerLevelService.instance.currentLevel.value;
+
+    CardBackDesign? selectedDesign;
+    if (jokerSelected != 'classic') {
+      for (final d in jokerCovers) {
+        if (d.id == jokerSelected) {
+          selectedDesign = d;
+          break;
+        }
+      }
+    }
+
+    final isValidAndUnlockedJoker = jokerSelected == 'classic' ||
+        (selectedDesign != null && currentLevel >= selectedDesign.unlockLevel);
+
+    selectedJokerCoverId.value = isValidAndUnlockedJoker
+        ? jokerSelected
+        : (jokerCovers.isNotEmpty ? 'classic' : 'classic');
+    if (!isValidAndUnlockedJoker) {
       await prefs.setString(_prefsJokerCoverKey, selectedJokerCoverId.value);
     }
 
@@ -148,6 +160,19 @@ class CardBackService {
             : 'default';
 
     _initialized = true;
+
+    // Keep unlock state in sync as levels change.
+    PlayerLevelService.instance.currentLevel.addListener(() {
+      final nextLevel = PlayerLevelService.instance.currentLevel.value;
+      final nextUnlocked = _unlockedDesignsForLevel(nextLevel);
+      if (_setsEqual(_unlocked, nextUnlocked)) return;
+
+      _unlocked = nextUnlocked;
+      unawaited(() async {
+        final latestPrefs = await SharedPreferences.getInstance();
+        await latestPrefs.setString(_prefsUnlockedKey, _unlocked.join(','));
+      }());
+    });
   }
 
   /// Returns the asset path for a card face when using a custom face set, or null for classic.
@@ -184,11 +209,24 @@ class CardBackService {
                 id: path,
                 label: _labelFromFilename(path.split('/').last),
                 assetPath: path,
+                unlockLevel: _unlockLevelForJokerCoverPath(path),
               ))
           .toList();
     } catch (_) {
       return [];
     }
+  }
+
+  static int _unlockLevelForJokerCoverPath(String assetPath) {
+    final filename = assetPath.split('/').last.toLowerCase();
+    // Keep the most common jokers together so "Red Joker" and "Black Joker"
+    // don't diverge accidentally.
+    if (filename.contains('red joker') || filename.contains('black joker')) {
+      return 3;
+    }
+
+    // Default: harder than the base classic joker cover.
+    return 5;
   }
 
   Future<List<CardBackDesign>> _loadCardBackCoverDesigns() async {
@@ -238,13 +276,26 @@ class CardBackService {
 
   bool isUnlocked(String designId) => _unlocked.contains(designId);
 
+  bool _isDesignUnlocked(String designId) {
+    // Built-in animated card backs unlock purely by level.
+    for (final design in designs) {
+      if (design.id == designId) {
+        final level = PlayerLevelService.instance.currentLevel.value;
+        return level >= design.unlockLevel;
+      }
+    }
+
+    // Fallback to persisted unlock set.
+    return _unlocked.contains(designId);
+  }
+
   Future<bool> selectDesign(String designId) async {
     await init();
     if (designId == 'uploaded' && uploadedAnimatedAssetPath.value == null) {
       return false;
     }
     if (designId != 'uploaded' &&
-        !_unlocked.contains(designId) &&
+        !_isDesignUnlocked(designId) &&
         !cardBackCoverDesigns.value.any((d) => d.id == designId) &&
         !animatedGifDesigns.value.any((d) => d.id == designId)) {
       return false;
@@ -259,9 +310,18 @@ class CardBackService {
 
   Future<bool> selectJokerCover(String designId) async {
     await init();
-    if (designId != 'classic' &&
-        !jokerCoverDesigns.value.any((d) => d.id == designId)) {
-      return false;
+    if (designId != 'classic') {
+      CardBackDesign? design;
+      for (final d in jokerCoverDesigns.value) {
+        if (d.id == designId) {
+          design = d;
+          break;
+        }
+      }
+      if (design == null) return false;
+
+      final currentLevel = PlayerLevelService.instance.currentLevel.value;
+      if (currentLevel < design.unlockLevel) return false;
     }
     if (selectedJokerCoverId.value == designId) return true;
     selectedJokerCoverId.value = designId;
@@ -297,22 +357,23 @@ class CardBackService {
     }
   }
 
-  Future<void> registerWin() async {
-    await init();
-    _totalWins += 1;
-    var unlockedChanged = false;
+  static bool _setsEqual(Set<String> a, Set<String> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (final v in a) {
+      if (!b.contains(v)) return false;
+    }
+    return true;
+  }
 
+  Set<String> _unlockedDesignsForLevel(int currentLevel) {
+    final unlocked = <String>{'classic'};
     for (final design in designs) {
-      if (_totalWins >= design.unlockWins && !_unlocked.contains(design.id)) {
-        _unlocked.add(design.id);
-        unlockedChanged = true;
+      if (currentLevel >= design.unlockLevel) {
+        unlocked.add(design.id);
       }
     }
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_prefsWinsKey, _totalWins);
-    if (unlockedChanged) {
-      await prefs.setString(_prefsUnlockedKey, _unlocked.join(','));
-    }
+    unlocked.add('classic');
+    return unlocked;
   }
 }
