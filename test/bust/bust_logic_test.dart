@@ -155,6 +155,55 @@ void main() {
       expect(active.length, 1);
     });
 
+    test('seatPlayerIds preserves survivor IDs and aiNames', () {
+      const seatPlayerIds = [
+        OfflineGameState.localId,
+        'player-3',
+        'player-9',
+      ];
+      final (:gameState, :drawPile) = BustEngine.buildRound(
+        playerCount: 3,
+        seatPlayerIds: seatPlayerIds,
+        aiNames: {
+          'player-3': 'Alex',
+          'player-9': 'Sam',
+        },
+        seed: 42,
+      );
+      expect(gameState.players.map((p) => p.id).toList(), seatPlayerIds);
+      expect(gameState.playerById('player-3')?.displayName, 'Alex');
+      expect(gameState.playerById('player-9')?.displayName, 'Sam');
+      expect(
+        gameState.playerById(OfflineGameState.localId)?.displayName,
+        'You',
+      );
+      final handCards =
+          gameState.players.fold<int>(0, (s, p) => s + p.hand.length);
+      expect(handCards + drawPile.length + 1, 52);
+    });
+
+    test('seatPlayerIds rejects wrong length', () {
+      expect(
+        () => BustEngine.buildRound(
+          playerCount: 2,
+          seatPlayerIds: [OfflineGameState.localId],
+          seed: 1,
+        ),
+        throwsA(isA<AssertionError>()),
+      );
+    });
+
+    test('seatPlayerIds rejects when local is not first', () {
+      expect(
+        () => BustEngine.buildRound(
+          playerCount: 2,
+          seatPlayerIds: ['player-2', OfflineGameState.localId],
+          seed: 1,
+        ),
+        throwsA(isA<AssertionError>()),
+      );
+    });
+
     test('assert fires for playerCount < 2', () {
       expect(
         () => BustEngine.buildRound(playerCount: 1),

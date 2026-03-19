@@ -46,17 +46,36 @@ abstract final class BustEngine {
 
   /// Builds the initial [GameState] and draw pile for a Bust round.
   ///
-  /// [playerCount] must be between 5 and 10.
-  /// [aiNames] maps player IDs (`'player-2'` … `'player-N'`) to display names.
+  /// [playerCount] must be between 2 and 10.
+  ///
+  /// [seatPlayerIds] optional full seat order: length [playerCount], index `0`
+  /// must be [OfflineGameState.localId], remaining entries are opponent IDs
+  /// (use the same strings as prior rounds so penalties / [aiNames] stay aligned).
+  /// If omitted, opponents are `'player-2'` … `'player-{playerCount}'`.
+  ///
+  /// [aiNames] maps each non-local seat id to a display name.
   /// [startingPlayerId] optionally overrides who goes first (random by default).
   static ({GameState gameState, List<CardModel> drawPile}) buildRound({
     required int playerCount,
+    List<String>? seatPlayerIds,
     Map<String, String> aiNames = const {},
     String? startingPlayerId,
     int? seed,
   }) {
     assert(playerCount >= 2 && playerCount <= 10,
         'Bust playerCount must be between 2 and 10');
+
+    final seatIds = seatPlayerIds ??
+        [
+          OfflineGameState.localId,
+          for (var k = 2; k <= playerCount; k++) 'player-$k',
+        ];
+    assert(seatIds.length == playerCount,
+        'seatPlayerIds length must equal playerCount');
+    assert(seatIds.toSet().length == seatIds.length,
+        'seatPlayerIds must not contain duplicates');
+    assert(seatIds[0] == OfflineGameState.localId,
+        'seatPlayerIds[0] must be OfflineGameState.localId');
 
     final rng = seed != null ? math.Random(seed) : math.Random();
     final deck = buildShuffledDeck(random: rng);
@@ -69,21 +88,8 @@ abstract final class BustEngine {
       return drawn;
     }
 
-    // 1. Local player (bottom)
-    final localHand = draw(handSize);
-    final players = <PlayerModel>[
-      PlayerModel(
-        id: OfflineGameState.localId,
-        displayName: 'You',
-        tablePosition: TablePosition.bottom,
-        hand: localHand,
-        cardCount: localHand.length,
-      ),
-    ];
-
-    // 2. AI players — positions cycle through all 9 opponent slots so up to
-    //    10-player Bust mode assigns unique positions (matching the server's
-    //    _positionFor logic in game_session.dart).
+    // Positions cycle through all 9 opponent slots so up to 10-player Bust
+    // matches the server's _positionFor logic in game_session.dart.
     const aiPositionCycle = [
       TablePosition.top,
       TablePosition.left,
@@ -95,16 +101,30 @@ abstract final class BustEngine {
       TablePosition.farLeft,
       TablePosition.farRight,
     ];
-    for (int i = 0; i < playerCount - 1; i++) {
-      final aiId = 'player-${i + 2}';
-      final aiHand = draw(handSize);
-      players.add(PlayerModel(
-        id: aiId,
-        displayName: aiNames[aiId] ?? 'Player ${i + 2}',
-        tablePosition: aiPositionCycle[i % aiPositionCycle.length],
-        hand: aiHand,
-        cardCount: aiHand.length,
-      ));
+
+    final players = <PlayerModel>[];
+    for (var i = 0; i < playerCount; i++) {
+      final id = seatIds[i];
+      final hand = draw(handSize);
+      if (i == 0) {
+        players.add(PlayerModel(
+          id: id,
+          displayName: 'You',
+          tablePosition: TablePosition.bottom,
+          hand: hand,
+          cardCount: hand.length,
+        ));
+      } else {
+        final aiSlot = i - 1;
+        players.add(PlayerModel(
+          id: id,
+          displayName:
+              aiNames[id] ?? id.replaceFirst(RegExp(r'^player-'), 'Player '),
+          tablePosition: aiPositionCycle[aiSlot % aiPositionCycle.length],
+          hand: hand,
+          cardCount: hand.length,
+        ));
+      }
     }
 
     // 3. Face-up discard + remaining draw pile

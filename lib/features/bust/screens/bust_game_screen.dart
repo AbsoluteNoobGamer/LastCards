@@ -166,9 +166,19 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       _eliminationHistory = resume.eliminationHistory;
       _localRoundStats = resume.localRoundStats;
       final survivorCount = resume.survivorIds.length;
+      final seatPlayerIds = <String>[
+        OfflineGameState.localId,
+        for (final id in resume.survivorIds)
+          if (id != OfflineGameState.localId) id,
+      ];
+      assert(
+        seatPlayerIds.length == survivorCount,
+        'resume.survivorIds must list each survivor once (including local)',
+      );
 
       final (:gameState, :drawPile) = BustEngine.buildRound(
         playerCount: survivorCount,
+        seatPlayerIds: seatPlayerIds,
         aiNames: {
           for (final id in resume.survivorIds.where((id) => id != OfflineGameState.localId))
             id: resume.playerNames[id] ?? id,
@@ -183,8 +193,8 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       _gameState = _applyInitialEffects(gameState);
       _moveLogEntries.clear();
 
-      // Survivors reuse `player-1` … `player-N` IDs each round; cumulative
-      // penalties and eliminated IDs must match those same IDs.
+      // Seat IDs match prior rounds via [seatPlayerIds]; penalties / eliminated
+      // lists use the same keys.
       _roundManager = BustRoundManager.resumed(
         survivorIds: _gameState.players.map((p) => p.id).toList(),
         firstPlayerId: _gameState.currentPlayerId,
