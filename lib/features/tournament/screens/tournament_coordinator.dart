@@ -342,27 +342,31 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
 
     if (!mounted || _isDisposed || !_engine.isComplete) return;
 
-    if (_engine.winnerId == OfflineGameState.localId) {
-      if (!_tournamentLeaderboardRecorded) {
-        _tournamentLeaderboardRecorded = true;
-        final uid = FirebaseAuth.instance.currentUser?.uid ??
-            OfflineGameState.localId;
-        // See elimination-branch comment: online tournament Firestore is
-        // server-only; local mirror only here.
-        final collectionName = widget.isOnline
-            ? 'leaderboard_tournament_online'
-            : 'leaderboard_tournament_ai';
-        final displayName = _displayName(OfflineGameState.localId);
+    // Record leaderboard result for the local player if not already done.
+    // The elimination-branch at line ~291 handles mid-tournament exits, but
+    // a player who reaches the final and LOSES bypasses that branch because
+    // _engine.isComplete is already true when we get here.
+    if (!_tournamentLeaderboardRecorded) {
+      _tournamentLeaderboardRecorded = true;
+      final uid =
+          FirebaseAuth.instance.currentUser?.uid ?? OfflineGameState.localId;
+      final collectionName = widget.isOnline
+          ? 'leaderboard_tournament_online'
+          : 'leaderboard_tournament_ai';
+      final displayName = _displayName(OfflineGameState.localId);
+      final didWin = _engine.winnerId == OfflineGameState.localId;
 
-        await LeaderboardStatsWriter.instance.recordModeResult(
-          collectionName: collectionName,
-          uid: uid,
-          displayName: displayName,
-          deltaWins: 1,
-          deltaLosses: 0,
-          deltaGamesPlayed: 1,
-        );
-      }
+      await LeaderboardStatsWriter.instance.recordModeResult(
+        collectionName: collectionName,
+        uid: uid,
+        displayName: displayName,
+        deltaWins: didWin ? 1 : 0,
+        deltaLosses: didWin ? 0 : 1,
+        deltaGamesPlayed: 1,
+      );
+    }
+
+    if (_engine.winnerId == OfflineGameState.localId) {
       unawaited(PlayerLevelService.instance.awardTournamentWinXP());
     }
     AudioService.instance.playSound(GameSound.tournamentWin);

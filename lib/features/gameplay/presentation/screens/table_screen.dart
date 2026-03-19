@@ -2468,28 +2468,94 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   bool _checkWin(String lastActorId, GameState state) {
     if (!shouldShowStandardWinOverlay(
         isTournamentMode: widget.isTournamentMode)) {
-      // Drain all confirmed finishers (including deferred wins from Queen lock
-      // or penalty chain) so we don't leave anyone "playing alone" and block
-      // the round from completing when 3 have qualified.
-      final finishedUnrecorded = <String>[];
+      // Collect all newly-confirmable finishers in one pass.
+      final newFinishers = <String>[];
       for (final p in state.players) {
         if (_tournamentFinishedPlayerIds.contains(p.id)) continue;
         if (canConfirmPlayerWin(state: state, playerId: p.id)) {
-          finishedUnrecorded.add(p.id);
+          newFinishers.add(p.id);
         }
       }
-      var handledAnyFinisher = false;
-      for (final playerId in finishedUnrecorded) {
-        if (_handleTournamentPlayerFinished(playerId, state)) {
-          handledAnyFinisher = true;
-          if (_tournamentRoundComplete) return true;
+      if (newFinishers.isEmpty) {
+        // No new finishers — still check auto-eliminate in case the last
+        // remaining player was already stuck.
+        if (_autoEliminateLastTournamentPlayer(state)) return true;
+        return false;
+      }
+
+      // ── Batch-record all finishers before making any scheduling decision ──
+      // Recording inside the loop used to call _scheduleAiTurn once per
+      // finisher, creating concurrent AI turns that corrupted _offlineState.
+      for (final playerId in newFinishers) {
+        _tournamentFinishedPlayerIds.add(playerId);
+        final finishPosition = _tournamentFinishedPlayerIds.length;
+        widget.onPlayerFinished(playerId, finishPosition);
+        // Play qualify sound for every finisher except the last one in the
+        // round (the last finisher triggers eliminate sound below).
+        if (_tournamentFinishedPlayerIds.length < state.players.length) {
+          game_audio.AudioService.instance
+              .playSound(GameSound.tournamentQualify);
         }
       }
-      // If exactly one player remains after draining all confirmable wins,
-      // auto-eliminate them so the round cannot get stuck with a lone player
-      // who still has cards (mirrors TournamentEngine behaviour).
+
+      // ── After all finishers are recorded, decide what happens next ────────
+
+      // Check if the round is now fully complete (all players accounted for).
+      if (_tournamentFinishedPlayerIds.length == state.players.length) {
+        _tournamentRoundComplete = true;
+        final eliminatedPlayerId = _tournamentFinishedPlayerIds.last;
+        game_audio.AudioService.instance
+            .playSound(GameSound.tournamentEliminate);
+        _engineTimer.cancel();
+        if (mounted) {
+          _scheduleTournamentTablePop(
+            TournamentRoundGameResult(
+              finishedPlayerIds:
+                  List<String>.from(_tournamentFinishedPlayerIds),
+              eliminatedPlayerId: eliminatedPlayerId,
+            ),
+          );
+        }
+        return true;
+      }
+
+      // Auto-eliminate if only one unfinished player remains.
       if (_autoEliminateLastTournamentPlayer(state)) return true;
-      return handledAnyFinisher;
+
+      // Round is still in progress — advance to the next active player and
+      // schedule exactly ONE AI turn (or start the human timer). Use the last
+      // recorded finisher as the "start after" anchor.
+      final lastFinisher = newFinishers.last;
+      final nextId = _nextTournamentActivePlayerId(
+        state: state,
+        startAfterPlayerId: lastFinisher,
+      );
+
+      _engineTimer.cancel();
+      setState(() {
+        _offlineState = state.copyWith(
+          currentPlayerId: nextId,
+          actionsThisTurn: 0,
+          cardsPlayedThisTurn: 0,
+          lastPlayedThisTurn: null,
+          activeSkipCount: 0,
+          preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
+          drawPileCount: _drawPile.length,
+        );
+        _selectedCardId = null;
+        _aiThinking = false;
+      });
+
+      if (mounted) {
+        _reshuffleCentrePileIntoDrawPile(silent: _tournamentSimulatingRest);
+      }
+
+      if (nextId != OfflineGameState.localId) {
+        _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
+      } else {
+        _startTimer();
+      }
+      return true;
     }
 
     if (!wouldConfirmWin(state)) return false;
@@ -2527,73 +2593,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     return true;
   }
 
-  bool _handleTournamentPlayerFinished(String playerId, GameState state) {
-    if (_tournamentFinishedPlayerIds.contains(playerId)) return false;
-
-    final didFinish = _didPlayerFinish(playerId, state);
-    if (!didFinish) return false;
-
-    _tournamentFinishedPlayerIds.add(playerId);
-    final finishPosition = _tournamentFinishedPlayerIds.length;
-    widget.onPlayerFinished(playerId, finishPosition);
-    if (_tournamentFinishedPlayerIds.length < state.players.length) {
-      // Anyone who finishes here has qualified for next round, not eliminated.
-      game_audio.AudioService.instance.playSound(GameSound.tournamentQualify);
-    }
-
-    if (_tournamentFinishedPlayerIds.length == state.players.length) {
-      _tournamentRoundComplete = true;
-      final eliminatedPlayerId = _tournamentFinishedPlayerIds.last;
-      game_audio.AudioService.instance.playSound(GameSound.tournamentEliminate);
-
-      _engineTimer.cancel();
-      // Defer pop to next frame — see [_scheduleTournamentTablePop].
-      if (mounted) {
-        _scheduleTournamentTablePop(
-          TournamentRoundGameResult(
-            finishedPlayerIds: List<String>.from(_tournamentFinishedPlayerIds),
-            eliminatedPlayerId: eliminatedPlayerId,
-          ),
-        );
-      }
-      return true;
-    }
-
-    final nextId = _nextTournamentActivePlayerId(
-      state: state,
-      startAfterPlayerId: playerId,
-    );
-
-    _engineTimer.cancel();
-    setState(() {
-      _offlineState = state.copyWith(
-        currentPlayerId: nextId,
-        actionsThisTurn: 0,
-        cardsPlayedThisTurn: 0,
-        lastPlayedThisTurn: null,
-        activeSkipCount: 0,
-        preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
-        drawPileCount: _drawPile.length,
-      );
-      _selectedCardId = null;
-      _aiThinking = false;
-    });
-
-    if (mounted) {
-      _reshuffleCentrePileIntoDrawPile(silent: _tournamentSimulatingRest);
-    }
-
-    if (nextId != OfflineGameState.localId) {
-      _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
-    } else {
-      _startTimer();
-    }
-    return true;
-  }
-
-  bool _didPlayerFinish(String playerId, GameState state) {
-    return canConfirmPlayerWin(state: state, playerId: playerId);
-  }
 
   String _nextTournamentActivePlayerId({
     required GameState state,
