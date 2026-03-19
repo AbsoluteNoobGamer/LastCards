@@ -752,9 +752,18 @@ class _ModeLeaderboardState extends State<_ModeLeaderboard> {
   late Future<List<_ModeEntry>> _future;
 
   @override
+  @override
   void initState() {
     super.initState();
     _future = widget.fetchEntries();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ModeLeaderboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.mode != widget.mode) {
+      _future = widget.fetchEntries();
+    }
   }
 
   Future<void> _refresh() async {
