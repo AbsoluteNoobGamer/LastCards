@@ -72,7 +72,7 @@ When multiple effects are active together, resolve in this order:
   - Remaining players advance to the next round.
   - Repeat until only one player remains (tournament winner).
 - **Offline tournament:** After you qualify (empty hand), **Skip to result** fast-forwards the rest of the round with no AI think-time, card flights, or draw animations until the round ends (any player count).
-- **Implementation note:** The table uses seat IDs `player-2`…`player-7`; the tournament engine uses `tournament-ai-*` for the same seats. The coordinator maps these when recording finishes so the bracket advances correctly.
+- **Implementation note:** AI seats use IDs `tournament-ai-*` with `Ai.playerId` aligned to the same id so configs and bracket updates stay consistent.
 
 ### Play Online
 - Intended to use the same core gameplay rules.
@@ -80,3 +80,12 @@ When multiple effects are active together, resolve in this order:
 - Note: online networking/game-sync implementation is currently in progress in this codebase.
 - **Leaderboards:** Firestore collections `leaderboard_online` and `leaderboard_bust_online` are **server-written only** (Admin SDK); the client may cache increments locally for instant UI. Casual quickplay standard wins update `leaderboard_online` when the session is trophy-eligible (`!isPrivate`); online Bust finals update `leaderboard_bust_online` the same way.
 
+### Bust Mode
+- **Deck:** 52-card standard deck only (no Jokers); 2–10 players.
+- **Deal:** Hand size depends on player count (e.g. 10 cards each for 2–5 players, down to 5 each for 9–10 players) — see adaptive deal table in code (`handSizeForBust`).
+- **Round structure:** Each active player takes exactly **2** turns per round; the round ends when everyone has played twice.
+- **Scoring / elimination:** Cards left in hand at round end add to that player’s **cumulative** penalty score; the **bottom two** players by cumulative penalty are eliminated each round (only **one** elimination when two players remain, producing a winner).
+- **Placement pile:** When the visible discard pile reaches **5** cards, the bottom **four** are shuffled back into the draw pile, leaving only the top card showing.
+- **Reconnect / disconnect (online):** With **more than two** survivors, a disconnect removes that player and play continues; if **two or fewer** survivors would remain, the session ends like a normal disconnect.
+- **Win:** Last player standing after eliminations wins.
+- **Implementation notes:** Offline Bust tracks the same cumulative penalties across rounds via `BustRoundManager` and reuses the same seat IDs each round (`player-local` for the human, unchanged `player-*` labels for surviving AIs via `BustEngine.buildRound(seatPlayerIds: …)`). Jokers are not present; online play must use `declare_joker` (not `play_cards`) for Jokers in standard 54-card modes.

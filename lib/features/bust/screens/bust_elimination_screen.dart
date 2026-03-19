@@ -316,6 +316,7 @@ class BustEliminationScreen extends ConsumerWidget {
               ...result.cumulativePenalties.keys
                   .where((id) => !result.survivorIds.contains(id)),
             ],
+            cumulativePenaltyPoints: result.cumulativePenalties,
             aiConfigs: aiConfigs,
             eliminationHistory: updatedHistory,
             localRoundStats: localRoundStats,

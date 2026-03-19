@@ -84,7 +84,7 @@ class BustRoundManager {
     final roundPenalties = <String, int>{};
     for (final id in _state.activePlayerIds) {
       final player = gameState.playerById(id);
-      roundPenalties[id] = player?.cardCount ?? 0;
+      roundPenalties[id] = player?.hand.length ?? 0;
     }
 
     // 2. Add to cumulative penalties

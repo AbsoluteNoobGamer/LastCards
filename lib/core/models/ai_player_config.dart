@@ -38,6 +38,24 @@ class AiPlayerConfig {
 
   final List<String> chatLines;
 
+  AiPlayerConfig copyWith({
+    String? playerId,
+    String? name,
+    AiPersonality? personality,
+    Color? nameColor,
+    Color? avatarColor,
+    List<String>? chatLines,
+  }) {
+    return AiPlayerConfig(
+      playerId: playerId ?? this.playerId,
+      name: name ?? this.name,
+      personality: personality ?? this.personality,
+      nameColor: nameColor ?? this.nameColor,
+      avatarColor: avatarColor ?? this.avatarColor,
+      chatLines: chatLines ?? this.chatLines,
+    );
+  }
+
   /// Two-letter initials derived from the player's name.
   String get initials {
     final parts = name.trim().split(' ');

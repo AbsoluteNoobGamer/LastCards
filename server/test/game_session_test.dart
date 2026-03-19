@@ -358,6 +358,55 @@ void main() {
       final handAfter = _hand(snapAfter).length;
       expect(handAfter, equals(handBefore + 2));
     });
+
+    test('joker via play_cards is rejected', () {
+      final (:session, :sockets, :ids) = _makeSession(2);
+      final p1ws = sockets[0];
+      final p1Id = ids[0];
+
+      final joker = _joker('jk1', Suit.spades);
+      final p1Hand = [joker, _card(Rank.five, Suit.spades)];
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: p1Id,
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: p1Hand,
+            cardCount: p1Hand.length,
+          ),
+          PlayerModel(
+            id: ids[1],
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: [_card(Rank.six, Suit.hearts)],
+            cardCount: 1,
+          ),
+        ],
+        currentPlayerId: p1Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: _card(Rank.seven, Suit.spades),
+        drawPileCount: 5,
+        preTurnCentreSuit: Suit.spades,
+      );
+      session.seedStateForTesting(
+        state: state,
+        drawPile: List.generate(
+            5, (i) => CardModel(id: 'filler_$i', rank: Rank.four, suit: Suit.clubs)),
+      );
+
+      p1ws.clear();
+      session.handleAction(p1Id, {
+        'type': 'play_cards',
+        'cardIds': ['jk1'],
+      });
+
+      final err = p1ws.lastOfType('error');
+      expect(err, isNotNull);
+      expect(err!['code'], equals('joker_must_declare'));
+    });
   });
 
   // ── draw_card ──────────────────────────────────────────────────────────────
@@ -1315,6 +1364,113 @@ void main() {
       final roundStart = p1ws.lastOfType('bust_round_start');
       expect(roundStart, isNotNull);
       expect(roundStart!['roundNumber'], equals(2));
+    });
+
+    test('disconnect with more than 2 survivors continues (no game_ended)', () {
+      final (:session, :sockets, :ids) = _makeSession(4, isBustMode: true);
+      for (final id in ids) {
+        session.markReady(id);
+      }
+      final p1ws = sockets[0];
+      p1ws.clear();
+      session.removePlayer(ids[3]);
+
+      expect(p1ws.ofType('game_ended'), isEmpty);
+      expect(p1ws.ofType('player_left'), isNotEmpty);
+      expect(p1ws.ofType('state_snapshot'), isNotEmpty);
+    });
+
+    test(
+        'disconnect when all remaining survivors already have 2 turns '
+        'finalizes bust round immediately', () {
+      final (:session, :sockets, :ids) = _makeSession(4, isBustMode: true);
+      for (final id in ids) {
+        session.markReady(id);
+      }
+      final aId = ids[0];
+      final bId = ids[1];
+      final cId = ids[2];
+      final dId = ids[3];
+      final observerWs = sockets[1];
+
+      final tinyHand = [_card(Rank.three, Suit.spades)];
+      final players = [
+        PlayerModel(
+          id: aId,
+          displayName: 'A',
+          tablePosition: _positionFor(0),
+          hand: tinyHand,
+          cardCount: 1,
+        ),
+        PlayerModel(
+          id: bId,
+          displayName: 'B',
+          tablePosition: _positionFor(1),
+          hand: tinyHand,
+          cardCount: 1,
+        ),
+        PlayerModel(
+          id: cId,
+          displayName: 'C',
+          tablePosition: _positionFor(2),
+          hand: tinyHand,
+          cardCount: 1,
+        ),
+        PlayerModel(
+          id: dId,
+          displayName: 'D',
+          tablePosition: _positionFor(3),
+          hand: tinyHand,
+          cardCount: 1,
+        ),
+      ];
+      final drawPile = List.generate(
+          20,
+          (i) => CardModel(id: 'draw_$i', rank: Rank.four, suit: Suit.clubs));
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: players,
+        currentPlayerId: aId,
+        direction: PlayDirection.clockwise,
+        discardTopCard: _card(Rank.two, Suit.spades),
+        drawPileCount: drawPile.length,
+        preTurnCentreSuit: Suit.spades,
+      );
+
+      session.seedStateForTesting(
+        state: state,
+        drawPile: drawPile,
+        bustSurvivorIds: [aId, bId, cId, dId],
+        bustTurnsThisRound: {
+          aId: 1,
+          bId: 2,
+          cId: 2,
+          dId: 2,
+        },
+        bustPenaltyPoints: {for (final id in ids) id: 0},
+      );
+
+      observerWs.clear();
+      session.removePlayer(aId);
+
+      expect(observerWs.ofType('player_left'), isNotEmpty);
+      expect(observerWs.ofType('bust_round_over'), isNotEmpty);
+      expect(observerWs.ofType('turn_changed'), isEmpty,
+          reason: 'Round should end without advancing to another turn');
+    });
+
+    test('disconnect leaving <=2 survivors ends game', () {
+      final (:session, :sockets, :ids) = _makeSession(3, isBustMode: true);
+      for (final id in ids) {
+        session.markReady(id);
+      }
+      final p1ws = sockets[0];
+      p1ws.clear();
+      session.removePlayer(ids[2]);
+
+      expect(p1ws.ofType('game_ended'), isNotEmpty);
     });
   });
 

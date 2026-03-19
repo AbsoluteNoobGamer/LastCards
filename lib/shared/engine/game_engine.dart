@@ -658,7 +658,7 @@ String nextPlayerAfterTurnLabel({
 /// Contains 52 standard cards (all suits × all non-joker ranks) plus two
 /// Jokers (`joker_r` hearts, `joker_b` spades). Used by both the offline
 /// client and the multiplayer server so card IDs are always in sync.
-List<CardModel> buildShuffledDeck() {
+List<CardModel> buildShuffledDeck({int? seed, math.Random? random}) {
   const ranks = [
     Rank.two, Rank.three, Rank.four, Rank.five, Rank.six, Rank.seven,
     Rank.eight, Rank.nine, Rank.ten, Rank.jack, Rank.queen, Rank.king,
@@ -679,13 +679,13 @@ List<CardModel> buildShuffledDeck() {
   deck.add(const CardModel(id: 'joker_r', rank: Rank.joker, suit: Suit.hearts));
   deck.add(const CardModel(id: 'joker_b', rank: Rank.joker, suit: Suit.spades));
 
-  fisherYatesShuffle(deck);
+  fisherYatesShuffle(deck, seed: seed, random: random);
   return deck;
 }
 
 /// Returns a 52-card deck (no Jokers) for Bust mode.
 /// Same card IDs as standard deck; used by server and client for Bust.
-List<CardModel> buildBustDeck({int? seed}) {
+List<CardModel> buildBustDeck({int? seed, math.Random? random}) {
   const ranks = [
     Rank.two, Rank.three, Rank.four, Rank.five, Rank.six, Rank.seven,
     Rank.eight, Rank.nine, Rank.ten, Rank.jack, Rank.queen, Rank.king,
@@ -703,7 +703,7 @@ List<CardModel> buildBustDeck({int? seed}) {
       ));
     }
   }
-  fisherYatesShuffle(deck, seed);
+  fisherYatesShuffle(deck, seed: seed, random: random);
   return deck;
 }
 
