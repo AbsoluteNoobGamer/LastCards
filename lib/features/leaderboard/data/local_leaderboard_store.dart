@@ -40,7 +40,7 @@ class LocalLeaderboardStore {
   ) async {
     final prefs = await _prefs();
     final raw = prefs.getString(_prefsKey(collectionName));
-    if (raw == null || raw.isEmpty) return const {};
+    if (raw == null || raw.isEmpty) return {};
 
     final decoded = jsonDecode(raw) as Map<String, dynamic>;
     final entries = <String, LocalLeaderboardEntry>{};
