@@ -361,7 +361,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       _discardPile.clear();
       _onlineDiscardCount = 1; // one card already on discard (discardTopCard)
       _onlineWinDialogShown = false;
-      _bustLeaderboardRecorded = false;
+
       if (liveState.discardTopCard != null) {
         _discardPile.add(liveState.discardTopCard!);
       }
