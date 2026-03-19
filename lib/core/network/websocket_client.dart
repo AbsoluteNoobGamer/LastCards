@@ -56,6 +56,10 @@ class WebSocketClient {
   }
 
   Future<void> _doConnect() async {
+    // User called disconnect() — don't reconnect (e.g. delayed callback from
+    // a previous _handleDisconnect).
+    if (_manualDisconnect) return;
+
     _stateNotifier.value = _retryCount == 0
         ? WsConnectionState.connecting
         : WsConnectionState.reconnecting;
