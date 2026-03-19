@@ -128,6 +128,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
         .limit(50)
         .get();
     final n = _playerCountFilter;
+    final snap = await FirebaseFirestore.instance
+        .collection('ranked_stats')
+        .orderBy('rating', descending: true)
+        .limit(50)
+        .get();
     final entries = snap.docs.map((doc) {
       if (n == null) return _RankedEntry.fromDoc(doc);
       // Overlay per-bracket win/loss/gamesPlayed onto the ranked entry so the
