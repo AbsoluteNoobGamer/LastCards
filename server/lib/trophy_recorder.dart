@@ -389,6 +389,79 @@ class TrophyRecorder {
     unawaited(_persistLeavePenalty(uid, displayName: displayName));
   }
 
+  static const _leaderboardOnline = 'leaderboard_online';
+  static const _leaderboardBustOnline = 'leaderboard_bust_online';
+
+  /// Casual (non-ranked) standard online games → [leaderboard_online].
+  ///
+  /// Only players with a non-empty [firebaseUid] are persisted (document id =
+  /// Firebase Auth uid). Call only for sessions where results are
+  /// server-authoritative (e.g. quickplay with full roster).
+  void recordLeaderboardOnlineCasual({
+    required String winnerPlayerId,
+    required List<({String playerId, String? firebaseUid, String displayName})>
+        players,
+  }) {
+    unawaited(_persistModeLeaderboard(
+      collection: _leaderboardOnline,
+      winnerPlayerId: winnerPlayerId,
+      players: players,
+    ));
+  }
+
+  /// Online Bust finals → [leaderboard_bust_online].
+  void recordLeaderboardBustOnline({
+    required String winnerPlayerId,
+    required List<({String playerId, String? firebaseUid, String displayName})>
+        players,
+  }) {
+    unawaited(_persistModeLeaderboard(
+      collection: _leaderboardBustOnline,
+      winnerPlayerId: winnerPlayerId,
+      players: players,
+    ));
+  }
+
+  Future<void> _persistModeLeaderboard({
+    required String collection,
+    required String winnerPlayerId,
+    required List<({String playerId, String? firebaseUid, String displayName})>
+        players,
+  }) async {
+    _log.info(
+        'Recording $collection — winner player: $winnerPlayerId, '
+        'participants: ${players.map((p) => p.playerId).join(', ')}');
+
+    final futures = <Future<void>>[];
+    for (final p in players) {
+      final uid = p.firebaseUid;
+      if (uid == null || uid.isEmpty) continue;
+      final won = p.playerId == winnerPlayerId;
+      futures.add(
+        _firestoreClient.atomicUpdate(
+          collection: collection,
+          docId: uid,
+          increments: {
+            'gamesPlayed': 1,
+            if (won) 'wins': 1,
+            if (!won) 'losses': 1,
+          },
+          defaultFields: {
+            'wins': 0,
+            'losses': 0,
+            'gamesPlayed': 0,
+          },
+          stringFields: {
+            'displayName': p.displayName,
+          },
+        ),
+      );
+    }
+
+    await Future.wait(futures);
+    _log.info('$collection result persisted.');
+  }
+
   Future<void> _persistLeavePenalty(String uid,
       {required String displayName}) async {
     _log.info('Recording leave penalty for $uid');
@@ -416,4 +489,40 @@ class TrophyRecorder {
   /// Legacy no-op — superseded by [recordRankedResult].
   @Deprecated('Use recordRankedResult instead')
   void recordWin(String playerId) {}
+}
+
+/// Test double — counts mode-leaderboard calls without touching Firestore.
+class FakeTrophyRecorder extends TrophyRecorder {
+  FakeTrophyRecorder() : super._();
+
+  int leaderboardOnlineCasualCalls = 0;
+  int leaderboardBustOnlineCalls = 0;
+  String? lastCasualWinnerPlayerId;
+  List<({String playerId, String? firebaseUid, String displayName})>?
+      lastCasualPlayers;
+  String? lastBustWinnerPlayerId;
+  List<({String playerId, String? firebaseUid, String displayName})>?
+      lastBustPlayers;
+
+  @override
+  void recordLeaderboardOnlineCasual({
+    required String winnerPlayerId,
+    required List<({String playerId, String? firebaseUid, String displayName})>
+        players,
+  }) {
+    leaderboardOnlineCasualCalls++;
+    lastCasualWinnerPlayerId = winnerPlayerId;
+    lastCasualPlayers = players;
+  }
+
+  @override
+  void recordLeaderboardBustOnline({
+    required String winnerPlayerId,
+    required List<({String playerId, String? firebaseUid, String displayName})>
+        players,
+  }) {
+    leaderboardBustOnlineCalls++;
+    lastBustWinnerPlayerId = winnerPlayerId;
+    lastBustPlayers = players;
+  }
 }

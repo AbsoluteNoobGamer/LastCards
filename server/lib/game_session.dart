@@ -695,6 +695,20 @@ class GameSession {
         );
       }
 
+      if (bustTrophyEligible && winnerId != null) {
+        final bustPlayers = _players.entries
+            .map((e) => (
+                  playerId: e.key,
+                  firebaseUid: e.value.firebaseUid,
+                  displayName: e.value.displayName,
+                ))
+            .toList();
+        _trophyRecorder.recordLeaderboardBustOnline(
+          winnerPlayerId: winnerId,
+          players: bustPlayers,
+        );
+      }
+
       _broadcast({
         'type': 'bust_game_ended',
         'winnerId': winnerId ?? '',
@@ -906,6 +920,20 @@ class GameSession {
       _trophyRecorder.recordRankedResult(
         winnerUid: winnerUid,
         allPlayerUids: allPlayerUids,
+      );
+    }
+
+    if (trophyEligible && !isRanked && !isBustMode) {
+      final casualPlayers = _players.entries
+          .map((e) => (
+                playerId: e.key,
+                firebaseUid: e.value.firebaseUid,
+                displayName: e.value.displayName,
+              ))
+          .toList();
+      _trophyRecorder.recordLeaderboardOnlineCasual(
+        winnerPlayerId: winnerId,
+        players: casualPlayers,
       );
     }
 

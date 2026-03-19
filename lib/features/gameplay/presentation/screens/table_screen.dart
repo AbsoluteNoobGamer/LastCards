@@ -942,7 +942,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       setState(() => _onlineWinDialogShown = true);
       final navigator = Navigator.of(context);
 
-      // Online Bust leaderboard: update local player stats once per game.
+      // Online Bust: local leaderboard mirror for instant UI. Firestore
+      // `leaderboard_bust_online` is written only by the game server.
       if (!_bustLeaderboardRecorded &&
           !widget.isTournamentMode &&
           ref.read(tournamentSessionProvider).subMode == GameSubMode.bust &&

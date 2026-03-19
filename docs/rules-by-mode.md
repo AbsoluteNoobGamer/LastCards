@@ -78,4 +78,5 @@ When multiple effects are active together, resolve in this order:
 - Intended to use the same core gameplay rules.
 - Uses lobby/room flow for multiplayer sessions.
 - Note: online networking/game-sync implementation is currently in progress in this codebase.
+- **Leaderboards:** Firestore collections `leaderboard_online` and `leaderboard_bust_online` are **server-written only** (Admin SDK); the client may cache increments locally for instant UI. Casual quickplay standard wins update `leaderboard_online` when the session is trophy-eligible (`!isPrivate`); online Bust finals update `leaderboard_bust_online` the same way.
 

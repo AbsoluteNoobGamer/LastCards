@@ -6,6 +6,7 @@ import 'package:last_cards/core/models/player_model.dart';
 import 'package:test/test.dart';
 
 import 'package:last_cards_server/game_session.dart';
+import 'package:last_cards_server/trophy_recorder.dart';
 
 // ── Fake WebSocket ────────────────────────────────────────────────────────────
 
@@ -825,6 +826,130 @@ void main() {
       expect(ended!['winnerId'], equals(p1Id));
     });
 
+    test(
+        'quickplay casual game calls recordLeaderboardOnlineCasual with Firebase uids',
+        () {
+      final fake = FakeTrophyRecorder();
+      final session = GameSession(
+        'TEST',
+        isPrivate: false,
+        isRanked: false,
+        trophyRecorder: fake,
+      );
+      final p1ws = _FakeWs();
+      final p2ws = _FakeWs();
+      final p1Id = session.addPlayer(p1ws, 'P1', firebaseUid: 'firebase-p1');
+      final p2Id = session.addPlayer(p2ws, 'P2', firebaseUid: 'firebase-p2');
+
+      final winCard = _card(Rank.five, Suit.spades);
+      final discardTop = _card(Rank.five, Suit.hearts);
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: p1Id,
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: [winCard],
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: p2Id,
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: [_card(Rank.three, Suit.hearts)],
+            cardCount: 1,
+          ),
+        ],
+        currentPlayerId: p1Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: discardTop,
+        drawPileCount: 5,
+        preTurnCentreSuit: Suit.hearts,
+      );
+
+      session.seedStateForTesting(
+        state: state,
+        drawPile: List.generate(
+            5,
+            (i) =>
+                CardModel(id: 'filler_$i', rank: Rank.seven, suit: Suit.clubs)),
+      );
+
+      session.handleAction(p1Id, {
+        'type': 'play_cards',
+        'cardIds': ['five_spades'],
+      });
+
+      expect(fake.leaderboardOnlineCasualCalls, 1);
+      expect(fake.lastCasualWinnerPlayerId, p1Id);
+      expect(fake.lastCasualPlayers, isNotNull);
+      expect(fake.lastCasualPlayers!.length, 2);
+      expect(fake.lastCasualPlayers!.first.firebaseUid, 'firebase-p1');
+    });
+
+    test(
+        'private lobby does not record leaderboard_online on win (not trophy eligible)',
+        () {
+      final fake = FakeTrophyRecorder();
+      final session = GameSession(
+        'TEST',
+        isPrivate: true,
+        isRanked: false,
+        trophyRecorder: fake,
+      );
+      final p1ws = _FakeWs();
+      final p2ws = _FakeWs();
+      final p1Id = session.addPlayer(p1ws, 'P1', firebaseUid: 'firebase-p1');
+      final p2Id = session.addPlayer(p2ws, 'P2', firebaseUid: 'firebase-p2');
+
+      final winCard = _card(Rank.five, Suit.spades);
+      final discardTop = _card(Rank.five, Suit.hearts);
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: p1Id,
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: [winCard],
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: p2Id,
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: [_card(Rank.three, Suit.hearts)],
+            cardCount: 1,
+          ),
+        ],
+        currentPlayerId: p1Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: discardTop,
+        drawPileCount: 5,
+        preTurnCentreSuit: Suit.hearts,
+      );
+
+      session.seedStateForTesting(
+        state: state,
+        drawPile: List.generate(
+            5,
+            (i) =>
+                CardModel(id: 'filler_$i', rank: Rank.seven, suit: Suit.clubs)),
+      );
+
+      session.handleAction(p1Id, {
+        'type': 'play_cards',
+        'cardIds': ['five_spades'],
+      });
+
+      expect(fake.leaderboardOnlineCasualCalls, 0);
+    });
+
     test('game_ended not sent while penalty chain is active', () {
       // P1 plays their last card (a 2) which starts a penalty chain.
       // Win should be deferred (activePenaltyCount > 0 after play).
@@ -1072,6 +1197,69 @@ void main() {
       final gameEnded = p1ws.lastOfType('bust_game_ended');
       expect(gameEnded, isNotNull);
       expect(gameEnded!['winnerId'], equals(p1Id));
+    });
+
+    test('Bust finals call recordLeaderboardBustOnline when trophy eligible', () {
+      final fake = FakeTrophyRecorder();
+      final session = GameSession(
+        'TEST',
+        isPrivate: false,
+        isBustMode: true,
+        trophyRecorder: fake,
+      );
+      final p1ws = _FakeWs();
+      final p2ws = _FakeWs();
+      final p1Id = session.addPlayer(p1ws, 'P1', firebaseUid: 'fb-b1');
+      final p2Id = session.addPlayer(p2ws, 'P2', firebaseUid: 'fb-b2');
+
+      final p1Hand = [_card(Rank.three, Suit.spades)];
+      final p2Hand = List.generate(
+          5, (i) => _card(Rank.values[i + 2], Suit.hearts));
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: p1Id,
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: p1Hand,
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: p2Id,
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: p2Hand,
+            cardCount: 5,
+          ),
+        ],
+        currentPlayerId: p2Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: _card(Rank.two, Suit.spades),
+        drawPileCount: 10,
+        preTurnCentreSuit: Suit.spades,
+      );
+
+      final drawPile = List.generate(
+          10, (i) => CardModel(id: 'draw_$i', rank: Rank.four, suit: Suit.clubs));
+
+      session.seedStateForTesting(
+        state: state,
+        drawPile: drawPile,
+        bustSurvivorIds: [p1Id, p2Id],
+        bustTurnsThisRound: {p1Id: 2, p2Id: 1},
+        bustPenaltyPoints: {},
+      );
+
+      session.handleAction(p2Id, {'type': 'draw_card'});
+
+      expect(fake.leaderboardBustOnlineCalls, 1);
+      expect(fake.lastBustWinnerPlayerId, p1Id);
+      expect(fake.lastBustPlayers, isNotNull);
+      expect(fake.lastBustPlayers!.length, 2);
+      expect(fake.lastBustPlayers!.every((p) => p.firebaseUid != null), isTrue);
     });
 
     test('Bust next round: bust_round_start broadcast with incremented round number', () {
