@@ -128,10 +128,12 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
         .limit(50)
         .get();
     final n = _playerCountFilter;
-    return snap.docs.map((doc) {
+    final entries = snap.docs.map((doc) {
       if (n == null) return _RankedEntry.fromDoc(doc);
       // Overlay per-bracket win/loss/gamesPlayed onto the ranked entry so the
       // "N players" filter shows bracket-specific stats while keeping MMR.
+      // Ranked always sorts by MMR (correct regardless of bracket), so no
+      // orderBy change is needed here — only the zero-activity guard below.
       final d = doc.data() as Map<String, dynamic>? ?? {};
       final base = _RankedEntry.fromDoc(doc);
       return _RankedEntry(
@@ -144,6 +146,13 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
         gamesPlayed: (d['gamesPlayed_$n'] as num?)?.toInt() ?? 0,
       );
     }).toList();
+
+    // Drop players who have never played an N-player ranked game so the
+    // bracket-filtered view only shows relevant entries.
+    if (n != null) {
+      return entries.where((e) => e.gamesPlayed > 0).toList();
+    }
+    return entries;
   }
 
   _RankedEntry? _findLocalEntry(List<_RankedEntry> entries) {
@@ -182,6 +191,13 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     final collectionName = _collectionForMode(mode);
     final n = _playerCountFilter;
 
+    // When a bracket filter is active, order by the bracket-specific wins
+    // field so the ranking is correct for that player count.
+    // This requires a Firestore composite index on (wins_N DESC) for each N
+    // in each filterable collection — Firestore will log a link to create it
+    // on first use if the index is missing.
+    final orderField = n != null ? 'wins_$n' : 'wins';
+
     // Local cache only holds global totals — used as offline fallback.
     final localEntries =
         await LocalLeaderboardStore.instance.loadEntries(collectionName);
@@ -189,14 +205,22 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     try {
       final snap = await FirebaseFirestore.instance
           .collection(collectionName)
-          .orderBy('wins', descending: true)
+          .orderBy(orderField, descending: true)
           .limit(50)
           .get();
 
-      final remoteEntries =
+      var remoteEntries =
           snap.docs.map((d) => _ModeEntry.fromDoc(d, playerCount: n)).toList();
+
+      // Drop entries with zero bracket activity so players who have never
+      // played an N-player game don't appear in the bracket-filtered view.
+      if (n != null) {
+        remoteEntries =
+            remoteEntries.where((e) => e.gamesPlayed > 0).toList();
+      }
+
       if (remoteEntries.isEmpty) {
-        // Fall back to local cache (global totals only — no bracket filter).
+        // Fall back to local cache for global view; bracket view shows empty.
         if (n != null) return [];
         return localEntries
             .map((e) => _ModeEntry(
@@ -234,6 +258,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       }
 
       final merged = mergedByUid.values.toList(growable: false);
+      // Firestore already ordered by the correct field; re-sort client-side
+      // only for the global view where local-cache merging may have changed
+      // the current player's position.
       merged.sort((a, b) => b.wins.compareTo(a.wins));
       return merged;
     } catch (e) {
