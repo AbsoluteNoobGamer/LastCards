@@ -692,6 +692,7 @@ class GameSession {
         _trophyRecorder.recordRankedResult(
           winnerUid: winnerUid,
           allPlayerUids: allPlayerUids,
+          playerCount: _players.length,
         );
       }
 
@@ -706,6 +707,7 @@ class GameSession {
         _trophyRecorder.recordLeaderboardBustOnline(
           winnerPlayerId: winnerId,
           players: bustPlayers,
+          playerCount: _players.length,
         );
       }
 
@@ -920,6 +922,7 @@ class GameSession {
       _trophyRecorder.recordRankedResult(
         winnerUid: winnerUid,
         allPlayerUids: allPlayerUids,
+        playerCount: _players.length,
       );
     }
 
@@ -934,6 +937,7 @@ class GameSession {
       _trophyRecorder.recordLeaderboardOnlineCasual(
         winnerPlayerId: winnerId,
         players: casualPlayers,
+        playerCount: _players.length,
       );
     }
 

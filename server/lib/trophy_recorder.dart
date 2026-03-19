@@ -329,22 +329,32 @@ class TrophyRecorder {
   /// [winnerUid] receives +[_kWinDelta] rating; all other [allPlayerUids]
   /// receive [_kLossDelta] rating. All get gamesPlayed incremented.
   /// Each player's [displayName] is persisted for leaderboard display.
+  ///
+  /// [playerCount] (2–7) is used to also increment per-bracket fields
+  /// (`wins_N`, `losses_N`, `gamesPlayed_N`) for filterable leaderboard views.
   void recordRankedResult({
     required String winnerUid,
     required List<({String playerId, String uid, String displayName})>
         allPlayerUids,
+    int playerCount = 0,
   }) {
     // Fire-and-forget — game flow does not wait for persistence.
-    unawaited(
-        _persistResult(winnerUid: winnerUid, allPlayerUids: allPlayerUids));
+    unawaited(_persistResult(
+        winnerUid: winnerUid,
+        allPlayerUids: allPlayerUids,
+        playerCount: playerCount));
   }
 
   Future<void> _persistResult({
     required String winnerUid,
     required List<({String playerId, String uid, String displayName})>
         allPlayerUids,
+    int playerCount = 0,
   }) async {
-    _log.info('Recording ranked result — winner: $winnerUid, '
+    final n = playerCount.clamp(2, 7);
+    final hasBracket = playerCount >= 2;
+    _log.info('Recording ranked result (${hasBracket ? "${n}p" : "?"}) — '
+        'winner: $winnerUid, '
         'players: ${allPlayerUids.map((e) => e.uid).join(', ')}');
 
     final futures = <Future<void>>[];
@@ -365,6 +375,10 @@ class TrophyRecorder {
             if (isWinner) 'wins': 1,
             if (!isWinner) 'losses': 1,
             'gamesPlayed': 1,
+            // Per-bracket fields for "N players" filter.
+            if (hasBracket) 'gamesPlayed_$n': 1,
+            if (hasBracket && isWinner) 'wins_$n': 1,
+            if (hasBracket && !isWinner) 'losses_$n': 1,
           },
           defaultFields: {
             'rating': _kInitialRating,
@@ -372,6 +386,9 @@ class TrophyRecorder {
             'losses': 0,
             'leaves': 0,
             'gamesPlayed': 0,
+            if (hasBracket) 'wins_$n': 0,
+            if (hasBracket) 'losses_$n': 0,
+            if (hasBracket) 'gamesPlayed_$n': 0,
           },
           stringFields: {
             'displayName': entry.displayName,
@@ -397,28 +414,38 @@ class TrophyRecorder {
   /// Only players with a non-empty [firebaseUid] are persisted (document id =
   /// Firebase Auth uid). Call only for sessions where results are
   /// server-authoritative (e.g. quickplay with full roster).
+  ///
+  /// [playerCount] is the number of human participants in this session (2–7).
+  /// Global totals (`wins`, `losses`, `gamesPlayed`) and per-bracket fields
+  /// (`wins_N`, `losses_N`, `gamesPlayed_N`) are both incremented.
   void recordLeaderboardOnlineCasual({
     required String winnerPlayerId,
     required List<({String playerId, String? firebaseUid, String displayName})>
         players,
+    required int playerCount,
   }) {
     unawaited(_persistModeLeaderboard(
       collection: _leaderboardOnline,
       winnerPlayerId: winnerPlayerId,
       players: players,
+      playerCount: playerCount,
     ));
   }
 
   /// Online Bust finals → [leaderboard_bust_online].
+  ///
+  /// [playerCount] is the number of participants in the final bust session.
   void recordLeaderboardBustOnline({
     required String winnerPlayerId,
     required List<({String playerId, String? firebaseUid, String displayName})>
         players,
+    required int playerCount,
   }) {
     unawaited(_persistModeLeaderboard(
       collection: _leaderboardBustOnline,
       winnerPlayerId: winnerPlayerId,
       players: players,
+      playerCount: playerCount,
     ));
   }
 
@@ -427,9 +454,11 @@ class TrophyRecorder {
     required String winnerPlayerId,
     required List<({String playerId, String? firebaseUid, String displayName})>
         players,
+    required int playerCount,
   }) async {
+    final n = playerCount.clamp(2, 7);
     _log.info(
-        'Recording $collection — winner player: $winnerPlayerId, '
+        'Recording $collection (${n}p) — winner player: $winnerPlayerId, '
         'participants: ${players.map((p) => p.playerId).join(', ')}');
 
     final futures = <Future<void>>[];
@@ -442,14 +471,22 @@ class TrophyRecorder {
           collection: collection,
           docId: uid,
           increments: {
+            // Global totals (for "All" filter in the leaderboard UI).
             'gamesPlayed': 1,
             if (won) 'wins': 1,
             if (!won) 'losses': 1,
+            // Per-bracket totals (for "N players" filter).
+            'gamesPlayed_$n': 1,
+            if (won) 'wins_$n': 1,
+            if (!won) 'losses_$n': 1,
           },
           defaultFields: {
             'wins': 0,
             'losses': 0,
             'gamesPlayed': 0,
+            'wins_$n': 0,
+            'losses_$n': 0,
+            'gamesPlayed_$n': 0,
           },
           stringFields: {
             'displayName': p.displayName,
@@ -459,7 +496,7 @@ class TrophyRecorder {
     }
 
     await Future.wait(futures);
-    _log.info('$collection result persisted.');
+    _log.info('$collection (${n}p) result persisted.');
   }
 
   Future<void> _persistLeavePenalty(String uid,
@@ -500,19 +537,23 @@ class FakeTrophyRecorder extends TrophyRecorder {
   String? lastCasualWinnerPlayerId;
   List<({String playerId, String? firebaseUid, String displayName})>?
       lastCasualPlayers;
+  int? lastCasualPlayerCount;
   String? lastBustWinnerPlayerId;
   List<({String playerId, String? firebaseUid, String displayName})>?
       lastBustPlayers;
+  int? lastBustPlayerCount;
 
   @override
   void recordLeaderboardOnlineCasual({
     required String winnerPlayerId,
     required List<({String playerId, String? firebaseUid, String displayName})>
         players,
+    required int playerCount,
   }) {
     leaderboardOnlineCasualCalls++;
     lastCasualWinnerPlayerId = winnerPlayerId;
     lastCasualPlayers = players;
+    lastCasualPlayerCount = playerCount;
   }
 
   @override
@@ -520,9 +561,11 @@ class FakeTrophyRecorder extends TrophyRecorder {
     required String winnerPlayerId,
     required List<({String playerId, String? firebaseUid, String displayName})>
         players,
+    required int playerCount,
   }) {
     leaderboardBustOnlineCalls++;
     lastBustWinnerPlayerId = winnerPlayerId;
     lastBustPlayers = players;
+    lastBustPlayerCount = playerCount;
   }
 }

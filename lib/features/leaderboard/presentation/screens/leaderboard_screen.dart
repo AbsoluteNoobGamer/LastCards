@@ -78,14 +78,20 @@ class _ModeEntry {
   final int gamesPlayed;
   final int? rating;
 
-  factory _ModeEntry.fromDoc(DocumentSnapshot doc) {
+  /// Build from a Firestore document. When [playerCount] is non-null (2–7),
+  /// the per-bracket fields (`wins_N`, etc.) are preferred over the global
+  /// totals so the "N players" filter shows bracket-specific stats.
+  factory _ModeEntry.fromDoc(DocumentSnapshot doc, {int? playerCount}) {
     final d = doc.data() as Map<String, dynamic>? ?? {};
+    final suffix = (playerCount != null && playerCount >= 2 && playerCount <= 7)
+        ? '_$playerCount'
+        : '';
     return _ModeEntry(
       uid: doc.id,
       displayName: d['displayName'] as String? ?? 'Player',
-      wins: (d['wins'] as num?)?.toInt() ?? 0,
-      losses: (d['losses'] as num?)?.toInt() ?? 0,
-      gamesPlayed: (d['gamesPlayed'] as num?)?.toInt() ?? 0,
+      wins: (d['wins$suffix'] as num?)?.toInt() ?? 0,
+      losses: (d['losses$suffix'] as num?)?.toInt() ?? 0,
+      gamesPlayed: (d['gamesPlayed$suffix'] as num?)?.toInt() ?? 0,
       rating: (d['rating'] as num?)?.toInt(),
     );
   }
@@ -103,6 +109,16 @@ class LeaderboardScreen extends ConsumerStatefulWidget {
 class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   LeaderboardMode _selectedMode = LeaderboardMode.ranked;
 
+  /// null = "All" (global totals); 2–7 = bracket-specific filter.
+  int? _playerCountFilter;
+
+  /// Which modes support the player-count filter (server-written, multi-bracket).
+  static const _filterableModes = {
+    LeaderboardMode.ranked,
+    LeaderboardMode.online,
+    LeaderboardMode.bustOnline,
+  };
+
   // ── Ranked Firestore data ─────────────────────────────────────────────────
 
   Future<List<_RankedEntry>> _fetchRanked() async {
@@ -111,7 +127,23 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
         .orderBy('rating', descending: true)
         .limit(50)
         .get();
-    return snap.docs.map(_RankedEntry.fromDoc).toList();
+    final n = _playerCountFilter;
+    return snap.docs.map((doc) {
+      if (n == null) return _RankedEntry.fromDoc(doc);
+      // Overlay per-bracket win/loss/gamesPlayed onto the ranked entry so the
+      // "N players" filter shows bracket-specific stats while keeping MMR.
+      final d = doc.data() as Map<String, dynamic>? ?? {};
+      final base = _RankedEntry.fromDoc(doc);
+      return _RankedEntry(
+        uid: base.uid,
+        displayName: base.displayName,
+        rating: base.rating,
+        wins: (d['wins_$n'] as num?)?.toInt() ?? 0,
+        losses: (d['losses_$n'] as num?)?.toInt() ?? 0,
+        leaves: base.leaves,
+        gamesPlayed: (d['gamesPlayed_$n'] as num?)?.toInt() ?? 0,
+      );
+    }).toList();
   }
 
   _RankedEntry? _findLocalEntry(List<_RankedEntry> entries) {
@@ -148,6 +180,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
 
   Future<List<_ModeEntry>> _fetchMode(LeaderboardMode mode) async {
     final collectionName = _collectionForMode(mode);
+    final n = _playerCountFilter;
+
+    // Local cache only holds global totals — used as offline fallback.
     final localEntries =
         await LocalLeaderboardStore.instance.loadEntries(collectionName);
 
@@ -158,8 +193,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
           .limit(50)
           .get();
 
-      final remoteEntries = snap.docs.map(_ModeEntry.fromDoc).toList();
+      final remoteEntries =
+          snap.docs.map((d) => _ModeEntry.fromDoc(d, playerCount: n)).toList();
       if (remoteEntries.isEmpty) {
+        // Fall back to local cache (global totals only — no bracket filter).
+        if (n != null) return [];
         return localEntries
             .map((e) => _ModeEntry(
                   uid: e.uid,
@@ -177,20 +215,21 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       };
 
       // Prefer local entry values for the current player since Firestore
-      // propagation can lag behind match end.
-      // Prefer local entry values for the current player since Firestore
-      // propagation can lag behind match end.
-      final currentUid = FirebaseAuth.instance.currentUser?.uid;
-      for (final e in localEntries) {
-        if (currentUid != null && e.uid == currentUid) {
-          mergedByUid[e.uid] = _ModeEntry(
-            uid: e.uid,
-            displayName: e.displayName,
-            wins: e.wins,
-            losses: e.losses,
-            gamesPlayed: e.gamesPlayed,
-            rating: null,
-          );
+      // propagation can lag behind match end. Only merge when showing global
+      // totals (local cache doesn't track per-bracket stats).
+      if (n == null) {
+        final currentUid = FirebaseAuth.instance.currentUser?.uid;
+        for (final e in localEntries) {
+          if (currentUid != null && e.uid == currentUid) {
+            mergedByUid[e.uid] = _ModeEntry(
+              uid: e.uid,
+              displayName: e.displayName,
+              wins: e.wins,
+              losses: e.losses,
+              gamesPlayed: e.gamesPlayed,
+              rating: null,
+            );
+          }
         }
       }
 
@@ -199,6 +238,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       return merged;
     } catch (e) {
       debugPrint('Mode leaderboard fetch error for $collectionName: $e');
+      if (n != null) return [];
       return localEntries
           .map((e) => _ModeEntry(
                 uid: e.uid,
@@ -284,13 +324,40 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                         ),
                       ],
                     ),
-                    onSelected: (_) =>
-                        setState(() => _selectedMode = mode),
+                    onSelected: (_) => setState(() {
+                      _selectedMode = mode;
+                      // Reset bracket filter when switching modes.
+                      _playerCountFilter = null;
+                    }),
                   ),
                 );
               }).toList(),
             ),
           ),
+
+          // ── Player-count filter (only for filterable modes) ───────────────
+          if (_filterableModes.contains(_selectedMode))
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: Row(
+                children: [
+                  _CountChip(
+                    label: 'All',
+                    selected: _playerCountFilter == null,
+                    theme: theme,
+                    onTap: () => setState(() => _playerCountFilter = null),
+                  ),
+                  for (final n in [2, 3, 4, 5, 6, 7])
+                    _CountChip(
+                      label: '$n players',
+                      selected: _playerCountFilter == n,
+                      theme: theme,
+                      onTap: () => setState(() => _playerCountFilter = n),
+                    ),
+                ],
+              ),
+            ),
 
           // ── Body ─────────────────────────────────────────────────────────
           Expanded(
@@ -300,6 +367,8 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                     findLocalEntry: _findLocalEntry,
                     localRank: _localRank,
                     theme: theme,
+                    // Rebuild when filter changes.
+                    filterKey: _playerCountFilter,
                   )
                 : _ModeLeaderboard(
                     mode: _selectedMode,
@@ -307,9 +376,62 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                     findLocalEntry: _findLocalModeEntry,
                     localRank: _localModeRank,
                     theme: theme,
+                    filterKey: _playerCountFilter,
                   ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Small bracket-filter chip ─────────────────────────────────────────────────
+
+class _CountChip extends StatelessWidget {
+  const _CountChip({
+    required this.label,
+    required this.selected,
+    required this.theme,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final AppThemeData theme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          decoration: BoxDecoration(
+            color: selected
+                ? theme.accentPrimary.withValues(alpha: 0.18)
+                : theme.surfacePanel,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected
+                  ? theme.accentPrimary
+                  : theme.textSecondary.withValues(alpha: 0.25),
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Text(
+            label,
+            style: GoogleFonts.inter(
+              color: selected
+                  ? theme.accentPrimary
+                  : theme.textSecondary.withValues(alpha: 0.7),
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -323,12 +445,15 @@ class _RankedLeaderboard extends StatefulWidget {
     required this.findLocalEntry,
     required this.localRank,
     required this.theme,
+    this.filterKey,
   });
 
   final Future<List<_RankedEntry>> Function() fetchRanked;
   final _RankedEntry? Function(List<_RankedEntry>) findLocalEntry;
   final int Function(List<_RankedEntry>) localRank;
   final AppThemeData theme;
+  /// When this changes, the list is re-fetched (parent passes playerCountFilter).
+  final int? filterKey;
 
   @override
   State<_RankedLeaderboard> createState() => _RankedLeaderboardState();
@@ -341,6 +466,14 @@ class _RankedLeaderboardState extends State<_RankedLeaderboard> {
   void initState() {
     super.initState();
     _future = widget.fetchRanked();
+  }
+
+  @override
+  void didUpdateWidget(covariant _RankedLeaderboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.filterKey != widget.filterKey) {
+      _future = widget.fetchRanked();
+    }
   }
 
   Future<void> _refresh() async {
@@ -741,6 +874,7 @@ class _ModeLeaderboard extends StatefulWidget {
     required this.findLocalEntry,
     required this.localRank,
     required this.theme,
+    this.filterKey,
   });
 
   final LeaderboardMode mode;
@@ -748,6 +882,8 @@ class _ModeLeaderboard extends StatefulWidget {
   final _ModeEntry? Function(List<_ModeEntry>) findLocalEntry;
   final int Function(List<_ModeEntry>) localRank;
   final AppThemeData theme;
+  /// When this changes, the list is re-fetched.
+  final int? filterKey;
 
   @override
   State<_ModeLeaderboard> createState() => _ModeLeaderboardState();
@@ -757,7 +893,6 @@ class _ModeLeaderboardState extends State<_ModeLeaderboard> {
   late Future<List<_ModeEntry>> _future;
 
   @override
-  @override
   void initState() {
     super.initState();
     _future = widget.fetchEntries();
@@ -766,7 +901,8 @@ class _ModeLeaderboardState extends State<_ModeLeaderboard> {
   @override
   void didUpdateWidget(covariant _ModeLeaderboard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.mode != widget.mode) {
+    if (oldWidget.mode != widget.mode ||
+        oldWidget.filterKey != widget.filterKey) {
       _future = widget.fetchEntries();
     }
   }
