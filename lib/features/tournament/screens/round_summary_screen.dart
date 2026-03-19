@@ -10,7 +10,6 @@ class TournamentRoundSummaryScreen extends ConsumerStatefulWidget {
     required this.advancedPlayerNames,
     required this.eliminatedPlayerName,
     required this.nextRoundPlayerNames,
-    required this.onReady,
     super.key,
   });
 
@@ -18,7 +17,6 @@ class TournamentRoundSummaryScreen extends ConsumerStatefulWidget {
   final List<String> advancedPlayerNames;
   final String eliminatedPlayerName;
   final List<String> nextRoundPlayerNames;
-  final VoidCallback onReady;
 
   @override
   ConsumerState<TournamentRoundSummaryScreen> createState() =>
@@ -212,7 +210,14 @@ class _TournamentRoundSummaryScreenState
                     color: Colors.transparent,
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16),
-                      onTap: widget.onReady,
+                      onTap: () {
+                        _animController.stop();
+                        // Pop with this route's element context — not the coordinator's
+                        // or pageBuilder context — avoids wrong-route pops and
+                        // InheritedWidget _dependents assertions on advance.
+                        if (!context.mounted) return;
+                        Navigator.of(context).pop();
+                      },
                       child: Center(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,

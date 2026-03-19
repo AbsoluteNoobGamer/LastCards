@@ -71,6 +71,8 @@ When multiple effects are active together, resolve in this order:
   - The last finisher in the round is eliminated.
   - Remaining players advance to the next round.
   - Repeat until only one player remains (tournament winner).
+- **Offline tournament:** After you qualify (empty hand), **Skip to result** fast-forwards the rest of the round with no AI think-time, card flights, or draw animations until the round ends (any player count).
+- **Implementation note:** The table uses seat IDs `player-2`…`player-7`; the tournament engine uses `tournament-ai-*` for the same seats. The coordinator maps these when recording finishes so the bracket advances correctly.
 
 ### Play Online
 - Intended to use the same core gameplay rules.

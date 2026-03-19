@@ -1,16 +1,40 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can read/write their own profile
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Any authenticated user can read ranked stats (needed for leaderboard queries).
-    // Only the server (admin SDK) can write.
-    match /ranked_stats/{userId} {
+    // User profiles: allow users to read when authenticated, and write only their own doc.
+    match /users/{uid} {
       allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
     }
 
+    // Leaderboards: allow authenticated reads, only server can write.
+    match /ranked_stats/{uid} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    match /leaderboard_single_player/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+    match /leaderboard_online/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+    match /leaderboard_tournament_ai/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+    match /leaderboard_tournament_online/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+    match /leaderboard_bust_offline/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+    match /leaderboard_bust_online/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
   }
 }

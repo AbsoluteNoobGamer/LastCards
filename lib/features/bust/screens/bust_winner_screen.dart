@@ -1,11 +1,15 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:last_cards/core/providers/theme_provider.dart';
 import 'package:last_cards/core/theme/app_colors.dart';
 import 'package:last_cards/core/theme/app_dimensions.dart';
 import 'package:last_cards/core/theme/app_typography.dart';
+
+import '../../leaderboard/data/leaderboard_stats_writer.dart';
 
 import '../models/bust_round_state.dart';
 
@@ -14,7 +18,7 @@ import '../models/bust_round_state.dart';
 ///
 /// - When [localEliminated] is true: shows a personal round-by-round journey.
 /// - Otherwise: shows the full placement-based leaderboard.
-class BustWinnerScreen extends ConsumerWidget {
+class BustWinnerScreen extends ConsumerStatefulWidget {
   const BustWinnerScreen({
     super.key,
     required this.winnerId,
@@ -86,8 +90,60 @@ class BustWinnerScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BustWinnerScreen> createState() => _BustWinnerScreenState();
+}
+
+class _BustWinnerScreenState extends ConsumerState<BustWinnerScreen> {
+  bool _recorded = false;
+
+  Future<void> _recordOnce() async {
+    if (_recorded) return;
+    _recorded = true;
+
+    final firebaseUid = FirebaseAuth.instance.currentUser?.uid;
+    if (firebaseUid == null) return;
+
+    final localWon = !widget.localEliminated &&
+        widget.winnerId.isNotEmpty &&
+        (widget.winnerId == 'player-local' || widget.winnerName == 'You');
+
+    final displayName = widget.playerNames['player-local'] ?? 'You';
+
+    await LeaderboardStatsWriter.instance.recordModeResult(
+      collectionName: 'leaderboard_bust_offline',
+      uid: firebaseUid,
+      displayName: displayName,
+      deltaWins: localWon ? 1 : 0,
+      deltaLosses: localWon ? 0 : 1,
+      deltaGamesPlayed: 1,
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_recordOnce());
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ref = this.ref;
+    return _build(context, ref);
+  }
+
+  Widget _build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(themeProvider).theme;
+
+    // Mirror widget fields locally so the rest of the UI code can stay
+    // unchanged while we move from ConsumerWidget → ConsumerStatefulWidget.
+    final localWon = widget._localWon;
+    final localEliminated = widget.localEliminated;
+    final winnerName = widget.winnerName;
+    final totalRounds = widget.totalRounds;
+    final localRoundStats = widget.localRoundStats;
 
     return Scaffold(
       backgroundColor: theme.backgroundDeep,
@@ -102,30 +158,30 @@ class BustWinnerScreen extends ConsumerWidget {
               height: 96,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _localWon
+                color: localWon
                     ? AppColors.goldPrimary.withValues(alpha: 0.15)
                     : AppColors.redAccent.withValues(alpha: 0.12),
                 border: Border.all(
                   color:
-                      _localWon ? AppColors.goldPrimary : AppColors.redAccent,
+                      localWon ? AppColors.goldPrimary : AppColors.redAccent,
                   width: 2.5,
                 ),
               ),
               child: Icon(
-                _localWon
+                localWon
                     ? Icons.emoji_events_rounded
                     : localEliminated
                         ? Icons.cancel_rounded
                         : Icons.sentiment_dissatisfied_rounded,
                 size: 52,
-                color: _localWon ? AppColors.goldPrimary : AppColors.redAccent,
+                color: localWon ? AppColors.goldPrimary : AppColors.redAccent,
               ),
             ),
             const SizedBox(height: AppDimensions.lg),
 
             // Title
             Text(
-              _localWon
+              localWon
                   ? 'You Won!'
                   : localEliminated
                       ? 'You\'re Eliminated!'
@@ -133,13 +189,13 @@ class BustWinnerScreen extends ConsumerWidget {
               style: GoogleFonts.cinzel(
                 fontSize: 28,
                 fontWeight: FontWeight.w700,
-                color: _localWon ? AppColors.goldPrimary : theme.textPrimary,
+                color: localWon ? AppColors.goldPrimary : theme.textPrimary,
                 letterSpacing: 1.5,
               ),
             ),
             const SizedBox(height: AppDimensions.xs),
             Text(
-              _localWon
+              localWon
                   ? 'Congratulations — you survived all $totalRounds rounds!'
                   : localEliminated
                       ? 'Better luck next time. Here\'s how you did:'
@@ -161,7 +217,7 @@ class BustWinnerScreen extends ConsumerWidget {
                       theme: theme,
                     )
                   : _Leaderboard(
-                      entries: _buildLeaderboard(),
+                      entries: widget._buildLeaderboard(),
                       theme: theme,
                     ),
             ),
@@ -200,7 +256,7 @@ class BustWinnerScreen extends ConsumerWidget {
                       onPressed: () => Navigator.of(context)
                           .popUntil((route) => route.isFirst),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _localWon
+                        backgroundColor: localWon
                             ? AppColors.goldPrimary
                             : theme.accentPrimary,
                         foregroundColor: theme.backgroundDeep,
