@@ -10,8 +10,11 @@ import '../../../../core/services/player_level_service.dart';
 import '../../../../services/audio_service.dart';
 import '../../../../services/game_sound.dart';
 import '../../../../tournament/tournament_engine.dart';
+import '../../../../tournament/tournament_table_id_mapping.dart';
 import '../../gameplay/presentation/screens/table_screen.dart';
 import '../../single_player/providers/single_player_session_provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../leaderboard/data/leaderboard_stats_writer.dart';
 import '../providers/tournament_session_provider.dart';
 import 'elimination_screen.dart';
 import 'round_summary_screen.dart';
@@ -21,11 +24,14 @@ import 'winner_screen.dart';
 
 /// Builds the round game widget (default: [TableScreen]).
 /// Used for dependency injection and tests.
+/// [activePlayerIds] is the engine's current round player IDs (for tests that
+/// need to report finish order using the same IDs the engine expects).
 typedef TournamentRoundGameBuilder = Widget Function({
   required int totalPlayers,
   required bool isTournamentMode,
-  required void Function(String playerName, int finishPosition) onPlayerFinished,
+  required void Function(String playerId, int finishPosition) onPlayerFinished,
   required Map<String, String> tournamentPlayerNameByTableId,
+  required List<String> activePlayerIds,
   AiDifficulty? aiDifficulty,
 });
 
@@ -70,9 +76,10 @@ class TournamentCoordinator extends ConsumerStatefulWidget {
   static Widget _defaultRoundGameBuilder({
     required int totalPlayers,
     required bool isTournamentMode,
-    required void Function(String playerName, int finishPosition)
+    required void Function(String playerId, int finishPosition)
         onPlayerFinished,
     required Map<String, String> tournamentPlayerNameByTableId,
+    required List<String> activePlayerIds,
     AiDifficulty? aiDifficulty,
   }) {
     return TableScreen(
@@ -91,9 +98,16 @@ class TournamentCoordinator extends ConsumerStatefulWidget {
 
 class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
   late final TournamentEngine _engine;
-  Map<String, String> _currentRoundPlayerIdByName = const {};
   bool _hasStarted = false;
   bool _isDisposed = false;
+  bool _tournamentLeaderboardRecorded = false;
+
+  /// Copy of [_engine.activePlayerIds] taken when the table route is opened.
+  /// After [_engine] completes a round it shrinks this list immediately, but
+  /// [TableScreen] still has the full seat layout until it pops — mapping
+  /// `player-2`… with the shrunk list breaks (e.g. `player-3` → out of range)
+  /// and [recordPlayerFinished] is ignored, freezing the round.
+  List<String>? _enginePlayerIdsForCurrentTable;
 
   @override
   void initState() {
@@ -166,12 +180,24 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
     _runTournamentLoop();
   }
 
+  /// Waits for two frames so route disposal (summary → engine advance) cannot
+  /// race the next [Navigator.push] (round-3 waiting was failing intermittently).
+  Future<void> _waitForUiSettled() {
+    final completer = Completer<void>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!completer.isCompleted) completer.complete();
+      });
+    });
+    return completer.future;
+  }
+
   Future<void> _runTournamentLoop() async {
     while (mounted && !_isDisposed && !_engine.isComplete) {
       final expectedRound = _engine.currentRound;
       final playersInRound = _engine.activePlayerIds.length;
+      final activeIdsAtRoundStart = List<String>.from(_engine.activePlayerIds);
       final nameByTableId = _buildTournamentNamesByTableId(_engine.activePlayerIds);
-      _currentRoundPlayerIdByName = _buildPlayerIdByName(_engine.activePlayerIds);
 
       // Waiting screen before each round
       await Navigator.push(
@@ -188,7 +214,9 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
       );
       if (!mounted || _isDisposed) return;
 
-      // Round game
+      // Round game — freeze fix: snapshot ids for the whole table session (see
+      // [_enginePlayerIdsForCurrentTable]).
+      _enginePlayerIdsForCurrentTable = List<String>.from(activeIdsAtRoundStart);
       final roundResult = await Navigator.push<TournamentRoundGameResult>(
         context,
         MaterialPageRoute(
@@ -197,17 +225,52 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
             isTournamentMode: true,
             onPlayerFinished: _onPlayerFinished,
             tournamentPlayerNameByTableId: nameByTableId,
+            activePlayerIds: _enginePlayerIdsForCurrentTable!,
             aiDifficulty: widget.isOnline ? null : _aiDifficulty,
           ),
         ),
       );
+      _enginePlayerIdsForCurrentTable = null;
       if (!mounted || _isDisposed) return;
-      if (roundResult == null) return;
+      if (roundResult != null) {
+        // Defensive reconciliation: table can report finish IDs while the engine
+        // missed one callback due to route/frame timing. Replaying ensures the
+        // expected round result exists before we navigate onward.
+        for (var i = 0; i < roundResult.finishedPlayerIds.length; i++) {
+          final reportedId = roundResult.finishedPlayerIds[i];
+          final engineId = resolveTournamentTableIdToEnginePlayerId(
+            reportedId: reportedId,
+            activePlayerIds: activeIdsAtRoundStart,
+          );
+          if (_engine.finishingPositionFor(
+                roundNumber: expectedRound,
+                playerId: engineId,
+              ) !=
+              null) {
+            continue;
+          }
+          _engine.recordPlayerFinished(engineId, finishPosition: i + 1);
+        }
+      }
 
       final round = _engine.roundResults
           .where((r) => r.roundNumber == expectedRound)
           .firstOrNull;
-      if (round == null) return;
+      if (round == null) {
+        // Recovery path for larger brackets: if a table route exits without a
+        // result payload, don't dead-end on coordinator loading. Either the
+        // tournament is complete, or we restart loop navigation for this/next
+        // round instead of returning permanently.
+        if (_engine.isComplete) break;
+        await _waitForUiSettled();
+        if (!mounted || _isDisposed) return;
+        continue;
+      }
+
+      // Table route may pop on the next frame; let it dispose before pushing
+      // Elimination (another Consumer route) to avoid InheritedWidget races.
+      await _waitForUiSettled();
+      if (!mounted || _isDisposed) return;
 
       // Elimination screen
       await Navigator.push(
@@ -223,6 +286,36 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
       if (!mounted || _isDisposed) return;
 
       if (!_engine.isComplete) {
+        // If you were eliminated this round, don't let the loop advance you into
+        // the next round (spectating/playing after elimination was the bug).
+        if (round.eliminatedPlayerId == OfflineGameState.localId) {
+          if (!_tournamentLeaderboardRecorded) {
+            _tournamentLeaderboardRecorded = true;
+            final uid = FirebaseAuth.instance.currentUser?.uid ??
+                OfflineGameState.localId;
+            // Firestore `leaderboard_tournament_online` is server-only; this
+            // updates local cache only for instant UI until online tournaments
+            // are driven by the game server.
+            final collectionName = widget.isOnline
+                ? 'leaderboard_tournament_online'
+                : 'leaderboard_tournament_ai';
+            final displayName = _displayName(OfflineGameState.localId);
+
+            await LeaderboardStatsWriter.instance.recordModeResult(
+              collectionName: collectionName,
+              uid: uid,
+              displayName: displayName,
+              deltaWins: 0,
+              deltaLosses: 1,
+              deltaGamesPlayed: 1,
+            );
+          }
+          if (mounted && !_isDisposed) {
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          }
+          return;
+        }
+
         widget.onRoundSummaryShown?.call(round);
 
         await Navigator.push(
@@ -233,12 +326,14 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
               advancedPlayerNames: _namesForIds(round.advancedPlayerIds),
               eliminatedPlayerName: _displayName(round.eliminatedPlayerId),
               nextRoundPlayerNames: _namesForIds(round.advancedPlayerIds),
-              onReady: () => Navigator.of(context).pop(),
             ),
             transitionsBuilder: (_, animation, __, child) =>
                 FadeTransition(opacity: animation, child: child),
           ),
         );
+        if (!mounted || _isDisposed) return;
+
+        await _waitForUiSettled();
         if (!mounted || _isDisposed) return;
 
         _engine.startNextRound();
@@ -247,11 +342,36 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
 
     if (!mounted || _isDisposed || !_engine.isComplete) return;
 
+    // Record leaderboard result for the local player if not already done.
+    // The elimination-branch at line ~291 handles mid-tournament exits, but
+    // a player who reaches the final and LOSES bypasses that branch because
+    // _engine.isComplete is already true when we get here.
+    if (!_tournamentLeaderboardRecorded) {
+      _tournamentLeaderboardRecorded = true;
+      final uid =
+          FirebaseAuth.instance.currentUser?.uid ?? OfflineGameState.localId;
+      final collectionName = widget.isOnline
+          ? 'leaderboard_tournament_online'
+          : 'leaderboard_tournament_ai';
+      final displayName = _displayName(OfflineGameState.localId);
+      final didWin = _engine.winnerId == OfflineGameState.localId;
+
+      await LeaderboardStatsWriter.instance.recordModeResult(
+        collectionName: collectionName,
+        uid: uid,
+        displayName: displayName,
+        deltaWins: didWin ? 1 : 0,
+        deltaLosses: didWin ? 0 : 1,
+        deltaGamesPlayed: 1,
+      );
+    }
+
     if (_engine.winnerId == OfflineGameState.localId) {
       unawaited(PlayerLevelService.instance.awardTournamentWinXP());
     }
     AudioService.instance.playSound(GameSound.tournamentWin);
 
+    if (!mounted || _isDisposed) return;
     await Navigator.pushReplacement(
       context,
       PageRouteBuilder(
@@ -282,50 +402,49 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
     );
   }
 
-  void _onPlayerFinished(String playerName, int finishPosition) {
-    final id = _currentRoundPlayerIdByName[playerName] ?? '';
-    if (id.isEmpty) return;
+  /// Records a player finish with the engine. Only the round game (TableScreen)
+  /// should pop with [TournamentRoundGameResult]; this keeps a single pop and
+  /// avoids double-pop or stuck coordinator spinner.
+  ///
+  /// [TableScreen] reports [OfflineGameState] seat IDs (`player-2`…); the
+  /// offline engine uses `tournament-ai-*`. We map before [recordPlayerFinished].
+  void _onPlayerFinished(String playerId, int finishPosition) {
+    if (playerId.isEmpty) return;
+    final idsForMapping =
+        _enginePlayerIdsForCurrentTable ?? _engine.activePlayerIds;
+    final engineId = resolveTournamentTableIdToEnginePlayerId(
+      reportedId: playerId,
+      activePlayerIds: idsForMapping,
+    );
     if (_engine.finishingPositionFor(
           roundNumber: _engine.currentRound,
-          playerId: id,
+          playerId: engineId,
         ) !=
         null) {
       return;
     }
-    _engine.recordPlayerFinished(id, finishPosition: finishPosition);
-
-    if (_engine.isRoundInProgress) return;
-
-    final round = _engine.roundResults
-        .where((r) => r.roundNumber == _engine.currentRound)
-        .firstOrNull;
-    if (round == null) return;
-    if (!Navigator.of(context).canPop()) return;
-
-    Navigator.of(context).pop(
-      TournamentRoundGameResult(
-        finishedPlayerIds: round.playerIdsInFinishOrder,
-        eliminatedPlayerId: round.eliminatedPlayerId,
-      ),
-    );
+    _engine.recordPlayerFinished(engineId, finishPosition: finishPosition);
   }
 
   Map<String, String> _buildTournamentNamesByTableId(List<String> activeIds) {
-    final map = <String, String>{};
-    for (var i = 0; i < activeIds.length; i++) {
-      final tableId = switch (i) {
-        0 => OfflineGameState.localId,
-        _ => 'player-${i + 1}',
-      };
-      map[tableId] = _displayName(activeIds[i]);
-    }
-    return map;
-  }
+    // Keep TableScreen's local slot stable:
+    // - It always uses `OfflineGameState.localId` as the human-controlled seat.
+    // - The tournament engine's `activePlayerIds` ordering can change between rounds.
+    // Map `player-local` to the engine's local player id (if still active),
+    // and then fill remaining table seats with the other active players.
+    final localActive = activeIds.contains(OfflineGameState.localId);
+    final localName = localActive ? _displayName(OfflineGameState.localId) : 'You';
 
-  Map<String, String> _buildPlayerIdByName(List<String> activeIds) {
+    final opponentIds =
+        activeIds.where((id) => id != OfflineGameState.localId).toList(growable: false);
+
     final map = <String, String>{};
-    for (final playerId in activeIds) {
-      map[_displayName(playerId)] = playerId;
+    map[OfflineGameState.localId] = localName;
+
+    for (var i = 0; i < opponentIds.length; i++) {
+      // OfflineGameState opponent ids are `player-2`, `player-3`, ...
+      final tableId = 'player-${i + 2}';
+      map[tableId] = _displayName(opponentIds[i]);
     }
     return map;
   }
@@ -399,12 +518,27 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
       );
     }
 
-    // Brief loading state before loop pushes first screen
+    // Brief loading state before loop pushes first screen or between rounds.
+    // Keep minimal so transition to WaitingScreen/EliminationScreen feels instant.
+    final theme = ref.watch(themeProvider).theme;
     return Scaffold(
-      backgroundColor: ref.watch(themeProvider).theme.backgroundDeep,
+      backgroundColor: theme.backgroundDeep,
       body: Center(
-        child: CircularProgressIndicator(
-          color: ref.watch(themeProvider).theme.accentPrimary,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(
+              color: theme.accentPrimary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Loading…',
+              style: TextStyle(
+                color: theme.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+          ],
         ),
       ),
     );

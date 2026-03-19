@@ -43,6 +43,8 @@ import '../../../../services/game_sound.dart';
 import '../../../../features/single_player/providers/single_player_session_provider.dart';
 import '../../../../features/bust/models/bust_player_view_model.dart';
 import '../../../../features/bust/widgets/bust_player_rail.dart';
+import '../../../../features/leaderboard/data/leaderboard_stats_writer.dart';
+import '../../../../features/tournament/providers/tournament_session_provider.dart';
 
 part 'table_screen_background.dart';
 part 'table_screen_layout.dart';
@@ -64,7 +66,7 @@ part 'table_screen_sheets.dart';
 class TableScreen extends ConsumerStatefulWidget {
   final int totalPlayers;
   final bool isTournamentMode;
-  final void Function(String playerName, int finishPosition) onPlayerFinished;
+  final void Function(String playerId, int finishPosition) onPlayerFinished;
   final Map<String, String> tournamentPlayerNameByTableId;
   final GameState? debugInitialOfflineState;
   final List<CardModel>? debugInitialDrawPile;
@@ -146,6 +148,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   bool _onlineWinDialogShown = false;
   /// Prevents overlapping online plays while a last-card flight runs.
   bool _onlineLastCardFlightInProgress = false;
+  bool _bustLeaderboardRecorded = false;
+
+  /// True when this session is offline (no gameStateProvider); used to show
+  /// "Skip" in tournament when qualified.
+  bool _isOfflineSession = true;
+  /// When true, we're fast-forwarding the rest of the round after user tapped Skip.
+  bool _tournamentSimulatingRest = false;
   // ── Turn timer ────────────────────────────────────────────────────
   late final GameTurnTimer _engineTimer = GameTurnTimer();
   StreamSubscription<int>? _timerWarningSub;
@@ -340,7 +349,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   void _initNewGame() {
     final liveState = ref.read(gameStateProvider);
+    _bustLeaderboardRecorded = false;
+    _tournamentSimulatingRest = false;
     if (liveState != null) {
+      _isOfflineSession = false;
       // Online mode: server sent state. Run visual deal animation then use it.
       _offlineState = liveState;
       _drawPile = [];
@@ -349,6 +361,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       _discardPile.clear();
       _onlineDiscardCount = 1; // one card already on discard (discardTopCard)
       _onlineWinDialogShown = false;
+
       if (liveState.discardTopCard != null) {
         _discardPile.add(liveState.discardTopCard!);
       }
@@ -379,6 +392,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       });
       return;
     }
+
+    _isOfflineSession = true;
 
     final hasDebugState = widget.debugInitialOfflineState != null &&
         widget.debugInitialDrawPile != null;
@@ -595,12 +610,20 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (flight != null &&
         origin?.currentContext != null &&
         _discardPileKey.currentContext != null) {
-      await flight.flyCard(
-        originKey: origin,
-        targetKey: _discardPileKey,
-        card: card,
-        faceUp: true,
-      );
+      try {
+        await flight
+            .flyCard(
+              originKey: origin,
+              targetKey: _discardPileKey,
+              card: card,
+              faceUp: true,
+            )
+            .timeout(const Duration(milliseconds: 1200));
+      } on TimeoutException {
+        // Fail-open for tournament pacing: never block turn progression on a
+        // flight animation that did not complete.
+        await Future<void>.delayed(const Duration(milliseconds: 60));
+      }
     } else {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
@@ -613,10 +636,17 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (flight != null &&
           _drawPileKey.currentContext != null &&
           _playerZoneKeys[playerId]?.currentContext != null) {
-        await flight.flyDrawToPlayer(
-          drawPileKey: _drawPileKey,
-          playerKey: _playerZoneKeys[playerId],
-        );
+        try {
+          await flight
+              .flyDrawToPlayer(
+                drawPileKey: _drawPileKey,
+                playerKey: _playerZoneKeys[playerId],
+              )
+              .timeout(const Duration(milliseconds: 900));
+        } on TimeoutException {
+          // Keep gameplay moving even if one draw flight stalls.
+          await Future<void>.delayed(const Duration(milliseconds: 60));
+        }
       } else {
         await Future<void>.delayed(const Duration(milliseconds: 70));
       }
@@ -696,7 +726,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           );
         });
         if (nextId != OfflineGameState.localId) {
-          _scheduleAiTurn(nextId);
+          _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
         }
         return;
       }
@@ -757,7 +787,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     _engineTimer.cancel();
     if (resolvedNextId != OfflineGameState.localId) {
-      _scheduleAiTurn(resolvedNextId);
+      _scheduleAiTurn(resolvedNextId, simulate: _tournamentSimulatingRest);
     } else {
       _startTimer();
     }
@@ -818,7 +848,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     });
 
     if (nextId != OfflineGameState.localId) {
-      _scheduleAiTurn(nextId);
+      _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
     } else {
       _startTimer();
     }
@@ -837,7 +867,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     // Sync counter immediately after every draw.
     _offlineState = _offlineState.copyWith(drawPileCount: _drawPile.length);
     // Trigger reshuffle whenever pile drops to 5 or below.
-    _reshuffleCentrePileIntoDrawPile();
+    _reshuffleCentrePileIntoDrawPile(silent: _tournamentSimulatingRest);
     return drawn;
   }
 
@@ -911,6 +941,33 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final winner = hasWinner ? next.playerById(next.winnerId!) : null;
       setState(() => _onlineWinDialogShown = true);
       final navigator = Navigator.of(context);
+
+      // Online Bust: local leaderboard mirror for instant UI. Firestore
+      // `leaderboard_bust_online` is written only by the game server.
+      if (!_bustLeaderboardRecorded &&
+          !widget.isTournamentMode &&
+          ref.read(tournamentSessionProvider).subMode == GameSubMode.bust &&
+          ref.read(tournamentSessionProvider).format == null) {
+        final localPlayerId = next.localPlayer?.id;
+        final firebaseUid = FirebaseAuth.instance.currentUser?.uid;
+        if (firebaseUid != null && localPlayerId != null) {
+          _bustLeaderboardRecorded = true;
+          final localWon = hasWinner && next.winnerId == localPlayerId;
+          final displayName = next.localPlayer?.displayName ?? 'You';
+
+          unawaited(
+            LeaderboardStatsWriter.instance.recordModeResult(
+              collectionName: 'leaderboard_bust_online',
+              uid: firebaseUid,
+              displayName: displayName,
+              deltaWins: localWon ? 1 : 0,
+              deltaLosses: localWon ? 0 : 1,
+              deltaGamesPlayed: 1,
+            ),
+          );
+        }
+      }
+
       if (hasWinner && winner != null) {
         final isLocalWin = next.localPlayer?.id == next.winnerId;
         game_audio.AudioService.instance.playSound(
@@ -1008,14 +1065,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final newlyFinished = finishedIds.where((id) => !prevFinished.contains(id));
       if (newlyFinished.isEmpty) return;
 
-      final finishedCallbacks = <(String name, int pos)>[];
+      final finishedCallbacks = <(String playerId, int pos)>[];
       setState(() {
         for (final id in newlyFinished) {
           if (!_tournamentFinishedPlayerIds.contains(id)) {
             _tournamentFinishedPlayerIds.add(id);
             final pos = _tournamentFinishedPlayerIds.length;
-            final name = next.playerById(id)?.displayName ?? id;
-            finishedCallbacks.add((name, pos));
+            finishedCallbacks.add((id, pos));
             if (_tournamentFinishedPlayerIds.length < next.players.length) {
               game_audio.AudioService.instance
                   .playSound(GameSound.tournamentQualify);
@@ -1028,8 +1084,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               .playSound(GameSound.tournamentEliminate);
         }
       });
-      for (final (name, pos) in finishedCallbacks) {
-        widget.onPlayerFinished(name, pos);
+      for (final (playerId, pos) in finishedCallbacks) {
+        widget.onPlayerFinished(playerId, pos);
       }
     });
 
@@ -1206,6 +1262,81 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         vertical: 6,
                       ),
                       child: LastMovePanelWidget(entries: _moveLogEntries),
+                    ),
+                  ),
+                ),
+
+              // ── Tournament Skip (offline, when qualified) ───────────────────
+              if (widget.isTournamentMode &&
+                  _isOfflineSession &&
+                  _tournamentFinishedPlayerIds.contains(OfflineGameState.localId) &&
+                  !_tournamentRoundComplete &&
+                  gameState.phase != GamePhase.ended)
+                Positioned(
+                  bottom: isLandscapeMobile ? 128 : 208,
+                  left: 0,
+                  right: 0,
+                  child: SafeArea(
+                    top: false,
+                    child: Center(
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _tournamentSimulatingRest
+                              ? null
+                              : _startTournamentSimulation,
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: _tournamentSimulatingRest
+                                  ? Colors.white24
+                                  : AppColors.goldPrimary.withValues(alpha: 0.9),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: _tournamentSimulatingRest
+                                    ? Colors.white38
+                                    : AppColors.goldDark,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_tournamentSimulatingRest)
+                                  SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                else
+                                  const Icon(
+                                    Icons.fast_forward_rounded,
+                                    size: 20,
+                                    color: Colors.black87,
+                                  ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _tournamentSimulatingRest
+                                      ? 'Simulating…'
+                                      : 'Skip to result',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: _tournamentSimulatingRest
+                                        ? Colors.white70
+                                        : Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -1629,6 +1760,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
       _discardPile.add(assignedJoker);
 
+      // Win / tournament round-end may pop this route — run before any setState
+      // so we never call setState after dispose (_dependents.isEmpty).
+      if (_checkWin(playerId, newState)) return;
+
       final localInNew = newState.players
           .where((p) => p.tablePosition == TablePosition.bottom)
           .firstOrNull;
@@ -1648,7 +1783,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       });
 
       _reshuffleCentrePileIntoDrawPile();
-      if (_checkWin(playerId, newState)) return;
 
       // Allow the player to continue their turn (stack more cards if they want).
       return;
@@ -1689,6 +1823,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     _discardPile.addAll(played);
 
+    // Win / tournament round-end may pop this route — run before setState.
+    if (_checkWin(playerId, newState)) return;
+
     final localInNew = newState.players
         .where((p) => p.tablePosition == TablePosition.bottom)
         .firstOrNull;
@@ -1708,7 +1845,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     });
 
     _reshuffleCentrePileIntoDrawPile();
-    if (_checkWin(playerId, newState)) return;
 
     // Auto-advance if this play guarantees we get another turn immediately and
     // there are no unresolved obligations (like covering a Queen).
@@ -1734,7 +1870,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       });
 
       if (nextId != OfflineGameState.localId) {
-        _scheduleAiTurn(nextId);
+        _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
       } else {
         _startTimer();
       }
@@ -1791,7 +1927,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     _engineTimer.cancel();
     if (newState.currentPlayerId != OfflineGameState.localId) {
-      _scheduleAiTurn(newState.currentPlayerId);
+      _scheduleAiTurn(newState.currentPlayerId,
+          simulate: _tournamentSimulatingRest);
     } else {
       _startTimer();
     }
@@ -1814,7 +1951,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         startAfterPlayerId: playerId,
       );
       if (nextId != OfflineGameState.localId) {
-        _scheduleAiTurn(nextId);
+        _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
       } else {
         _startTimer();
       }
@@ -1896,7 +2033,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     });
     _engineTimer.cancel();
     if (nextId != OfflineGameState.localId) {
-      _scheduleAiTurn(nextId);
+      _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
     } else {
       _startTimer();
     }
@@ -1937,7 +2074,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     return true;
   }
 
-  Future<void> _scheduleAiTurn(String aiId) async {
+  Future<void> _scheduleAiTurn(String aiId, {bool simulate = false}) async {
     if (widget.isTournamentMode &&
         _tournamentFinishedPlayerIds.contains(aiId)) {
       final nextId = _nextTournamentActivePlayerId(
@@ -1945,26 +2082,34 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         startAfterPlayerId: aiId,
       );
       if (nextId != OfflineGameState.localId) {
-        _scheduleAiTurn(nextId);
+        _scheduleAiTurn(nextId,
+            simulate: simulate || _tournamentSimulatingRest);
       } else {
-        // The active player's turn is reached via a skip chain — suppress the
-        // redundant turnStart here; the sound will play when the turn genuinely
-        // begins through a non-skip path (e.g. end of a real AI turn).
-        _startTimer(playTurnSound: false);
+        if (!_tournamentSimulatingRest) {
+          _startTimer(playTurnSound: false);
+        }
       }
       return;
     }
     if (_aiThinking) return;
     setState(() => _aiThinking = true);
 
+    bool offlineTournamentInstantPacing() =>
+        _isOfflineSession &&
+        widget.isTournamentMode &&
+        (simulate || _tournamentSimulatingRest);
+
     final hasPlayable =
         aiHasPlayableTurn(state: _offlineState, aiPlayerId: aiId);
     final diffMult = widget.aiDifficulty?.delayMultiplier ?? 1.0;
-    final baseThinkMs = (_randomAiDelayMs(1200, 2500) * diffMult).round();
+    final baseThinkMs = offlineTournamentInstantPacing()
+        ? 0
+        : (_randomAiDelayMs(1200, 2500) * diffMult).round();
 
     // Forced draw pacing: pause before draw and a brief pause after.
     if (!hasPlayable) {
-      final drawPauseMs = (1000 * diffMult).round();
+      final drawPauseMs =
+          offlineTournamentInstantPacing() ? 0 : (1000 * diffMult).round();
       await Future.delayed(Duration(milliseconds: drawPauseMs));
     } else {
       await Future.delayed(Duration(milliseconds: baseThinkMs));
@@ -1991,7 +2136,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         );
 
     // Add extra thought time for Ace/Joker declaration turns.
-    if (playedByAi.isNotEmpty &&
+    if (!offlineTournamentInstantPacing() &&
+        playedByAi.isNotEmpty &&
         (playedByAi.first.effectiveRank == Rank.ace ||
             playedByAi.first.isJoker)) {
       await Future.delayed(
@@ -1999,17 +2145,23 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
 
     if (!hasPlayable) {
-      await Future.delayed(const Duration(milliseconds: 600));
+      await Future.delayed(Duration(
+          milliseconds: offlineTournamentInstantPacing() ? 0 : 600));
       if (!mounted) return;
     }
 
-    if (playedByAi.isNotEmpty) {
+    if (offlineTournamentInstantPacing()) {
+      // Instant path: engine + draw pile already updated via aiTakeTurn / _makeCards.
+      if (playedByAi.isNotEmpty) {
+        _discardPile.addAll(playedByAi);
+      }
+    } else if (playedByAi.isNotEmpty) {
       if (sequentialReplay) {
         var working = stateBeforeAiTurn;
         for (var i = 0; i < playedByAi.length; i++) {
           if (i > 0) {
-            await Future.delayed(
-                Duration(milliseconds: _randomAiDelayMs(280, 500)));
+            await Future.delayed(Duration(
+                milliseconds: _randomAiDelayMs(280, 500)));
             if (!mounted) return;
           }
           await _animateOpponentCardToDiscard(aiId, playedByAi[i]);
@@ -2049,8 +2201,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       } else {
         for (var i = 0; i < playedByAi.length; i++) {
           if (i > 0) {
-            await Future.delayed(
-                Duration(milliseconds: _randomAiDelayMs(280, 500)));
+            await Future.delayed(Duration(
+                milliseconds: _randomAiDelayMs(280, 500)));
             if (!mounted) return;
           }
           await _animateOpponentCardToDiscard(aiId, playedByAi[i]);
@@ -2071,7 +2223,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           game_audio.AudioService.instance.playSound(GameSound.skipApplied);
         }
       }
-    } else {
+    } else if (!offlineTournamentInstantPacing()) {
       final drawN = stateBeforeAiTurn.activePenaltyCount > 0
           ? stateBeforeAiTurn.activePenaltyCount
           : 1;
@@ -2081,8 +2233,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     final aiPlayerName = _offlineState.playerById(aiId)?.displayName ?? aiId;
 
+    // Do not setState here when _checkWin returns true: tournament round-end
+    // pops this route from _handleTournamentPlayerFinished; partial finishes
+    // already clear _aiThinking inside _handleTournamentPlayerFinished.
     if (_checkWin(aiId, result.state)) {
-      setState(() => _aiThinking = false);
       return;
     }
 
@@ -2099,7 +2253,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
 
     // AI quick chat: use preset messages like human players (30% chance).
-    if (aiConfig != null && playedByAi.isNotEmpty && _chatRng.nextDouble() < 0.30) {
+    if (!offlineTournamentInstantPacing() &&
+        aiConfig != null &&
+        playedByAi.isNotEmpty &&
+        _chatRng.nextDouble() < 0.30) {
       final msgIndex = _chatRng.nextInt(kQuickMessages.length);
       _showQuickChatBubble(aiId, aiPlayerName, msgIndex, isLocal: false);
     }
@@ -2136,9 +2293,44 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     });
 
     if (nextId != OfflineGameState.localId) {
-      _scheduleAiTurn(nextId);
+      _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
     } else {
-      _startTimer();
+      if (!_tournamentSimulatingRest) _startTimer();
+    }
+  }
+
+  /// Starts fast-forward simulation of the rest of the round when the local
+  /// player is already qualified (offline tournament only). Schedules the
+  /// current (AI) player's turn with no delays or card flights until the round
+  /// completes. Works for any player count (2+).
+  ///
+  /// If an AI turn is already in progress, sets the fast-forward flag so the
+  /// rest of that turn and all following turns use instant pacing.
+  void _startTournamentSimulation() {
+    if (!widget.isTournamentMode ||
+        !_isOfflineSession ||
+        _tournamentRoundComplete ||
+        _tournamentSimulatingRest) {
+      return;
+    }
+    if (!_tournamentFinishedPlayerIds.contains(OfflineGameState.localId)) {
+      return;
+    }
+    setState(() => _tournamentSimulatingRest = true);
+    if (_aiThinking) {
+      return;
+    }
+    var id = _offlineState.currentPlayerId;
+    if (_tournamentFinishedPlayerIds.contains(id) ||
+        id == OfflineGameState.localId) {
+      id = _nextTournamentActivePlayerId(
+        state: _offlineState,
+        startAfterPlayerId: id,
+      );
+    }
+    if (id != OfflineGameState.localId &&
+        !_tournamentFinishedPlayerIds.contains(id)) {
+      _scheduleAiTurn(id, simulate: true);
     }
   }
 
@@ -2159,7 +2351,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   ///   5. Toggles [_reshuffleNotifier] → DrawPileWidget plays its animation.
   ///   6. Shows a visible "Reshuffling deck..." snackbar.
   ///   7. Prints the new count to the console for confirmation.
-  void _reshuffleCentrePileIntoDrawPile() {
+  ///
+  /// When [silent] is true (offline tournament fast-forward), skips sound,
+  /// pile animation notifier, and snackbar so simulation stays instant.
+  void _reshuffleCentrePileIntoDrawPile({bool silent = false}) {
     // Gate: only trigger when 5 or fewer remain AND centre pile has spare cards.
     if (_drawPile.length > 5) return;
     if (_discardPile.length <= 1) return; // nothing beyond the top card
@@ -2178,39 +2373,94 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     // ── 3. Add shuffled cards to draw pile ──────────────────────────────────
     _drawPile.addAll(toShuffle);
-    game_audio.AudioService.instance.playSound(GameSound.shuffleDeck);
+    if (!silent) {
+      game_audio.AudioService.instance.playSound(GameSound.shuffleDeck);
+    }
 
     if (!mounted) return;
 
     // ── 4 & 5. Update counter + trigger animation ────────────────────────────
     setState(() {
       _offlineState = _offlineState.copyWith(drawPileCount: _drawPile.length);
-      _reshuffleNotifier.value = !_reshuffleNotifier.value;
+      if (!silent) {
+        _reshuffleNotifier.value = !_reshuffleNotifier.value;
+      }
     });
 
     // ── 6. Visible banner so players know a reshuffle happened ──────────────
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.shuffle_rounded, color: Colors.white, size: 18),
-              SizedBox(width: 8),
-              Text(
-                'Reshuffling deck...',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+    if (!silent) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.shuffle_rounded, color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Text(
+                  'Reshuffling deck...',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
+            backgroundColor: AppColors.goldDark,
+            duration: const Duration(milliseconds: 1800),
+            behavior: SnackBarBehavior.floating,
           ),
-          backgroundColor: AppColors.goldDark,
-          duration: const Duration(milliseconds: 1800),
-          behavior: SnackBarBehavior.floating,
+        );
+    }
+  }
+
+  /// Pops the table route on the **next** frame so Riverpod [Consumer]
+  /// dependents and other [InheritedWidget]s finish their update cycle before
+  /// this route is removed. Synchronous [Navigator.pop] here caused
+  /// `'_dependents.isEmpty': is not true` when leaving the table after round 1.
+  void _scheduleTournamentTablePop(TournamentRoundGameResult result) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final nav = Navigator.maybeOf(context);
+      if (nav == null || !nav.canPop()) return;
+      nav.pop(result);
+    });
+  }
+
+  /// Auto-eliminates the last remaining tournament player when all other
+  /// players have already qualified. This mirrors [TournamentEngine]'s rule
+  /// that the final player is eliminated immediately once everyone else has
+  /// finished, so the round cannot get stuck with a single player.
+  ///
+  /// Returns true when an elimination pop was scheduled.
+  bool _autoEliminateLastTournamentPlayer(GameState state) {
+    if (!widget.isTournamentMode) return false;
+    // Only trigger when at least one player has already finished.
+    if (_tournamentFinishedPlayerIds.isEmpty) return false;
+
+    final remaining = state.players
+        .where((p) => !_tournamentFinishedPlayerIds.contains(p.id))
+        .toList(growable: false);
+    if (remaining.length != 1) return false;
+
+    final lastId = remaining.first.id;
+    _tournamentFinishedPlayerIds.add(lastId);
+    final finishPosition = _tournamentFinishedPlayerIds.length;
+    widget.onPlayerFinished(lastId, finishPosition);
+    _tournamentRoundComplete = true;
+    final eliminatedPlayerId = lastId;
+    game_audio.AudioService.instance.playSound(GameSound.tournamentEliminate);
+
+    _engineTimer.cancel();
+    if (mounted) {
+      _scheduleTournamentTablePop(
+        TournamentRoundGameResult(
+          finishedPlayerIds: List<String>.from(_tournamentFinishedPlayerIds),
+          eliminatedPlayerId: eliminatedPlayerId,
         ),
       );
+    }
+    return true;
   }
 
   // ── Win detection ──────────────────────────────────────────────────
@@ -2218,7 +2468,94 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   bool _checkWin(String lastActorId, GameState state) {
     if (!shouldShowStandardWinOverlay(
         isTournamentMode: widget.isTournamentMode)) {
-      return _handleTournamentPlayerFinished(lastActorId, state);
+      // Collect all newly-confirmable finishers in one pass.
+      final newFinishers = <String>[];
+      for (final p in state.players) {
+        if (_tournamentFinishedPlayerIds.contains(p.id)) continue;
+        if (canConfirmPlayerWin(state: state, playerId: p.id)) {
+          newFinishers.add(p.id);
+        }
+      }
+      if (newFinishers.isEmpty) {
+        // No new finishers — still check auto-eliminate in case the last
+        // remaining player was already stuck.
+        if (_autoEliminateLastTournamentPlayer(state)) return true;
+        return false;
+      }
+
+      // ── Batch-record all finishers before making any scheduling decision ──
+      // Recording inside the loop used to call _scheduleAiTurn once per
+      // finisher, creating concurrent AI turns that corrupted _offlineState.
+      for (final playerId in newFinishers) {
+        _tournamentFinishedPlayerIds.add(playerId);
+        final finishPosition = _tournamentFinishedPlayerIds.length;
+        widget.onPlayerFinished(playerId, finishPosition);
+        // Play qualify sound for every finisher except the last one in the
+        // round (the last finisher triggers eliminate sound below).
+        if (_tournamentFinishedPlayerIds.length < state.players.length) {
+          game_audio.AudioService.instance
+              .playSound(GameSound.tournamentQualify);
+        }
+      }
+
+      // ── After all finishers are recorded, decide what happens next ────────
+
+      // Check if the round is now fully complete (all players accounted for).
+      if (_tournamentFinishedPlayerIds.length == state.players.length) {
+        _tournamentRoundComplete = true;
+        final eliminatedPlayerId = _tournamentFinishedPlayerIds.last;
+        game_audio.AudioService.instance
+            .playSound(GameSound.tournamentEliminate);
+        _engineTimer.cancel();
+        if (mounted) {
+          _scheduleTournamentTablePop(
+            TournamentRoundGameResult(
+              finishedPlayerIds:
+                  List<String>.from(_tournamentFinishedPlayerIds),
+              eliminatedPlayerId: eliminatedPlayerId,
+            ),
+          );
+        }
+        return true;
+      }
+
+      // Auto-eliminate if only one unfinished player remains.
+      if (_autoEliminateLastTournamentPlayer(state)) return true;
+
+      // Round is still in progress — advance to the next active player and
+      // schedule exactly ONE AI turn (or start the human timer). Use the last
+      // recorded finisher as the "start after" anchor.
+      final lastFinisher = newFinishers.last;
+      final nextId = _nextTournamentActivePlayerId(
+        state: state,
+        startAfterPlayerId: lastFinisher,
+      );
+
+      _engineTimer.cancel();
+      setState(() {
+        _offlineState = state.copyWith(
+          currentPlayerId: nextId,
+          actionsThisTurn: 0,
+          cardsPlayedThisTurn: 0,
+          lastPlayedThisTurn: null,
+          activeSkipCount: 0,
+          preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
+          drawPileCount: _drawPile.length,
+        );
+        _selectedCardId = null;
+        _aiThinking = false;
+      });
+
+      if (mounted) {
+        _reshuffleCentrePileIntoDrawPile(silent: _tournamentSimulatingRest);
+      }
+
+      if (nextId != OfflineGameState.localId) {
+        _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
+      } else {
+        _startTimer();
+      }
+      return true;
     }
 
     if (!wouldConfirmWin(state)) return false;
@@ -2256,76 +2593,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     return true;
   }
 
-  bool _handleTournamentPlayerFinished(String playerId, GameState state) {
-    if (_tournamentFinishedPlayerIds.contains(playerId)) return false;
-
-    final didFinish = _didPlayerFinish(playerId, state);
-    if (!didFinish) return false;
-
-    _tournamentFinishedPlayerIds.add(playerId);
-    final finishPosition = _tournamentFinishedPlayerIds.length;
-    final playerName = state.playerById(playerId)?.displayName ?? playerId;
-    widget.onPlayerFinished(playerName, finishPosition);
-    if (_tournamentFinishedPlayerIds.length < state.players.length) {
-      // Anyone who finishes here has qualified for next round, not eliminated.
-      game_audio.AudioService.instance.playSound(GameSound.tournamentQualify);
-    }
-
-    if (_tournamentFinishedPlayerIds.length == state.players.length) {
-      _tournamentRoundComplete = true;
-      final eliminatedPlayerId = _tournamentFinishedPlayerIds.last;
-      game_audio.AudioService.instance.playSound(GameSound.tournamentEliminate);
-
-      _engineTimer.cancel();
-      setState(() {
-        _offlineState = state.copyWith(drawPileCount: _drawPile.length);
-        _selectedCardId = null;
-        _aiThinking = false;
-      });
-
-      Future.microtask(() {
-        if (!mounted) return;
-        Navigator.of(context).pop(
-          TournamentRoundGameResult(
-            finishedPlayerIds: List<String>.from(_tournamentFinishedPlayerIds),
-            eliminatedPlayerId: eliminatedPlayerId,
-          ),
-        );
-      });
-      return true;
-    }
-
-    final nextId = _nextTournamentActivePlayerId(
-      state: state,
-      startAfterPlayerId: playerId,
-    );
-
-    _engineTimer.cancel();
-    setState(() {
-      _offlineState = state.copyWith(
-        currentPlayerId: nextId,
-        actionsThisTurn: 0,
-        cardsPlayedThisTurn: 0,
-        lastPlayedThisTurn: null,
-        activeSkipCount: 0,
-        preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
-        drawPileCount: _drawPile.length,
-      );
-      _selectedCardId = null;
-      _aiThinking = false;
-    });
-
-    if (nextId != OfflineGameState.localId) {
-      _scheduleAiTurn(nextId);
-    } else {
-      _startTimer();
-    }
-    return true;
-  }
-
-  bool _didPlayerFinish(String playerId, GameState state) {
-    return canConfirmPlayerWin(state: state, playerId: playerId);
-  }
 
   String _nextTournamentActivePlayerId({
     required GameState state,

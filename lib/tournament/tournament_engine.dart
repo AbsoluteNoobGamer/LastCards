@@ -193,7 +193,16 @@ class TournamentEngine {
       throw StateError('Tournament is already complete.');
     }
     if (_roundInProgress) {
-      throw StateError('Current round is still in progress.');
+      // Coordinator/UI can rarely desync from the engine flag. If this round is
+      // already recorded in [roundResults], the round is over — recover so we
+      // can advance (fixes stuck before round-3 waiting / final table).
+      final roundAlreadyRecorded =
+          _roundResults.any((r) => r.roundNumber == _currentRound);
+      if (roundAlreadyRecorded) {
+        _roundInProgress = false;
+      } else {
+        throw StateError('Current round is still in progress.');
+      }
     }
     if (_activePlayerIds.length < 2) {
       throw StateError('Not enough players to start another round.');
