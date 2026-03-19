@@ -294,13 +294,21 @@ class GameSession {
       final nextCurrent = nextPlayerId(state: oldState);
       final s = oldState.copyWith(players: newPlayers);
       _state = advanceTurn(s, nextId: nextCurrent);
+    } else {
+      _state = oldState.copyWith(players: newPlayers);
+    }
+
+    if (_isBustRoundComplete()) {
+      _finalizeBustRound();
+      return;
+    }
+
+    if (wasCurrent) {
       _broadcast({
         'type': 'turn_changed',
         'currentPlayerId': _state.currentPlayerId,
         'direction': _state.direction.name,
       });
-    } else {
-      _state = oldState.copyWith(players: newPlayers);
     }
 
     _broadcastStateSnapshots();
