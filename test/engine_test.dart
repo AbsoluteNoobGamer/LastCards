@@ -1188,4 +1188,12 @@ void main() {
       expect(true, isTrue);
     }, skip: 'not yet implemented');
   });
+
+  group('buildShuffledDeck', () {
+    test('same seed produces identical deck order', () {
+      final a = buildShuffledDeck(seed: 12345);
+      final b = buildShuffledDeck(seed: 12345);
+      expect(a.map((c) => c.id).toList(), b.map((c) => c.id).toList());
+    });
+  });
 }

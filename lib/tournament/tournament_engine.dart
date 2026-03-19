@@ -105,7 +105,8 @@ class TournamentEngine {
       );
       for (var i = 0; i < aiNeeded; i++) {
         final index = seeded.length + 1;
-        final config = aiConfigs[i];
+        final config =
+            aiConfigs[i].copyWith(playerId: 'tournament-ai-$index');
         seeded.add(TournamentPlayer(
           id: 'tournament-ai-$index',
           displayName: config.name,

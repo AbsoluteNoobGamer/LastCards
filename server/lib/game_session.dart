@@ -208,30 +208,103 @@ class GameSession {
     _players.remove(playerId);
     _broadcast({'type': 'player_left', 'playerId': playerId});
 
-    // If the game is in progress, end it — removing a player's hand mid-game
-    // would corrupt the state, and the turn timer could fire for a ghost player.
-    if (_started && !_gameOver) {
-      _turnTimer?.cancel();
-      _gameOver = true;
-      _state = _state.copyWith(phase: GamePhase.ended);
+    if (!_started || _gameOver) return;
 
-      final trophyPenaltyForLeaver = _trophyEligible;
-      if (trophyPenaltyForLeaver && isRanked) {
-        final uid = firebaseUid ?? playerId;
-        _trophyRecorder.recordLeavePenalty(uid, displayName: displayName);
-      }
-
-      _broadcast({
-        'type': 'game_ended',
-        'winnerId': '',
-        'reason': 'player_disconnected',
-        'disconnectedPlayerId': playerId,
-        'trophyPenaltyForLeaver': trophyPenaltyForLeaver,
-        if (isRanked) 'ratingChanges': {
-          playerId: _rankedLeaveDelta,
-        },
-      });
+    if (isBustMode) {
+      _removePlayerFromBustInProgress(
+        playerId: playerId,
+        firebaseUid: firebaseUid,
+        displayName: displayName,
+      );
+      return;
     }
+
+    _endGameForDisconnect(
+      disconnectedPlayerId: playerId,
+      firebaseUid: firebaseUid,
+      displayName: displayName,
+    );
+  }
+
+  /// Standard (non-Bust) games end when any player disconnects mid-session.
+  void _endGameForDisconnect({
+    required String disconnectedPlayerId,
+    required String? firebaseUid,
+    required String displayName,
+  }) {
+    _turnTimer?.cancel();
+    _gameOver = true;
+    _state = _state.copyWith(phase: GamePhase.ended);
+
+    final trophyPenaltyForLeaver = _trophyEligible;
+    if (trophyPenaltyForLeaver && isRanked) {
+      final uid = firebaseUid ?? disconnectedPlayerId;
+      _trophyRecorder.recordLeavePenalty(uid, displayName: displayName);
+    }
+
+    _broadcast({
+      'type': 'game_ended',
+      'winnerId': '',
+      'reason': 'player_disconnected',
+      'disconnectedPlayerId': disconnectedPlayerId,
+      'trophyPenaltyForLeaver': trophyPenaltyForLeaver,
+      if (isRanked)
+        'ratingChanges': {
+          disconnectedPlayerId: _rankedLeaveDelta,
+        },
+    });
+  }
+
+  /// Bust: drop the leaver from the table; continue if more than 2 survivors remain.
+  void _removePlayerFromBustInProgress({
+    required String playerId,
+    required String? firebaseUid,
+    required String displayName,
+  }) {
+    _bustSurvivorIds.remove(playerId);
+    _bustTurnsThisRound.remove(playerId);
+    _bustPenaltyPoints.remove(playerId);
+    if (!_bustEliminatedIds.contains(playerId)) {
+      _bustEliminatedIds.add(playerId);
+    }
+
+    if (_bustSurvivorIds.length <= 2) {
+      _endGameForDisconnect(
+        disconnectedPlayerId: playerId,
+        firebaseUid: firebaseUid,
+        displayName: displayName,
+      );
+      return;
+    }
+
+    final oldState = _state;
+    final newPlayers =
+        oldState.players.where((p) => p.id != playerId).toList();
+    if (newPlayers.isEmpty) {
+      _endGameForDisconnect(
+        disconnectedPlayerId: playerId,
+        firebaseUid: firebaseUid,
+        displayName: displayName,
+      );
+      return;
+    }
+
+    final wasCurrent = oldState.currentPlayerId == playerId;
+    if (wasCurrent) {
+      final nextCurrent = nextPlayerId(state: oldState);
+      final s = oldState.copyWith(players: newPlayers);
+      _state = advanceTurn(s, nextId: nextCurrent);
+      _broadcast({
+        'type': 'turn_changed',
+        'currentPlayerId': _state.currentPlayerId,
+        'direction': _state.direction.name,
+      });
+    } else {
+      _state = oldState.copyWith(players: newPlayers);
+    }
+
+    _broadcastStateSnapshots();
+    _startTurnTimer();
   }
 
   void markReady(String playerId) {
@@ -373,6 +446,15 @@ class GameSession {
         return;
       }
       cards.add(card);
+    }
+
+    if (cards.any((c) => c.rank == Rank.joker)) {
+      _sendError(
+        playerId,
+        'joker_must_declare',
+        'Jokers must use the declare_joker action.',
+      );
+      return;
     }
 
     final err = validatePlay(

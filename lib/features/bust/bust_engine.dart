@@ -34,10 +34,13 @@ abstract final class BustEngine {
 
   // ── 52-card deck builder (no Jokers) ───────────────────────────────────────
 
+  /// Bust uses a standard 52-card deck only — there are no Jokers — so Bust UI
+  /// does not need Joker declaration paths or `isJoker` guards.
+
   /// Returns a freshly shuffled 52-card deck (no Jokers).
   /// Delegates to [buildBustDeck] in the shared engine.
-  static List<CardModel> buildShuffledDeck({int? seed}) =>
-      buildBustDeck(seed: seed);
+  static List<CardModel> buildShuffledDeck({int? seed, math.Random? random}) =>
+      buildBustDeck(seed: seed, random: random);
 
   // ── Game builder ───────────────────────────────────────────────────────────
 
@@ -55,7 +58,8 @@ abstract final class BustEngine {
     assert(playerCount >= 2 && playerCount <= 10,
         'Bust playerCount must be between 2 and 10');
 
-    final deck = buildShuffledDeck(seed: seed);
+    final rng = seed != null ? math.Random(seed) : math.Random();
+    final deck = buildShuffledDeck(random: rng);
     int idx = 0;
     final handSize = handSizeFor(playerCount);
 
@@ -107,8 +111,7 @@ abstract final class BustEngine {
     final discardTop = draw(1).first;
     final drawPile = List<CardModel>.from(deck.sublist(idx));
 
-    // 4. Pick starting player (random unless overridden)
-    final rng = math.Random(seed);
+    // 4. Pick starting player (same RNG stream as deck shuffle for reproducibility)
     final firstId = startingPlayerId ??
         players[rng.nextInt(players.length)].id;
 
@@ -149,7 +152,7 @@ abstract final class BustEngine {
     final toShuffle =
         List<CardModel>.from(discardPile.sublist(0, discardPile.length - 1));
 
-    fisherYatesShuffle(toShuffle, seed);
+    fisherYatesShuffle(toShuffle, seed: seed);
 
     // Discard pile is managed by caller — they should clear it and add topCard back
     final newDrawPile = [...drawPile, ...toShuffle];

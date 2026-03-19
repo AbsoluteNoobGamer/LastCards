@@ -358,6 +358,55 @@ void main() {
       final handAfter = _hand(snapAfter).length;
       expect(handAfter, equals(handBefore + 2));
     });
+
+    test('joker via play_cards is rejected', () {
+      final (:session, :sockets, :ids) = _makeSession(2);
+      final p1ws = sockets[0];
+      final p1Id = ids[0];
+
+      final joker = _joker('jk1', Suit.spades);
+      final p1Hand = [joker, _card(Rank.five, Suit.spades)];
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: p1Id,
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: p1Hand,
+            cardCount: p1Hand.length,
+          ),
+          PlayerModel(
+            id: ids[1],
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: [_card(Rank.six, Suit.hearts)],
+            cardCount: 1,
+          ),
+        ],
+        currentPlayerId: p1Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: _card(Rank.seven, Suit.spades),
+        drawPileCount: 5,
+        preTurnCentreSuit: Suit.spades,
+      );
+      session.seedStateForTesting(
+        state: state,
+        drawPile: List.generate(
+            5, (i) => CardModel(id: 'filler_$i', rank: Rank.four, suit: Suit.clubs)),
+      );
+
+      p1ws.clear();
+      session.handleAction(p1Id, {
+        'type': 'play_cards',
+        'cardIds': ['jk1'],
+      });
+
+      final err = p1ws.lastOfType('error');
+      expect(err, isNotNull);
+      expect(err!['code'], equals('joker_must_declare'));
+    });
   });
 
   // ── draw_card ──────────────────────────────────────────────────────────────
@@ -1315,6 +1364,32 @@ void main() {
       final roundStart = p1ws.lastOfType('bust_round_start');
       expect(roundStart, isNotNull);
       expect(roundStart!['roundNumber'], equals(2));
+    });
+
+    test('disconnect with more than 2 survivors continues (no game_ended)', () {
+      final (:session, :sockets, :ids) = _makeSession(4, isBustMode: true);
+      for (final id in ids) {
+        session.markReady(id);
+      }
+      final p1ws = sockets[0];
+      p1ws.clear();
+      session.removePlayer(ids[3]);
+
+      expect(p1ws.ofType('game_ended'), isEmpty);
+      expect(p1ws.ofType('player_left'), isNotEmpty);
+      expect(p1ws.ofType('state_snapshot'), isNotEmpty);
+    });
+
+    test('disconnect leaving <=2 survivors ends game', () {
+      final (:session, :sockets, :ids) = _makeSession(3, isBustMode: true);
+      for (final id in ids) {
+        session.markReady(id);
+      }
+      final p1ws = sockets[0];
+      p1ws.clear();
+      session.removePlayer(ids[2]);
+
+      expect(p1ws.ofType('game_ended'), isNotEmpty);
     });
   });
 

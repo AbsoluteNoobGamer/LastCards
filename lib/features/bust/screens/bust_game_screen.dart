@@ -79,6 +79,7 @@ class BustResumeState {
     required this.survivorIds,
     required this.playerNames,
     required this.allEliminatedIds,
+    required this.cumulativePenaltyPoints,
     required this.aiConfigs,
     required this.eliminationHistory,
     required this.localRoundStats,
@@ -88,6 +89,11 @@ class BustResumeState {
   final List<String> survivorIds;
   final Map<String, String> playerNames;
   final List<String> allEliminatedIds;
+
+  /// Cumulative Bust penalty totals after the last completed round (same keys
+  /// as server `_bustPenaltyPoints` across rounds).
+  final Map<String, int> cumulativePenaltyPoints;
+
   final List<AiPlayerConfig> aiConfigs;
 
   /// Accumulated placement records for every player knocked out so far.
@@ -177,15 +183,16 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       _gameState = _applyInitialEffects(gameState);
       _moveLogEntries.clear();
 
-      // Do NOT carry over eliminatedIds or penaltyPoints from previous rounds.
-      // BustEngine always numbers AIs from player-2 upward, so IDs are reused
-      // each round. Passing old eliminated/penalty data would cause the new
-      // holders of those IDs to be incorrectly skipped or given wrong scores.
+      // Survivors reuse `player-1` … `player-N` IDs each round; cumulative
+      // penalties and eliminated IDs must match those same IDs.
       _roundManager = BustRoundManager.resumed(
         survivorIds: _gameState.players.map((p) => p.id).toList(),
         firstPlayerId: _gameState.currentPlayerId,
-        penaltyPoints: const {},
-        eliminatedIds: const [],
+        penaltyPoints: {
+          for (final id in resume.survivorIds)
+            id: resume.cumulativePenaltyPoints[id] ?? 0,
+        },
+        eliminatedIds: resume.allEliminatedIds,
         roundNumber: resume.roundNumber,
       );
     } else {
@@ -522,9 +529,6 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       _applyInvalidPlayPenalty(OfflineGameState.localId);
       return;
     }
-
-    // Joker — no jokers in 52-card Bust deck, guard anyway
-    if (played.length == 1 && played.first.isJoker) return;
 
     final beforeState = _gameState;
     var newState = applyPlay(

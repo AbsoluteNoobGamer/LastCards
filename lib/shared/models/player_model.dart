@@ -1,4 +1,4 @@
 /// Re-exports the shared player model from core.
 library;
 
-export '../../core/models/player_model.dart';
+export 'package:last_cards/core/models/player_model.dart';
