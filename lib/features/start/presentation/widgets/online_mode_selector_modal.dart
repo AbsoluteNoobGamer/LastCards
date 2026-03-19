@@ -67,10 +67,15 @@ class OnlineModeSelectorModal extends ConsumerWidget {
                   theme: theme,
                   title: 'Tournament mode',
                   subtitle:
-                      'Use elimination bracket with online multiplayer flow',
+                      'Use elimination bracket with online multiplayer flow (Coming soon)',
                   onTap: () {
+                    final messenger = ScaffoldMessenger.of(context);
                     Navigator.pop(context);
-                    onSelected(OnlineMode.tournament);
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Online tournaments are coming soon!'),
+                      ),
+                    );
                   },
                 ),
                 const SizedBox(height: 8),

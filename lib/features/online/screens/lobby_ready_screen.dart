@@ -12,7 +12,6 @@ import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../features/gameplay/presentation/screens/table_screen.dart';
 import '../../../../features/tournament/providers/tournament_session_provider.dart';
-import '../../../../features/tournament/screens/tournament_coordinator.dart';
 import '../providers/online_session_provider.dart';
 
 /// Full-screen lobby ready screen.
@@ -120,7 +119,17 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
     if (isBust) {
       destination = TableScreen(totalPlayers: playerCount);
     } else if (isTournament) {
-      destination = const TournamentCoordinator(isOnline: true);
+      // Online tournaments are not server-backed; avoid fake AI bracket coordinator.
+      ref.read(tournamentSessionProvider.notifier).reset();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Online tournaments are coming soon!'),
+          ),
+        );
+      });
+      destination = TableScreen(totalPlayers: playerCount);
     } else {
       destination = TableScreen(totalPlayers: playerCount);
     }

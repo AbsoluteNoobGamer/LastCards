@@ -16,7 +16,6 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../gameplay/presentation/screens/table_screen.dart';
-import '../../../../features/tournament/screens/tournament_coordinator.dart';
 
 enum OnlineMode { standard, tournament }
 
@@ -333,19 +332,20 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     }
   }
 
-  void _enterSelectedMode() {
-    final displayName = ref.read(displayNameForGameProvider);
-    final isProfileLoaded = ref.read(userProfileProvider).hasValue;
-    final effectiveName = displayName.isEmpty || !isProfileLoaded ? 'You' : displayName;
-
+  Future<void> _enterSelectedMode() async {
     if (widget.onlineMode == OnlineMode.tournament) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => TournamentCoordinator(
-            isOnline: true,
-            onlineLocalDisplayName: effectiveName,
-            showStartButton: true,
-          ),
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Coming soon'),
+          content: const Text('Online tournaments are coming soon!'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('OK'),
+            ),
+          ],
         ),
       );
       return;
