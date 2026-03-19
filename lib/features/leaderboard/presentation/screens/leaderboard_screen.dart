@@ -178,15 +178,20 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
 
       // Prefer local entry values for the current player since Firestore
       // propagation can lag behind match end.
+      // Prefer local entry values for the current player since Firestore
+      // propagation can lag behind match end.
+      final currentUid = FirebaseAuth.instance.currentUser?.uid;
       for (final e in localEntries) {
-        mergedByUid[e.uid] = _ModeEntry(
-          uid: e.uid,
-          displayName: e.displayName,
-          wins: e.wins,
-          losses: e.losses,
-          gamesPlayed: e.gamesPlayed,
-          rating: null,
-        );
+        if (currentUid != null && e.uid == currentUid) {
+          mergedByUid[e.uid] = _ModeEntry(
+            uid: e.uid,
+            displayName: e.displayName,
+            wins: e.wins,
+            losses: e.losses,
+            gamesPlayed: e.gamesPlayed,
+            rating: null,
+          );
+        }
       }
 
       final merged = mergedByUid.values.toList(growable: false);
