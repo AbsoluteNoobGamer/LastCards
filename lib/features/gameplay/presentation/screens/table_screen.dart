@@ -869,7 +869,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         .where((p) => p.tablePosition == TablePosition.bottom)
         .firstOrNull
         ?.id;
-    final nextTurnLabel = gameState.phase == GamePhase.playing &&
+    // Online state reorders players (local at index 0); nextPlayerId walks by index — wrong for 3+.
+    final nextTurnLabel = isOfflineMode &&
+            gameState.phase == GamePhase.playing &&
             viewerPlayerId != null &&
             viewerPlayerId.isNotEmpty
         ? nextPlayerAfterTurnLabel(

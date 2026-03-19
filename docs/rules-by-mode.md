@@ -22,7 +22,7 @@
   - draw 1 card, and
   - your turn ends immediately.
 - The drawn card cannot be played on that same turn.
-- The table action bar shows **Next: …** — who would act after the current player ends the turn, using the same logic as Eights (skip), King (reverse), and 2-player King (same player again). Shown in offline, online, tournament table, and Bust.
+- The table action bar shows **Next: …** (offline / local table only) — who would act after the current player ends the turn, using Eights (skip), King (reverse), and 2-player King. Online table omits it because player list order is per-client. Bust still shows **Next:** on its own state order.
 
 ### Multi-Card and Sequence Play
 - You may play multiple cards of the same value in one turn.
