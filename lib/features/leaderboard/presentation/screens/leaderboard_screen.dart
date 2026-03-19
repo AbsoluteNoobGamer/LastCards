@@ -122,11 +122,6 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   // ── Ranked Firestore data ─────────────────────────────────────────────────
 
   Future<List<_RankedEntry>> _fetchRanked() async {
-    final snap = await FirebaseFirestore.instance
-        .collection('ranked_stats')
-        .orderBy('rating', descending: true)
-        .limit(50)
-        .get();
     final n = _playerCountFilter;
     final snap = await FirebaseFirestore.instance
         .collection('ranked_stats')
