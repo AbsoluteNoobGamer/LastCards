@@ -22,10 +22,12 @@ import '../../../../core/theme/app_theme_data.dart';
 class JokerCardWidget extends ConsumerStatefulWidget {
   const JokerCardWidget({
     super.key,
+    required this.isRedJoker,
     this.width = AppDimensions.cardWidthMedium,
     this.onTap,
   });
 
+  final bool isRedJoker;
   final double width;
   final VoidCallback? onTap;
 
@@ -71,6 +73,9 @@ class _JokerCardWidgetState extends ConsumerState<JokerCardWidget>
         final useImage = design != null && design.assetPath != null;
 
         if (useImage) {
+          final rawAssetPath = design.assetPath!;
+          final resolvedAssetPath =
+              _resolveRedBlackJokerAssetPath(rawAssetPath);
           return GestureDetector(
             onTap: widget.onTap,
             child: Container(
@@ -89,7 +94,7 @@ class _JokerCardWidgetState extends ConsumerState<JokerCardWidget>
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
                 child: Image.asset(
-                  design.assetPath!,
+                  resolvedAssetPath,
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => _buildClassicJoker(theme),
                 ),
@@ -100,6 +105,30 @@ class _JokerCardWidgetState extends ConsumerState<JokerCardWidget>
         return _buildClassicJoker(theme);
       },
     );
+  }
+
+  String _resolveRedBlackJokerAssetPath(String rawAssetPath) {
+    // If the selected joker cover is specifically Red/Black Joker artwork,
+    // swap to the correct variant for the other joker color.
+    final lower = rawAssetPath.toLowerCase();
+    if (widget.isRedJoker) {
+      if (lower.contains('black joker')) {
+        return rawAssetPath.replaceFirst(
+          RegExp(r'black joker', caseSensitive: false),
+          'Red Joker',
+        );
+      }
+      return rawAssetPath;
+    }
+
+    // Black joker
+    if (lower.contains('red joker')) {
+      return rawAssetPath.replaceFirst(
+        RegExp(r'red joker', caseSensitive: false),
+        'Black Joker',
+      );
+    }
+    return rawAssetPath;
   }
 
   Widget _buildClassicJoker(AppThemeData theme) {
