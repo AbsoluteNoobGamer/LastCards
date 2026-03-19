@@ -865,6 +865,19 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         ? _offlineState.activePenaltyCount
         : ref.watch(penaltyCountProvider);
 
+    final viewerPlayerId = gameState.players
+        .where((p) => p.tablePosition == TablePosition.bottom)
+        .firstOrNull
+        ?.id;
+    final nextTurnLabel = gameState.phase == GamePhase.playing &&
+            viewerPlayerId != null &&
+            viewerPlayerId.isNotEmpty
+        ? nextPlayerAfterTurnLabel(
+            state: gameState,
+            viewerPlayerId: viewerPlayerId,
+          )
+        : null;
+
     // In online mode, start turn timer when it becomes our turn (e.g. after opponent ends)
     ref.listen(isLocalTurnProvider, (prev, next) {
       if (ref.read(gameStateProvider) == null || !mounted) return;
@@ -1157,6 +1170,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             b.playerId: (id: b.id, playerName: b.playerName, message: b.message, isLocal: b.isLocal),
                         },
                         onRemoveQuickChatBubble: _removeQuickChatBubble,
+                        nextTurnLabel: nextTurnLabel,
                       ),
                     ),
                   ],

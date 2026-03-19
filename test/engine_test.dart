@@ -792,6 +792,30 @@ void main() {
       // Because it's a 2-player game, nextPlayerId should return 'p1' (acts as skip)
       final next = nextPlayerId(state: state);
       expect(next, 'p1');
+      expect(nextPlayerAfterTurnLabel(state: state, viewerPlayerId: 'p1'),
+          'You again');
+    });
+
+    test('nextPlayerAfterTurnLabel reflects Eight skip and viewer', () {
+      var state = buildState(discardTop: c(Rank.five, Suit.diamonds));
+      final p2 = PlayerModel(
+          id: 'p2',
+          displayName: 'P2',
+          tablePosition: TablePosition.top,
+          hand: [],
+          cardCount: 0);
+      final p3 = PlayerModel(
+          id: 'p3',
+          displayName: 'P3',
+          tablePosition: TablePosition.left,
+          hand: [],
+          cardCount: 0);
+      state = state.copyWith(players: [...state.players, p2, p3]);
+      state = applyPlay(
+          state: state, playerId: 'p1', cards: [c(Rank.eight, Suit.diamonds)]);
+      expect(nextPlayerAfterTurnLabel(state: state, viewerPlayerId: 'p3'), 'You');
+      expect(
+          nextPlayerAfterTurnLabel(state: state, viewerPlayerId: 'p1'), 'P3');
     });
 
     test('aceWildFirstCard', () {
