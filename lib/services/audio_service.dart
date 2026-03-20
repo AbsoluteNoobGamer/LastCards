@@ -87,6 +87,11 @@ class AudioService {
       _prefs = await SharedPreferences.getInstance();
       _soundEffectsEnabled = _prefs?.getBool(_prefsKeySfxEnabled) ?? true;
       _availableAssets = await _loadAudioAssets();
+    } catch (_) {
+      // Fail silently: missing prefs or asset manifest should not crash gameplay.
+    }
+
+    try {
       await AudioPlayer.global.setAudioContext(
         AudioContext(
           android: AudioContextAndroid(
@@ -103,6 +108,11 @@ class AudioService {
           ),
         ),
       );
+    } catch (e) {
+      debugPrint('AudioService: setAudioContext failed: $e');
+    }
+
+    try {
       _turnPlayer = AudioPlayer();
       _specialPlayer = AudioPlayer();
       _uiPlayer = AudioPlayer();
@@ -110,7 +120,7 @@ class AudioService {
         _cardDrawPlayers.add(AudioPlayer());
       }
     } catch (_) {
-      // Fail silently: missing assets or audio init should never crash gameplay.
+      // Fail silently: player creation should not crash gameplay.
     }
 
     _initialized = true;
