@@ -1899,6 +1899,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     } finally {
       _localActionInProgress = false;
+      if (mounted && _flyingCardId != null) setState(() => _flyingCardId = null);
     }
   }
 
@@ -1956,6 +1957,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     } finally {
       _localActionInProgress = false;
+      if (mounted && _flyingCardId != null) setState(() => _flyingCardId = null);
     }
   }
 
