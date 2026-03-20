@@ -633,7 +633,7 @@ String nextPlayerId({
 /// Human-readable name for who goes after [state.currentPlayerId] ends this turn,
 /// reflecting Eights (skip), King (reverse), and 2-player King (same again).
 ///
-/// [viewerPlayerId] is shown as `"You"` when it matches that player.
+/// [viewerPlayerId] uses that seat's [PlayerModel.displayName] when it matches.
 String nextPlayerAfterTurnLabel({
   required GameState state,
   required String viewerPlayerId,
@@ -642,7 +642,9 @@ String nextPlayerAfterTurnLabel({
   final nextId = nextPlayerId(state: state);
   final curId = state.currentPlayerId;
   String label(String id) {
-    if (id == viewerPlayerId) return 'You';
+    if (id == viewerPlayerId) {
+      return state.playerById(id)?.displayName ?? 'You';
+    }
     return state.playerById(id)?.displayName ?? id;
   }
   if (nextId == curId) {

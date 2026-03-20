@@ -560,6 +560,7 @@ class _PlayerSlot extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(themeProvider).theme;
+    final localDisplayName = ref.watch(displayNameForGameProvider);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 400),
@@ -619,7 +620,9 @@ class _PlayerSlot extends ConsumerWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            isJoined ? (index == 0 ? 'You' : 'Player ${index + 1}') : '…',
+            isJoined
+                ? (index == 0 ? localDisplayName : 'Player ${index + 1}')
+                : '…',
             style: GoogleFonts.inter(
               fontSize: 10,
               color: isJoined

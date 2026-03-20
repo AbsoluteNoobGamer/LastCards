@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/models/offline_game_state.dart';
 import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/services/player_level_service.dart';
 import '../../../../services/audio_service.dart';
 import '../../../../services/game_sound.dart';
@@ -152,10 +153,10 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
     final playerCount =
         widget.playerCount ?? ref.read(tournamentSessionProvider).playerCount ?? 4;
     return TournamentEngine.offline(
-      players: const [
+      players: [
         TournamentPlayer(
           id: OfflineGameState.localId,
-          displayName: 'You',
+          displayName: ref.read(displayNameForGameProvider),
           isAi: false,
         ),
       ],
@@ -441,7 +442,9 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
     // Map `player-local` to the engine's local player id (if still active),
     // and then fill remaining table seats with the other active players.
     final localActive = activeIds.contains(OfflineGameState.localId);
-    final localName = localActive ? _displayName(OfflineGameState.localId) : 'You';
+    final localName = localActive
+        ? _displayName(OfflineGameState.localId)
+        : ref.read(displayNameForGameProvider);
 
     final opponentIds =
         activeIds.where((id) => id != OfflineGameState.localId).toList(growable: false);

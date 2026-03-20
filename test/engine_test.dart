@@ -793,7 +793,7 @@ void main() {
       final next = nextPlayerId(state: state);
       expect(next, 'p1');
       expect(nextPlayerAfterTurnLabel(state: state, viewerPlayerId: 'p1'),
-          'You again');
+          'P1 again');
     });
 
     test('nextPlayerAfterTurnLabel reflects Eight skip and viewer', () {
@@ -813,7 +813,7 @@ void main() {
       state = state.copyWith(players: [...state.players, p2, p3]);
       state = applyPlay(
           state: state, playerId: 'p1', cards: [c(Rank.eight, Suit.diamonds)]);
-      expect(nextPlayerAfterTurnLabel(state: state, viewerPlayerId: 'p3'), 'You');
+      expect(nextPlayerAfterTurnLabel(state: state, viewerPlayerId: 'p3'), 'P3');
       expect(
           nextPlayerAfterTurnLabel(state: state, viewerPlayerId: 'p1'), 'P3');
     });

@@ -11,6 +11,7 @@ import 'package:last_cards/services/audio_service.dart' as game_audio;
 import 'package:last_cards/services/game_sound.dart';
 import 'package:last_cards/core/models/move_log_entry.dart';
 import 'package:last_cards/core/providers/theme_provider.dart';
+import 'package:last_cards/core/providers/user_profile_provider.dart';
 import 'package:last_cards/core/theme/app_colors.dart';
 import 'package:last_cards/core/theme/app_dimensions.dart';
 import 'package:last_cards/core/theme/app_typography.dart';
@@ -165,6 +166,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   void _initGame() {
     final seed = DateTime.now().millisecondsSinceEpoch;
     final resume = widget.resumeState;
+    final localDisplayName = ref.read(displayNameForGameProvider);
 
     if (resume != null) {
       // ── Subsequent round: reuse existing AI configs + names
@@ -191,6 +193,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
             id: resume.playerNames[id] ?? id,
         },
         seed: seed,
+        localDisplayName: localDisplayName,
       );
 
       _drawPile = drawPile;
@@ -225,6 +228,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
         playerCount: _clampedPlayers,
         aiNames: aiNameMap,
         seed: seed,
+        localDisplayName: localDisplayName,
       );
 
       _drawPile = drawPile;

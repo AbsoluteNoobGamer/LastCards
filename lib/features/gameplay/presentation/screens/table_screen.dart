@@ -26,6 +26,7 @@ import '../../../../core/services/player_level_service.dart';
 import '../../../../core/models/move_log_entry.dart';
 import '../../../../core/models/game_event.dart';
 import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/providers/user_profile_provider.dart';
 import '../widgets/discard_pile_widget.dart';
 import '../widgets/draw_pile_widget.dart';
 import '../widgets/hud_overlay_widget.dart';
@@ -418,6 +419,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final seeded = OfflineGameState.buildWithDeck(
         totalPlayers: widget.totalPlayers,
         aiNames: aiNameMap,
+        localDisplayName: ref.read(displayNameForGameProvider),
       );
       state = seeded.$1;
       drawPile = seeded.$2;
@@ -910,7 +912,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final resolvedNextId =
           _resolveTournamentNextPlayerId(gameState, rawNextId);
       String label(String id) {
-        if (id == viewerPlayerId) return 'You';
+        if (id == viewerPlayerId) {
+          return gameState.playerById(id)?.displayName ?? 'You';
+        }
         return gameState.playerById(id)?.displayName ?? id;
       }
       nextTurnLabel = resolvedNextId == gameState.currentPlayerId
@@ -2849,9 +2853,20 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         .where((p) => p.tablePosition == TablePosition.bottom)
         .firstOrNull?.id ?? OfflineGameState.localId;
 
+    final bottomPlayer = ref.read(gameStateProvider)?.players
+            .where((p) => p.tablePosition == TablePosition.bottom)
+            .firstOrNull ??
+        _offlineState.players
+            .where((p) => p.tablePosition == TablePosition.bottom)
+            .firstOrNull;
+    final localChatName = (bottomPlayer != null &&
+            bottomPlayer.displayName.isNotEmpty)
+        ? bottomPlayer.displayName
+        : ref.read(displayNameForGameProvider);
+
     _showQuickChatBubble(
       localPlayerId,
-      'You',
+      localChatName,
       messageIndex,
       isLocal: true,
     );
