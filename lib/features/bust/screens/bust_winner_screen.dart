@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:last_cards/core/models/offline_game_state.dart';
 import 'package:last_cards/core/providers/theme_provider.dart';
+import 'package:last_cards/core/providers/user_profile_provider.dart';
 import 'package:last_cards/core/theme/app_colors.dart';
 import 'package:last_cards/core/theme/app_dimensions.dart';
 import 'package:last_cards/core/theme/app_typography.dart';
@@ -50,7 +52,7 @@ class BustWinnerScreen extends ConsumerStatefulWidget {
   bool get _localWon =>
       !localEliminated &&
       winnerId.isNotEmpty &&
-      (winnerId == 'player-local' || winnerName == 'You');
+      winnerId == OfflineGameState.localId;
 
   // ── Leaderboard (used when local player won or AI won) ─────────────────────
 
@@ -103,11 +105,11 @@ class _BustWinnerScreenState extends ConsumerState<BustWinnerScreen> {
     final firebaseUid = FirebaseAuth.instance.currentUser?.uid;
     if (firebaseUid == null) return;
 
-    final localWon = !widget.localEliminated &&
-        widget.winnerId.isNotEmpty &&
-        (widget.winnerId == 'player-local' || widget.winnerName == 'You');
+    final localWon = widget._localWon;
 
-    final displayName = widget.playerNames['player-local'] ?? 'You';
+    final profileName = ref.read(displayNameForGameProvider);
+    final displayName =
+        widget.playerNames['player-local'] ?? profileName;
 
     await LeaderboardStatsWriter.instance.recordModeResult(
       collectionName: 'leaderboard_bust_offline',

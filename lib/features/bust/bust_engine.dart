@@ -56,12 +56,15 @@ abstract final class BustEngine {
   ///
   /// [aiNames] maps each non-local seat id to a display name.
   /// [startingPlayerId] optionally overrides who goes first (random by default).
+  ///
+  /// [localDisplayName] labels the human seat ([OfflineGameState.localId]).
   static ({GameState gameState, List<CardModel> drawPile}) buildRound({
     required int playerCount,
     List<String>? seatPlayerIds,
     Map<String, String> aiNames = const {},
     String? startingPlayerId,
     int? seed,
+    String localDisplayName = 'You',
   }) {
     assert(playerCount >= 2 && playerCount <= 10,
         'Bust playerCount must be between 2 and 10');
@@ -110,7 +113,7 @@ abstract final class BustEngine {
       if (i == 0) {
         players.add(PlayerModel(
           id: id,
-          displayName: 'You',
+          displayName: localDisplayName,
           tablePosition: TablePosition.bottom,
           hand: hand,
           cardCount: hand.length,

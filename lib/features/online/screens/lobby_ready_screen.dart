@@ -10,6 +10,7 @@ import '../../../../core/providers/connection_provider.dart';
 import '../../../../core/providers/game_provider.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../features/gameplay/presentation/screens/table_screen.dart';
 import '../../../../features/tournament/providers/tournament_session_provider.dart';
 import '../providers/online_session_provider.dart';
@@ -162,7 +163,9 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
         gameState.players[index].displayName.isNotEmpty) {
       return gameState.players[index].displayName;
     }
-    return index == 0 ? 'You' : 'Player ${index + 1}';
+    return index == 0
+        ? ref.read(displayNameForGameProvider)
+        : 'Player ${index + 1}';
   }
 
   @override
