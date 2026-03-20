@@ -125,6 +125,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   String? _selectedCardId;
   List<String> _handOrder = [];
   bool _aiThinking = false;
+  bool _localActionInProgress = false;
   final math.Random _aiDelayRng = math.Random();
   final ValueNotifier<bool> _reshuffleNotifier = ValueNotifier(false);
   final List<MoveLogEntry> _moveLogEntries = [];
@@ -554,6 +555,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
 
   Future<void> _playCard({required String cardId}) async {
     if (_aiThinking) return;
+    if (_localActionInProgress) return;
     final local = _localPlayer;
     if (local == null) return;
 
@@ -573,39 +575,44 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       return;
     }
 
-    final lastFromHand = local.hand.length == played.length;
-    setState(() => _flyingCardId = played.first.id);
-    await _animateLocalCardToDiscard(played.first, lastCardFromHand: lastFromHand);
-    if (!mounted) return;
+    _localActionInProgress = true;
+    try {
+      final lastFromHand = local.hand.length == played.length;
+      setState(() => _flyingCardId = played.first.id);
+      await _animateLocalCardToDiscard(played.first, lastCardFromHand: lastFromHand);
+      if (!mounted) return;
 
-    final beforeState = _gameState;
-    var newState = applyPlay(
-      state: _gameState,
-      playerId: OfflineGameState.localId,
-      cards: played,
-    );
-    _discardPile.addAll(played);
-
-    final localInNew = newState.players
-        .where((p) => p.tablePosition == TablePosition.bottom)
-        .firstOrNull;
-
-    setState(() {
-      _gameState = newState.copyWith(drawPileCount: _drawPile.length);
-      _selectedCardId = null;
-      _flyingCardId = null;
-      if (localInNew != null) _syncHandOrder(localInNew.hand);
-      _recordPlayMove(
+      final beforeState = _gameState;
+      var newState = applyPlay(
+        state: _gameState,
         playerId: OfflineGameState.localId,
-        playerName: local.displayName,
-        playedCards: played,
-        beforeState: beforeState,
-        afterState: newState,
+        cards: played,
       );
-    });
+      _discardPile.addAll(played);
 
-    _checkPlacementPileRule();
-    _maybeFinalizeBustFinalShowdown();
+      final localInNew = newState.players
+          .where((p) => p.tablePosition == TablePosition.bottom)
+          .firstOrNull;
+
+      setState(() {
+        _gameState = newState.copyWith(drawPileCount: _drawPile.length);
+        _selectedCardId = null;
+        _flyingCardId = null;
+        if (localInNew != null) _syncHandOrder(localInNew.hand);
+        _recordPlayMove(
+          playerId: OfflineGameState.localId,
+          playerName: local.displayName,
+          playedCards: played,
+          beforeState: beforeState,
+          afterState: newState,
+        );
+      });
+
+      _checkPlacementPileRule();
+      _maybeFinalizeBustFinalShowdown();
+    } finally {
+      _localActionInProgress = false;
+    }
   }
 
   Future<void> _animateLocalCardToDiscard(
@@ -670,6 +677,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
 
   void _drawCard() {
     if (_aiThinking) return;
+    if (_localActionInProgress) return;
     if (_gameState.currentPlayerId != OfflineGameState.localId) return;
     if (_gameState.actionsThisTurn > 0 && _gameState.queenSuitLock == null) {
       return;
@@ -745,6 +753,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
 
   Future<void> _endTurn() async {
     if (_aiThinking) return;
+    if (_localActionInProgress) return;
     if (_gameState.currentPlayerId != OfflineGameState.localId) return;
 
     final err = validateEndTurn(_gameState);
