@@ -94,16 +94,19 @@ class AudioService {
     try {
       await AudioPlayer.global.setAudioContext(
         AudioContext(
+          // Mix with background apps (e.g. YouTube): no audio focus steal, and
+          // usage sonification — not USAGE_GAME / media — so SFX reads as UI
+          // sounds rather than competing primary playback.
           android: AudioContextAndroid(
             audioFocus: AndroidAudioFocus.none,
             isSpeakerphoneOn: false,
             audioMode: AndroidAudioMode.normal,
             stayAwake: false,
             contentType: AndroidContentType.sonification,
-            usageType: AndroidUsageType.game,
+            usageType: AndroidUsageType.assistanceSonification,
           ),
           iOS: AudioContextIOS(
-            category: AVAudioSessionCategory.ambient,
+            category: AVAudioSessionCategory.playback,
             options: {AVAudioSessionOptions.mixWithOthers},
           ),
         ),
