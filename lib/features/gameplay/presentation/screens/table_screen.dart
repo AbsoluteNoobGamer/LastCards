@@ -1778,20 +1778,23 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
       _discardPile.add(assignedJoker);
 
-      // Win / tournament round-end may pop this route — run before any setState
-      // so we never call setState after dispose (_dependents.isEmpty).
-      if (_checkWin(playerId, newState)) return;
-
+      // Update state before _checkWin so the hand is already correct if the
+      // finally block clears _flyingCardId on a win/early-return path.
       final localInNew = newState.players
           .where((p) => p.tablePosition == TablePosition.bottom)
           .firstOrNull;
       final jokerPlayerName =
           _offlineState.playerById(playerId)?.displayName ?? playerId;
+      _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
+      if (localInNew != null) _syncHandOrder(localInNew.hand);
+
+      // Win / tournament round-end may pop this route — run before any setState
+      // so we never call setState after dispose (_dependents.isEmpty).
+      if (_checkWin(playerId, newState)) return;
+
       setState(() {
-        _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
         _selectedCardId = null;
         _flyingCardId = null;
-        if (localInNew != null) _syncHandOrder(localInNew.hand);
         _recordPlayMove(
           playerId: playerId,
           playerName: jokerPlayerName,
@@ -1843,19 +1846,22 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     _discardPile.addAll(played);
 
-    // Win / tournament round-end may pop this route — run before setState.
-    if (_checkWin(playerId, newState)) return;
-
+    // Update state before _checkWin so the hand is already correct if the
+    // finally block clears _flyingCardId on a win/early-return path.
     final localInNew = newState.players
         .where((p) => p.tablePosition == TablePosition.bottom)
         .firstOrNull;
     final playPlayerName =
         _offlineState.playerById(playerId)?.displayName ?? playerId;
+    _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
+    if (localInNew != null) _syncHandOrder(localInNew.hand);
+
+    // Win / tournament round-end may pop this route — run before setState.
+    if (_checkWin(playerId, newState)) return;
+
     setState(() {
-      _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
       _selectedCardId = null;
       _flyingCardId = null;
-      if (localInNew != null) _syncHandOrder(localInNew.hand);
       _recordPlayMove(
         playerId: playerId,
         playerName: playPlayerName,
@@ -2705,8 +2711,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           .firstOrNull;
       if (localPlayer == null) return;
 
-      final currentOrder =
-          _orderedHand(localPlayer.hand).map((c) => c.id).toList();
+      final currentOrder = _orderedHand(localPlayer.hand)
+          .where((c) => c.id != _flyingCardId)
+          .map((c) => c.id)
+          .toList();
       if (oldIndex < 0 ||
           oldIndex >= currentOrder.length ||
           newIndex < 0 ||
