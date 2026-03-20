@@ -15,6 +15,8 @@ import 'package:last_cards/core/providers/user_profile_provider.dart';
 import 'package:last_cards/core/theme/app_colors.dart';
 import 'package:last_cards/core/theme/app_dimensions.dart';
 import 'package:last_cards/core/theme/app_typography.dart';
+import 'package:flutter/services.dart';
+import 'package:last_cards/features/gameplay/presentation/widgets/card_flight_overlay.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/dealing_animation_overlay.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/discard_pile_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/draw_pile_widget.dart';
@@ -136,9 +138,13 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   bool _bustRoundNavigationQueued = false;
   final Map<String, int> _visibleCardCounts = {};
   final GlobalKey _drawPileKey = GlobalKey();
+  final GlobalKey _discardPileKey = GlobalKey();
   final Map<String, GlobalKey> _playerZoneKeys = {};
   final GlobalKey<DealingAnimationOverlayState> _dealingOverlayKey =
       GlobalKey<DealingAnimationOverlayState>();
+  final GlobalKey<CardFlightOverlayState> _playFlightKey =
+      GlobalKey<CardFlightOverlayState>();
+  String? _flyingCardId;
 
   int get _clampedPlayers => widget.totalPlayers.clamp(2, 10);
 
@@ -371,6 +377,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     var cards = _handOrder
         .where(handMap.containsKey)
         .map((id) => handMap[id]!)
+        .where((c) => c.id != _flyingCardId)
         .toList();
     if (_isDealing) {
       final visible = _visibleCardCounts[local.id] ?? 0;
@@ -566,6 +573,11 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       return;
     }
 
+    final lastFromHand = local.hand.length == played.length;
+    setState(() => _flyingCardId = played.first.id);
+    await _animateLocalCardToDiscard(played.first, lastCardFromHand: lastFromHand);
+    if (!mounted) return;
+
     final beforeState = _gameState;
     var newState = applyPlay(
       state: _gameState,
@@ -581,6 +593,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     setState(() {
       _gameState = newState.copyWith(drawPileCount: _drawPile.length);
       _selectedCardId = null;
+      _flyingCardId = null;
       if (localInNew != null) _syncHandOrder(localInNew.hand);
       _recordPlayMove(
         playerId: OfflineGameState.localId,
@@ -593,6 +606,30 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
 
     _checkPlacementPileRule();
     _maybeFinalizeBustFinalShowdown();
+  }
+
+  Future<void> _animateLocalCardToDiscard(
+    CardModel card, {
+    bool lastCardFromHand = false,
+  }) async {
+    final flight = _playFlightKey.currentState;
+    final origin = _playerZoneKeys[OfflineGameState.localId];
+    if (lastCardFromHand) {
+      HapticFeedback.heavyImpact();
+    }
+    if (flight != null &&
+        origin?.currentContext != null &&
+        _discardPileKey.currentContext != null) {
+      await flight.flyCard(
+        originKey: origin,
+        targetKey: _discardPileKey,
+        card: card,
+        faceUp: true,
+        lastCardFromHand: lastCardFromHand,
+      );
+    } else {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
   }
 
   void _applyInvalidPlayPenalty(String playerId) {
@@ -1117,6 +1154,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                                 ),
                                 const SizedBox(width: 24),
                                 SizedBox(
+                                  key: _discardPileKey,
                                   width: 100,
                                   height: 145,
                                   child: OverflowBox(
@@ -1253,6 +1291,11 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                   drawPileKey: _drawPileKey,
                   playerKeys: _playerZoneKeys,
                 ),
+              ),
+
+              // Card play flight overlay
+              Positioned.fill(
+                child: CardFlightOverlay(key: _playFlightKey),
               ),
 
               // Back button

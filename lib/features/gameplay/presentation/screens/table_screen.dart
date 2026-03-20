@@ -110,6 +110,7 @@ bool shouldShowStandardWinOverlay({required bool isTournamentMode}) {
 
 class _TableScreenState extends ConsumerState<TableScreen> {
   String? _selectedCardId;
+  String? _flyingCardId;
 
   /// Latest move log entries (newest first, max 3).
   final List<MoveLogEntry> _moveLogEntries = <MoveLogEntry>[];
@@ -1193,7 +1194,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                   .firstOrNull
                                   ?.hand ??
                               [],
-                        ),
+                        ).where((c) => c.id != _flyingCardId).toList(),
                         isMyTurn: isMyTurn,
                         penaltyCount: penaltyCount,
                         connState: isOfflineMode
@@ -1546,16 +1547,28 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     required void Function() send,
   }) async {
     if (!lastCardFromHand) {
+      setState(() => _flyingCardId = cardToFly.id);
       send();
+      // _flyingCardId is cleared when the server state update arrives.
+      // Safety fallback in case the update is delayed or dropped:
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && _flyingCardId == cardToFly.id) {
+          setState(() => _flyingCardId = null);
+        }
+      });
       return;
     }
     _onlineLastCardFlightInProgress = true;
+    setState(() => _flyingCardId = cardToFly.id);
     try {
       await _animateLocalCardToDiscard(cardToFly, lastCardFromHand: true);
       if (!mounted) return;
       send();
     } finally {
-      if (mounted) _onlineLastCardFlightInProgress = false;
+      if (mounted) {
+        _onlineLastCardFlightInProgress = false;
+        setState(() => _flyingCardId = null);
+      }
     }
   }
 
@@ -1741,6 +1754,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       );
 
       final lastFromHand = local.hand.length == 1;
+      setState(() => _flyingCardId = assignedJoker.id);
       await _animateLocalCardToDiscard(assignedJoker,
           lastCardFromHand: lastFromHand);
       if (!mounted) return;
@@ -1776,6 +1790,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       setState(() {
         _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
         _selectedCardId = null;
+        _flyingCardId = null;
         if (localInNew != null) _syncHandOrder(localInNew.hand);
         _recordPlayMove(
           playerId: playerId,
@@ -1793,6 +1808,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
 
     final lastFromHand = local.hand.length == played.length;
+    setState(() => _flyingCardId = played.first.id);
     await _animateLocalCardToDiscard(played.first,
         lastCardFromHand: lastFromHand);
     if (!mounted) return;
@@ -1838,6 +1854,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     setState(() {
       _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
       _selectedCardId = null;
+      _flyingCardId = null;
       if (localInNew != null) _syncHandOrder(localInNew.hand);
       _recordPlayMove(
         playerId: playerId,
@@ -2588,6 +2605,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             setState(() {
               _initNewGame();
               _selectedCardId = null;
+              _flyingCardId = null;
               _aiThinking = false;
             });
           },
