@@ -83,8 +83,8 @@ When multiple effects are active together, resolve in this order:
 ### Bust Mode
 - **Deck:** 52-card standard deck only (no Jokers); 2–10 players.
 - **Deal:** Hand size depends on player count (e.g. 10 cards each for 2–5 players, down to 5 each for 9–10 players) — see adaptive deal table in code (`handSizeForBust`).
-- **Round structure:** Each active player takes exactly **2** turns per round; the round ends when everyone has played twice.
-- **Scoring / elimination:** Cards left in hand at round end add to that player’s **cumulative** penalty score; the **bottom two** players by cumulative penalty are eliminated each round (only **one** elimination when two players remain, producing a winner).
+- **Round structure:** With **3+** active players, each takes exactly **2** turns per round and the round ends when everyone has played twice. The **final** round (exactly **2** players left) is a **race to empty hand**: play continues until someone legally sheds their last card; turn count does not end that round.
+- **Scoring / elimination:** Cards left in hand at round end add to that player’s **cumulative** penalty score; the **bottom two** players by cumulative penalty are eliminated each round. In the **2-player finale**, the **empty-hand** player wins and the other is eliminated (penalty comparison is not used to pick the winner).
 - **Placement pile:** When the visible discard pile reaches **5** cards, the bottom **four** are shuffled back into the draw pile, leaving only the top card showing.
 - **Reconnect / disconnect (online):** With **more than two** survivors, a disconnect removes that player and play continues; if **two or fewer** survivors would remain, the session ends like a normal disconnect.
 - **Win:** Last player standing after eliminations wins.

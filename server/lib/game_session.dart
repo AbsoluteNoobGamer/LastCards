@@ -10,7 +10,8 @@ import 'package:last_cards/shared/rules/win_condition_rules.dart';
 
 import 'trophy_recorder.dart';
 
-// Bust mode: 52-card deck, 2 turns per player per round, eliminate bottom 2 each round.
+// Bust mode: 52-card deck; 3+ survivors = 2 turns each per round, eliminate bottom 2;
+// 2 survivors = race to empty hand (no turn-cap round end).
 
 // ── Turn timer duration ───────────────────────────────────────────────────────
 
@@ -728,6 +729,19 @@ class GameSession {
         _finalizeBustRound();
         return;
       }
+
+      // 1v1 showdown: a deferred win (e.g. last card was a 2) may now be
+      // confirmable after the penalty was drawn.  Mirrors the client's
+      // _onTurnComplete → _maybeFinalizeBustFinalShowdown() check.
+      if (_bustSurvivorIds.length == 2) {
+        for (final id in _bustSurvivorIds) {
+          if (canConfirmPlayerWin(state: _state, playerId: id)) {
+            _completeBustFinalShowdown(id);
+            return;
+          }
+        }
+      }
+
     }
 
     _broadcast({
@@ -740,11 +754,25 @@ class GameSession {
     _startTurnTimer();
   }
 
-  bool _isBustRoundComplete() =>
-      _bustSurvivorIds.every((id) => (_bustTurnsThisRound[id] ?? 0) >= 2);
+  /// With two survivors the finale is a race to empty hand — never end the
+  /// round from turn counts alone.
+  bool _isBustRoundComplete() {
+    if (_bustSurvivorIds.length == 2) return false;
+    return _bustSurvivorIds
+        .every((id) => (_bustTurnsThisRound[id] ?? 0) >= 2);
+  }
 
   void _finalizeBustRound() {
     _turnTimer?.cancel();
+
+    if (_bustSurvivorIds.length == 2) {
+      for (final id in _bustSurvivorIds) {
+        if (canConfirmPlayerWin(state: _state, playerId: id)) {
+          _completeBustFinalShowdown(id);
+          return;
+        }
+      }
+    }
 
     // 1. Add cards-remaining penalty for each survivor
     final roundPenalties = <String, int>{};
@@ -845,6 +873,93 @@ class GameSession {
     _bustSurvivorIds = survivors;
     _bustTurnsThisRound = {for (final id in survivors) id: 0};
     _startBustNextRound();
+  }
+
+  /// 1v1 bust finale: [winnerId] has a confirmed empty hand.
+  void _completeBustFinalShowdown(String winnerId) {
+    _turnTimer?.cancel();
+    final roundPenalties = <String, int>{};
+    for (final id in _bustSurvivorIds) {
+      final p = _state.playerById(id);
+      roundPenalties[id] = p?.hand.length ?? 0;
+    }
+    for (final id in _bustSurvivorIds) {
+      _bustPenaltyPoints[id] =
+          (_bustPenaltyPoints[id] ?? 0) + (roundPenalties[id] ?? 0);
+    }
+
+    final loserId = _bustSurvivorIds.firstWhere((id) => id != winnerId);
+    final eliminatedThisRound = <String>[loserId];
+    final survivors = <String>[winnerId];
+    _bustEliminatedIds = [..._bustEliminatedIds, ...eliminatedThisRound];
+
+    final standings = [winnerId, loserId].map((id) {
+      final name = _players[id]?.displayName ?? id;
+      return {
+        'playerId': id,
+        'playerName': name,
+        'cardsThisRound': roundPenalties[id] ?? 0,
+        'totalPenalty': _bustPenaltyPoints[id] ?? 0,
+      };
+    }).toList();
+
+    _broadcast({
+      'type': 'bust_round_over',
+      'roundNumber': _bustRoundNumber,
+      'standings': standings,
+      'eliminatedThisRound': eliminatedThisRound,
+      'survivorIds': survivors,
+      'isGameOver': true,
+      'winnerId': winnerId,
+    });
+
+    _gameOver = true;
+    _state = _state.copyWith(phase: GamePhase.ended, winnerId: winnerId);
+    final bustTrophyEligible = _trophyEligible;
+
+    Map<String, int>? ratingChanges;
+    if (bustTrophyEligible && isRanked) {
+      ratingChanges = {
+        for (final entry in _players.entries)
+          entry.key:
+              entry.key == winnerId ? _rankedWinDelta : _rankedLossDelta,
+      };
+      final winnerUid = _players[winnerId]?.firebaseUid ?? winnerId;
+      final allPlayerUids = _players.entries
+          .map((e) => (
+                playerId: e.key,
+                uid: e.value.firebaseUid ?? e.key,
+                displayName: e.value.displayName,
+              ))
+          .toList();
+      _trophyRecorder.recordRankedResult(
+        winnerUid: winnerUid,
+        allPlayerUids: allPlayerUids,
+        playerCount: _players.length,
+      );
+    }
+
+    if (bustTrophyEligible) {
+      final bustPlayers = _players.entries
+          .map((e) => (
+                playerId: e.key,
+                firebaseUid: e.value.firebaseUid,
+                displayName: e.value.displayName,
+              ))
+          .toList();
+      _trophyRecorder.recordLeaderboardBustOnline(
+        winnerPlayerId: winnerId,
+        players: bustPlayers,
+        playerCount: _players.length,
+      );
+    }
+
+    _broadcast({
+      'type': 'bust_game_ended',
+      'winnerId': winnerId,
+      'trophyEligible': bustTrophyEligible,
+      if (ratingChanges != null) 'ratingChanges': ratingChanges,
+    });
   }
 
   void _startBustNextRound() {
@@ -1014,7 +1129,22 @@ class GameSession {
 
   void _checkWin() {
     if (_gameOver) return;
-    // Bust rounds end when everyone has 2 turns, not on first empty hand.
+
+    if (isBustMode && _bustSurvivorIds.length == 2) {
+      if (!wouldConfirmWin(_state)) return;
+      final winnerId = _state.players
+          .where((p) => p.hand.isEmpty && p.cardCount == 0)
+          .firstOrNull
+          ?.id;
+      if (winnerId == null || !_bustSurvivorIds.contains(winnerId)) {
+        return;
+      }
+      _completeBustFinalShowdown(winnerId);
+      return;
+    }
+
+    // Bust rounds with 3+ survivors end when everyone has 2 turns, not on
+    // empty hand.
     if (isBustMode) return;
     if (!wouldConfirmWin(_state)) return;
 
