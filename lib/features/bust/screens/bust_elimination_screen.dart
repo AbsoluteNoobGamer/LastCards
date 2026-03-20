@@ -26,12 +26,16 @@ class BustEliminationScreen extends ConsumerWidget {
     required this.aiConfigs,
     required this.eliminationHistory,
     required this.localRoundStats,
+    required this.priorEliminatedIds,
     this.isOnline = false,
   });
 
   final BustRoundResult result;
   final Map<String, String> playerNames;
   final List<AiPlayerConfig> aiConfigs;
+
+  /// Players eliminated in all rounds before the one that just finished.
+  final List<String> priorEliminatedIds;
 
   /// Placement records for every player eliminated in previous rounds.
   /// This screen appends the current round's eliminations and passes the
@@ -219,6 +223,9 @@ class BustEliminationScreen extends ConsumerWidget {
                     horizontal: AppDimensions.md),
                 child: _ProgressionBar(
                   survivorCount: result.survivorIds.length,
+                  startingPlayerCount: priorEliminatedIds.length +
+                      result.survivorIds.length +
+                      result.eliminatedThisRound.length,
                   theme: theme,
                 ),
               ),
@@ -313,8 +320,8 @@ class BustEliminationScreen extends ConsumerWidget {
             survivorIds: result.survivorIds,
             playerNames: playerNames,
             allEliminatedIds: [
-              ...result.cumulativePenalties.keys
-                  .where((id) => !result.survivorIds.contains(id)),
+              ...priorEliminatedIds,
+              ...result.eliminatedThisRound,
             ],
             cumulativePenaltyPoints: result.cumulativePenalties,
             aiConfigs: aiConfigs,
@@ -454,16 +461,27 @@ class _StandingRow extends StatelessWidget {
 class _ProgressionBar extends StatelessWidget {
   const _ProgressionBar({
     required this.survivorCount,
+    required this.startingPlayerCount,
     required this.theme,
   });
 
   final int survivorCount;
+  final int startingPlayerCount;
   final dynamic theme;
 
-  static const _steps = [10, 8, 6, 4, 2];
+  static List<int> _buildSteps(int startingCount) {
+    final steps = <int>[];
+    var count = startingCount;
+    while (count > 1) {
+      steps.add(count);
+      count -= count <= 2 ? 1 : 2;
+    }
+    return steps;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final steps = _buildSteps(startingPlayerCount);
     return Container(
       padding:
           const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -475,7 +493,7 @@ class _ProgressionBar extends StatelessWidget {
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: _steps.map((count) {
+        children: steps.map((count) {
           final isActive = count == survivorCount;
           final isPast = count > survivorCount;
           return Column(
