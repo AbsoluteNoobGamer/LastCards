@@ -368,8 +368,10 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
 
     if (_engine.winnerId == OfflineGameState.localId) {
       unawaited(PlayerLevelService.instance.awardTournamentWinXP());
+      AudioService.instance.playSound(GameSound.tournamentWin);
+    } else {
+      AudioService.instance.playSound(GameSound.tournamentEliminate);
     }
-    AudioService.instance.playSound(GameSound.tournamentWin);
 
     if (!mounted || _isDisposed) return;
     await Navigator.pushReplacement(
