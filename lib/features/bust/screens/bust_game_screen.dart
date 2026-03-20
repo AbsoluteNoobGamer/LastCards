@@ -612,6 +612,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       _maybeFinalizeBustFinalShowdown();
     } finally {
       _localActionInProgress = false;
+      if (mounted && _flyingCardId != null) setState(() => _flyingCardId = null);
     }
   }
 
