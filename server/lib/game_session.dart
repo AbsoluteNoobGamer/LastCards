@@ -729,6 +729,19 @@ class GameSession {
         _finalizeBustRound();
         return;
       }
+
+      // 1v1 showdown: a deferred win (e.g. last card was a 2) may now be
+      // confirmable after the penalty was drawn.  Mirrors the client's
+      // _onTurnComplete → _maybeFinalizeBustFinalShowdown() check.
+      if (_bustSurvivorIds.length == 2) {
+        for (final id in _bustSurvivorIds) {
+          if (canConfirmPlayerWin(state: _state, playerId: id)) {
+            _completeBustFinalShowdown(id);
+            return;
+          }
+        }
+      }
+
     }
 
     _broadcast({
