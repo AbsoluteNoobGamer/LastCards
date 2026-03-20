@@ -62,7 +62,7 @@ class _TableLayout extends StatelessWidget {
   final Map<String, GlobalKey> playerZoneKeys;
   final ValueChanged<String> onCardTap;
   final VoidCallback onDrawTap;
-  final void Function(int oldIndex, int newIndex) onHandReorder;
+  final void Function(int oldIndex, int newIndex)? onHandReorder;
   final VoidCallback onEndTurnTap;
   final bool isOffline;
 
@@ -523,7 +523,7 @@ class _LandscapeTableLayout extends StatelessWidget {
   final PlayerModel? rightOpp;
   final ValueChanged<String> onCardTap;
   final VoidCallback onDrawTap;
-  final void Function(int oldIndex, int newIndex) onHandReorder;
+  final void Function(int oldIndex, int newIndex)? onHandReorder;
   final VoidCallback onEndTurnTap;
   final int discardPileCount;
   final ValueNotifier<bool>? reshuffleNotifier;
