@@ -1218,7 +1218,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                 _offlineDrawCard(OfflineGameState.localId);
                               }
                             : _onDrawTap,
-                        onHandReorder: _onHandReorder,
+                        onHandReorder: _flyingCardId != null ? null : _onHandReorder,
                         onEndTurnTap: isOfflineMode
                             ? _endTurn
                             : () {

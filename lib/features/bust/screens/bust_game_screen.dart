@@ -1236,7 +1236,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                                 cards: _orderedHand,
                                 selectedCardId: _selectedCardId,
                                 onCardTap: isMyTurn ? _onCardTap : null,
-                                onReorder: _onHandReorder,
+                                onReorder: _flyingCardId != null ? null : _onHandReorder,
                                 enabled: isMyTurn && !_isDealing,
                               ),
                             ),
