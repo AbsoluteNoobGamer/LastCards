@@ -87,6 +87,22 @@ class AudioService {
       _prefs = await SharedPreferences.getInstance();
       _soundEffectsEnabled = _prefs?.getBool(_prefsKeySfxEnabled) ?? true;
       _availableAssets = await _loadAudioAssets();
+      await AudioPlayer.global.setAudioContext(
+        AudioContext(
+          android: AudioContextAndroid(
+            audioFocus: AndroidAudioFocus.none,
+            isSpeakerphoneOn: false,
+            audioMode: AndroidAudioMode.normal,
+            stayAwake: false,
+            contentType: AndroidContentType.sonification,
+            usageType: AndroidUsageType.game,
+          ),
+          iOS: AudioContextIOS(
+            category: AVAudioSessionCategory.ambient,
+            options: {AVAudioSessionOptions.mixWithOthers},
+          ),
+        ),
+      );
       _turnPlayer = AudioPlayer();
       _specialPlayer = AudioPlayer();
       _uiPlayer = AudioPlayer();
