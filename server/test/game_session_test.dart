@@ -1472,6 +1472,150 @@ void main() {
 
       expect(p1ws.ofType('game_ended'), isNotEmpty);
     });
+
+    test(
+        'Bust: skipped players gain a turn count when Eight ends turn '
+        '(activeSkipCount)',
+        () {
+      final (:session, :sockets, :ids) = _makeSession(3, isBustMode: true);
+      final aId = ids[0];
+      final bId = ids[1];
+      final cId = ids[2];
+
+      final eightPlayed = _card(Rank.eight, Suit.spades);
+      final aHand = [_card(Rank.king, Suit.spades)];
+      final bHand = [_card(Rank.five, Suit.hearts)];
+      final cHand = [_card(Rank.six, Suit.diamonds)];
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: aId,
+            displayName: 'A',
+            tablePosition: _positionFor(0),
+            hand: aHand,
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: bId,
+            displayName: 'B',
+            tablePosition: _positionFor(1),
+            hand: bHand,
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: cId,
+            displayName: 'C',
+            tablePosition: _positionFor(2),
+            hand: cHand,
+            cardCount: 1,
+          ),
+        ],
+        currentPlayerId: aId,
+        direction: PlayDirection.clockwise,
+        discardTopCard: _card(Rank.seven, Suit.spades),
+        drawPileCount: 10,
+        preTurnCentreSuit: Suit.spades,
+        actionsThisTurn: 1,
+        cardsPlayedThisTurn: 1,
+        lastPlayedThisTurn: eightPlayed,
+        activeSkipCount: 1,
+      );
+
+      session.seedStateForTesting(
+        state: state,
+        drawPile: List.generate(
+            10, (i) => CardModel(id: 'draw_$i', rank: Rank.four, suit: Suit.clubs)),
+        bustSurvivorIds: [aId, bId, cId],
+        bustTurnsThisRound: {aId: 0, bId: 0, cId: 0},
+        bustPenaltyPoints: {},
+      );
+
+      session.handleAction(aId, {'type': 'end_turn'});
+
+      final turns = session.bustTurnsThisRoundForTesting;
+      expect(turns[aId], equals(1),
+          reason: 'Player A completed a turn');
+      expect(turns[bId], equals(1),
+          reason: 'Player B was skipped and should still accrue a Bust turn');
+      expect(turns[cId], equals(0));
+
+      expect(
+        (_latestSnapshot(sockets[0])['currentPlayerId'] as String?) ?? '',
+        equals(cId),
+      );
+    });
+
+    test(
+        'Bust placement pile: reshuffles under-top into draw when discard '
+        'reaches 5 cards',
+        () {
+      final (:session, :sockets, :ids) = _makeSession(2, isBustMode: true);
+      final p1ws = sockets[0];
+      final p1Id = ids[0];
+      final p2Id = ids[1];
+
+      final playCard = _card(Rank.five, Suit.spades);
+      final discardTop = _card(Rank.four, Suit.spades);
+      final under = List.generate(
+          3,
+          (i) => CardModel(
+                id: 'under_$i',
+                rank: Rank.nine,
+                suit: Suit.hearts,
+              ));
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: p1Id,
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: [playCard],
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: p2Id,
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: [_card(Rank.six, Suit.hearts)],
+            cardCount: 1,
+          ),
+        ],
+        currentPlayerId: p1Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: discardTop,
+        drawPileCount: 5,
+        preTurnCentreSuit: Suit.spades,
+      );
+
+      session.seedStateForTesting(
+        state: state,
+        drawPile: List.generate(
+            5, (i) => CardModel(id: 'draw_$i', rank: Rank.seven, suit: Suit.clubs)),
+        discardUnderTop: under,
+        bustSurvivorIds: [p1Id, p2Id],
+        bustTurnsThisRound: {p1Id: 0, p2Id: 0},
+        bustPenaltyPoints: {},
+      );
+
+      final drawBefore = session.drawPileCountForTesting;
+      expect(session.discardUnderTopCountForTesting, equals(3));
+
+      p1ws.clear();
+      session.handleAction(p1Id, {
+        'type': 'play_cards',
+        'cardIds': ['five_spades'],
+      });
+
+      expect(p1ws.lastOfType('reshuffle'), isNotNull);
+      expect(session.discardUnderTopCountForTesting, equals(0));
+      expect(session.drawPileCountForTesting, equals(drawBefore + 4));
+    });
   });
 
   // ── penalty chain ──────────────────────────────────────────────────────────

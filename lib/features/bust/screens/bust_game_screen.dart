@@ -500,6 +500,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
           aiConfigs: _aiConfigs,
           eliminationHistory: _eliminationHistory,
           localRoundStats: updatedLocalStats,
+          priorEliminatedIds: _roundManager.state.eliminatedIds,
           isOnline: widget.isOnline,
         ),
         transitionDuration: const Duration(milliseconds: 500),

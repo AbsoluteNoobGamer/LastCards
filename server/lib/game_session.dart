@@ -148,6 +148,10 @@ class GameSession {
   /// Returns the current discard-under-top size (for assertions in tests).
   int get discardUnderTopCountForTesting => _discardUnderTop.length;
 
+  /// Bust per-player turn counts this round (for tests).
+  Map<String, int> get bustTurnsThisRoundForTesting =>
+      Map<String, int>.from(_bustTurnsThisRound);
+
   // ── Lobby ─────────────────────────────────────────────────────────────────
 
   String addPlayer(dynamic ws, String displayName, {String? firebaseUid}) {
@@ -492,6 +496,7 @@ class GameSession {
       // will lock it. We still need to track the card as played.
       _pushDiscardUnderTop();
       _state = applyPlay(state: _state, playerId: playerId, cards: cards);
+      _checkBustPlacementPileRule();
 
       _broadcast({
         'type': 'card_played',
@@ -518,6 +523,7 @@ class GameSession {
       cards: cards,
       declaredSuit: declaredSuit,
     );
+    _checkBustPlacementPileRule();
 
     _broadcast({
       'type': 'card_played',
@@ -653,6 +659,7 @@ class GameSession {
       state: _state,
       resolvedJokerCard: resolvedCard,
     );
+    _checkBustPlacementPileRule();
 
     _broadcast({
       'type': 'card_played',
@@ -688,11 +695,35 @@ class GameSession {
   /// In Bust mode, records turns and finalizes the round when complete.
   void _advanceTurn() {
     final completedPlayerId = _state.currentPlayerId;
+    final oldSkipCount = _state.activeSkipCount;
+    final players = _state.players;
+    final directionForWalk = _state.direction;
     _state = advanceTurn(_state);
+    final newCurrentId = _state.currentPlayerId;
 
     if (isBustMode) {
       _bustTurnsThisRound[completedPlayerId] =
           (_bustTurnsThisRound[completedPlayerId] ?? 0) + 1;
+
+      // Skipped players never "take" a turn, but each still consumes one of
+      // the two required turns per round — mirror offline [_recordSkippedTurns].
+      if (oldSkipCount > 0) {
+        final currentIdx =
+            players.indexWhere((p) => p.id == completedPlayerId);
+        if (currentIdx >= 0) {
+          final step =
+              directionForWalk == PlayDirection.clockwise ? 1 : -1;
+          var idx = currentIdx;
+          for (var safety = players.length; safety > 0; safety--) {
+            idx = (idx + step) % players.length;
+            if (idx < 0) idx += players.length;
+            final pid = players[idx].id;
+            if (pid == newCurrentId) break;
+            _bustTurnsThisRound[pid] = (_bustTurnsThisRound[pid] ?? 0) + 1;
+          }
+        }
+      }
+
       if (_isBustRoundComplete()) {
         _finalizeBustRound();
         return;
@@ -975,6 +1006,7 @@ class GameSession {
       }
     }
 
+    _checkBustPlacementPileRule();
     _advanceTurn();
   }
 
@@ -1061,6 +1093,28 @@ class GameSession {
     fisherYatesShuffle(toShuffle);
 
     _drawPile.addAll(toShuffle);
+    _state = _state.copyWith(drawPileCount: _drawPile.length);
+
+    _broadcast({
+      'type': 'reshuffle',
+      'newDrawPileCount': _drawPile.length,
+    });
+  }
+
+  /// Bust placement pile: when the visible discard reaches [bustPlacementPileThreshold]
+  /// cards, shuffle all cards under the top back into the draw pile (see
+  /// [needsBustPlacementPileReshuffleFromUnderTop] / docs/rules-by-mode.md).
+  void _checkBustPlacementPileRule() {
+    if (!isBustMode) return;
+    if (_state.discardTopCard == null) return;
+    if (!needsBustPlacementPileReshuffleFromUnderTop(_discardUnderTop.length)) {
+      return;
+    }
+
+    final toShuffle = List<CardModel>.from(_discardUnderTop);
+    fisherYatesShuffle(toShuffle);
+    _drawPile.addAll(toShuffle);
+    _discardUnderTop.clear();
     _state = _state.copyWith(drawPileCount: _drawPile.length);
 
     _broadcast({
