@@ -230,7 +230,6 @@ void main() {
       final result = BustEngine.applyPlacementPileRule(
         discardPile: discard,
         drawPile: draw,
-        threshold: 5,
       );
       expect(result.didReshuffle, isFalse);
       expect(result.newDrawPile.length, draw.length);
@@ -243,7 +242,6 @@ void main() {
       final result = BustEngine.applyPlacementPileRule(
         discardPile: discard,
         drawPile: draw,
-        threshold: 5,
         seed: 1,
       );
       expect(result.didReshuffle, isTrue);

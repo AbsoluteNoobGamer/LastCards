@@ -720,6 +720,23 @@ int handSizeForBust(int playerCount) {
   };
 }
 
+// ── Bust placement pile (shared client + server) ─────────────────────────────
+
+/// Face-up discard count at which Bust's placement pile rule runs: all cards
+/// under the top are shuffled into the draw pile, leaving a single visible card.
+const bustPlacementPileThreshold = 5;
+
+/// Whether the placement pile rule should run for a discard stored as a single
+/// list (bottom → top), i.e. [totalDiscardCount] == `discardPile.length`.
+bool needsBustPlacementPileReshuffle(int totalDiscardCount) =>
+    totalDiscardCount >= bustPlacementPileThreshold;
+
+/// Same as [needsBustPlacementPileReshuffle] when discard is split into
+/// [underTopCardCount] (everything under the face-up card) and exactly one
+/// face-up top. Caller must only use this when a top card exists.
+bool needsBustPlacementPileReshuffleFromUnderTop(int underTopCardCount) =>
+    needsBustPlacementPileReshuffle(underTopCardCount + 1);
+
 // ── Shared turn advancement ───────────────────────────────────────────────────
 
 /// Advances to the next player and resets all per-turn state fields.

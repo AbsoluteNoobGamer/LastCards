@@ -13,7 +13,8 @@ export 'package:last_cards/shared/models/player_model.dart';
 /// Differences from the standard offline engine:
 /// - 52-card deck (no Jokers)
 /// - Adaptive deal based on player count (5–10)
-/// - Placement pile rule: discard hits 5 → bottom 4 shuffle back into draw pile
+/// - Placement pile rule: discard hits [bustPlacementPileThreshold] → bottom
+///   cards shuffle back into draw pile ([needsBustPlacementPileReshuffle])
 abstract final class BustEngine {
   // ── Adaptive deal table ─────────────────────────────────────────────────────
 
@@ -154,18 +155,18 @@ abstract final class BustEngine {
 
   // ── Placement pile rule ────────────────────────────────────────────────────
 
-  /// When the discard pile reaches [threshold] cards (default 5), the bottom
-  /// [threshold - 1] cards are shuffled back into the draw pile, leaving only
-  /// the top card as the active face-up card.
+  /// When the discard pile reaches [bustPlacementPileThreshold], the bottom
+  /// cards are shuffled back into the draw pile, leaving only the top card as
+  /// the active face-up card.
   ///
-  /// Returns `null` if no reshuffle is needed.
+  /// When no reshuffle is needed, [didReshuffle] is false and [newDrawPile]
+  /// equals the input [drawPile].
   static ({List<CardModel> newDrawPile, bool didReshuffle}) applyPlacementPileRule({
     required List<CardModel> discardPile,
     required List<CardModel> drawPile,
-    int threshold = 5,
     int? seed,
   }) {
-    if (discardPile.length < threshold) {
+    if (!needsBustPlacementPileReshuffle(discardPile.length)) {
       return (newDrawPile: drawPile, didReshuffle: false);
     }
 
@@ -180,9 +181,6 @@ abstract final class BustEngine {
   }
 
   /// Returns `true` if the discard pile has reached the placement threshold.
-  static bool needsPlacementPileReshuffle(
-      List<CardModel> discardPile, {
-      int threshold = 5,
-    }) =>
-      discardPile.length >= threshold;
+  static bool needsPlacementPileReshuffle(List<CardModel> discardPile) =>
+      needsBustPlacementPileReshuffle(discardPile.length);
 }

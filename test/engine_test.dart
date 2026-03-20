@@ -1189,6 +1189,19 @@ void main() {
     }, skip: 'not yet implemented');
   });
 
+  group('Bust placement pile threshold', () {
+    test('needsBustPlacementPileReshuffle matches bustPlacementPileThreshold', () {
+      expect(bustPlacementPileThreshold, 5);
+      expect(needsBustPlacementPileReshuffle(4), isFalse);
+      expect(needsBustPlacementPileReshuffle(5), isTrue);
+    });
+
+    test('needsBustPlacementPileReshuffleFromUnderTop assumes one face-up top', () {
+      expect(needsBustPlacementPileReshuffleFromUnderTop(3), isFalse);
+      expect(needsBustPlacementPileReshuffleFromUnderTop(4), isTrue);
+    });
+  });
+
   group('buildShuffledDeck', () {
     test('same seed produces identical deck order', () {
       final a = buildShuffledDeck(seed: 12345);

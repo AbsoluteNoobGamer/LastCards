@@ -1101,13 +1101,15 @@ class GameSession {
     });
   }
 
-  /// Bust placement pile: when the visible discard pile reaches 5 cards,
-  /// shuffle all cards under the top back into the draw pile (see
-  /// [BustEngine.applyPlacementPileRule] / docs/rules-by-mode.md).
+  /// Bust placement pile: when the visible discard reaches [bustPlacementPileThreshold]
+  /// cards, shuffle all cards under the top back into the draw pile (see
+  /// [needsBustPlacementPileReshuffleFromUnderTop] / docs/rules-by-mode.md).
   void _checkBustPlacementPileRule() {
     if (!isBustMode) return;
     if (_state.discardTopCard == null) return;
-    if (_discardUnderTop.length + 1 < 5) return;
+    if (!needsBustPlacementPileReshuffleFromUnderTop(_discardUnderTop.length)) {
+      return;
+    }
 
     final toShuffle = List<CardModel>.from(_discardUnderTop);
     fisherYatesShuffle(toShuffle);
