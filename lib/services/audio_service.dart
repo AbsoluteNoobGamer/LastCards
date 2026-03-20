@@ -106,7 +106,7 @@ class AudioService {
             usageType: AndroidUsageType.assistanceSonification,
           ),
           iOS: AudioContextIOS(
-            category: AVAudioSessionCategory.playback,
+            category: AVAudioSessionCategory.ambient,
             options: {AVAudioSessionOptions.mixWithOthers},
           ),
         ),
