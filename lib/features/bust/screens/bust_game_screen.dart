@@ -132,6 +132,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   List<({String id, String playerId, String playerName, String message, bool isLocal})> _quickChatBubbles = [];
 
   bool _isDealing = false;
+  bool _bustRoundNavigationQueued = false;
   final Map<String, int> _visibleCardCounts = {};
   final GlobalKey _drawPileKey = GlobalKey();
   final Map<String, GlobalKey> _playerZoneKeys = {};
@@ -139,6 +140,12 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       GlobalKey<DealingAnimationOverlayState>();
 
   int get _clampedPlayers => widget.totalPlayers.clamp(2, 10);
+
+  /// Standard bust rounds end after two turns each; the 1v1 finale ends on
+  /// empty hand only — never treat turn count as stopping play there.
+  bool get _bustStopPlayFromTurnCap =>
+      !_roundManager.state.isFinalShowdown &&
+      _roundManager.state.isRoundComplete;
 
   @override
   void initState() {
@@ -442,9 +449,20 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   void _onTurnComplete(String playerId) {
     _roundManager.recordTurn(playerId);
 
+    if (_maybeFinalizeBustFinalShowdown()) return;
     if (_roundManager.state.isRoundComplete) {
       _finalizeRound();
     }
+  }
+
+  /// Returns true if the 1v1 race ended and navigation was triggered.
+  bool _maybeFinalizeBustFinalShowdown() {
+    if (!_roundManager.state.isFinalShowdown) return false;
+    if (_roundManager.checkFinalShowdownWinner(_gameState) == null) {
+      return false;
+    }
+    _finalizeRound();
+    return true;
   }
 
   /// When an Eight card is played, [nextPlayerId] skips one or more players.
@@ -476,6 +494,9 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   }
 
   void _finalizeRound() {
+    if (_bustRoundNavigationQueued) return;
+    _bustRoundNavigationQueued = true;
+
     final result = _roundManager.finalizeRound(_gameState, _playerNames);
 
     // Build the local player's stat for this round.
@@ -567,6 +588,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     });
 
     _checkPlacementPileRule();
+    _maybeFinalizeBustFinalShowdown();
   }
 
   void _applyInvalidPlayPenalty(String playerId) {
@@ -598,8 +620,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     _recordSkippedTurns(stateBeforeAdvance, nextId);
     _onTurnComplete(playerId);
 
-    if (nextId != OfflineGameState.localId &&
-        !_roundManager.state.isRoundComplete) {
+    if (nextId != OfflineGameState.localId && !_bustStopPlayFromTurnCap) {
       _scheduleAiTurn(nextId);
     }
   }
@@ -658,8 +679,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     _recordSkippedTurns(stateBeforeAdvance, nextId);
     _onTurnComplete(OfflineGameState.localId);
 
-    if (nextId != OfflineGameState.localId &&
-        !_roundManager.state.isRoundComplete) {
+    if (nextId != OfflineGameState.localId && !_bustStopPlayFromTurnCap) {
       _scheduleAiTurn(nextId);
     }
   }
@@ -675,8 +695,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     _recordSkippedTurns(stateBeforeSkip, nextId);
     _onTurnComplete(playerId);
 
-    if (nextId != OfflineGameState.localId &&
-        !_roundManager.state.isRoundComplete) {
+    if (nextId != OfflineGameState.localId && !_bustStopPlayFromTurnCap) {
       _scheduleAiTurn(nextId);
     }
   }
@@ -726,8 +745,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     _recordSkippedTurns(stateBeforeAdvance, nextId);
     _onTurnComplete(completedId);
 
-    if (nextId != OfflineGameState.localId &&
-        !_roundManager.state.isRoundComplete) {
+    if (nextId != OfflineGameState.localId && !_bustStopPlayFromTurnCap) {
       _scheduleAiTurn(nextId);
     }
   }
@@ -735,7 +753,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   // ── AI turn ────────────────────────────────────────────────────────────────
 
   Future<void> _scheduleAiTurn(String aiId) async {
-    if (_roundManager.state.isRoundComplete) return;
+    if (_bustStopPlayFromTurnCap) return;
     if (_roundManager.state.eliminatedIds.contains(aiId)) {
       final nextId = _nextActivePlayerId(
           _gameState.copyWith(currentPlayerId: aiId));
@@ -835,8 +853,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       _showQuickChatBubble(aiId, aiName, msgIndex, isLocal: false);
     }
 
-    if (nextId != OfflineGameState.localId &&
-        !_roundManager.state.isRoundComplete) {
+    if (nextId != OfflineGameState.localId && !_bustStopPlayFromTurnCap) {
       _scheduleAiTurn(nextId);
     }
   }

@@ -1187,13 +1187,13 @@ void main() {
       expect(roundOver['isGameOver'], isFalse);
     });
 
-    test('Bust round with 2 players: 1 eliminated, bust_game_ended broadcast', () {
+    test('Bust 1v1: round does not finalize from turn count after 2 each', () {
       final (:session, :sockets, :ids) = _makeSession(2, isBustMode: true);
       final p1ws = sockets[0];
       final p1Id = ids[0];
       final p2Id = ids[1];
 
-      final p1Hand = [_card(Rank.three, Suit.spades)];
+      final p1Hand = [_card(Rank.four, Suit.clubs)];
       final p2Hand = List.generate(
           5, (i) => _card(Rank.values[i + 2], Suit.hearts));
 
@@ -1224,18 +1224,76 @@ void main() {
       );
 
       final drawPile = List.generate(
+          10, (i) => CardModel(id: 'draw_$i', rank: Rank.five, suit: Suit.clubs));
+
+      session.seedStateForTesting(
+        state: state,
+        drawPile: drawPile,
+        bustSurvivorIds: [p1Id, p2Id],
+        bustTurnsThisRound: {p1Id: 2, p2Id: 2},
+        bustPenaltyPoints: {},
+      );
+
+      p1ws.clear();
+      session.handleAction(p2Id, {'type': 'draw_card'});
+
+      expect(p1ws.ofType('bust_round_over'), isEmpty);
+      expect(p1ws.lastOfType('turn_changed'), isNotNull);
+    });
+
+    test('Bust 1v1: empty hand ends game, bust_game_ended with winner', () {
+      final (:session, :sockets, :ids) = _makeSession(2, isBustMode: true);
+      final p1ws = sockets[0];
+      final p1Id = ids[0];
+      final p2Id = ids[1];
+
+      final winningCard = _card(Rank.three, Suit.spades);
+      final p1Hand = [winningCard];
+      final p2Hand = List.generate(
+          5, (i) => _card(Rank.values[i + 2], Suit.hearts));
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: p1Id,
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: p1Hand,
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: p2Id,
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: p2Hand,
+            cardCount: 5,
+          ),
+        ],
+        currentPlayerId: p1Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: _card(Rank.two, Suit.spades),
+        drawPileCount: 10,
+        preTurnCentreSuit: Suit.spades,
+      );
+
+      final drawPile = List.generate(
           10, (i) => CardModel(id: 'draw_$i', rank: Rank.four, suit: Suit.clubs));
 
       session.seedStateForTesting(
         state: state,
         drawPile: drawPile,
         bustSurvivorIds: [p1Id, p2Id],
-        bustTurnsThisRound: {p1Id: 2, p2Id: 1},
+        bustTurnsThisRound: {p1Id: 0, p2Id: 0},
         bustPenaltyPoints: {},
       );
 
       p1ws.clear();
-      session.handleAction(p2Id, {'type': 'draw_card'});
+      session.handleAction(p1Id, {
+        'type': 'play_cards',
+        'cardIds': [winningCard.id],
+      });
 
       final roundOver = p1ws.lastOfType('bust_round_over');
       expect(roundOver, isNotNull);
@@ -1261,7 +1319,8 @@ void main() {
       final p1Id = session.addPlayer(p1ws, 'P1', firebaseUid: 'fb-b1');
       final p2Id = session.addPlayer(p2ws, 'P2', firebaseUid: 'fb-b2');
 
-      final p1Hand = [_card(Rank.three, Suit.spades)];
+      final winningCard = _card(Rank.three, Suit.spades);
+      final p1Hand = [winningCard];
       final p2Hand = List.generate(
           5, (i) => _card(Rank.values[i + 2], Suit.hearts));
 
@@ -1284,7 +1343,7 @@ void main() {
             cardCount: 5,
           ),
         ],
-        currentPlayerId: p2Id,
+        currentPlayerId: p1Id,
         direction: PlayDirection.clockwise,
         discardTopCard: _card(Rank.two, Suit.spades),
         drawPileCount: 10,
@@ -1298,11 +1357,14 @@ void main() {
         state: state,
         drawPile: drawPile,
         bustSurvivorIds: [p1Id, p2Id],
-        bustTurnsThisRound: {p1Id: 2, p2Id: 1},
+        bustTurnsThisRound: {p1Id: 0, p2Id: 0},
         bustPenaltyPoints: {},
       );
 
-      session.handleAction(p2Id, {'type': 'draw_card'});
+      session.handleAction(p1Id, {
+        'type': 'play_cards',
+        'cardIds': [winningCard.id],
+      });
 
       expect(fake.leaderboardBustOnlineCalls, 1);
       expect(fake.lastBustWinnerPlayerId, p1Id);

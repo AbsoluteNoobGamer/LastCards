@@ -48,8 +48,15 @@ class BustRoundState {
     return 2;
   }
 
+  /// The last round (two survivors): race to empty hand — no turn-cap ending.
+  bool get isFinalShowdown => activePlayerIds.length == 2;
+
   /// True when every active player has taken 2 turns.
+  ///
+  /// In the [isFinalShowdown], the round never completes from turn count; it
+  /// ends when someone empties their hand ([BustRoundManager.finalizeRound]).
   bool get isRoundComplete =>
+      !isFinalShowdown &&
       activePlayerIds.every((id) => (turnsThisRound[id] ?? 0) >= 2);
 
   BustRoundState copyWith({

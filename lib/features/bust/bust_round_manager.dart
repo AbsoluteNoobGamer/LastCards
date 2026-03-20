@@ -1,4 +1,5 @@
 import 'package:last_cards/core/models/game_state.dart';
+import 'package:last_cards/shared/rules/win_condition_rules.dart';
 
 import 'models/bust_round_state.dart';
 
@@ -59,6 +60,7 @@ class BustRoundManager {
   /// Returns the updated [BustRoundState]. Does nothing if the round is already
   /// complete or if [playerId] is not an active player.
   BustRoundState recordTurn(String playerId) {
+    // Final showdown: no turn-cap — [isRoundComplete] is always false there.
     if (_state.isRoundComplete) return _state;
     if (!_state.activePlayerIds.contains(playerId)) return _state;
 
@@ -93,12 +95,45 @@ class BustRoundManager {
       newCumulative[id] = (newCumulative[id] ?? 0) + (roundPenalties[id] ?? 0);
     }
 
-    // 3. Sort active players by cumulative penalty (highest = worst)
-    final sorted = List<String>.from(_state.activePlayerIds)
-      ..sort((a, b) => (newCumulative[b] ?? 0).compareTo(newCumulative[a] ?? 0));
+    final activeCount = _state.activePlayerIds.length;
 
-    // 4. Build standings (best first = lowest penalty)
-    final standings = sorted.reversed.map((id) {
+    List<String> eliminatedThisRound;
+    List<String> survivors;
+
+    if (activeCount == 2) {
+      // Final showdown: winner is whoever legally confirmed an empty hand first.
+      String? raceWinner;
+      for (final id in _state.activePlayerIds) {
+        if (canConfirmPlayerWin(state: gameState, playerId: id)) {
+          raceWinner = id;
+          break;
+        }
+      }
+      if (raceWinner != null) {
+        eliminatedThisRound =
+            _state.activePlayerIds.where((id) => id != raceWinner).toList();
+        survivors = [raceWinner];
+      } else {
+        // Fallback if invoked without a confirmed empty-hand win.
+        final sorted = List<String>.from(_state.activePlayerIds)
+          ..sort((a, b) =>
+              (newCumulative[b] ?? 0).compareTo(newCumulative[a] ?? 0));
+        eliminatedThisRound = sorted.take(1).toList();
+        survivors = sorted.skip(1).toList();
+      }
+    } else {
+      // 3+. Sort by cumulative penalty (highest = worst), eliminate bottom 2.
+      final sorted = List<String>.from(_state.activePlayerIds)
+        ..sort((a, b) =>
+            (newCumulative[b] ?? 0).compareTo(newCumulative[a] ?? 0));
+      const eliminateCount = 2;
+      eliminatedThisRound = sorted.take(eliminateCount).toList();
+      survivors = sorted.skip(eliminateCount).toList();
+    }
+
+    // Standings: best first (winner / fewest effective penalty).
+    final standingsOrder = [...survivors.reversed, ...eliminatedThisRound.reversed];
+    final standings = standingsOrder.map((id) {
       return (
         playerId: id,
         playerName: playerNames[id] ?? id,
@@ -106,18 +141,6 @@ class BustRoundManager {
         totalPenalty: newCumulative[id] ?? 0,
       );
     }).toList();
-
-    // 5. Determine eliminations:
-    //    - Normally eliminate bottom 2 by cumulative penalty
-    //    - With 2 active players: eliminate bottom 1 → winner declared
-    //    - Tie-breaking: player who emptied cards LATEST (most cards = eliminated first)
-    //      This is already handled by cumulative sort; within a round-penalty tie,
-    //      the player with the higher cumulative total is eliminated.
-    final activeCount = _state.activePlayerIds.length;
-    final eliminateCount = activeCount <= 2 ? 1 : 2;
-    final eliminatedThisRound = sorted.take(eliminateCount).toList();
-    final survivors =
-        sorted.skip(eliminateCount).toList();
 
     final isGameOver = survivors.length <= 1;
     final winnerId = isGameOver && survivors.isNotEmpty ? survivors.first : null;
@@ -134,6 +157,17 @@ class BustRoundManager {
       isGameOver: isGameOver,
       winnerId: winnerId,
     );
+  }
+
+  /// 1v1 bust finale: first active player with a legally confirmed empty hand.
+  String? checkFinalShowdownWinner(GameState gameState) {
+    if (!_state.isFinalShowdown) return null;
+    for (final id in _state.activePlayerIds) {
+      if (canConfirmPlayerWin(state: gameState, playerId: id)) {
+        return id;
+      }
+    }
+    return null;
   }
 
   /// Resets turn tracking and advances to the next round for [survivors].

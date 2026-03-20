@@ -286,16 +286,29 @@ void main() {
       expect(state.isRoundComplete, isFalse);
     });
 
-    test('isRoundComplete is true when all players have >= 2 turns', () {
+    test('isRoundComplete is true when all players have >= 2 turns (3+ only)', () {
       final state = BustRoundState(
         roundNumber: 1,
+        activePlayerIds: const ['a', 'b', 'c'],
+        eliminatedIds: const [],
+        turnsThisRound: const {'a': 2, 'b': 2, 'c': 2},
+        penaltyPoints: const {},
+        playerOrder: const ['a', 'b', 'c'],
+      );
+      expect(state.isRoundComplete, isTrue);
+    });
+
+    test('isRoundComplete stays false in final showdown even after 2 turns each', () {
+      final state = BustRoundState(
+        roundNumber: 9,
         activePlayerIds: const ['a', 'b'],
         eliminatedIds: const [],
         turnsThisRound: const {'a': 2, 'b': 2},
         penaltyPoints: const {},
         playerOrder: const ['a', 'b'],
       );
-      expect(state.isRoundComplete, isTrue);
+      expect(state.isFinalShowdown, isTrue);
+      expect(state.isRoundComplete, isFalse);
     });
 
     test('currentRotation reflects turns taken', () {
@@ -319,6 +332,20 @@ void main() {
   // 6. BustRoundManager.recordTurn
   // ─────────────────────────────────────────────────────────────────────────
 
+  group('Bust 1v1 final showdown helpers', () {
+    test('checkFinalShowdownWinner returns null when no confirmed empty hand', () {
+      final mgr = makeManager(['a', 'b'], 'a');
+      final gs = stateWithCardCounts({'a': 1, 'b': 3});
+      expect(mgr.checkFinalShowdownWinner(gs), isNull);
+    });
+
+    test('checkFinalShowdownWinner returns confirmed winner id', () {
+      final mgr = makeManager(['a', 'b'], 'a');
+      final gs = stateWithCardCounts({'a': 0, 'b': 3});
+      expect(mgr.checkFinalShowdownWinner(gs), 'a');
+    });
+  });
+
   group('BustRoundManager.recordTurn', () {
     test('increments turn count for valid player', () {
       final mgr = makeManager(['a', 'b', 'c'], 'a');
@@ -335,10 +362,12 @@ void main() {
     });
 
     test('does nothing once round is complete', () {
-      final mgr = makeManager(['a', 'b'], 'a');
+      final mgr = makeManager(['a', 'b', 'c'], 'a');
       // Give everyone 2 turns
-      mgr.recordTurn('a'); mgr.recordTurn('a');
-      mgr.recordTurn('b'); mgr.recordTurn('b');
+      for (final id in ['a', 'b', 'c']) {
+        mgr.recordTurn(id);
+        mgr.recordTurn(id);
+      }
       expect(mgr.state.isRoundComplete, isTrue);
 
       // Extra call should be ignored
@@ -392,15 +421,14 @@ void main() {
       expect(result.isGameOver, isFalse);
     });
 
-    test('eliminates 1 player when only 2 remain, declares winner', () {
+    test('eliminates 1 player when only 2 remain, declares winner (empty hand)', () {
       final ids = [OfflineGameState.localId, 'player-2'];
       final cardCounts = {
-        OfflineGameState.localId: 1,
+        OfflineGameState.localId: 0,
         'player-2': 5,
       };
       final gs = stateWithCardCounts(cardCounts);
       final mgr = makeManager(ids, ids.first);
-      for (final id in ids) { mgr.recordTurn(id); mgr.recordTurn(id); }
 
       final result = mgr.finalizeRound(gs, {for (final id in ids) id: id});
 
@@ -716,17 +744,35 @@ void main() {
                 roundNumber: roundNumber,
               );
 
-        // Every player takes 2 turns
-        for (final id in ids) {
-          mgr.recordTurn(id);
-          mgr.recordTurn(id);
+        final playerNames =
+            {for (final p in gameState.players) p.id: p.displayName};
+
+        final BustRoundResult result;
+        if (ids.length == 2) {
+          for (final id in ids) {
+            mgr.recordTurn(id);
+            mgr.recordTurn(id);
+          }
+          expect(mgr.state.isRoundComplete, isFalse,
+              reason: 'Final showdown does not use turn cap');
+          final winnerId = ids[0];
+          final finalePlayers = gameState.players.map((p) {
+            if (p.id == winnerId) {
+              return p.copyWith(hand: <CardModel>[], cardCount: 0);
+            }
+            return p;
+          }).toList();
+          final gsFinale = gameState.copyWith(players: finalePlayers);
+          result = mgr.finalizeRound(gsFinale, playerNames);
+        } else {
+          for (final id in ids) {
+            mgr.recordTurn(id);
+            mgr.recordTurn(id);
+          }
+          expect(mgr.state.isRoundComplete, isTrue,
+              reason: 'Round $roundNumber should be complete');
+          result = mgr.finalizeRound(gameState, playerNames);
         }
-
-        expect(mgr.state.isRoundComplete, isTrue,
-            reason: 'Round $roundNumber should be complete');
-
-        final playerNames = {for (final p in gameState.players) p.id: p.displayName};
-        final result = mgr.finalizeRound(gameState, playerNames);
 
         expect(result.roundNumber, roundNumber);
 
@@ -790,20 +836,34 @@ void main() {
       final (:gameState, :drawPile) =
           BustEngine.buildRound(playerCount: 2, seed: 77);
       final ids = gameState.players.map((p) => p.id).toList();
+      final winnerId = ids.first;
       final mgr = BustRoundManager(
         initialActivePlayerIds: ids,
         firstPlayerId: ids.first,
       );
-      for (final id in ids) { mgr.recordTurn(id); mgr.recordTurn(id); }
+      for (final id in ids) {
+        mgr.recordTurn(id);
+        mgr.recordTurn(id);
+      }
+      expect(mgr.state.isRoundComplete, isFalse);
+
+      final finalePlayers = gameState.players.map((p) {
+        if (p.id == winnerId) {
+          return p.copyWith(hand: <CardModel>[], cardCount: 0);
+        }
+        return p;
+      }).toList();
+      final gsFinale = gameState.copyWith(players: finalePlayers);
 
       final result = mgr.finalizeRound(
-        gameState,
+        gsFinale,
         {for (final p in gameState.players) p.id: p.displayName},
       );
 
       expect(result.isGameOver, isTrue);
       expect(result.eliminatedThisRound.length, 1);
       expect(result.survivorIds.length, 1);
+      expect(result.winnerId, winnerId);
     });
 
     test('local player elimination is correctly flagged', () {
