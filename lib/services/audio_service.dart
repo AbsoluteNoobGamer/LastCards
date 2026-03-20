@@ -120,6 +120,22 @@ class AudioService {
     }
   }
 
+  /// Stops all persistent players (e.g. between tournament rounds so prior
+  /// table audio cannot bleed into the next round).
+  Future<void> stopAll() async {
+    final players = <AudioPlayer?>[
+      _turnPlayer,
+      _specialPlayer,
+      _uiPlayer,
+      ..._cardDrawPlayers,
+    ];
+    for (final player in players) {
+      try {
+        await player?.stop();
+      } catch (_) {}
+    }
+  }
+
   Future<void> playSound(GameSound sound) async {
     if (!_initialized) await init();
     if (!_soundEffectsEnabled) return;

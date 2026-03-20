@@ -214,6 +214,9 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
       );
       if (!mounted || _isDisposed) return;
 
+      await AudioService.instance.stopAll();
+      if (!mounted || _isDisposed) return;
+
       // Round game — freeze fix: snapshot ids for the whole table session (see
       // [_enginePlayerIdsForCurrentTable]).
       _enginePlayerIdsForCurrentTable = List<String>.from(activeIdsAtRoundStart);
@@ -356,15 +359,19 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
       final displayName = _displayName(OfflineGameState.localId);
       final didWin = _engine.winnerId == OfflineGameState.localId;
 
-      await LeaderboardStatsWriter.instance.recordModeResult(
-        collectionName: collectionName,
-        uid: uid,
-        displayName: displayName,
-        deltaWins: didWin ? 1 : 0,
-        deltaLosses: didWin ? 0 : 1,
-        deltaGamesPlayed: 1,
+      unawaited(
+        LeaderboardStatsWriter.instance.recordModeResult(
+          collectionName: collectionName,
+          uid: uid,
+          displayName: displayName,
+          deltaWins: didWin ? 1 : 0,
+          deltaLosses: didWin ? 0 : 1,
+          deltaGamesPlayed: 1,
+        ),
       );
     }
+
+    if (!mounted || _isDisposed) return;
 
     if (_engine.winnerId == OfflineGameState.localId) {
       unawaited(PlayerLevelService.instance.awardTournamentWinXP());
@@ -373,7 +380,6 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
       AudioService.instance.playSound(GameSound.tournamentEliminate);
     }
 
-    if (!mounted || _isDisposed) return;
     await Navigator.pushReplacement(
       context,
       PageRouteBuilder(
