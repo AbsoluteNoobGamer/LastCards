@@ -17,6 +17,7 @@ void main() {
     int activePenalty = 0,
     Suit? suitLock,
     Suit? queenSuitLock,
+    Suit? preTurnCentreSuit,
   }) {
     return GameState(
       sessionId: 'test',
@@ -28,6 +29,7 @@ void main() {
       activePenaltyCount: activePenalty,
       suitLock: suitLock,
       queenSuitLock: queenSuitLock,
+      preTurnCentreSuit: preTurnCentreSuit,
       players: [
         PlayerModel(
           id: 'p1',
@@ -311,6 +313,54 @@ void main() {
         c(Rank.two, Suit.spades)
       ], discardTop: state.discardTopCard!, state: state);
       expect(err, isNotNull);
+    });
+
+    test('sameSuitSequenceAceKingQueenJack', () {
+      final state = buildState(discardTop: c(Rank.ten, Suit.spades));
+      final err = validatePlay(
+        cards: [
+          c(Rank.jack, Suit.spades),
+          c(Rank.queen, Suit.spades),
+          c(Rank.king, Suit.spades),
+          c(Rank.ace, Suit.spades),
+        ],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNull);
+    });
+
+    test('sameTurnKingToAceMidTurn', () {
+      var state = buildState(discardTop: c(Rank.jack, Suit.clubs));
+      state = applyPlay(
+        state: state,
+        playerId: 'p1',
+        cards: [c(Rank.king, Suit.clubs)],
+      );
+      final err = validatePlay(
+        cards: [c(Rank.ace, Suit.clubs)],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNull);
+    });
+
+    test('sameTurnAceToKingMidTurn', () {
+      var state = buildState(
+        discardTop: c(Rank.king, Suit.diamonds),
+        preTurnCentreSuit: Suit.diamonds,
+      );
+      state = applyPlay(
+        state: state,
+        playerId: 'p1',
+        cards: [c(Rank.ace, Suit.diamonds)],
+      );
+      final err = validatePlay(
+        cards: [c(Rank.king, Suit.diamonds)],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNull);
     });
   });
 
@@ -1164,6 +1214,19 @@ void main() {
           reason: 'applyPlay increments actionsThisTurn');
       expect(validateEndTurn(afterPlay), isNull,
           reason: 'Can end turn after playing a card');
+    });
+
+    test('aceAloneWithoutDeclaredSuitBlocksEndTurn', () {
+      var state = buildState(discardTop: c(Rank.six, Suit.spades));
+      state = applyPlay(
+        state: state,
+        playerId: 'p1',
+        cards: [c(Rank.ace, Suit.hearts)],
+      );
+      expect(state.cardsPlayedThisTurn, 1);
+      expect(state.suitLock, isNull);
+      expect(canEndTurnButton(state), isTrue);
+      expect(validateEndTurn(state), isNotNull);
     });
 
     test('drawPileReshuffle', () {

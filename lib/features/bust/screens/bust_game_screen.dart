@@ -583,6 +583,11 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       if (!mounted) return;
 
       final beforeState = _gameState;
+      clearSuitInferenceOnPlay(
+        sessionId: beforeState.sessionId,
+        playerId: OfflineGameState.localId,
+        cards: played,
+      );
       var newState = applyPlay(
         state: _gameState,
         playerId: OfflineGameState.localId,
@@ -694,6 +699,11 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     final drawCount = isPenaltyDraw ? _gameState.activePenaltyCount : 1;
     final local = _localPlayer;
 
+    recordDrawSuitInference(
+      state: _gameState,
+      drawingPlayerId: OfflineGameState.localId,
+    );
+
     var newState = applyDraw(
       state: _gameState,
       playerId: OfflineGameState.localId,
@@ -757,18 +767,13 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     if (_localActionInProgress) return;
     if (_gameState.currentPlayerId != OfflineGameState.localId) return;
 
-    final err = validateEndTurn(_gameState);
-    if (err != null) {
-      _showError(err);
-      return;
-    }
-
     setState(() => _selectedCardId = null);
 
     // Ace suit declaration
     Suit? chosenAceSuit;
     if (_gameState.discardTopCard?.effectiveRank == Rank.ace &&
         _gameState.cardsPlayedThisTurn == 1 &&
+        _gameState.suitLock == null &&
         mounted) {
       chosenAceSuit = await showModalBottomSheet<Suit>(
         context: context,
@@ -784,6 +789,12 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
           chosenSuit: chosenAceSuit!,
         );
       });
+    }
+
+    final err = validateEndTurn(_gameState);
+    if (err != null) {
+      _showError(err);
+      return;
     }
 
     final completedId = OfflineGameState.localId;
@@ -1084,7 +1095,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     final localPlayer = _localPlayer;
     final isMyTurn = !_aiThinking &&
         _gameState.currentPlayerId == OfflineGameState.localId;
-    final canEndTurn = isMyTurn && validateEndTurn(_gameState) == null;
+    final canEndTurn = isMyTurn && canEndTurnButton(_gameState);
     final rs = _roundManager.state;
     final nextTurnLabel = _gameState.phase == GamePhase.playing
         ? nextPlayerAfterTurnLabel(

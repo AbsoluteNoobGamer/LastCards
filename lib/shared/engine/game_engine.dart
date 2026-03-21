@@ -68,9 +68,17 @@ String? validatePlay({
 
     bool isConsecutive = true;
     for (int i = 1; i < sorted.length; i++) {
-      final diff = sorted[i].effectiveRank.numericValue -
-          sorted[i - 1].effectiveRank.numericValue;
-      if (diff != 1) {
+      final prev = sorted[i - 1];
+      final next = sorted[i];
+      final diff = next.effectiveRank.numericValue - prev.effectiveRank.numericValue;
+      if (diff == 1) continue;
+      final isTwoAndAce = (prev.effectiveRank == Rank.two &&
+              next.effectiveRank == Rank.ace) ||
+          (prev.effectiveRank == Rank.ace && next.effectiveRank == Rank.two);
+      final isAceAndKing = (prev.effectiveRank == Rank.king &&
+              next.effectiveRank == Rank.ace) ||
+          (prev.effectiveRank == Rank.ace && next.effectiveRank == Rank.king);
+      if (!isTwoAndAce && !isAceAndKing) {
         isConsecutive = false;
         break;
       }
@@ -88,13 +96,21 @@ String? validatePlay({
 
       isConsecutive = true;
       for (int i = 1; i < sorted.length; i++) {
-        final aVal = sorted[i - 1].effectiveRank == Rank.ace
+        final prev = sorted[i - 1];
+        final next = sorted[i];
+        final aVal = prev.effectiveRank == Rank.ace
             ? 1
-            : sorted[i - 1].effectiveRank.numericValue;
-        final bVal = sorted[i].effectiveRank == Rank.ace
-            ? 1
-            : sorted[i].effectiveRank.numericValue;
-        if (bVal - aVal != 1) {
+            : prev.effectiveRank.numericValue;
+        final bVal =
+            next.effectiveRank == Rank.ace ? 1 : next.effectiveRank.numericValue;
+        if (bVal - aVal == 1) continue;
+        final isTwoAndAce = (prev.effectiveRank == Rank.two &&
+                next.effectiveRank == Rank.ace) ||
+            (prev.effectiveRank == Rank.ace && next.effectiveRank == Rank.two);
+        final isAceAndKing = (prev.effectiveRank == Rank.king &&
+                next.effectiveRank == Rank.ace) ||
+            (prev.effectiveRank == Rank.ace && next.effectiveRank == Rank.king);
+        if (!isTwoAndAce && !isAceAndKing) {
           isConsecutive = false;
           break;
         }
@@ -146,6 +162,9 @@ String? validatePlay({
       final isTwoAndAce = (prev.effectiveRank == Rank.two &&
               next.effectiveRank == Rank.ace) ||
           (prev.effectiveRank == Rank.ace && next.effectiveRank == Rank.two);
+      final isAceAndKing = (prev.effectiveRank == Rank.king &&
+              next.effectiveRank == Rank.ace) ||
+          (prev.effectiveRank == Rank.ace && next.effectiveRank == Rank.king);
 
       // Scenario 2 (Sequential Ace play):
       // If the player played an Ace as their first card this turn, and is now trying
@@ -159,9 +178,10 @@ String? validatePlay({
       }
 
       // Valid follow-ups after a card has been played this turn:
-      //   1. Same-suit, adjacent rank (±1 or Ace-2): continuing the numerical sequence.
+      //   1. Same-suit, adjacent rank (±1, Ace-2, or Ace-K wrap): continuing the numerical sequence.
       //   2. Same-rank, any suit (value chain): e.g. sequence ends at 5♠ → 5♥.
-      final isConsecutiveSameSuit = sameSuit && (rankDiff == 1 || isTwoAndAce);
+      final isConsecutiveSameSuit =
+          sameSuit && (rankDiff == 1 || isTwoAndAce || isAceAndKing);
       final isValueChain = next.effectiveRank == prev.effectiveRank;
       if (!isConsecutiveSameSuit && !isValueChain) {
         return 'After playing ${prev.shortLabel}, the next card must be '
@@ -215,9 +235,11 @@ List<CardModel> getValidJokerOptions({
       bool isSequenceContinuation = false;
       if (activeSequenceSuit != null && suit == activeSequenceSuit) {
         if (targetRank == Rank.ace) {
-          isSequenceContinuation = rank == Rank.two;
+          isSequenceContinuation =
+              rank == Rank.two || rank == Rank.king;
         } else if (rank == Rank.ace) {
-          isSequenceContinuation = targetRank == Rank.two;
+          isSequenceContinuation =
+              targetRank == Rank.two || targetRank == Rank.king;
         } else {
           final diff = (rank.numericValue - targetRank.numericValue).abs();
           isSequenceContinuation = diff == 1;
@@ -315,12 +337,25 @@ String? _validateSingle(CardModel card, CardModel discard, GameState state) {
 
 // ── Turn-end validation ───────────────────────────────────────────────────────
 
+/// Whether the End Turn control should be available in the UI (before any
+/// Ace suit sheet). Use [validateEndTurn] when actually committing end-turn.
+bool canEndTurnButton(GameState state) {
+  if (state.pendingJokerResolution) return false;
+  if (state.queenSuitLock != null && state.lastPlayedThisTurn != null) {
+    return false;
+  }
+  if (state.actionsThisTurn == 0) return false;
+  return true;
+}
+
 /// Returns `null` if the player may legally end their turn, or an error string
 /// explaining why not.
 ///
 /// Rules:
 ///   • The Queen suit-lock must be resolved (covered) before ending.
 ///   • The player must have taken at least one action (`actionsThisTurn > 0`).
+///   • A lone Ace on the pile this turn requires a declared suit ([suitLock])
+///     before the turn can end (shared Ace rule — offline and online).
 String? validateEndTurn(GameState state) {
   if (state.pendingJokerResolution) {
     return 'Resolve Joker selection first.';
@@ -330,6 +365,11 @@ String? validateEndTurn(GameState state) {
   }
   if (state.actionsThisTurn == 0) {
     return 'Cannot end turn without playing or drawing.';
+  }
+  if (state.discardTopCard?.effectiveRank == Rank.ace &&
+      state.cardsPlayedThisTurn == 1 &&
+      state.suitLock == null) {
+    return 'Choose a suit for your Ace before ending your turn.';
   }
   return null;
 }

@@ -811,12 +811,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (_localActionInProgress) return;
     if (_offlineState.currentPlayerId != OfflineGameState.localId) return;
 
-    final err = validateEndTurn(_offlineState);
-    if (err != null) {
-      _showError(err);
-      return;
-    }
-
     _engineTimer.cancel();
     setState(() => _selectedCardId = null);
 
@@ -824,6 +818,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     // Rule 1: Ace played alone triggers the suit selector at End Turn
     if (_offlineState.discardTopCard?.effectiveRank == Rank.ace &&
         _offlineState.cardsPlayedThisTurn == 1 &&
+        _offlineState.suitLock == null &&
         mounted) {
       chosenAceSuit = await showModalBottomSheet<Suit>(
         context: context,
@@ -846,6 +841,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       });
     }
 
+    final err = validateEndTurn(_offlineState);
+    if (err != null) {
+      _showError(err);
+      _startTimer();
+      return;
+    }
+
     var nextId = nextPlayerId(state: _offlineState);
     nextId = _resolveTournamentNextPlayerId(_offlineState, nextId);
     setState(() {
@@ -864,6 +866,43 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
     } else {
       _startTimer();
+    }
+  }
+
+  /// Online: match offline — Ace suit picker runs on End Turn, then [declareSuit]
+  /// before [endTurn] (server already accepted the Ace play without [declaredSuit]).
+  Future<void> _onlineEndTurn() async {
+    final gameState = ref.read(gameStateProvider);
+    if (gameState == null || !mounted) return;
+
+    if (gameState.discardTopCard?.effectiveRank == Rank.ace &&
+        gameState.cardsPlayedThisTurn == 1 &&
+        gameState.suitLock == null) {
+      final chosenAceSuit = await showModalBottomSheet<Suit>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (_) => const _AceSuitPickerSheet(),
+      );
+      if (!mounted) return;
+      if (chosenAceSuit == null) return;
+      ref.read(gameNotifierProvider.notifier).declareSuit(chosenAceSuit.name);
+      await _waitForOnlineSuitLock();
+      if (!mounted) return;
+    }
+
+    final err = validateEndTurn(ref.read(gameStateProvider) ?? gameState);
+    if (err != null) {
+      _showError(err);
+      return;
+    }
+    ref.read(gameNotifierProvider.notifier).endTurn();
+  }
+
+  Future<void> _waitForOnlineSuitLock() async {
+    for (var i = 0; i < 50; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      final s = ref.read(gameStateProvider);
+      if (s?.suitLock != null) return;
     }
   }
 
@@ -1114,27 +1153,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       }
     });
 
-    // Online: server requests suit choice after local player played an Ace.
-    // Show the same suit picker sheet used by offline mode, then send the choice.
-    ref.listen<bool>(pendingSuitChoiceProvider, (prev, next) {
-      if (!next || !mounted) return;
-      // Only show for the local player's own Ace — server only sends this to
-      // the acting player, so no extra guard is needed.
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
-        final chosenSuit = await showModalBottomSheet<Suit>(
-          context: context,
-          backgroundColor: Colors.transparent,
-          builder: (_) => const _AceSuitPickerSheet(),
-        );
-        if (!mounted) return;
-        if (chosenSuit != null) {
-          ref.read(gameNotifierProvider.notifier).declareSuit(chosenSuit.name);
-        }
-        // If dismissed without a choice the server will eventually time out
-        // the turn — no client-side fallback needed.
-      });
-    });
+    // Online: Ace suit is chosen at End Turn (see [_onlineEndTurn]), not on play.
+    // [pendingSuitChoiceProvider] may still be set by the server for diagnostics.
 
     // Online: server requests joker declaration after local player played a Joker.
     ref.listen<bool>(pendingJokerResolutionProvider, (prev, next) {
@@ -1220,8 +1240,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             ? WsConnectionState.disconnected
                             : connState,
                         canEndTurn: isOfflineMode
-                            ? (validateEndTurn(_offlineState) == null)
-                            : (isMyTurn && validateEndTurn(gameState) == null),
+                            ? canEndTurnButton(_offlineState)
+                            : (isMyTurn && canEndTurnButton(gameState)),
                         isDealing: _isDealing,
                         visibleCardCounts: _visibleCardCounts,
                         drawPileKey: _drawPileKey,
@@ -1241,9 +1261,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         onEndTurnTap: isOfflineMode
                             ? _endTurn
                             : () {
-                                ref
-                                    .read(gameNotifierProvider.notifier)
-                                    .endTurn();
+                                unawaited(_onlineEndTurn());
                               },
                         isOffline: isOfflineMode,
                         discardPileCount: isOfflineMode
@@ -1666,30 +1684,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       return;
     }
 
-    // Ace as first card of turn: show suit picker, then send play_cards with declaredSuit.
-    if (card.effectiveRank == Rank.ace &&
-        gameState.actionsThisTurn == 0 &&
-        mounted) {
-      setState(() => _selectedCardId = cardId);
-      final chosenAceSuit = await showModalBottomSheet<Suit>(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (_) => const _AceSuitPickerSheet(),
-      );
-      if (!mounted) return;
-      setState(() => _selectedCardId = null);
-      if (chosenAceSuit == null) return;
-      final aceSuit = chosenAceSuit;
-      await _onlineMaybeLastCardFlightThen(
-        cardToFly: card,
-        lastCardFromHand: isLastCardFromHand,
-        send: () => ref.read(gameNotifierProvider.notifier).playCards(
-          [cardId],
-          declaredSuit: aceSuit.name,
-        ),
-      );
-      return;
-    }
+    // Ace as first card: play without declaredSuit — server sends suit_choice_required;
+    // the player declares at End Turn ([_onlineEndTurn]), matching offline.
 
     // Normal play
     await _onlineMaybeLastCardFlightThen(
@@ -1794,6 +1790,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         }
 
         final previousState = _offlineState;
+        clearSuitInferenceOnPlay(
+          sessionId: previousState.sessionId,
+          playerId: playerId,
+          cards: [assignedJoker],
+        );
         var newState = applyPlay(
           state: _offlineState,
           playerId: playerId,
@@ -1852,6 +1853,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
       // Apply play + special effects
       final previousState = _offlineState;
+      clearSuitInferenceOnPlay(
+        sessionId: previousState.sessionId,
+        playerId: playerId,
+        cards: played,
+      );
       var newState =
           applyPlay(state: _offlineState, playerId: playerId, cards: played);
       _engineTimer.cancel();
@@ -1932,8 +1938,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       }
     } finally {
       _localActionInProgress = false;
-      if (mounted && _flyingCardId != null)
+      if (mounted && _flyingCardId != null) {
         setState(() => _flyingCardId = null);
+      }
     }
   }
 
@@ -1989,8 +1996,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       }
     } finally {
       _localActionInProgress = false;
-      if (mounted && _flyingCardId != null)
+      if (mounted && _flyingCardId != null) {
         setState(() => _flyingCardId = null);
+      }
     }
   }
 
@@ -2032,6 +2040,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         await _animateDrawFlightsToPlayer(playerId, drawCount);
         if (!mounted) return;
       }
+
+      recordDrawSuitInference(
+        state: _offlineState,
+        drawingPlayerId: playerId,
+      );
 
       var newState = applyDraw(
         state: _offlineState,
