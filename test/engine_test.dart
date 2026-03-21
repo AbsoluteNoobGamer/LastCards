@@ -991,8 +991,9 @@ void main() {
           getValidJokerOptions(state: state, discardTop: state.discardTopCard!);
 
       final labels = options.map((c) => c.shortLabel).toSet();
-      expect(options.length, 15);
+      expect(options.length, 18);
       expect(labels.contains('J♦'), isFalse, reason: 'Duplicate is excluded');
+      expect(labels, containsAll(['2♠', '2♣', '2♥']));
     });
 
     test('jokerOptions_midTurn_generalized_jack', () {
@@ -1004,8 +1005,18 @@ void main() {
           getValidJokerOptions(state: state, discardTop: state.discardTopCard!);
 
       final labels = options.map((c) => c.shortLabel).toSet();
-      expect(options.length, 5);
-      expect(labels, containsAll(['10♦', 'Q♦', 'J♠', 'J♥', 'J♣']));
+      expect(options.length, 9);
+      expect(labels, containsAll([
+        '10♦',
+        'Q♦',
+        'J♠',
+        'J♥',
+        'J♣',
+        '2♠',
+        '2♣',
+        '2♥',
+        '2♦',
+      ]));
     });
 
     test('jokerOptions_turnStart_generalized_eight', () {
