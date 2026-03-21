@@ -1,8 +1,10 @@
 import 'package:shelf/shelf_io.dart' as io;
 import 'package:shelf_web_socket/shelf_web_socket.dart';
 import 'package:last_cards_server/room_manager.dart';
+import 'package:last_cards_server/trophy_recorder.dart';
 
 void main() async {
+  await syncOnlineServerPresenceReset();
   final roomManager = RoomManager();
 
   final handler = webSocketHandler((webSocket, protocol) {

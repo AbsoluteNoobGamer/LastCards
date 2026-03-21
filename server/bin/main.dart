@@ -6,9 +6,11 @@ import 'package:shelf_web_socket/shelf_web_socket.dart';
 
 import 'package:last_cards_server/firebase_auth_verifier.dart';
 import 'package:last_cards_server/room_manager.dart';
+import 'package:last_cards_server/trophy_recorder.dart';
 
 void main() async {
   FirebaseAuthVerifier.setApiKey(Platform.environment['FIREBASE_API_KEY']);
+  await syncOnlineServerPresenceReset();
   final port = int.parse(Platform.environment['PORT'] ?? '8080');
   final roomManager = RoomManager();
 

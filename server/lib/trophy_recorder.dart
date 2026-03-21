@@ -286,6 +286,48 @@ class _FirestoreClient {
     }
   }
 
+  /// Overwrites [fields] on [collection]/[docId] via PATCH (not increment).
+  /// Creates the document if missing. Skips when credentials are not configured.
+  Future<void> _setDocumentFields({
+    required String collection,
+    required String docId,
+    required Map<String, dynamic> fields,
+  }) async {
+    final token = await _getAccessToken();
+    if (token == null) return;
+
+    final docPath =
+        'projects/$_projectId/databases/(default)/documents/$collection/$docId';
+    final query = fields.keys
+        .map((k) => 'updateMask.fieldPaths=${Uri.encodeComponent(k)}')
+        .join('&');
+    final uri = Uri.parse(
+        'https://firestore.googleapis.com/v1/$docPath?$query');
+
+    final body = jsonEncode({
+      'fields': {
+        for (final e in fields.entries) e.key: _firestoreValue(e.value),
+      },
+    });
+
+    try {
+      final response = await http.patch(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: body,
+      );
+      if (response.statusCode != 200) {
+        _log.error(
+            'Firestore _setDocumentFields failed (${response.statusCode}): ${response.body}');
+      }
+    } catch (e) {
+      _log.error('Firestore _setDocumentFields error: $e');
+    }
+  }
+
   /// Converts a Dart value to its Firestore REST representation.
   Map<String, dynamic> _firestoreValue(dynamic v) {
     if (v is String) return {'stringValue': v};
@@ -546,6 +588,19 @@ void syncOnlineServerPresenceDelta(int delta) {
       increments: {'count': delta},
       defaultFields: {'count': 0},
     ),
+  );
+}
+
+/// Resets `metadata/online_count` `count` to [value] (default `0`) using a
+/// document set/overwrite, not increment. Call once at process startup so a
+/// crash does not leave a stale total before new [syncOnlineServerPresenceDelta]
+/// updates. No-op when `GOOGLE_CREDENTIALS_JSON` is unset.
+Future<void> syncOnlineServerPresenceReset({int value = 0}) async {
+  _FirestoreClient.instance.init();
+  await _FirestoreClient.instance._setDocumentFields(
+    collection: 'metadata',
+    docId: 'online_count',
+    fields: {'count': value},
   );
 }
 
