@@ -45,9 +45,12 @@ class CardFlightOverlayState extends State<CardFlightOverlay>
       return completer.future;
     }
 
-    final effectiveDuration = lastCardFromHand
-        ? const Duration(milliseconds: 680)
-        : duration;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final effectiveDuration = reduceMotion
+        ? Duration.zero
+        : (lastCardFromHand
+            ? const Duration(milliseconds: 680)
+            : duration);
     final effectiveArc = lastCardFromHand ? math.max(arcLift, 220.0) : arcLift;
 
     final controller =

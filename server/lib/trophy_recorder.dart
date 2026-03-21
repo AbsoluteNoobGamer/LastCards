@@ -528,6 +528,23 @@ class TrophyRecorder {
   void recordWin(String playerId) {}
 }
 
+/// Syncs the public Firestore doc `metadata/online_count` (`count` field) with
+/// concurrent WebSocket connections to this game server: [delta] is +1 on
+/// connect and -1 on disconnect. Skips writes when `GOOGLE_CREDENTIALS_JSON`
+/// is not configured (same as other Firestore writes).
+void syncOnlineServerPresenceDelta(int delta) {
+  if (delta == 0) return;
+  _FirestoreClient.instance.init();
+  unawaited(
+    _FirestoreClient.instance.atomicUpdate(
+      collection: 'metadata',
+      docId: 'online_count',
+      increments: {'count': delta},
+      defaultFields: {'count': 0},
+    ),
+  );
+}
+
 /// Test double — counts mode-leaderboard calls without touching Firestore.
 class FakeTrophyRecorder extends TrophyRecorder {
   FakeTrophyRecorder() : super._();

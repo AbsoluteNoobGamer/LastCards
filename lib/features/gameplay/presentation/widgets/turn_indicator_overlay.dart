@@ -1,10 +1,11 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../domain/entities/game_state.dart';
 import '../../../../core/theme/app_colors.dart';
 
-class TurnIndicatorOverlay extends StatelessWidget {
+class TurnIndicatorOverlay extends StatefulWidget {
   final PlayDirection direction;
 
   /// Where the “direction reversed” banner sits (below central draw/discard).
@@ -17,8 +18,23 @@ class TurnIndicatorOverlay extends StatelessWidget {
   });
 
   @override
+  State<TurnIndicatorOverlay> createState() => _TurnIndicatorOverlayState();
+}
+
+class _TurnIndicatorOverlayState extends State<TurnIndicatorOverlay> {
+  @override
+  void didUpdateWidget(TurnIndicatorOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.direction != widget.direction) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        HapticFeedback.mediumImpact();
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final bool isCw = direction == PlayDirection.clockwise;
+    final bool isCw = widget.direction == PlayDirection.clockwise;
     final String symbol = isCw ? '↻' : '↺';
 
     return IgnorePointer(
@@ -26,9 +42,9 @@ class TurnIndicatorOverlay extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           Align(
-            alignment: bannerAlignment,
+            alignment: widget.bannerAlignment,
             child: TweenAnimationBuilder<double>(
-              key: ValueKey(direction),
+              key: ValueKey(widget.direction),
               tween: Tween<double>(begin: 0.0, end: 1.0),
               duration: const Duration(seconds: 1),
               curve: Curves.easeOutCubic,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/navigation/app_page_routes.dart';
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../lobby/presentation/screens/lobby_screen.dart';
@@ -107,7 +108,7 @@ class ModeSelectionSheet extends ConsumerWidget {
     Navigator.of(context).pop();
     if (mode == OnlineGameMode.privateGame) {
       Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const LobbyScreen()),
+        AppPageRoutes.fadeSlide((_) => const LobbyScreen()),
       );
       return;
     }

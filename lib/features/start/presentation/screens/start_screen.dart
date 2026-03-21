@@ -16,7 +16,10 @@ import '../../../../features/single_player/widgets/difficulty_selection_sheet.da
 import '../../../../features/online/widgets/mode_selection_sheet.dart';
 import '../widgets/card_back_selection_menu.dart';
 import '../../../../core/theme/theme_selector_modal.dart';
+import '../../../../core/navigation/app_page_routes.dart';
+import '../../../../core/widgets/themed_shimmer.dart';
 import '../../../../core/providers/auth_provider.dart';
+import '../../../../core/providers/online_player_count_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../features/profile/presentation/screens/profile_screen.dart';
@@ -285,26 +288,7 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
   }
 
   void _pushWithTransition(BuildContext context, Widget screen) {
-    Navigator.push(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => screen,
-        transitionDuration: const Duration(milliseconds: 300),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0.05, 0),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                  parent: animation, curve: Curves.easeOutCubic)),
-              child: child,
-            ),
-          );
-        },
-      ),
-    );
+    Navigator.push(context, AppPageRoutes.fadeSlide((_) => screen));
   }
 
   void _showSettings(BuildContext context) {

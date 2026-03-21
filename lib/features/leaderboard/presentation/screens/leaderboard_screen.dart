@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../data/local_leaderboard_store.dart';
 
 import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/widgets/themed_shimmer.dart';
 import '../../../../core/theme/app_theme_data.dart';
 
 /// Game mode categories for the leaderboard, aligned with main menu entry points.
@@ -516,7 +517,19 @@ class _RankedLeaderboardState extends State<_RankedLeaderboard> {
         final theme = widget.theme;
         if (snap.connectionState == ConnectionState.waiting) {
           return Center(
-            child: CircularProgressIndicator(color: theme.accentPrimary),
+            child: Consumer(
+              builder: (context, ref, _) {
+                return SizedBox(
+                  width: 220,
+                  height: 180,
+                  child: ThemedShimmer(
+                    width: 220,
+                    height: 180,
+                    borderRadius: 16,
+                  ),
+                );
+              },
+            ),
           );
         }
 
@@ -948,7 +961,19 @@ class _ModeLeaderboardState extends State<_ModeLeaderboard> {
 
         if (snap.connectionState == ConnectionState.waiting) {
           return Center(
-            child: CircularProgressIndicator(color: theme.accentPrimary),
+            child: Consumer(
+              builder: (context, ref, _) {
+                return SizedBox(
+                  width: 220,
+                  height: 180,
+                  child: ThemedShimmer(
+                    width: 220,
+                    height: 180,
+                    borderRadius: 16,
+                  ),
+                );
+              },
+            ),
           );
         }
 

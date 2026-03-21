@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+
+import '../../../../core/navigation/app_page_routes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -352,9 +354,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     }
 
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const TableScreen(totalPlayers: 4),
-      ),
+      AppPageRoutes.fadeSlide((_) => const TableScreen(totalPlayers: 4)),
     );
   }
 }

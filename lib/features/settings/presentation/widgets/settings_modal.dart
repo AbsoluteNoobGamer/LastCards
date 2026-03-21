@@ -16,12 +16,14 @@ final settingsProvider =
 
 class SettingsState {
   final double soundVolume;
+  final bool reduceMotion;
 
-  SettingsState({this.soundVolume = 100.0});
+  SettingsState({this.soundVolume = 100.0, this.reduceMotion = false});
 
-  SettingsState copyWith({double? soundVolume}) {
+  SettingsState copyWith({double? soundVolume, bool? reduceMotion}) {
     return SettingsState(
       soundVolume: soundVolume ?? this.soundVolume,
+      reduceMotion: reduceMotion ?? this.reduceMotion,
     );
   }
 }
@@ -37,7 +39,13 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     _prefs = await SharedPreferences.getInstance();
     state = SettingsState(
       soundVolume: _prefs?.getDouble('soundVolume') ?? 100.0,
+      reduceMotion: _prefs?.getBool('reduceMotion') ?? false,
     );
+  }
+
+  void setReduceMotion(bool value) {
+    state = state.copyWith(reduceMotion: value);
+    _prefs?.setBool('reduceMotion', value);
   }
 
   void updateSound(double val) {
@@ -48,6 +56,11 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     game_audio.AudioService.instance.setVolume(val / 100.0);
   }
 }
+
+/// User preference; [StackAndFlowApp] also merges this into [MediaQuery.disableAnimations].
+final reduceMotionProvider = Provider<bool>((ref) {
+  return ref.watch(settingsProvider).reduceMotion;
+});
 
 class SettingsModal extends ConsumerWidget {
   const SettingsModal({super.key});
@@ -125,6 +138,21 @@ class SettingsModal extends ConsumerWidget {
                           onChanged: notifier.updateSound,
                         ),
                         const Divider(height: 40, color: Colors.grey),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: isMobile,
+                          title: const Text('Reduce Motion'),
+                          subtitle: Text(
+                            'Less animation for card flights, table ambience, and win effects.',
+                            style: TextStyle(
+                              fontSize: isMobile ? 11 : 12,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                          value: settings.reduceMotion,
+                          onChanged: (val) => notifier.setReduceMotion(val),
+                          activeThumbColor: Colors.amber,
+                        ),
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
                           dense: isMobile,

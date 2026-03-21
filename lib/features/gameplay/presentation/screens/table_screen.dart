@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:last_cards/features/gameplay/presentation/animations/win_particles.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/card_flight_overlay.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/dealing_animation_overlay.dart';
 
@@ -985,6 +986,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             : null;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
+          HapticFeedback.heavyImpact();
           showDialog<void>(
             context: context,
             barrierDismissible: false,
@@ -1006,18 +1008,19 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         // Game ended without a winner (all other players left).
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
+          final t = ref.read(themeProvider).theme;
           showDialog<void>(
             context: context,
             barrierDismissible: false,
             builder: (_) => AlertDialog(
-              backgroundColor: Colors.grey.shade900,
-              title: const Text(
+              backgroundColor: t.surfacePanel,
+              title: Text(
                 'Players Left',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(color: t.textPrimary),
               ),
-              content: const Text(
+              content: Text(
                 'All other players have left. The game has ended.',
-                style: TextStyle(color: Colors.white70),
+                style: TextStyle(color: t.textSecondary),
               ),
               actions: [
                 TextButton(
@@ -1027,7 +1030,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     navigator.pop(); // close dialog
                     navigator.pop(); // leave table
                   },
-                  child: const Text('BACK TO MENU'),
+                  child: Text(
+                    'BACK TO MENU',
+                    style: TextStyle(color: t.accentPrimary),
+                  ),
                 ),
               ],
             ),
@@ -2602,6 +2608,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     Future.microtask(() {
       if (!mounted) return;
+      HapticFeedback.heavyImpact();
       showDialog<void>(
         context: context,
         barrierDismissible: false,

@@ -20,7 +20,13 @@ class _FeltTableBackgroundState extends ConsumerState<_FeltTableBackground>
     _breath = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 9),
-    )..repeat(reverse: true);
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!MediaQuery.disableAnimationsOf(context)) {
+        _breath.repeat(reverse: true);
+      }
+    });
   }
 
   @override
