@@ -1,5 +1,44 @@
 part of 'offline_game_engine.dart';
 
+// Opponent suit inference (offline AI): drawing while a suit is required implies
+// the player likely lacked that suit when they drew.
+final Map<String, Map<String, Set<Suit>>> _suitInferenceBySession = {};
+
+/// Records that [drawingPlayerId] drew from the pile while the active suit
+/// was required — used by [aiTakeTurn] and offline UI draws.
+void recordDrawSuitInference({
+  required GameState state,
+  required String drawingPlayerId,
+}) {
+  final top = state.discardTopCard;
+  if (top == null) return;
+  final activeSuit = state.suitLock ?? top.effectiveSuit;
+  final sessionMap =
+      _suitInferenceBySession.putIfAbsent(state.sessionId, () => {});
+  sessionMap.putIfAbsent(drawingPlayerId, () => <Suit>{}).add(activeSuit);
+}
+
+/// Clears inference entries when [playerId] proves they hold a suit by playing it.
+void clearSuitInferenceOnPlay({
+  required String sessionId,
+  required String playerId,
+  required List<CardModel> cards,
+}) {
+  final sessionMap = _suitInferenceBySession[sessionId];
+  if (sessionMap == null) return;
+  final set = sessionMap[playerId];
+  if (set == null) return;
+  for (final c in cards) {
+    if (c.isJoker) continue;
+    set.remove(c.effectiveSuit);
+  }
+}
+
+/// Clears draw-based suit inference (for tests; avoids cross-test session bleed).
+void resetSuitInferenceForTests() {
+  _suitInferenceBySession.clear();
+}
+
 // ── AI opponent (Player 2) ────────────────────────────────────────────────────
 
 class _AiPlayChoice {
@@ -48,6 +87,7 @@ bool aiHasPlayableTurn({
     final oneCardChoice = _buildSingleCardChoice(
       state: state,
       ai: ai,
+      aiPlayerId: aiPlayerId,
       card: ai.hand.first,
     );
     final result = _executeChoice(
@@ -73,6 +113,7 @@ bool aiHasPlayableTurn({
   if (choices.isEmpty) {
     final drawCount =
         state.activePenaltyCount > 0 ? state.activePenaltyCount : 1;
+    recordDrawSuitInference(state: state, drawingPlayerId: aiPlayerId);
     final afterDraw = applyDraw(
       state: state,
       playerId: aiPlayerId,
@@ -147,6 +188,7 @@ bool aiHasPlayableTurn({
       continue;
     }
     queenCoverDrawCount = 1;
+    recordDrawSuitInference(state: afterPlay, drawingPlayerId: aiPlayerId);
     afterPlay = applyDraw(
       state: afterPlay,
       playerId: aiPlayerId,
@@ -191,6 +233,11 @@ GameState _executeChoice({
   required _AiPlayChoice choice,
   required List<CardModel> playedCards,
 }) {
+  clearSuitInferenceOnPlay(
+    sessionId: state.sessionId,
+    playerId: aiPlayerId,
+    cards: choice.cards,
+  );
   final after = applyPlay(
     state: state,
     playerId: aiPlayerId,
@@ -215,7 +262,12 @@ List<_AiPlayChoice> _generateAiChoices({
     final err =
         validatePlay(cards: [card], discardTop: discardTop, state: state);
     if (err != null) continue;
-    final choice = _buildSingleCardChoice(state: state, ai: ai, card: card);
+    final choice = _buildSingleCardChoice(
+      state: state,
+      ai: ai,
+      aiPlayerId: aiPlayerId,
+      card: card,
+    );
     choices.add(_scoreChoice(
       state: state,
       aiPlayerId: aiPlayerId,
@@ -292,10 +344,13 @@ List<_AiPlayChoice> _generateAiChoices({
 _AiPlayChoice _buildSingleCardChoice({
   required GameState state,
   required PlayerModel ai,
+  required String aiPlayerId,
   required CardModel card,
 }) {
   if (card.effectiveRank == Rank.ace) {
     final declaredSuit = _chooseBestAceSuit(
+      state: state,
+      aiPlayerId: aiPlayerId,
       hand: ai.hand,
       excludingCardId: card.id,
     );
@@ -396,7 +451,11 @@ _AiPlayChoice _scoreChoice({
               .where((c) =>
                   c.id != lead.id && !c.isJoker && c.effectiveSuit == suit)
               .length;
-      score += 75000 + (continuation * 6000);
+      final oppPressure = suit == null
+          ? 0
+          : _opponentAceSuitPressure(
+              state: state, aiPlayerId: aiPlayerId, suit: suit);
+      score += 75000 + (continuation * 6000) + oppPressure;
       break;
     case Rank.joker:
       score += 65000;
@@ -534,8 +593,12 @@ CardModel _resolveJokerStrategically({
     }
   }
 
-  final preferredSuit =
-      _chooseBestAceSuit(hand: aiHand, excludingCardId: joker.id);
+  final preferredSuit = _chooseBestAceSuit(
+    state: state,
+    aiPlayerId: state.currentPlayerId,
+    hand: aiHand,
+    excludingCardId: joker.id,
+  );
   final suitCounts = <Suit, int>{for (final s in Suit.values) s: 0};
   for (final card in nonJoker) {
     if (card.isJoker) continue;
@@ -624,7 +687,30 @@ bool _isSpecial(CardModel c) {
   return specials.contains(c.effectiveRank) || c.isJoker;
 }
 
+/// Higher weight when opponents are short on cards and likely lack [suit].
+int _opponentAceSuitPressure({
+  required GameState state,
+  required String aiPlayerId,
+  required Suit suit,
+}) {
+  var bonus = 0;
+  for (final p in state.players) {
+    if (p.id == aiPlayerId) continue;
+    final missing = _suitInferenceBySession[state.sessionId]?[p.id];
+    if (missing == null || missing.isEmpty) continue;
+    final urgency = 12 - p.cardCount.clamp(1, 11);
+    if (missing.contains(suit)) {
+      bonus += 900 * urgency;
+    } else {
+      bonus -= 180 * urgency;
+    }
+  }
+  return bonus;
+}
+
 Suit _chooseBestAceSuit({
+  required GameState state,
+  required String aiPlayerId,
   required List<CardModel> hand,
   required String excludingCardId,
 }) {
@@ -641,7 +727,30 @@ Suit _chooseBestAceSuit({
     }
   }
 
+  final minOppCards = state.players
+      .where((p) => p.id != aiPlayerId)
+      .map((p) => p.cardCount)
+      .fold<int>(99, (a, b) => a < b ? a : b);
+  final oppWeight = minOppCards <= 3 ? 3 : 1;
+
   return suitOrder.reduce((best, next) {
+    final bestScore = counts[best]! * 10000 +
+        _opponentAceSuitPressure(
+          state: state,
+          aiPlayerId: aiPlayerId,
+          suit: best,
+        ) *
+            oppWeight;
+    final nextScore = counts[next]! * 10000 +
+        _opponentAceSuitPressure(
+          state: state,
+          aiPlayerId: aiPlayerId,
+          suit: next,
+        ) *
+            oppWeight;
+    if (nextScore > bestScore) return next;
+    if (nextScore < bestScore) return best;
+
     final bestCount = counts[best]!;
     final nextCount = counts[next]!;
     if (nextCount > bestCount) return next;

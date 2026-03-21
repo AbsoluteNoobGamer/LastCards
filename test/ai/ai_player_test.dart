@@ -39,6 +39,8 @@ GameState buildState({
 }
 
 void main() {
+  tearDown(resetSuitInferenceForTests);
+
   group('AI decision-making regressions', () {
     test('Ace suit selection chooses the suit with most cards in AI hand', () {
       final state = buildState(
@@ -59,6 +61,29 @@ void main() {
 
       expect(result.playedCards.first.effectiveRank, Rank.ace);
       expect(result.state.suitLock, Suit.hearts);
+    });
+
+    test('Ace suit prefers suit opponents likely lack from draw history', () {
+      final state = buildState(
+        discardTop: c(Rank.nine, Suit.clubs, 'd1'),
+        aiHand: [
+          c(Rank.ace, Suit.spades, 'a1'),
+          c(Rank.four, Suit.hearts, 'h4'),
+          c(Rank.five, Suit.hearts, 'h5'),
+          c(Rank.six, Suit.diamonds, 'd6'),
+        ],
+        p1Count: 1,
+      );
+      recordDrawSuitInference(state: state, drawingPlayerId: 'p1');
+
+      final result = aiTakeTurn(
+        state: state,
+        aiPlayerId: 'ai',
+        cardFactory: (_) => [],
+      );
+
+      expect(result.playedCards.first.effectiveRank, Rank.ace);
+      expect(result.state.suitLock, Suit.clubs);
     });
 
     test('Ace never selects Spades by default when better options exist', () {
