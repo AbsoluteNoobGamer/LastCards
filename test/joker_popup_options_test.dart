@@ -179,6 +179,29 @@ void main() {
     });
 
     test(
+        'Queen suit lock + active penalty: 2s and Jacks bypass lock (mirrors validatePlay)',
+        () {
+      const top = CardModel(id: '3c', rank: Rank.three, suit: Suit.clubs);
+      final state = _baseState(
+        discardTop: top,
+        actionsThisTurn: 0,
+        activePenaltyCount: 4,
+        queenSuitLock: Suit.hearts,
+      );
+
+      final options = getValidJokerOptions(
+        state: state,
+        discardTop: top,
+        context: JokerPlayContext.turnStarter,
+        contextTopCard: top,
+      );
+
+      final labels = options.map((c) => c.shortLabel).toSet();
+      // Not locked suit and not Queen — must come from penalty-addressing rule.
+      expect(labels, containsAll(['2♠', '2♣', 'J♠', 'J♣', 'J♦']));
+    });
+
+    test(
         'Context B: Joker after 5♥ returns 4♥, 6♥, 5♠, 5♦, 5♣ exactly (5 total)',
         () {
       const top = CardModel(id: '5h', rank: Rank.five, suit: Suit.hearts);
@@ -224,7 +247,7 @@ void main() {
     });
 
     test(
-        'Context B edge case: Joker after 2♥ returns A♥, 3♥, and 3 cross-suit 2s = 5',
+        'Context B edge case: Joker after 2♥ returns sequence, cross-suit 2s, and penalty-on-penalty Jacks = 9',
         () {
       const top = CardModel(id: '2h', rank: Rank.two, suit: Suit.hearts);
       final state = _baseState(
@@ -241,8 +264,18 @@ void main() {
       );
 
       final labels = options.map((c) => c.shortLabel).toSet();
-      expect(options.length, 5);
-      expect(labels, containsAll({'A♥', '3♥', '2♠', '2♦', '2♣'}));
+      expect(options.length, 9);
+      expect(labels, containsAll({
+        'A♥',
+        '3♥',
+        '2♠',
+        '2♦',
+        '2♣',
+        'J♠',
+        'J♣',
+        'J♥',
+        'J♦',
+      }));
     });
 
     test(

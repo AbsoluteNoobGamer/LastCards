@@ -269,7 +269,11 @@ List<CardModel> getValidJokerOptions({
       } else if (state.queenSuitLock != null) {
         // Mirrors _validateSingle: Queen lock replaces suit/rank rules until
         // resolved (penalty-on-penalty stacking is handled before Queen lock).
-        if (suit == state.queenSuitLock || rank == Rank.queen) {
+        // When a pickup penalty is also active, [validatePlay] lets plays that are
+        // only penalty-addressing cards bypass queen lock — mirror that here.
+        if (suit == state.queenSuitLock ||
+            rank == Rank.queen ||
+            (state.activePenaltyCount > 0 && candidateIsPenalty)) {
           isValidMatch = true;
         }
       } else if (state.activePenaltyCount > 0) {
