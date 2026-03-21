@@ -39,8 +39,12 @@ class _FirestoreClient {
   String? _cachedToken;
   DateTime? _tokenExpiry;
 
+  bool _initCalled = false;
+
   /// Initialises credentials from the GOOGLE_CREDENTIALS_JSON env var.
   void init() {
+    if (_initCalled) return;
+    _initCalled = true;
     final raw = Platform.environment['GOOGLE_CREDENTIALS_JSON'];
     if (raw == null || raw.isEmpty) {
       _log.info(
