@@ -37,6 +37,8 @@ class _WinDialogState extends ConsumerState<_WinDialog>
     with SingleTickerProviderStateMixin {
   late final AnimationController _entrance;
   bool _celebrationDone = false;
+  late final Animation<double> _scale;
+  late final CurvedAnimation _fade;
 
   @override
   void initState() {
@@ -45,6 +47,10 @@ class _WinDialogState extends ConsumerState<_WinDialog>
       vsync: this,
       duration: const Duration(milliseconds: 320),
     );
+    _scale = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(parent: _entrance, curve: Curves.easeOutCubic),
+    );
+    _fade = CurvedAnimation(parent: _entrance, curve: Curves.easeOut);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (MediaQuery.disableAnimationsOf(context)) {
@@ -57,6 +63,7 @@ class _WinDialogState extends ConsumerState<_WinDialog>
 
   @override
   void dispose() {
+    _fade.dispose();
     _entrance.dispose();
     super.dispose();
   }
@@ -74,11 +81,6 @@ class _WinDialogState extends ConsumerState<_WinDialog>
         : (widget.isOnlineMode
             ? '${widget.winnerName} played their last card first. Better luck next time!'
             : 'The Dealer played their last card first.');
-
-    final scale = Tween<double>(begin: 0.95, end: 1.0).animate(
-      CurvedAnimation(parent: _entrance, curve: Curves.easeOutCubic),
-    );
-    final fade = CurvedAnimation(parent: _entrance, curve: Curves.easeOut);
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -100,9 +102,9 @@ class _WinDialogState extends ConsumerState<_WinDialog>
               ),
             Center(
               child: ScaleTransition(
-                scale: scale,
+                scale: _scale,
                 child: FadeTransition(
-                  opacity: fade,
+                  opacity: _fade,
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 420),
                     child: Material(
