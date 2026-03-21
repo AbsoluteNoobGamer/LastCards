@@ -2149,6 +2149,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (_aiThinking) return;
     setState(() => _aiThinking = true);
 
+    var scheduledNext = false;
     try {
       bool offlineTournamentInstantPacing() =>
           _isOfflineSession &&
@@ -2293,7 +2294,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       // Do not setState here when _checkWin returns true: tournament round-end
       // pops this route from _handleTournamentPlayerFinished; partial finishes
       // already clear _aiThinking inside _handleTournamentPlayerFinished.
-      if (_checkWin(aiId, result.state)) {
+      if (_checkWin(
+        aiId,
+        result.state,
+        onNestedAiScheduled: () => scheduledNext = true,
+      )) {
         return;
       }
 
@@ -2357,6 +2362,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       }
 
       if (nextId != OfflineGameState.localId) {
+        scheduledNext = true;
         _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
       } else {
         if (_tournamentSimulatingRest) {
@@ -2367,6 +2373,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           );
           if (skipToId != OfflineGameState.localId &&
               !_tournamentFinishedPlayerIds.contains(skipToId)) {
+            scheduledNext = true;
             _scheduleAiTurn(skipToId, simulate: true);
           }
         } else {
@@ -2374,7 +2381,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         }
       }
     } finally {
-      if (_aiThinking && mounted) {
+      if (_aiThinking && mounted && !scheduledNext) {
         setState(() => _aiThinking = false);
       }
     }
@@ -2547,7 +2554,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   // ── Win detection ──────────────────────────────────────────────────
 
-  bool _checkWin(String lastActorId, GameState state) {
+  bool _checkWin(
+    String lastActorId,
+    GameState state, {
+    void Function()? onNestedAiScheduled,
+  }) {
     if (!shouldShowStandardWinOverlay(
         isTournamentMode: widget.isTournamentMode)) {
       // Collect all newly-confirmable finishers in one pass.
@@ -2633,6 +2644,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       }
 
       if (nextId != OfflineGameState.localId) {
+        onNestedAiScheduled?.call();
         _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
       } else {
         _startTimer();
