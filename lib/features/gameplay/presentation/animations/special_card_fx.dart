@@ -43,7 +43,13 @@ class _SlamEffectState extends State<SlamEffect>
 
     _rippleAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
 
-    _ctrl.forward().whenComplete(() => widget.onComplete?.call());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _ctrl.duration = Duration.zero;
+      }
+      _ctrl.forward().whenComplete(() => widget.onComplete?.call());
+    });
   }
 
   @override
@@ -107,7 +113,14 @@ class _RedJackPulseEffectState extends State<RedJackPulseEffect>
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
-    )..forward().whenComplete(() => widget.onComplete?.call());
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _ctrl.duration = Duration.zero;
+      }
+      _ctrl.forward().whenComplete(() => widget.onComplete?.call());
+    });
   }
 
   @override
@@ -184,13 +197,26 @@ class _KingReverseArrowState extends State<KingReverseArrow>
       CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
     );
 
-    if (widget.animate) _ctrl.forward();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _ctrl.duration = Duration.zero;
+      }
+      if (widget.animate) _ctrl.forward();
+    });
   }
 
   @override
   void didUpdateWidget(KingReverseArrow old) {
     super.didUpdateWidget(old);
-    if (widget.animate && !old.animate) _ctrl.forward(from: 0);
+    if (widget.animate && !old.animate) {
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _ctrl.duration = Duration.zero;
+      } else {
+        _ctrl.duration = const Duration(milliseconds: 600);
+      }
+      _ctrl.forward(from: 0);
+    }
   }
 
   @override
@@ -244,13 +270,21 @@ class _JokerSpotlightEffectState extends State<JokerSpotlightEffect>
     _spotCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
-    )..forward();
+    );
     _uiCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
     );
     _spotCtrl.addStatusListener((s) {
       if (s == AnimationStatus.completed) _uiCtrl.forward();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _spotCtrl.duration = Duration.zero;
+        _uiCtrl.duration = Duration.zero;
+      }
+      _spotCtrl.forward();
     });
   }
 

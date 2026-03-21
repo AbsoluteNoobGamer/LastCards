@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/models/offline_game_state.dart';
+import '../../../../core/navigation/app_page_routes.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/services/player_level_service.dart';
@@ -223,8 +224,8 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
       _enginePlayerIdsForCurrentTable = List<String>.from(activeIdsAtRoundStart);
       final roundResult = await Navigator.push<TournamentRoundGameResult>(
         context,
-        MaterialPageRoute(
-          builder: (_) => widget.roundGameBuilder(
+        AppPageRoutes.fadeSlide(
+          (_) => widget.roundGameBuilder(
             totalPlayers: playersInRound,
             isTournamentMode: true,
             onPlayerFinished: _onPlayerFinished,
@@ -279,8 +280,8 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
       // Elimination screen
       await Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => TournamentEliminationScreen(
+        AppPageRoutes.fadeSlide(
+          (_) => TournamentEliminationScreen(
             eliminatedPlayer: _displayName(round.eliminatedPlayerId),
             remainingPlayers: _namesForIds(round.advancedPlayerIds),
             roundNumber: round.roundNumber,
@@ -388,8 +389,8 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
           winnerName: _displayName(_engine.winnerId!),
           onPlayAgain: (ctx) {
             Navigator.of(ctx).pushAndRemoveUntil(
-              MaterialPageRoute(
-                builder: (_) => widget.isOnline
+              AppPageRoutes.fadeSlide(
+                (_) => widget.isOnline
                     ? TournamentCoordinator(
                         isOnline: true,
                         onlineLocalDisplayName: widget.onlineLocalDisplayName,

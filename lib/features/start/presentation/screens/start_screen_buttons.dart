@@ -13,9 +13,21 @@ class _AuthProfileBadge extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final userProfile = ref.watch(userProfileProvider).valueOrNull;
+    final profileAsync = ref.watch(userProfileProvider);
     final theme = ref.watch(themeProvider).theme;
 
+    if (profileAsync.isLoading) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8, right: 12),
+        child: ThemedShimmer(
+          width: 120,
+          height: 40,
+          borderRadius: 20,
+        ),
+      );
+    }
+
+    final userProfile = profileAsync.valueOrNull;
     final String displayName = userProfile?.displayName ?? 'Guest';
     final String? avatarUrl = userProfile?.avatarUrl;
 
@@ -177,9 +189,7 @@ class _AuthProfileSheet extends ConsumerWidget {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => const ProfileScreen(),
-                      ),
+                      AppPageRoutes.fadeSlide((_) => const ProfileScreen()),
                     );
                   },
                   icon: const Icon(Icons.edit_rounded),
@@ -249,19 +259,21 @@ class _PlayAiButtonState extends State<_PlayAiButton> {
           parentState._showAISelector(context);
         } else {
           Navigator.push(
-              context, MaterialPageRoute(builder: (_) => const TableScreen()));
+            context,
+            AppPageRoutes.fadeSlide((_) => const TableScreen()),
+          );
         }
       },
     );
   }
 }
 
-class _PlayOnlineButton extends StatefulWidget {
+class _PlayOnlineButton extends ConsumerStatefulWidget {
   @override
-  State<_PlayOnlineButton> createState() => _PlayOnlineButtonState();
+  ConsumerState<_PlayOnlineButton> createState() => _PlayOnlineButtonState();
 }
 
-class _PlayOnlineButtonState extends State<_PlayOnlineButton>
+class _PlayOnlineButtonState extends ConsumerState<_PlayOnlineButton>
     with SingleTickerProviderStateMixin {
   bool _isHovered = false;
   bool _isPressed = false;
@@ -273,7 +285,13 @@ class _PlayOnlineButtonState extends State<_PlayOnlineButton>
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!MediaQuery.disableAnimationsOf(context)) {
+        _pulseController.repeat(reverse: true);
+      }
+    });
   }
 
   @override
@@ -284,8 +302,15 @@ class _PlayOnlineButtonState extends State<_PlayOnlineButton>
 
   @override
   Widget build(BuildContext context) {
+    final theme = ref.watch(themeProvider).theme;
     final scaleAnim =
         Tween<double>(begin: 1.0, end: 1.05).animate(_pulseController);
+    final countAsync = ref.watch(onlinePlayerCountProvider);
+    final onlineLabel = countAsync.when(
+      data: (c) => c != null ? '$c online' : '-- online',
+      loading: () => '-- online',
+      error: (_, __) => '-- online',
+    );
 
     return _PrimaryButtonBase(
       label: "Online",
@@ -306,7 +331,7 @@ class _PlayOnlineButtonState extends State<_PlayOnlineButton>
         } else {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const LobbyScreen()),
+            AppPageRoutes.fadeSlide((_) => const LobbyScreen()),
           );
         }
       },
@@ -333,11 +358,11 @@ class _PlayOnlineButtonState extends State<_PlayOnlineButton>
                         ]),
                   ),
                   const SizedBox(width: 6),
-                  const Text(
-                    "12/24 online",
+                  Text(
+                    onlineLabel,
                     style: TextStyle(
                         fontSize: 12,
-                        color: Colors.white70,
+                        color: theme.textSecondary,
                         fontWeight: FontWeight.bold),
                   ),
                 ],
@@ -383,10 +408,10 @@ class _TournamentButtonState extends State<_TournamentButton> {
 }
 
 // -----------------------------------------------------------------------------
-// _PrimaryButtonBase — theme-aware
+// _PrimaryButtonBase — theme-aware + idle shimmer
 // -----------------------------------------------------------------------------
 
-class _PrimaryButtonBase extends ConsumerWidget {
+class _PrimaryButtonBase extends ConsumerStatefulWidget {
   final String label;
   final String iconKey; // 'bot' | 'online' | 'trophy'
   final Widget? subtitle;
@@ -410,7 +435,36 @@ class _PrimaryButtonBase extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_PrimaryButtonBase> createState() => _PrimaryButtonBaseState();
+}
+
+class _PrimaryButtonBaseState extends ConsumerState<_PrimaryButtonBase>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _shimmer;
+
+  @override
+  void initState() {
+    super.initState();
+    _shimmer = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!MediaQuery.disableAnimationsOf(context)) {
+        _shimmer.repeat();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _shimmer.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = ref.watch(themeProvider).theme;
     final accent = theme.accentPrimary;
     final accentLight = theme.accentLight;
@@ -425,17 +479,19 @@ class _PrimaryButtonBase extends ConsumerWidget {
         : (screenWidth * 0.3).clamp(220.0, 300.0);
     const buttonHeight = 68.0;
 
-    final scale = isPressed ? 0.95 : (isHovered ? 1.05 : 1.0);
+    final scale = widget.isPressed ? 0.95 : (widget.isHovered ? 1.05 : 1.0);
 
-    final IconData iconData = iconKey == 'bot'
+    final IconData iconData = widget.iconKey == 'bot'
         ? Icons.smart_toy
-        : iconKey == 'online'
+        : widget.iconKey == 'online'
             ? Icons.people
             : Icons.emoji_events;
 
+    final disableAnim = MediaQuery.disableAnimationsOf(context);
+
     return MouseRegion(
-      onEnter: (_) => onHover(true),
-      onExit: (_) => onHover(false),
+      onEnter: (_) => widget.onHover(true),
+      onExit: (_) => widget.onHover(false),
       cursor: SystemMouseCursors.click,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -471,21 +527,80 @@ class _PrimaryButtonBase extends ConsumerWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.all(2.0),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  bg.withValues(alpha: 0.95),
-                  bgMid.withValues(alpha: 0.98),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16.0),
-            ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16.0),
             child: Stack(
               fit: StackFit.expand,
               children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        bg.withValues(alpha: 0.95),
+                        bgMid.withValues(alpha: 0.98),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                ),
+                if (!disableAnim)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: ClipRect(
+                        child: AnimatedBuilder(
+                          animation: _shimmer,
+                          builder: (context, _) {
+                            final t = _shimmer.value;
+                            return LayoutBuilder(
+                              builder: (context, constraints) {
+                                final w = constraints.maxWidth;
+                                final bandW = w * 0.42;
+                                final travel = w + bandW * 2;
+                                final left = -bandW + t * travel;
+                                return Stack(
+                                  clipBehavior: Clip.hardEdge,
+                                  children: [
+                                    Positioned(
+                                      left: left,
+                                      top: 0,
+                                      bottom: 0,
+                                      width: bandW,
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            begin: Alignment.centerLeft,
+                                            end: Alignment.centerRight,
+                                            colors: [
+                                              Colors.transparent,
+                                              accentLight.withValues(
+                                                  alpha: 0.12),
+                                              accentLight.withValues(
+                                                  alpha: 0.22),
+                                              accentLight.withValues(
+                                                  alpha: 0.12),
+                                              Colors.transparent,
+                                            ],
+                                            stops: const [
+                                              0.0,
+                                              0.35,
+                                              0.5,
+                                              0.65,
+                                              1.0,
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
                 Positioned(
                   top: 0,
                   left: 0,
@@ -501,12 +616,12 @@ class _PrimaryButtonBase extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(16.0),
                     splashColor: accent.withValues(alpha: 0.25),
                     highlightColor: Colors.transparent,
-                    onTapDown: onTapDown,
-                    onTapCancel: onTapCancel,
+                    onTapDown: widget.onTapDown,
+                    onTapCancel: widget.onTapCancel,
                     onTap: () {
-                      onTap();
+                      widget.onTap();
                       Future.delayed(const Duration(milliseconds: 150), () {
-                        if (context.mounted) onTapCancel();
+                        if (context.mounted) widget.onTapCancel();
                       });
                     },
                     child: Row(
@@ -521,19 +636,19 @@ class _PrimaryButtonBase extends ConsumerWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                label,
+                                widget.label,
                                 style: GoogleFonts.outfit(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w700,
-                                  color: Colors.white,
+                                  color: theme.textPrimary,
                                   letterSpacing: 2.0,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              if (subtitle != null) ...[
+                              if (widget.subtitle != null) ...[
                                 const SizedBox(height: 2),
-                                subtitle!,
+                                widget.subtitle!,
                               ]
                             ],
                           ),

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../core/services/card_back_service.dart';
 import '../../../../core/services/player_level_service.dart';
@@ -180,6 +181,7 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
                   : null,
               onTap: () async {
                 await CardBackService.instance.selectCardFaceSet('default');
+                HapticFeedback.selectionClick();
                 setState(() {});
               },
             ),
@@ -197,6 +199,7 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
                   : null,
               onTap: () async {
                 await CardBackService.instance.selectCardFaceSet('classic');
+                HapticFeedback.selectionClick();
                 setState(() {});
               },
             ),
@@ -360,6 +363,7 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
     final ok = await CardBackService.instance.selectJokerCover(designId);
     if (!context.mounted) return;
     if (ok) {
+      HapticFeedback.selectionClick();
       widget.onSelectionApplied?.call();
       return;
     }
@@ -463,6 +467,7 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
       return;
     }
 
+    HapticFeedback.selectionClick();
     widget.onSelectionApplied?.call();
   }
 }

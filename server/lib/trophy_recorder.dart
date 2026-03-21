@@ -39,8 +39,12 @@ class _FirestoreClient {
   String? _cachedToken;
   DateTime? _tokenExpiry;
 
+  bool _initCalled = false;
+
   /// Initialises credentials from the GOOGLE_CREDENTIALS_JSON env var.
   void init() {
+    if (_initCalled) return;
+    _initCalled = true;
     final raw = Platform.environment['GOOGLE_CREDENTIALS_JSON'];
     if (raw == null || raw.isEmpty) {
       _log.info(
@@ -279,6 +283,48 @@ class _FirestoreClient {
       }
     } catch (e) {
       _log.error('Firestore _updateExisting error: $e');
+    }
+  }
+
+  /// Overwrites [fields] on [collection]/[docId] via PATCH (not increment).
+  /// Creates the document if missing. Skips when credentials are not configured.
+  Future<void> _setDocumentFields({
+    required String collection,
+    required String docId,
+    required Map<String, dynamic> fields,
+  }) async {
+    final token = await _getAccessToken();
+    if (token == null) return;
+
+    final docPath =
+        'projects/$_projectId/databases/(default)/documents/$collection/$docId';
+    final query = fields.keys
+        .map((k) => 'updateMask.fieldPaths=${Uri.encodeComponent(k)}')
+        .join('&');
+    final uri = Uri.parse(
+        'https://firestore.googleapis.com/v1/$docPath?$query');
+
+    final body = jsonEncode({
+      'fields': {
+        for (final e in fields.entries) e.key: _firestoreValue(e.value),
+      },
+    });
+
+    try {
+      final response = await http.patch(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: body,
+      );
+      if (response.statusCode != 200) {
+        _log.error(
+            'Firestore _setDocumentFields failed (${response.statusCode}): ${response.body}');
+      }
+    } catch (e) {
+      _log.error('Firestore _setDocumentFields error: $e');
     }
   }
 
@@ -526,6 +572,36 @@ class TrophyRecorder {
   /// Legacy no-op — superseded by [recordRankedResult].
   @Deprecated('Use recordRankedResult instead')
   void recordWin(String playerId) {}
+}
+
+/// Syncs the public Firestore doc `metadata/online_count` (`count` field) with
+/// concurrent WebSocket connections to this game server: [delta] is +1 on
+/// connect and -1 on disconnect. Skips writes when `GOOGLE_CREDENTIALS_JSON`
+/// is not configured (same as other Firestore writes).
+void syncOnlineServerPresenceDelta(int delta) {
+  if (delta == 0) return;
+  _FirestoreClient.instance.init();
+  unawaited(
+    _FirestoreClient.instance.atomicUpdate(
+      collection: 'metadata',
+      docId: 'online_count',
+      increments: {'count': delta},
+      defaultFields: {'count': 0},
+    ),
+  );
+}
+
+/// Resets `metadata/online_count` `count` to [value] (default `0`) using a
+/// document set/overwrite, not increment. Call once at process startup so a
+/// crash does not leave a stale total before new [syncOnlineServerPresenceDelta]
+/// updates. No-op when `GOOGLE_CREDENTIALS_JSON` is unset.
+Future<void> syncOnlineServerPresenceReset({int value = 0}) async {
+  _FirestoreClient.instance.init();
+  await _FirestoreClient.instance._setDocumentFields(
+    collection: 'metadata',
+    docId: 'online_count',
+    fields: {'count': value},
+  );
 }
 
 /// Test double — counts mode-leaderboard calls without touching Firestore.

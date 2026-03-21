@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import 'firebase_auth_verifier.dart';
 import 'game_session.dart';
 import 'logger.dart';
+import 'trophy_recorder.dart';
 
 /// Sanitizes a display name: trims whitespace, limits to 20 characters,
 /// and strips HTML/special characters.
@@ -36,6 +37,7 @@ class RoomManager {
   final _messageChains = <dynamic, Future<void>>{};
 
   void handleConnection(dynamic webSocket) {
+    syncOnlineServerPresenceDelta(1);
     _messageChains[webSocket] = Future.value();
     webSocket.stream.listen(
       (raw) {
@@ -246,6 +248,7 @@ class RoomManager {
   }
 
   void _onDisconnect(dynamic ws) {
+    syncOnlineServerPresenceDelta(-1);
     _playerUserIds.remove(ws);
     // Remove from any quickplay queue.
     final emptyKeys = <Object>[];

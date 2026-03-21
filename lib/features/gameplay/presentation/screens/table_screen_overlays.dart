@@ -12,7 +12,7 @@ part of 'table_screen.dart';
   return (label: 'Bronze', emoji: '🥉');
 }
 
-class _WinDialog extends ConsumerWidget {
+class _WinDialog extends ConsumerStatefulWidget {
   const _WinDialog({
     required this.winnerName,
     required this.isLocalWin,
@@ -30,78 +30,159 @@ class _WinDialog extends ConsumerWidget {
   final int? ratingDelta;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_WinDialog> createState() => _WinDialogState();
+}
+
+class _WinDialogState extends ConsumerState<_WinDialog>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _entrance;
+  bool _celebrationDone = false;
+  late final Animation<double> _scale;
+  late final CurvedAnimation _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _entrance = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+    );
+    _scale = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(parent: _entrance, curve: Curves.easeOutCubic),
+    );
+    _fade = CurvedAnimation(parent: _entrance, curve: Curves.easeOut);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _entrance.value = 1.0;
+      } else {
+        _entrance.forward();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _fade.dispose();
+    _entrance.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = ref.watch(themeProvider).theme;
-    final emoji = isLocalWin ? '🎉' : (isOnlineMode ? '👤' : '🤖');
-    final headline = isLocalWin ? 'YOU WIN!' : '$winnerName WINS!';
-    final sub = isLocalWin
-        ? (isOnlineMode
+    final reduce = MediaQuery.disableAnimationsOf(context);
+    final emoji = widget.isLocalWin ? '🎉' : (widget.isOnlineMode ? '👤' : '🤖');
+    final headline = widget.isLocalWin ? 'YOU WIN!' : '${widget.winnerName} WINS!';
+    final sub = widget.isLocalWin
+        ? (widget.isOnlineMode
             ? 'You played your last card first!'
             : 'Excellent hand — you beat the Dealer!')
-        : (isOnlineMode
-            ? '$winnerName played their last card first. Better luck next time!'
+        : (widget.isOnlineMode
+            ? '${widget.winnerName} played their last card first. Better luck next time!'
             : 'The Dealer played their last card first.');
 
     return Dialog(
-      backgroundColor: theme.surfacePanel,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppDimensions.radiusModal),
-        side: BorderSide(color: theme.accentPrimary, width: 2),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppDimensions.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.zero,
+      child: SizedBox(
+        width: MediaQuery.sizeOf(context).width,
+        height: MediaQuery.sizeOf(context).height,
+        child: Stack(
+          alignment: Alignment.center,
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 48)),
-            const SizedBox(height: AppDimensions.md),
-            Text(
-              headline,
-              style: TextStyle(
-                color: isLocalWin ? theme.accentPrimary : theme.suitRed,
-                fontSize: 28,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.5,
-              ),
-            ),
-            const SizedBox(height: AppDimensions.sm),
-            Text(
-              sub,
-              style: TextStyle(
-                color: theme.textSecondary,
-                fontSize: 14,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            if (ratingDelta != null) ...[
-              const SizedBox(height: AppDimensions.md),
-              _RankedResultsSection(
-                ratingDelta: ratingDelta!,
-                theme: theme,
-              ),
-            ],
-            const SizedBox(height: AppDimensions.xl),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: onPlayAgain,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.accentPrimary,
-                  foregroundColor: theme.backgroundDeep,
-                  padding:
-                      const EdgeInsets.symmetric(vertical: AppDimensions.md),
-                  shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppDimensions.radiusButton),
-                  ),
+            if (!reduce && !_celebrationDone)
+              Positioned.fill(
+                child: WinCelebrationOverlay(
+                  theme: theme,
+                  onFinished: () {
+                    if (mounted) setState(() => _celebrationDone = true);
+                  },
                 ),
-                child: Text(
-                  isOnlineMode ? 'BACK TO MENU' : 'PLAY AGAIN',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.2,
-                    fontSize: 15,
-                    color: theme.backgroundDeep,
+              ),
+            Center(
+              child: ScaleTransition(
+                scale: _scale,
+                child: FadeTransition(
+                  opacity: _fade,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Material(
+                      color: theme.surfacePanel,
+                      borderRadius:
+                          BorderRadius.circular(AppDimensions.radiusModal),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius:
+                              BorderRadius.circular(AppDimensions.radiusModal),
+                          border:
+                              Border.all(color: theme.accentPrimary, width: 2),
+                        ),
+                        padding: const EdgeInsets.all(AppDimensions.xl),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(emoji, style: const TextStyle(fontSize: 48)),
+                            const SizedBox(height: AppDimensions.md),
+                            Text(
+                              headline,
+                              style: TextStyle(
+                                color: widget.isLocalWin
+                                    ? theme.accentPrimary
+                                    : theme.suitRed,
+                                fontSize: 28,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                            const SizedBox(height: AppDimensions.sm),
+                            Text(
+                              sub,
+                              style: TextStyle(
+                                color: theme.textSecondary,
+                                fontSize: 14,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            if (widget.ratingDelta != null) ...[
+                              const SizedBox(height: AppDimensions.md),
+                              _RankedResultsSection(
+                                ratingDelta: widget.ratingDelta!,
+                                theme: theme,
+                              ),
+                            ],
+                            const SizedBox(height: AppDimensions.xl),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: widget.onPlayAgain,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: theme.accentPrimary,
+                                  foregroundColor: theme.backgroundDeep,
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: AppDimensions.md),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(
+                                        AppDimensions.radiusButton),
+                                  ),
+                                ),
+                                child: Text(
+                                  widget.isOnlineMode
+                                      ? 'BACK TO MENU'
+                                      : 'PLAY AGAIN',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.2,
+                                    fontSize: 15,
+                                    color: theme.backgroundDeep,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),

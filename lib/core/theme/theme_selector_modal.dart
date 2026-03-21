@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -115,6 +116,7 @@ class ThemeSelectorModal extends ConsumerWidget {
                       theme: theme,
                       isActive: isActive,
                       onTap: () {
+                        HapticFeedback.selectionClick();
                         notifier.setTheme(index);
                         Navigator.of(context).pop();
                       },
