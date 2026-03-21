@@ -2142,6 +2142,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       } else {
         if (!_tournamentSimulatingRest) {
           _startTimer(playTurnSound: false);
+        } else {
+          // All players finished — round should be complete.
+          if (!_autoEliminateLastTournamentPlayer(_offlineState)) {
+            setState(() => _tournamentSimulatingRest = false);
+          }
         }
       }
       return;
@@ -2375,6 +2380,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               !_tournamentFinishedPlayerIds.contains(skipToId)) {
             scheduledNext = true;
             _scheduleAiTurn(skipToId, simulate: true);
+          } else {
+            // All players finished — round should be complete.
+            if (!_autoEliminateLastTournamentPlayer(_offlineState)) {
+              setState(() => _tournamentSimulatingRest = false);
+            }
           }
         } else {
           _startTimer();
@@ -2420,6 +2430,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (id != OfflineGameState.localId &&
         !_tournamentFinishedPlayerIds.contains(id)) {
       _scheduleAiTurn(id, simulate: true);
+    } else {
+      // Defensive: no active player found.
+      if (!_autoEliminateLastTournamentPlayer(_offlineState)) {
+        setState(() => _tournamentSimulatingRest = false);
+      }
     }
   }
 
