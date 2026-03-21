@@ -108,7 +108,6 @@ bool shouldShowStandardWinOverlay({required bool isTournamentMode}) {
   return !isTournamentMode;
 }
 
-
 class _TableScreenState extends ConsumerState<TableScreen> {
   String? _selectedCardId;
   String? _flyingCardId;
@@ -136,6 +135,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   late GameState _offlineState;
 
   bool _aiThinking = false;
+
   /// Guards against concurrent local async actions (play/draw/penalty).
   /// Set true before any await in those methods, reset at every exit.
   bool _localActionInProgress = false;
@@ -149,6 +149,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   /// In online mode we don't have the full discard list; track count for stack depth.
   int _onlineDiscardCount = 1;
   bool _onlineWinDialogShown = false;
+
   /// Prevents overlapping online plays while a last-card flight runs.
   bool _onlineLastCardFlightInProgress = false;
   bool _bustLeaderboardRecorded = false;
@@ -156,6 +157,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   /// True when this session is offline (no gameStateProvider); used to show
   /// "Skip" in tournament when qualified.
   bool _isOfflineSession = true;
+
   /// When true, we're fast-forwarding the rest of the round after user tapped Skip.
   bool _tournamentSimulatingRest = false;
   // ── Turn timer ────────────────────────────────────────────────────
@@ -178,7 +180,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   /// Active quick chat bubbles. Each entry: (id, playerId, playerName, message, isLocal).
   /// Max 2 visible at once.
-  List<({String id, String playerId, String playerName, String message, bool isLocal})> _quickChatBubbles = [];
+  List<
+      ({
+        String id,
+        String playerId,
+        String playerName,
+        String message,
+        bool isLocal
+      })> _quickChatBubbles = [];
 
   /// When > 0, next N card_drawn for this player are part of an invalid-play
   /// penalty (we already logged them via invalid_play_penalty). Skip adding.
@@ -217,9 +226,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final state = ref.read(gameStateProvider);
       if (state == null) return;
       final name = state.playerById(e.playerId)?.displayName ?? e.playerId;
-      final actions = e.cards
-          .map((c) => MoveCardAction(card: c))
-          .toList();
+      final actions = e.cards.map((c) => MoveCardAction(card: c)).toList();
       setState(() {
         _onlineDiscardCount += e.cards.length;
         _pushMoveLog(MoveLogEntry.play(
@@ -336,8 +343,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           .where((p) => p.tablePosition == TablePosition.bottom)
           .firstOrNull;
       if (localPlayer != null && e.playerId == localPlayer.id) return;
-      final senderName = state.playerById(e.playerId)?.displayName ?? e.playerId;
-      _showQuickChatBubble(e.playerId, senderName, e.messageIndex, isLocal: false);
+      final senderName =
+          state.playerById(e.playerId)?.displayName ?? e.playerId;
+      _showQuickChatBubble(e.playerId, senderName, e.messageIndex,
+          isLocal: false);
     });
 
     // Start turn timer when it's our turn in online mode (e.g. game just started)
@@ -919,6 +928,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         }
         return gameState.playerById(id)?.displayName ?? id;
       }
+
       nextTurnLabel = resolvedNextId == gameState.currentPlayerId
           ? '${label(resolvedNextId)} again'
           : label(resolvedNextId);
@@ -938,8 +948,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     // Online: show win overlay when game ends (same as single-player).
     ref.listen<GameState?>(gameStateProvider, (prev, next) {
-      if (next == null || next.phase != GamePhase.ended ||
-          _onlineWinDialogShown || !mounted) {
+      if (next == null ||
+          next.phase != GamePhase.ended ||
+          _onlineWinDialogShown ||
+          !mounted) {
         return;
       }
       // winnerId may be null (not yet set) or empty (player disconnected).
@@ -976,14 +988,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
       if (hasWinner && winner != null) {
         final isLocalWin = next.localPlayer?.id == next.winnerId;
-        game_audio.AudioService.instance.playSound(
-            isLocalWin ? GameSound.playerWin : GameSound.playerLose);
+        game_audio.AudioService.instance
+            .playSound(isLocalWin ? GameSound.playerWin : GameSound.playerLose);
         // Retrieve ranked rating delta for the local player, if any.
         final localPlayerId = next.localPlayer?.id;
         final ratingChanges = ref.read(rankedRatingChangesProvider);
-        final int? ratingDelta = (localPlayerId != null && ratingChanges != null)
-            ? ratingChanges[localPlayerId]
-            : null;
+        final int? ratingDelta =
+            (localPlayerId != null && ratingChanges != null)
+                ? ratingChanges[localPlayerId]
+                : null;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           HapticFeedback.heavyImpact();
@@ -1073,7 +1086,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           .where((p) => canConfirmPlayerWin(state: prev, playerId: p.id))
           .map((p) => p.id)
           .toSet();
-      final newlyFinished = finishedIds.where((id) => !prevFinished.contains(id));
+      final newlyFinished =
+          finishedIds.where((id) => !prevFinished.contains(id));
       if (newlyFinished.isEmpty) return;
 
       final finishedCallbacks = <(String playerId, int pos)>[];
@@ -1125,8 +1139,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     // Online: server requests joker declaration after local player played a Joker.
     ref.listen<bool>(pendingJokerResolutionProvider, (prev, next) {
       if (!next || !mounted) return;
-      final jokerCardId =
-          ref.read(gameNotifierProvider).pendingJokerCardId;
+      final jokerCardId = ref.read(gameNotifierProvider).pendingJokerCardId;
       if (jokerCardId == null) return;
       final gameState = ref.read(gameStateProvider);
       if (gameState == null) return;
@@ -1134,10 +1147,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         if (!mounted) return;
         final jokerContext =
             jokerPlayContextFromCardsPlayed(gameState.cardsPlayedThisTurn);
-        final jokerAnchor =
-            jokerContext == JokerPlayContext.midTurnContinuance
-                ? (gameState.lastPlayedThisTurn ?? gameState.discardTopCard!)
-                : gameState.discardTopCard!;
+        final jokerAnchor = jokerContext == JokerPlayContext.midTurnContinuance
+            ? (gameState.lastPlayedThisTurn ?? gameState.discardTopCard!)
+            : gameState.discardTopCard!;
         final validOptions = getValidJokerOptions(
           state: gameState,
           discardTop: gameState.discardTopCard!,
@@ -1162,10 +1174,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         if (!mounted) return;
         if (chosenCard != null) {
           ref.read(gameNotifierProvider.notifier).declareJoker(
-            jokerCardId: jokerCardId,
-            suitName: chosenCard.suit.name,
-            rankName: chosenCard.rank.name,
-          );
+                jokerCardId: jokerCardId,
+                suitName: chosenCard.suit.name,
+                rankName: chosenCard.rank.name,
+              );
         }
       });
     });
@@ -1178,9 +1190,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       backgroundColor: appTheme.backgroundDeep,
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final isLandscapeMobile = math.min(constraints.maxWidth,
-                  constraints.maxHeight) < AppDimensions.breakpointMobile &&
-              constraints.maxWidth > constraints.maxHeight;
+          final isLandscapeMobile =
+              math.min(constraints.maxWidth, constraints.maxHeight) <
+                      AppDimensions.breakpointMobile &&
+                  constraints.maxWidth > constraints.maxHeight;
 
           final stack = Stack(
             children: [
@@ -1208,8 +1221,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             : connState,
                         canEndTurn: isOfflineMode
                             ? (validateEndTurn(_offlineState) == null)
-                            : (isMyTurn &&
-                                validateEndTurn(gameState) == null),
+                            : (isMyTurn && validateEndTurn(gameState) == null),
                         isDealing: _isDealing,
                         visibleCardCounts: _visibleCardCounts,
                         drawPileKey: _drawPileKey,
@@ -1224,11 +1236,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                 _offlineDrawCard(OfflineGameState.localId);
                               }
                             : _onDrawTap,
-                        onHandReorder: _flyingCardId != null ? null : _onHandReorder,
+                        onHandReorder:
+                            _flyingCardId != null ? null : _onHandReorder,
                         onEndTurnTap: isOfflineMode
                             ? _endTurn
                             : () {
-                                ref.read(gameNotifierProvider.notifier).endTurn();
+                                ref
+                                    .read(gameNotifierProvider.notifier)
+                                    .endTurn();
                               },
                         isOffline: isOfflineMode,
                         discardPileCount: isOfflineMode
@@ -1244,7 +1259,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         isRanked: ref.watch(isRankedGameProvider),
                         quickChatBubblesByPlayer: {
                           for (final b in _quickChatBubbles)
-                            b.playerId: (id: b.id, playerName: b.playerName, message: b.message, isLocal: b.isLocal),
+                            b.playerId: (
+                              id: b.id,
+                              playerName: b.playerName,
+                              message: b.message,
+                              isLocal: b.isLocal
+                            ),
                         },
                         onRemoveQuickChatBubble: _removeQuickChatBubble,
                         nextTurnLabel: nextTurnLabel,
@@ -1280,7 +1300,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               // ── Tournament Skip (offline, when qualified) ───────────────────
               if (widget.isTournamentMode &&
                   _isOfflineSession &&
-                  _tournamentFinishedPlayerIds.contains(OfflineGameState.localId) &&
+                  _tournamentFinishedPlayerIds
+                      .contains(OfflineGameState.localId) &&
                   !_tournamentRoundComplete &&
                   gameState.phase != GamePhase.ended)
                 Positioned(
@@ -1303,7 +1324,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             decoration: BoxDecoration(
                               color: _tournamentSimulatingRest
                                   ? Colors.white24
-                                  : AppColors.goldPrimary.withValues(alpha: 0.9),
+                                  : AppColors.goldPrimary
+                                      .withValues(alpha: 0.9),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                 color: _tournamentSimulatingRest
@@ -1398,7 +1420,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                               padding: const EdgeInsets.only(bottom: 8),
                               child: ConstrainedBox(
                                 constraints: BoxConstraints(
-                                  maxWidth: MediaQuery.of(context).size.width * 0.55,
+                                  maxWidth:
+                                      MediaQuery.of(context).size.width * 0.55,
                                   maxHeight: 200,
                                 ),
                                 child: SingleChildScrollView(
@@ -1431,7 +1454,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                   onPressed: _quickChatCooldownRemaining > 0
                                       ? null
                                       : () {
-                                          setState(() => _showQuickChatPanel = !_showQuickChatPanel);
+                                          setState(() => _showQuickChatPanel =
+                                              !_showQuickChatPanel);
                                         },
                                 ),
                               ),
@@ -1595,10 +1619,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (card.isJoker && mounted) {
       final jokerContext =
           jokerPlayContextFromCardsPlayed(gameState.cardsPlayedThisTurn);
-      final jokerAnchor =
-          jokerContext == JokerPlayContext.midTurnContinuance
-              ? (gameState.lastPlayedThisTurn ?? gameState.discardTopCard!)
-              : gameState.discardTopCard!;
+      final jokerAnchor = jokerContext == JokerPlayContext.midTurnContinuance
+          ? (gameState.lastPlayedThisTurn ?? gameState.discardTopCard!)
+          : gameState.discardTopCard!;
       final validOptions = getValidJokerOptions(
         state: gameState,
         discardTop: gameState.discardTopCard!,
@@ -1661,9 +1684,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         cardToFly: card,
         lastCardFromHand: isLastCardFromHand,
         send: () => ref.read(gameNotifierProvider.notifier).playCards(
-              [cardId],
-              declaredSuit: aceSuit.name,
-            ),
+          [cardId],
+          declaredSuit: aceSuit.name,
+        ),
       );
       return;
     }
@@ -1692,76 +1715,133 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
     _localActionInProgress = true;
     try {
+      final local = _offlineState.players.firstWhere((p) => p.id == playerId);
+      final played = local.hand.where((c) => c.id == cardId).toList();
 
-    final local = _offlineState.players.firstWhere((p) => p.id == playerId);
-    final played = local.hand.where((c) => c.id == cardId).toList();
+      if (played.isEmpty) return;
 
-    if (played.isEmpty) return;
-
-    // Rule validation — validate before any visual change.
-    // If the play is invalid, apply the penalty sequence instead of blocking.
-    final err = validatePlay(
-      cards: played,
-      discardTop: _offlineState.discardTopCard!,
-      state: _offlineState,
-    );
-    if (err != null) {
-      await _applyInvalidPlayPenalty(playerId, played);
-      return;
-    }
-
-    // Intercept Joker plays (mirrors Ace popup flow)
-    if (played.length == 1 && played.first.isJoker && mounted) {
-      final jokerContext =
-          jokerPlayContextFromCardsPlayed(_offlineState.actionsThisTurn);
-      final jokerAnchor = jokerContext == JokerPlayContext.midTurnContinuance
-          ? (_offlineState.lastPlayedThisTurn ?? _offlineState.discardTopCard!)
-          : _offlineState.discardTopCard!;
-
-      final activeSequenceSuit =
-          jokerContext == JokerPlayContext.midTurnContinuance
-              ? jokerAnchor.effectiveSuit
-              : null;
-
-      final validOptions = getValidJokerOptions(
-        state: _offlineState,
+      // Rule validation — validate before any visual change.
+      // If the play is invalid, apply the penalty sequence instead of blocking.
+      final err = validatePlay(
+        cards: played,
         discardTop: _offlineState.discardTopCard!,
-        context: jokerContext,
-        contextTopCard: jokerAnchor,
+        state: _offlineState,
       );
-
-      if (validOptions.isEmpty) {
-        _showError('No valid moves available for the Joker right now.');
+      if (err != null) {
+        await _applyInvalidPlayPenalty(playerId, played);
         return;
       }
 
-      // Show selection visual while the modal is open
-      setState(() => _selectedCardId = cardId);
-      final chosenCard = await showModalBottomSheet<CardModel>(
-        context: context,
-        backgroundColor: Colors.transparent,
-        isScrollControlled: true,
-        builder: (_) => _JokerSelectionSheet(
-          options: validOptions,
-          playContext: jokerContext,
-          activeSequenceSuit: activeSequenceSuit,
-        ),
-      );
+      // Intercept Joker plays (mirrors Ace popup flow)
+      if (played.length == 1 && played.first.isJoker && mounted) {
+        final jokerContext =
+            jokerPlayContextFromCardsPlayed(_offlineState.actionsThisTurn);
+        final jokerAnchor = jokerContext == JokerPlayContext.midTurnContinuance
+            ? (_offlineState.lastPlayedThisTurn ??
+                _offlineState.discardTopCard!)
+            : _offlineState.discardTopCard!;
 
-      if (!mounted) return;
-      if (chosenCard == null) {
-        setState(() => _selectedCardId = null);
+        final activeSequenceSuit =
+            jokerContext == JokerPlayContext.midTurnContinuance
+                ? jokerAnchor.effectiveSuit
+                : null;
+
+        final validOptions = getValidJokerOptions(
+          state: _offlineState,
+          discardTop: _offlineState.discardTopCard!,
+          context: jokerContext,
+          contextTopCard: jokerAnchor,
+        );
+
+        if (validOptions.isEmpty) {
+          _showError('No valid moves available for the Joker right now.');
+          return;
+        }
+
+        // Show selection visual while the modal is open
+        setState(() => _selectedCardId = cardId);
+        final chosenCard = await showModalBottomSheet<CardModel>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (_) => _JokerSelectionSheet(
+            options: validOptions,
+            playContext: jokerContext,
+            activeSequenceSuit: activeSequenceSuit,
+          ),
+        );
+
+        if (!mounted) return;
+        if (chosenCard == null) {
+          setState(() => _selectedCardId = null);
+          return;
+        }
+
+        final assignedJoker = played.first.copyWith(
+          jokerDeclaredRank: chosenCard.rank,
+          jokerDeclaredSuit: chosenCard.suit,
+        );
+
+        final lastFromHand = local.hand.length == 1;
+        setState(() => _flyingCardId = assignedJoker.id);
+        await _animateLocalCardToDiscard(assignedJoker,
+            lastCardFromHand: lastFromHand);
+        if (!mounted) return;
+        if (lastFromHand) {
+          HapticFeedback.lightImpact();
+        } else {
+          HapticFeedback.mediumImpact();
+        }
+
+        final previousState = _offlineState;
+        var newState = applyPlay(
+          state: _offlineState,
+          playerId: playerId,
+          cards: [assignedJoker],
+        );
+        _engineTimer.cancel();
+
+        // Play card sounds for Joker play.
+        game_audio.AudioService.instance.playSound(GameSound.cardPlace);
+        game_audio.AudioService.instance.playSound(GameSound.specialJoker);
+
+        _discardPile.add(assignedJoker);
+
+        // Update state before _checkWin so the hand is already correct if the
+        // finally block clears _flyingCardId on a win/early-return path.
+        final localInNew = newState.players
+            .where((p) => p.tablePosition == TablePosition.bottom)
+            .firstOrNull;
+        final jokerPlayerName =
+            _offlineState.playerById(playerId)?.displayName ?? playerId;
+        _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
+        if (localInNew != null) _syncHandOrder(localInNew.hand);
+
+        // Win / tournament round-end may pop this route — run before any setState
+        // so we never call setState after dispose (_dependents.isEmpty).
+        if (_checkWin(playerId, newState)) return;
+
+        setState(() {
+          _selectedCardId = null;
+          _flyingCardId = null;
+          _recordPlayMove(
+            playerId: playerId,
+            playerName: jokerPlayerName,
+            playedCards: [assignedJoker],
+            beforeState: previousState,
+            afterState: newState,
+          );
+        });
+
+        _reshuffleCentrePileIntoDrawPile();
+
+        // Allow the player to continue their turn (stack more cards if they want).
         return;
       }
 
-      final assignedJoker = played.first.copyWith(
-        jokerDeclaredRank: chosenCard.rank,
-        jokerDeclaredSuit: chosenCard.suit,
-      );
-
-      final lastFromHand = local.hand.length == 1;
-      setState(() => _flyingCardId = assignedJoker.id);
-      await _animateLocalCardToDiscard(assignedJoker,
+      final lastFromHand = local.hand.length == played.length;
+      setState(() => _flyingCardId = played.first.id);
+      await _animateLocalCardToDiscard(played.first,
           lastCardFromHand: lastFromHand);
       if (!mounted) return;
       if (lastFromHand) {
@@ -1770,32 +1850,41 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         HapticFeedback.mediumImpact();
       }
 
+      // Apply play + special effects
       final previousState = _offlineState;
-      var newState = applyPlay(
-        state: _offlineState,
-        playerId: playerId,
-        cards: [assignedJoker],
-      );
+      var newState =
+          applyPlay(state: _offlineState, playerId: playerId, cards: played);
       _engineTimer.cancel();
 
-      // Play card sounds for Joker play.
-      game_audio.AudioService.instance.playSound(GameSound.cardPlace);
-      game_audio.AudioService.instance.playSound(GameSound.specialJoker);
+      // Play card sounds: every card uses card_place.wav; special cards also get their effect sound.
+      for (final c in played) {
+        game_audio.AudioService.instance.playSound(GameSound.cardPlace);
+        final s = soundForCard(c);
+        if (s != null) game_audio.AudioService.instance.playSound(s);
+      }
 
-      _discardPile.add(assignedJoker);
+      // Direction reversed by King
+      if (newState.direction != previousState.direction) {
+        game_audio.AudioService.instance.playSound(GameSound.directionReversed);
+      }
+      // Skip accumulated by Eight
+      if (newState.activeSkipCount > previousState.activeSkipCount) {
+        game_audio.AudioService.instance.playSound(GameSound.skipApplied);
+      }
+
+      _discardPile.addAll(played);
 
       // Update state before _checkWin so the hand is already correct if the
       // finally block clears _flyingCardId on a win/early-return path.
       final localInNew = newState.players
           .where((p) => p.tablePosition == TablePosition.bottom)
           .firstOrNull;
-      final jokerPlayerName =
+      final playPlayerName =
           _offlineState.playerById(playerId)?.displayName ?? playerId;
       _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
       if (localInNew != null) _syncHandOrder(localInNew.hand);
 
-      // Win / tournament round-end may pop this route — run before any setState
-      // so we never call setState after dispose (_dependents.isEmpty).
+      // Win / tournament round-end may pop this route — run before setState.
       if (_checkWin(playerId, newState)) return;
 
       setState(() {
@@ -1803,8 +1892,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         _flyingCardId = null;
         _recordPlayMove(
           playerId: playerId,
-          playerName: jokerPlayerName,
-          playedCards: [assignedJoker],
+          playerName: playPlayerName,
+          playedCards: played,
           beforeState: previousState,
           afterState: newState,
         );
@@ -1812,106 +1901,39 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
       _reshuffleCentrePileIntoDrawPile();
 
-      // Allow the player to continue their turn (stack more cards if they want).
-      return;
-    }
+      // Auto-advance if this play guarantees we get another turn immediately and
+      // there are no unresolved obligations (like covering a Queen).
+      // This happens when playing a Skip (8) or a King in a 2-player game.
+      // NOTE: We inline the turn-advance logic here instead of calling _endTurn()
+      // because _localActionInProgress is still true (we're inside the try block).
+      // _endTurn() would be blocked by the guard. The auto-advance case is simpler
+      // anyway: no Ace suit picker needed (the card is a Skip/King).
+      var nextId = nextPlayerId(state: newState);
+      nextId = _resolveTournamentNextPlayerId(newState, nextId);
 
-    final lastFromHand = local.hand.length == played.length;
-    setState(() => _flyingCardId = played.first.id);
-    await _animateLocalCardToDiscard(played.first,
-        lastCardFromHand: lastFromHand);
-    if (!mounted) return;
-    if (lastFromHand) {
-      HapticFeedback.lightImpact();
-    } else {
-      HapticFeedback.mediumImpact();
-    }
+      if (nextId == playerId && newState.queenSuitLock == null) {
+        setState(() {
+          _finalizeTurnLogForPlayer(playerId);
+          _offlineState = _offlineState.copyWith(
+            currentPlayerId: nextId,
+            actionsThisTurn: 0,
+            cardsPlayedThisTurn: 0,
+            lastPlayedThisTurn: null,
+            activeSkipCount: 0,
+            preTurnCentreSuit: _offlineState.discardTopCard?.effectiveSuit,
+          );
+        });
 
-    // Apply play + special effects
-    final previousState = _offlineState;
-    var newState =
-        applyPlay(state: _offlineState, playerId: playerId, cards: played);
-    _engineTimer.cancel();
-
-    // Play card sounds: every card uses card_place.wav; special cards also get their effect sound.
-    for (final c in played) {
-      game_audio.AudioService.instance.playSound(GameSound.cardPlace);
-      final s = soundForCard(c);
-      if (s != null) game_audio.AudioService.instance.playSound(s);
-    }
-
-    // Direction reversed by King
-    if (newState.direction != previousState.direction) {
-      game_audio.AudioService.instance
-          .playSound(GameSound.directionReversed);
-    }
-    // Skip accumulated by Eight
-    if (newState.activeSkipCount > previousState.activeSkipCount) {
-      game_audio.AudioService.instance.playSound(GameSound.skipApplied);
-    }
-
-    _discardPile.addAll(played);
-
-    // Update state before _checkWin so the hand is already correct if the
-    // finally block clears _flyingCardId on a win/early-return path.
-    final localInNew = newState.players
-        .where((p) => p.tablePosition == TablePosition.bottom)
-        .firstOrNull;
-    final playPlayerName =
-        _offlineState.playerById(playerId)?.displayName ?? playerId;
-    _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
-    if (localInNew != null) _syncHandOrder(localInNew.hand);
-
-    // Win / tournament round-end may pop this route — run before setState.
-    if (_checkWin(playerId, newState)) return;
-
-    setState(() {
-      _selectedCardId = null;
-      _flyingCardId = null;
-      _recordPlayMove(
-        playerId: playerId,
-        playerName: playPlayerName,
-        playedCards: played,
-        beforeState: previousState,
-        afterState: newState,
-      );
-    });
-
-    _reshuffleCentrePileIntoDrawPile();
-
-    // Auto-advance if this play guarantees we get another turn immediately and
-    // there are no unresolved obligations (like covering a Queen).
-    // This happens when playing a Skip (8) or a King in a 2-player game.
-    // NOTE: We inline the turn-advance logic here instead of calling _endTurn()
-    // because _localActionInProgress is still true (we're inside the try block).
-    // _endTurn() would be blocked by the guard. The auto-advance case is simpler
-    // anyway: no Ace suit picker needed (the card is a Skip/King).
-    var nextId = nextPlayerId(state: newState);
-    nextId = _resolveTournamentNextPlayerId(newState, nextId);
-
-    if (nextId == playerId && newState.queenSuitLock == null) {
-      setState(() {
-        _finalizeTurnLogForPlayer(playerId);
-        _offlineState = _offlineState.copyWith(
-          currentPlayerId: nextId,
-          actionsThisTurn: 0,
-          cardsPlayedThisTurn: 0,
-          lastPlayedThisTurn: null,
-          activeSkipCount: 0,
-          preTurnCentreSuit: _offlineState.discardTopCard?.effectiveSuit,
-        );
-      });
-
-      if (nextId != OfflineGameState.localId) {
-        _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
-      } else {
-        _startTimer();
+        if (nextId != OfflineGameState.localId) {
+          _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
+        } else {
+          _startTimer();
+        }
       }
-    }
-
     } finally {
       _localActionInProgress = false;
-      if (mounted && _flyingCardId != null) setState(() => _flyingCardId = null);
+      if (mounted && _flyingCardId != null)
+        setState(() => _flyingCardId = null);
     }
   }
 
@@ -1928,48 +1950,47 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _showError('Invalid play! Drawing 2 cards as penalty.');
 
     try {
+      if (playerId == OfflineGameState.localId) {
+        HapticFeedback.lightImpact();
+        await _animateDrawFlightsToPlayer(playerId, 2);
+        if (!mounted) return;
+      }
 
-    if (playerId == OfflineGameState.localId) {
-      HapticFeedback.lightImpact();
-      await _animateDrawFlightsToPlayer(playerId, 2);
-      if (!mounted) return;
-    }
+      // Step 2: draw 2 cards and preserve the active penalty chain.
+      var newState = applyInvalidPlayPenalty(
+        state: _offlineState,
+        playerId: playerId,
+        cardFactory: _makeCards,
+      );
 
-    // Step 2: draw 2 cards and preserve the active penalty chain.
-    var newState = applyInvalidPlayPenalty(
-      state: _offlineState,
-      playerId: playerId,
-      cardFactory: _makeCards,
-    );
+      // Play draw sound for penalty.
+      game_audio.AudioService.instance.playSound(GameSound.cardDraw);
+      game_audio.AudioService.instance.playSound(GameSound.penaltyDraw);
 
-    // Play draw sound for penalty.
-    game_audio.AudioService.instance.playSound(GameSound.cardDraw);
-    game_audio.AudioService.instance.playSound(GameSound.penaltyDraw);
+      // Step 3: end the turn.
+      newState = advanceTurn(newState);
 
-    // Step 3: end the turn.
-    newState = advanceTurn(newState);
+      final localAfter = newState.players
+          .where((p) => p.tablePosition == TablePosition.bottom)
+          .firstOrNull;
 
-    final localAfter = newState.players
-        .where((p) => p.tablePosition == TablePosition.bottom)
-        .firstOrNull;
+      setState(() {
+        _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
+        _selectedCardId = null;
+        if (localAfter != null) _syncHandOrder(localAfter.hand);
+      });
 
-    setState(() {
-      _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
-      _selectedCardId = null;
-      if (localAfter != null) _syncHandOrder(localAfter.hand);
-    });
-
-    _engineTimer.cancel();
-    if (newState.currentPlayerId != OfflineGameState.localId) {
-      _scheduleAiTurn(newState.currentPlayerId,
-          simulate: _tournamentSimulatingRest);
-    } else {
-      _startTimer();
-    }
-
+      _engineTimer.cancel();
+      if (newState.currentPlayerId != OfflineGameState.localId) {
+        _scheduleAiTurn(newState.currentPlayerId,
+            simulate: _tournamentSimulatingRest);
+      } else {
+        _startTimer();
+      }
     } finally {
       _localActionInProgress = false;
-      if (mounted && _flyingCardId != null) setState(() => _flyingCardId = null);
+      if (mounted && _flyingCardId != null)
+        setState(() => _flyingCardId = null);
     }
   }
 
@@ -2003,43 +2024,41 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     _localActionInProgress = true;
     try {
+      final isPenaltyDraw = _offlineState.activePenaltyCount > 0;
+      final drawCount = isPenaltyDraw ? _offlineState.activePenaltyCount : 1;
 
-    final isPenaltyDraw = _offlineState.activePenaltyCount > 0;
-    final drawCount = isPenaltyDraw ? _offlineState.activePenaltyCount : 1;
+      if (playerId == OfflineGameState.localId) {
+        HapticFeedback.lightImpact();
+        await _animateDrawFlightsToPlayer(playerId, drawCount);
+        if (!mounted) return;
+      }
 
-    if (playerId == OfflineGameState.localId) {
-      HapticFeedback.lightImpact();
-      await _animateDrawFlightsToPlayer(playerId, drawCount);
-      if (!mounted) return;
-    }
+      var newState = applyDraw(
+        state: _offlineState,
+        playerId: playerId,
+        count: drawCount,
+        cardFactory: _makeCards,
+      );
 
-    var newState = applyDraw(
-      state: _offlineState,
-      playerId: playerId,
-      count: drawCount,
-      cardFactory: _makeCards,
-    );
+      // Play draw sounds (moved from game_engine to UI layer for server compat).
+      game_audio.AudioService.instance.playSound(GameSound.cardDraw);
+      if (isPenaltyDraw) {
+        game_audio.AudioService.instance.playSound(GameSound.penaltyDraw);
+      }
 
-    // Play draw sounds (moved from game_engine to UI layer for server compat).
-    game_audio.AudioService.instance.playSound(GameSound.cardDraw);
-    if (isPenaltyDraw) {
-      game_audio.AudioService.instance.playSound(GameSound.penaltyDraw);
-    }
+      final localAfterDraw = newState.players
+          .where((p) => p.tablePosition == TablePosition.bottom)
+          .firstOrNull;
 
-    final localAfterDraw = newState.players
-        .where((p) => p.tablePosition == TablePosition.bottom)
-        .firstOrNull;
-
-    final playerName =
-        _offlineState.playerById(playerId)?.displayName ?? playerId;
-    _finalizeDrawAndAdvance(
-      playerId: playerId,
-      playerName: playerName,
-      drawCount: drawCount,
-      newState: newState,
-      localAfterDraw: localAfterDraw,
-    );
-
+      final playerName =
+          _offlineState.playerById(playerId)?.displayName ?? playerId;
+      _finalizeDrawAndAdvance(
+        playerId: playerId,
+        playerName: playerName,
+        drawCount: drawCount,
+        newState: newState,
+        localAfterDraw: localAfterDraw,
+      );
     } finally {
       _localActionInProgress = false;
     }
@@ -2116,7 +2135,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         state: _offlineState,
         startAfterPlayerId: aiId,
       );
-      if (nextId != OfflineGameState.localId) {
+      if (nextId != OfflineGameState.localId &&
+          !_tournamentFinishedPlayerIds.contains(nextId)) {
         _scheduleAiTurn(nextId,
             simulate: simulate || _tournamentSimulatingRest);
       } else {
@@ -2129,208 +2149,241 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (_aiThinking) return;
     setState(() => _aiThinking = true);
 
-    bool offlineTournamentInstantPacing() =>
-        _isOfflineSession &&
-        widget.isTournamentMode &&
-        (simulate || _tournamentSimulatingRest);
+    var scheduledNext = false;
+    try {
+      bool offlineTournamentInstantPacing() =>
+          _isOfflineSession &&
+          widget.isTournamentMode &&
+          (simulate || _tournamentSimulatingRest);
 
-    final hasPlayable =
-        aiHasPlayableTurn(state: _offlineState, aiPlayerId: aiId);
-    final diffMult = widget.aiDifficulty?.delayMultiplier ?? 1.0;
-    final baseThinkMs = offlineTournamentInstantPacing()
-        ? 0
-        : (_randomAiDelayMs(1200, 2500) * diffMult).round();
+      final hasPlayable =
+          aiHasPlayableTurn(state: _offlineState, aiPlayerId: aiId);
+      final diffMult = widget.aiDifficulty?.delayMultiplier ?? 1.0;
+      final baseThinkMs = offlineTournamentInstantPacing()
+          ? 0
+          : (_randomAiDelayMs(1200, 2500) * diffMult).round();
 
-    // Forced draw pacing: pause before draw and a brief pause after.
-    if (!hasPlayable) {
-      final drawPauseMs =
-          offlineTournamentInstantPacing() ? 0 : (1000 * diffMult).round();
-      await Future.delayed(Duration(milliseconds: drawPauseMs));
-    } else {
-      await Future.delayed(Duration(milliseconds: baseThinkMs));
-    }
-    if (!mounted) return;
-
-    final stateBeforeAiTurn = _offlineState;
-    final aiConfig =
-        _aiPlayerConfigs.where((c) => c.playerId == aiId).firstOrNull;
-    final result = aiTakeTurn(
-      state: _offlineState,
-      aiPlayerId: aiId,
-      cardFactory: _makeCards,
-      personality: aiConfig?.personality,
-    );
-
-    final playedByAi = result.playedCards;
-    final sequentialReplay = playedByAi.isNotEmpty &&
-        _offlineAiPlayedCardsReplaySequentially(
-          stateBeforeAiTurn,
-          aiId,
-          playedByAi,
-          result.aceDeclaredSuit,
-        );
-
-    // Add extra thought time for Ace/Joker declaration turns.
-    if (!offlineTournamentInstantPacing() &&
-        playedByAi.isNotEmpty &&
-        (playedByAi.first.effectiveRank == Rank.ace ||
-            playedByAi.first.isJoker)) {
-      await Future.delayed(
-          Duration(milliseconds: _randomAiDelayMs(1500, 3000)));
-    }
-
-    if (!hasPlayable) {
-      await Future.delayed(Duration(
-          milliseconds: offlineTournamentInstantPacing() ? 0 : 600));
-      if (!mounted) return;
-    }
-
-    if (offlineTournamentInstantPacing()) {
-      // Instant path: engine + draw pile already updated via aiTakeTurn / _makeCards.
-      if (playedByAi.isNotEmpty) {
-        _discardPile.addAll(playedByAi);
+      // Forced draw pacing: pause before draw and a brief pause after.
+      if (!hasPlayable) {
+        final drawPauseMs =
+            offlineTournamentInstantPacing() ? 0 : (1000 * diffMult).round();
+        await Future.delayed(Duration(milliseconds: drawPauseMs));
+      } else {
+        await Future.delayed(Duration(milliseconds: baseThinkMs));
       }
-    } else if (playedByAi.isNotEmpty) {
-      if (sequentialReplay) {
-        var working = stateBeforeAiTurn;
-        for (var i = 0; i < playedByAi.length; i++) {
-          if (i > 0) {
-            await Future.delayed(Duration(
-                milliseconds: _randomAiDelayMs(280, 500)));
-            if (!mounted) return;
-          }
-          await _animateOpponentCardToDiscard(aiId, playedByAi[i]);
-          if (!mounted) return;
-          game_audio.AudioService.instance.playSound(GameSound.cardPlace);
-          final snd = soundForCard(playedByAi[i]);
-          if (snd != null) game_audio.AudioService.instance.playSound(snd);
+      if (!mounted) return;
 
-          final c = playedByAi[i];
-          final decl = working.actionsThisTurn == 0 && c.effectiveRank == Rank.ace
-              ? result.aceDeclaredSuit
-              : null;
-          final dirBefore = working.direction;
-          final skipBefore = working.activeSkipCount;
-          working = applyPlay(
-            state: working,
-            playerId: aiId,
-            cards: [c],
-            declaredSuit: decl,
+      final stateBeforeAiTurn = _offlineState;
+      final aiConfig =
+          _aiPlayerConfigs.where((c) => c.playerId == aiId).firstOrNull;
+      final result = aiTakeTurn(
+        state: _offlineState,
+        aiPlayerId: aiId,
+        cardFactory: _makeCards,
+        personality: aiConfig?.personality,
+      );
+
+      final playedByAi = result.playedCards;
+      final sequentialReplay = playedByAi.isNotEmpty &&
+          _offlineAiPlayedCardsReplaySequentially(
+            stateBeforeAiTurn,
+            aiId,
+            playedByAi,
+            result.aceDeclaredSuit,
           );
-          _discardPile.add(c);
-          if (mounted) {
-            setState(() {
-              _offlineState =
-                  working.copyWith(drawPileCount: _drawPile.length);
-            });
+
+      // Add extra thought time for Ace/Joker declaration turns.
+      if (!offlineTournamentInstantPacing() &&
+          playedByAi.isNotEmpty &&
+          (playedByAi.first.effectiveRank == Rank.ace ||
+              playedByAi.first.isJoker)) {
+        await Future.delayed(
+            Duration(milliseconds: _randomAiDelayMs(1500, 3000)));
+      }
+
+      if (!hasPlayable) {
+        await Future.delayed(
+            Duration(milliseconds: offlineTournamentInstantPacing() ? 0 : 600));
+        if (!mounted) return;
+      }
+
+      if (offlineTournamentInstantPacing()) {
+        // Instant path: engine + draw pile already updated via aiTakeTurn / _makeCards.
+        if (playedByAi.isNotEmpty) {
+          _discardPile.addAll(playedByAi);
+        }
+      } else if (playedByAi.isNotEmpty) {
+        if (sequentialReplay) {
+          var working = stateBeforeAiTurn;
+          for (var i = 0; i < playedByAi.length; i++) {
+            if (i > 0) {
+              await Future.delayed(
+                  Duration(milliseconds: _randomAiDelayMs(280, 500)));
+              if (!mounted) return;
+            }
+            await _animateOpponentCardToDiscard(aiId, playedByAi[i]);
+            if (!mounted) return;
+            game_audio.AudioService.instance.playSound(GameSound.cardPlace);
+            final snd = soundForCard(playedByAi[i]);
+            if (snd != null) game_audio.AudioService.instance.playSound(snd);
+
+            final c = playedByAi[i];
+            final decl =
+                working.actionsThisTurn == 0 && c.effectiveRank == Rank.ace
+                    ? result.aceDeclaredSuit
+                    : null;
+            final dirBefore = working.direction;
+            final skipBefore = working.activeSkipCount;
+            working = applyPlay(
+              state: working,
+              playerId: aiId,
+              cards: [c],
+              declaredSuit: decl,
+            );
+            _discardPile.add(c);
+            if (mounted) {
+              setState(() {
+                _offlineState =
+                    working.copyWith(drawPileCount: _drawPile.length);
+              });
+            }
+            if (working.direction != dirBefore) {
+              game_audio.AudioService.instance
+                  .playSound(GameSound.directionReversed);
+            }
+            if (working.activeSkipCount != skipBefore) {
+              game_audio.AudioService.instance.playSound(GameSound.skipApplied);
+            }
           }
-          if (working.direction != dirBefore) {
+          if (mounted) HapticFeedback.mediumImpact();
+        } else {
+          for (var i = 0; i < playedByAi.length; i++) {
+            if (i > 0) {
+              await Future.delayed(
+                  Duration(milliseconds: _randomAiDelayMs(280, 500)));
+              if (!mounted) return;
+            }
+            await _animateOpponentCardToDiscard(aiId, playedByAi[i]);
+            if (!mounted) return;
+            game_audio.AudioService.instance.playSound(GameSound.cardPlace);
+            final snd = soundForCard(playedByAi[i]);
+            if (snd != null) game_audio.AudioService.instance.playSound(snd);
+          }
+          if (mounted) HapticFeedback.mediumImpact();
+          _discardPile.addAll(playedByAi);
+          if (result.state.direction != stateBeforeAiTurn.direction) {
             game_audio.AudioService.instance
                 .playSound(GameSound.directionReversed);
           }
-          if (working.activeSkipCount != skipBefore) {
+          // preTurnAdvanceState — result.state has activeSkipCount cleared by advanceTurn.
+          if (result.preTurnAdvanceState.activeSkipCount >
+              stateBeforeAiTurn.activeSkipCount) {
             game_audio.AudioService.instance.playSound(GameSound.skipApplied);
           }
         }
-        if (mounted) HapticFeedback.mediumImpact();
-      } else {
-        for (var i = 0; i < playedByAi.length; i++) {
-          if (i > 0) {
-            await Future.delayed(Duration(
-                milliseconds: _randomAiDelayMs(280, 500)));
-            if (!mounted) return;
-          }
-          await _animateOpponentCardToDiscard(aiId, playedByAi[i]);
-          if (!mounted) return;
-          game_audio.AudioService.instance.playSound(GameSound.cardPlace);
-          final snd = soundForCard(playedByAi[i]);
-          if (snd != null) game_audio.AudioService.instance.playSound(snd);
-        }
-        if (mounted) HapticFeedback.mediumImpact();
-        _discardPile.addAll(playedByAi);
-        if (result.state.direction != stateBeforeAiTurn.direction) {
-          game_audio.AudioService.instance
-              .playSound(GameSound.directionReversed);
-        }
-        // preTurnAdvanceState — result.state has activeSkipCount cleared by advanceTurn.
-        if (result.preTurnAdvanceState.activeSkipCount >
-            stateBeforeAiTurn.activeSkipCount) {
-          game_audio.AudioService.instance.playSound(GameSound.skipApplied);
-        }
+      } else if (!offlineTournamentInstantPacing()) {
+        final drawN = stateBeforeAiTurn.activePenaltyCount > 0
+            ? stateBeforeAiTurn.activePenaltyCount
+            : 1;
+        await _animateDrawFlightsToPlayer(aiId, drawN);
+        if (mounted) HapticFeedback.lightImpact();
       }
-    } else if (!offlineTournamentInstantPacing()) {
-      final drawN = stateBeforeAiTurn.activePenaltyCount > 0
-          ? stateBeforeAiTurn.activePenaltyCount
-          : 1;
-      await _animateDrawFlightsToPlayer(aiId, drawN);
-      if (mounted) HapticFeedback.lightImpact();
-    }
 
-    final aiPlayerName = _offlineState.playerById(aiId)?.displayName ?? aiId;
+      final aiPlayerName = _offlineState.playerById(aiId)?.displayName ?? aiId;
 
-    // Do not setState here when _checkWin returns true: tournament round-end
-    // pops this route from _handleTournamentPlayerFinished; partial finishes
-    // already clear _aiThinking inside _handleTournamentPlayerFinished.
-    if (_checkWin(aiId, result.state)) {
-      return;
-    }
+      // Do not setState here when _checkWin returns true: tournament round-end
+      // pops this route from _handleTournamentPlayerFinished; partial finishes
+      // already clear _aiThinking inside _handleTournamentPlayerFinished.
+      if (_checkWin(
+        aiId,
+        result.state,
+        onNestedAiScheduled: () => scheduledNext = true,
+      )) {
+        return;
+      }
 
-    var finalState = result.state;
-    var nextId = finalState.currentPlayerId;
-    nextId = _resolveTournamentNextPlayerId(finalState, nextId);
-    if (nextId != finalState.currentPlayerId) {
-      finalState = finalState.copyWith(currentPlayerId: nextId);
-    }
-    if (nextId != aiId) {
-      finalState = finalState.copyWith(
-        preTurnCentreSuit: finalState.discardTopCard?.effectiveSuit,
-      );
-    }
-
-    // AI quick chat: use preset messages like human players (30% chance).
-    if (!offlineTournamentInstantPacing() &&
-        aiConfig != null &&
-        playedByAi.isNotEmpty &&
-        _chatRng.nextDouble() < 0.30) {
-      final msgIndex = _chatRng.nextInt(kQuickMessages.length);
-      _showQuickChatBubble(aiId, aiPlayerName, msgIndex, isLocal: false);
-    }
-
-    setState(() {
-      _offlineState = finalState.copyWith(drawPileCount: _drawPile.length);
-      _aiThinking = false;
-      if (playedByAi.isNotEmpty) {
-        _recordPlayMove(
-          playerId: aiId,
-          playerName: aiPlayerName,
-          playedCards: playedByAi,
-          beforeState: stateBeforeAiTurn,
-          afterState: result.preTurnAdvanceState,
-          turnContinuesOverride: false,
+      var finalState = result.state;
+      var nextId = finalState.currentPlayerId;
+      nextId = _resolveTournamentNextPlayerId(finalState, nextId);
+      if (nextId != finalState.currentPlayerId) {
+        finalState = finalState.copyWith(currentPlayerId: nextId);
+      }
+      if (nextId != aiId) {
+        finalState = finalState.copyWith(
+          preTurnCentreSuit: finalState.discardTopCard?.effectiveSuit,
         );
-        // Queen cover draw: AI played a Queen but couldn't cover, had to draw.
-        if (result.queenCoverDrawCount > 0) {
+      }
+
+      // AI quick chat: use preset messages like human players (30% chance).
+      if (!offlineTournamentInstantPacing() &&
+          aiConfig != null &&
+          playedByAi.isNotEmpty &&
+          _chatRng.nextDouble() < 0.30) {
+        final msgIndex = _chatRng.nextInt(kQuickMessages.length);
+        _showQuickChatBubble(aiId, aiPlayerName, msgIndex, isLocal: false);
+      }
+
+      setState(() {
+        _offlineState = finalState.copyWith(drawPileCount: _drawPile.length);
+        _aiThinking = false;
+        if (playedByAi.isNotEmpty) {
+          _recordPlayMove(
+            playerId: aiId,
+            playerName: aiPlayerName,
+            playedCards: playedByAi,
+            beforeState: stateBeforeAiTurn,
+            afterState: result.preTurnAdvanceState,
+            turnContinuesOverride: false,
+          );
+          // Queen cover draw: AI played a Queen but couldn't cover, had to draw.
+          if (result.queenCoverDrawCount > 0) {
+            _pushMoveLog(MoveLogEntry.draw(
+              playerId: aiId,
+              playerName: aiPlayerName,
+              drawCount: result.queenCoverDrawCount,
+            ));
+          }
+        } else {
           _pushMoveLog(MoveLogEntry.draw(
             playerId: aiId,
             playerName: aiPlayerName,
-            drawCount: result.queenCoverDrawCount,
+            drawCount: stateBeforeAiTurn.activePenaltyCount > 0
+                ? stateBeforeAiTurn.activePenaltyCount
+                : 1,
           ));
         }
-      } else {
-        _pushMoveLog(MoveLogEntry.draw(
-          playerId: aiId,
-          playerName: aiPlayerName,
-          drawCount: stateBeforeAiTurn.activePenaltyCount > 0
-              ? stateBeforeAiTurn.activePenaltyCount
-              : 1,
-        ));
-      }
-    });
+      });
 
-    if (nextId != OfflineGameState.localId) {
-      _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
-    } else {
-      if (!_tournamentSimulatingRest) _startTimer();
+      // Yield to the event loop between instant-paced turns so the UI can
+      // paint and remain responsive.
+      if (offlineTournamentInstantPacing()) {
+        await Future.delayed(Duration.zero);
+        if (!mounted) return;
+      }
+
+      if (nextId != OfflineGameState.localId) {
+        scheduledNext = true;
+        _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
+      } else {
+        if (_tournamentSimulatingRest) {
+          // Local player is finished — skip to next active AI.
+          final skipToId = _nextTournamentActivePlayerId(
+            state: _offlineState,
+            startAfterPlayerId: nextId,
+          );
+          if (skipToId != OfflineGameState.localId &&
+              !_tournamentFinishedPlayerIds.contains(skipToId)) {
+            scheduledNext = true;
+            _scheduleAiTurn(skipToId, simulate: true);
+          }
+        } else {
+          _startTimer();
+        }
+      }
+    } finally {
+      if (_aiThinking && mounted && !scheduledNext) {
+        setState(() => _aiThinking = false);
+      }
     }
   }
 
@@ -2352,6 +2405,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       return;
     }
     setState(() => _tournamentSimulatingRest = true);
+    _engineTimer.cancel();
     if (_aiThinking) {
       return;
     }
@@ -2500,7 +2554,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   // ── Win detection ──────────────────────────────────────────────────
 
-  bool _checkWin(String lastActorId, GameState state) {
+  bool _checkWin(
+    String lastActorId,
+    GameState state, {
+    void Function()? onNestedAiScheduled,
+  }) {
     if (!shouldShowStandardWinOverlay(
         isTournamentMode: widget.isTournamentMode)) {
       // Collect all newly-confirmable finishers in one pass.
@@ -2586,6 +2644,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       }
 
       if (nextId != OfflineGameState.localId) {
+        onNestedAiScheduled?.call();
         _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
       } else {
         _startTimer();
@@ -2629,7 +2688,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     });
     return true;
   }
-
 
   String _nextTournamentActivePlayerId({
     required GameState state,
@@ -2851,7 +2909,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   // ── Quick chat ──────────────────────────────────────────────────────────
 
-  void _showQuickChatBubble(String playerId, String playerName, int messageIndex,
+  void _showQuickChatBubble(
+      String playerId, String playerName, int messageIndex,
       {bool isLocal = false}) {
     if (messageIndex < 0 || messageIndex >= kQuickMessages.length) return;
     final message = kQuickMessages[messageIndex];
@@ -2884,20 +2943,26 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     final isOfflineMode = ref.read(gameStateProvider) == null;
 
-    final localPlayerId = ref.read(gameStateProvider)?.players
-        .where((p) => p.tablePosition == TablePosition.bottom)
-        .firstOrNull?.id ?? OfflineGameState.localId;
+    final localPlayerId = ref
+            .read(gameStateProvider)
+            ?.players
+            .where((p) => p.tablePosition == TablePosition.bottom)
+            .firstOrNull
+            ?.id ??
+        OfflineGameState.localId;
 
-    final bottomPlayer = ref.read(gameStateProvider)?.players
+    final bottomPlayer = ref
+            .read(gameStateProvider)
+            ?.players
             .where((p) => p.tablePosition == TablePosition.bottom)
             .firstOrNull ??
         _offlineState.players
             .where((p) => p.tablePosition == TablePosition.bottom)
             .firstOrNull;
-    final localChatName = (bottomPlayer != null &&
-            bottomPlayer.displayName.isNotEmpty)
-        ? bottomPlayer.displayName
-        : ref.read(displayNameForGameProvider);
+    final localChatName =
+        (bottomPlayer != null && bottomPlayer.displayName.isNotEmpty)
+            ? bottomPlayer.displayName
+            : ref.read(displayNameForGameProvider);
 
     _showQuickChatBubble(
       localPlayerId,
@@ -2919,7 +2984,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _quickChatCooldownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() {
-        _quickChatCooldownRemaining = (_quickChatCooldownRemaining - 1).clamp(0, 10);
+        _quickChatCooldownRemaining =
+            (_quickChatCooldownRemaining - 1).clamp(0, 10);
       });
       if (_quickChatCooldownRemaining <= 0) {
         _quickChatCooldownTimer?.cancel();
