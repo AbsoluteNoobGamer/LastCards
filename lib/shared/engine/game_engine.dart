@@ -218,14 +218,23 @@ List<CardModel> getValidJokerOptions({
           ? state.lastPlayedThisTurn!
           : discardTop);
   final targetRank = anchorCard.effectiveRank;
-  final targetSuit = anchorCard.effectiveSuit;
+  final targetSuit =
+      (playContext == JokerPlayContext.turnStarter && state.suitLock != null)
+          ? state.suitLock!
+          : anchorCard.effectiveSuit;
+  // Exact-dupe exclusion must match [anchorCard] when no Ace suit lock, or the
+  // declared suit when locked (same rank + locked suit), not the anchor's suit.
+  final duplicateExclusionSuit =
+      (playContext == JokerPlayContext.turnStarter && state.suitLock != null)
+          ? state.suitLock!
+          : anchorCard.effectiveSuit;
   final activeSequenceSuit =
       playContext == JokerPlayContext.midTurnContinuance ? targetSuit : null;
 
   for (final suit in Suit.values) {
     for (final rank in Rank.values) {
       if (rank == Rank.joker) continue; // Joker can't mimic a Joker
-      if (rank == targetRank && suit == targetSuit) {
+      if (rank == targetRank && suit == duplicateExclusionSuit) {
         continue; // Cannot be exact dupe
       }
 
@@ -247,7 +256,20 @@ List<CardModel> getValidJokerOptions({
       }
 
       // 3. Penalty Rules
-      if (state.activePenaltyCount > 0) {
+      final discardIsPenalty =
+          discardTop.effectiveRank == Rank.two ||
+              discardTop.effectiveRank == Rank.jack;
+      final candidateIsPenalty =
+          rank == Rank.two || rank == Rank.jack;
+
+      if (state.queenSuitLock != null &&
+          !(discardIsPenalty && candidateIsPenalty)) {
+        // Mirrors _validateSingle: Queen lock replaces suit/rank rules until
+        // resolved (penalty-on-penalty stacking is handled before Queen lock).
+        if (suit == state.queenSuitLock || rank == Rank.queen) {
+          isValidMatch = true;
+        }
+      } else if (state.activePenaltyCount > 0) {
         // During an active penalty, standard adjacent/rank matching doesn't apply.
         // A player MUST address the penalty. Valid cards are 2s, Black Jacks, and Red Jacks.
         // So a Joker can mimic ANY 2, ANY Black Jack, or ANY Red Jack (except the exact dupe).

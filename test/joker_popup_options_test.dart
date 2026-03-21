@@ -7,6 +7,8 @@ GameState _baseState({
   CardModel? lastPlayedThisTurn,
   int activePenaltyCount = 0,
   List<CardModel>? localHand,
+  Suit? suitLock,
+  Suit? queenSuitLock,
 }) {
   return GameState(
     sessionId: 'test_session',
@@ -33,6 +35,8 @@ GameState _baseState({
     activePenaltyCount: activePenaltyCount,
     actionsThisTurn: actionsThisTurn,
     lastPlayedThisTurn: lastPlayedThisTurn,
+    suitLock: suitLock,
+    queenSuitLock: queenSuitLock,
   );
 }
 
@@ -86,6 +90,95 @@ void main() {
     });
 
     test(
+        'Turn starter after Ace suit change: A♠ + suitLock hearts → 12♥ + 3 aces = 15',
+        () {
+      const top = CardModel(id: 'as', rank: Rank.ace, suit: Suit.spades);
+      final state = _baseState(
+        discardTop: top,
+        actionsThisTurn: 0,
+        suitLock: Suit.hearts,
+      );
+
+      final options = getValidJokerOptions(
+        state: state,
+        discardTop: top,
+        context: JokerPlayContext.turnStarter,
+        contextTopCard: top,
+      );
+
+      final hearts = options.where((c) => c.suit == Suit.hearts).toList();
+      final crossSuitAces = options
+          .where((c) => c.rank == Rank.ace && c.suit != Suit.hearts)
+          .toList();
+
+      expect(options.length, 15);
+      expect(hearts.length, 12);
+      expect(crossSuitAces.length, 3);
+      expect(
+        crossSuitAces.map((c) => c.suit).toSet(),
+        equals({Suit.spades, Suit.diamonds, Suit.clubs}),
+      );
+      expect(
+        options.any((c) => c.suit == Suit.spades && c.rank != Rank.ace),
+        isFalse,
+      );
+    });
+
+    test('Turn starter with no suitLock: still uses discard natural suit', () {
+      const top = CardModel(id: 'as', rank: Rank.ace, suit: Suit.spades);
+      final state = _baseState(discardTop: top, actionsThisTurn: 0);
+
+      final options = getValidJokerOptions(
+        state: state,
+        discardTop: top,
+        context: JokerPlayContext.turnStarter,
+        contextTopCard: top,
+      );
+
+      final spades = options.where((c) => c.suit == Suit.spades).toList();
+      final otherAces = options
+          .where((c) => c.rank == Rank.ace && c.suit != Suit.spades)
+          .toList();
+
+      expect(options.length, 15);
+      expect(spades.length, 12);
+      expect(otherAces.length, 3);
+    });
+
+    test(
+        'Queen suit lock: only locked suit cards + other Queens (Q♠ on pile, lock ♥)',
+        () {
+      const top = CardModel(id: 'qs', rank: Rank.queen, suit: Suit.spades);
+      final state = _baseState(
+        discardTop: top,
+        actionsThisTurn: 0,
+        queenSuitLock: Suit.hearts,
+      );
+
+      final options = getValidJokerOptions(
+        state: state,
+        discardTop: top,
+        context: JokerPlayContext.turnStarter,
+        contextTopCard: top,
+      );
+
+      final hearts = options.where((c) => c.suit == Suit.hearts).toList();
+      final queensNotHearts = options
+          .where((c) => c.rank == Rank.queen && c.suit != Suit.hearts)
+          .toList();
+
+      expect(options.length, 15);
+      expect(hearts.length, 13);
+      expect(queensNotHearts.length, 2);
+      expect(
+        queensNotHearts.map((c) => c.shortLabel).toSet(),
+        {'Q♦', 'Q♣'},
+      );
+      expect(options.any((c) => c.suit == Suit.spades && c.rank != Rank.queen),
+          isFalse);
+    });
+
+    test(
         'Context B: Joker after 5♥ returns 4♥, 6♥, 5♠, 5♦, 5♣ exactly (5 total)',
         () {
       const top = CardModel(id: '5h', rank: Rank.five, suit: Suit.hearts);
@@ -109,7 +202,7 @@ void main() {
     });
 
     test(
-        'Context B edge case: Joker after A♥ returns 2♥ + 3 cross-suit Aces = 4',
+        'Context B edge case: Joker after A♥ returns 2♥, K♥ (Ace wrap) + 3 cross-suit Aces = 5',
         () {
       const top = CardModel(id: 'ah', rank: Rank.ace, suit: Suit.hearts);
       final state = _baseState(
@@ -126,9 +219,8 @@ void main() {
       );
 
       final labels = options.map((c) => c.shortLabel).toSet();
-      expect(options.length, 4);
-      expect(labels, containsAll({'2♥', 'A♠', 'A♦', 'A♣'}));
-      expect(labels.contains('K♥'), isFalse);
+      expect(options.length, 5);
+      expect(labels, containsAll({'2♥', 'K♥', 'A♠', 'A♦', 'A♣'}));
     });
 
     test(
