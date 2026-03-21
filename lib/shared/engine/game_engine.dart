@@ -262,8 +262,11 @@ List<CardModel> getValidJokerOptions({
       final candidateIsPenalty =
           rank == Rank.two || rank == Rank.jack;
 
-      if (state.queenSuitLock != null &&
-          !(discardIsPenalty && candidateIsPenalty)) {
+      if (discardIsPenalty && candidateIsPenalty) {
+        // Penalty-on-penalty: mirrors _validateSingle where any penalty card
+        // can be played on any other penalty card regardless of queen lock.
+        isValidMatch = true;
+      } else if (state.queenSuitLock != null) {
         // Mirrors _validateSingle: Queen lock replaces suit/rank rules until
         // resolved (penalty-on-penalty stacking is handled before Queen lock).
         if (suit == state.queenSuitLock || rank == Rank.queen) {
