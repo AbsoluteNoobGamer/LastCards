@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+/// Creates a [WebSocketChannel] for [uri]. Defaults to [WebSocketChannel.connect].
+typedef WebSocketChannelFactory = WebSocketChannel Function(Uri uri);
+
 /// Connection states for the WebSocket.
 enum WsConnectionState {
   disconnected,
@@ -18,7 +21,9 @@ enum WsConnectionState {
 /// - Auto-reconnects with exponential back-off on unexpected disconnection.
 /// - Use [send] to transmit JSON actions to the server.
 class WebSocketClient {
-  WebSocketClient({Uri? uri}) : _uri = uri ?? _defaultUri;
+  WebSocketClient({Uri? uri, WebSocketChannelFactory? channelFactory})
+      : _uri = uri ?? _defaultUri,
+        _channelFactory = channelFactory ?? WebSocketChannel.connect;
 
   static Uri get _defaultUri => Uri.parse(
         const String.fromEnvironment(
@@ -28,6 +33,8 @@ class WebSocketClient {
       );
 
   Uri _uri;
+
+  final WebSocketChannelFactory _channelFactory;
 
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;
@@ -65,7 +72,7 @@ class WebSocketClient {
         : WsConnectionState.reconnecting;
 
     try {
-      _channel = WebSocketChannel.connect(_uri);
+      _channel = _channelFactory(_uri);
       await _channel!.ready;
 
       _stateNotifier.value = WsConnectionState.connected;
