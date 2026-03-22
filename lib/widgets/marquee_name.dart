@@ -94,9 +94,11 @@ class _MarqueeNameState extends State<MarqueeName>
 
         const gap = 24.0;
         final totalScroll = textWidth + gap;
+        final lineHeight = (widget.style.fontSize ?? 14) * 1.25;
 
         return SizedBox(
           width: availableWidth,
+          height: lineHeight,
           child: ClipRect(
             child: AnimatedBuilder(
               animation: _animation,
@@ -108,28 +110,38 @@ class _MarqueeNameState extends State<MarqueeName>
                     }
                   });
                 }
-                return Transform.translate(
-                  offset: Offset(-_animation.value * totalScroll, 0),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        widget.text,
-                        style: widget.color != null
-                            ? widget.style.copyWith(color: widget.color)
-                            : widget.style,
-                        maxLines: 1,
+                // [Stack] + [clipBehavior] clips the wide Row without tripping
+                // RenderFlex overflow (Transform + Row did). Outer [SizedBox]
+                // height is required so the stack has a non-zero size.
+                return Stack(
+                  clipBehavior: Clip.hardEdge,
+                  alignment: Alignment.centerLeft,
+                  children: [
+                    Positioned(
+                      left: -_animation.value * totalScroll,
+                      top: 0,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.text,
+                            style: widget.color != null
+                                ? widget.style.copyWith(color: widget.color)
+                                : widget.style,
+                            maxLines: 1,
+                          ),
+                          SizedBox(width: gap),
+                          Text(
+                            widget.text,
+                            style: widget.color != null
+                                ? widget.style.copyWith(color: widget.color)
+                                : widget.style,
+                            maxLines: 1,
+                          ),
+                        ],
                       ),
-                      SizedBox(width: gap),
-                      Text(
-                        widget.text,
-                        style: widget.color != null
-                            ? widget.style.copyWith(color: widget.color)
-                            : widget.style,
-                        maxLines: 1,
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 );
               },
             ),

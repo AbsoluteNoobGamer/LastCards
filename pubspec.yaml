@@ -59,6 +59,7 @@ dev_dependencies:
   analyzer: 7.3.0
   mockito: ^5.4.4
   flutter_launcher_icons: ^0.14.3
+  firebase_auth_mocks: 0.14.1
 
 flutter:
   uses-material-design: true
