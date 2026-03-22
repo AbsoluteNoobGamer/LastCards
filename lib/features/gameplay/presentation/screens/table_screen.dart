@@ -13,6 +13,7 @@ import 'package:last_cards/features/gameplay/presentation/widgets/dealing_animat
 
 import '../../domain/usecases/offline_game_engine.dart';
 import 'package:last_cards/shared/engine/shuffle_utils.dart';
+import 'package:last_cards/shared/rules/move_log_support.dart';
 import 'package:last_cards/shared/rules/win_condition_rules.dart';
 import '../../data/datasources/offline_game_state_datasource.dart';
 import '../../../../shared/engine/game_turn_timer.dart';
@@ -152,6 +153,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   /// Prevents overlapping online plays while a last-card flight runs.
   bool _onlineLastCardFlightInProgress = false;
+
+  /// Chains draw-pile → player flights per player so multi-card draws stay sequential.
+  final Map<String, Future<void>> _onlineDrawFlightChains = {};
   bool _bustLeaderboardRecorded = false;
 
   /// True when this session is offline (no gameStateProvider); used to show
@@ -170,6 +174,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   StreamSubscription<dynamic>? _onlineTurnTimeoutSub;
   StreamSubscription<dynamic>? _onlineReshuffleSub;
   StreamSubscription<QuickChatEvent>? _onlineQuickChatSub;
+  StreamSubscription<TurnChangedEvent>? _onlineTurnChangedSub;
+
+  /// Tracks [GameState.currentPlayerId] across [turn_changed] events so we can
+  /// finalize move-log entries for the player whose turn ended (server
+  /// `card_played.turnContinues` is unreliable because applyPlay does not
+  /// advance [currentPlayerId]).
+  String? _onlineLastKnownCurrentPlayerId;
   bool _timerWarningPlayed = false;
 
   bool _showQuickChatPanel = false;
@@ -215,13 +226,28 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   void _subscribeToOnlineMoveLogIfNeeded() {
     if (ref.read(gameStateProvider) == null) return;
     final handler = ref.read(gameEventHandlerProvider);
+    _onlineLastKnownCurrentPlayerId =
+        ref.read(gameStateProvider)?.currentPlayerId;
 
     // In online mode the server deals cards before the client navigates here.
     // The game state is already initialised in _initNewGame(), so no deal
     // animation is needed. We keep player zone keys and hand order in sync
     // via the provider-driven rebuild (ref.watch(gameStateProvider)).
 
-    _onlineCardPlaysSub = handler.cardPlays.listen((e) {
+    _onlineCardPlaysSub = handler.cardPlays.listen((e) async {
+      final localId = ref.read(gameStateProvider)?.localPlayer?.id;
+      final isOpponent = localId != null && e.playerId != localId;
+      if (isOpponent) {
+        // [GameNotifier] increments _opponentFlightsInFlight synchronously on
+        // card_played; we must always decrement (even if unmounted mid-flight)
+        // so deferred state_snapshot queues cannot stall forever.
+        final notifier = ref.read(gameNotifierProvider.notifier);
+        try {
+          await _runOnlineOpponentPlayFlights(e);
+        } finally {
+          notifier.opponentPlayFlightsFinished();
+        }
+      }
       if (!mounted) return;
       final state = ref.read(gameStateProvider);
       if (state == null) return;
@@ -233,8 +259,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           playerId: e.playerId,
           playerName: name,
           cardActions: actions,
-          skippedPlayerNames: const [],
-          turnContinues: false,
+          skippedPlayerNames: e.skippedPlayers,
+          turnContinues: e.turnContinues,
         ));
       });
     });
@@ -258,6 +284,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (!mounted) return;
       final state = ref.read(gameStateProvider);
       if (state == null) return;
+      _enqueueOnlineDrawFlight(e.playerId);
       final suppress = _suppressDrawLogForPlayer[e.playerId] ?? 0;
       if (suppress > 0) {
         setState(() {
@@ -280,6 +307,16 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     _onlineErrorsSub = handler.errors.listen((e) {
       if (mounted) _showError(e.message);
+    });
+
+    // When the turn advances, mark the previous player's play entry as no
+    // longer continuing (mirrors offline _finalizeTurnLogForPlayer on end turn).
+    _onlineTurnChangedSub = handler.turnChanges.listen((e) {
+      if (!mounted) return;
+      final endedTurnFor = _onlineLastKnownCurrentPlayerId;
+      _onlineLastKnownCurrentPlayerId = e.newCurrentPlayerId;
+      if (endedTurnFor == null) return;
+      setState(() => _finalizeTurnLogForPlayer(endedTurnFor));
     });
 
     // ── Turn timeout ────────────────────────────────────────────────────────
@@ -586,6 +623,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _onlineTurnTimeoutSub?.cancel();
     _onlineReshuffleSub?.cancel();
     _onlineQuickChatSub?.cancel();
+    _onlineTurnChangedSub?.cancel();
     _quickChatCooldownTimer?.cancel();
     _engineTimer.dispose();
     _reshuffleNotifier.dispose();
@@ -597,7 +635,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     bool lastCardFromHand = false,
   }) async {
     final flight = _playFlightKey.currentState;
-    final origin = _playerZoneKeys[OfflineGameState.localId];
+    final localZoneId = ref.read(gameStateProvider)?.localPlayer?.id ??
+        OfflineGameState.localId;
+    final origin = _playerZoneKeys[localZoneId];
     if (lastCardFromHand) {
       HapticFeedback.heavyImpact();
     }
@@ -663,6 +703,28 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       } else {
         await Future<void>.delayed(const Duration(milliseconds: 70));
       }
+    }
+  }
+
+  /// Queues one draw-pile → zone flight after any in-flight draws for [playerId].
+  void _enqueueOnlineDrawFlight(String playerId) {
+    final prev = _onlineDrawFlightChains[playerId] ?? Future.value();
+    _onlineDrawFlightChains[playerId] = prev.then((_) async {
+      if (!mounted) return;
+      await _animateDrawFlightsToPlayer(playerId, 1);
+    }).catchError((_) {});
+  }
+
+  /// Opponent (or non-local) plays: staggered flights matching offline AI pacing.
+  Future<void> _runOnlineOpponentPlayFlights(CardPlayedEvent e) async {
+    for (var i = 0; i < e.cards.length; i++) {
+      if (i > 0) {
+        await Future<void>.delayed(
+            Duration(milliseconds: _randomAiDelayMs(280, 500)));
+        if (!mounted) return;
+      }
+      await _animateOpponentCardToDiscard(e.playerId, e.cards[i]);
+      if (!mounted) return;
     }
   }
 
@@ -1588,28 +1650,22 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     setState(() => _selectedCardId = null);
   }
 
-  /// Online: optional last-card flight, then [send] (play / declare_joker).
+  /// Online: flight from hand to discard, then [send] (play / declare_joker).
+  ///
+  /// Matches offline: every card animates before the action is sent; the last
+  /// card uses [lastCardFromHand] for haptics only.
   Future<void> _onlineMaybeLastCardFlightThen({
     required CardModel cardToFly,
     required bool lastCardFromHand,
     required void Function() send,
   }) async {
-    if (!lastCardFromHand) {
-      setState(() => _flyingCardId = cardToFly.id);
-      send();
-      // _flyingCardId is cleared when the server state update arrives.
-      // Safety fallback in case the update is delayed or dropped:
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted && _flyingCardId == cardToFly.id) {
-          setState(() => _flyingCardId = null);
-        }
-      });
-      return;
-    }
     _onlineLastCardFlightInProgress = true;
     setState(() => _flyingCardId = cardToFly.id);
     try {
-      await _animateLocalCardToDiscard(cardToFly, lastCardFromHand: true);
+      await _animateLocalCardToDiscard(
+        cardToFly,
+        lastCardFromHand: lastCardFromHand,
+      );
       if (!mounted) return;
       send();
     } finally {
@@ -1799,6 +1855,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           state: _offlineState,
           playerId: playerId,
           cards: [assignedJoker],
+          declaredSuit: assignedJoker.effectiveRank == Rank.ace
+              ? assignedJoker.effectiveSuit
+              : null,
         );
         _engineTimer.cancel();
 
@@ -2894,26 +2953,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   List<String> _skippedPlayersForCurrentTurn(GameState state) {
-    final skipCount = state.activeSkipCount;
-    if (skipCount <= 0) return const <String>[];
-    if (state.lastPlayedThisTurn?.effectiveRank != Rank.eight) {
-      return const <String>[];
-    }
-
-    final players = state.players;
-    final currentIndex =
-        players.indexWhere((p) => p.id == state.currentPlayerId);
-    if (currentIndex < 0) return const <String>[];
-
-    final step = state.direction == PlayDirection.clockwise ? 1 : -1;
-    var cursor = currentIndex;
-    final skipped = <String>[];
-    for (var i = 0; i < skipCount; i++) {
-      cursor = (cursor + step) % players.length;
-      if (cursor < 0) cursor += players.length;
-      skipped.add(players[cursor].displayName);
-    }
-    return skipped;
+    return skippedPlayerDisplayNamesForSkipState(state);
   }
 
   void _pushMoveLog(MoveLogEntry entry) {

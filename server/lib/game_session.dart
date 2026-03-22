@@ -6,6 +6,7 @@ import 'package:collection/collection.dart';
 import 'package:last_cards/shared/constants/quick_chat_messages.dart';
 import 'package:last_cards/shared/engine/game_engine.dart';
 import 'package:last_cards/shared/engine/shuffle_utils.dart';
+import 'package:last_cards/shared/rules/move_log_support.dart';
 import 'package:last_cards/shared/rules/win_condition_rules.dart';
 
 import 'trophy_recorder.dart';
@@ -495,16 +496,18 @@ class GameSession {
     if (isWildAce && declaredSuit == null) {
       // Apply the play without a suit lock for now; the suit_choice response
       // will lock it. We still need to track the card as played.
+      final skipBefore = _state.activeSkipCount;
+      final dirBefore = _state.direction;
       _pushDiscardUnderTop();
       _state = applyPlay(state: _state, playerId: playerId, cards: cards);
       _checkBustPlacementPileRule();
 
-      _broadcast({
-        'type': 'card_played',
-        'playerId': playerId,
-        'cards': cards.map((c) => c.toJson()).toList(),
-        'newDiscardTop': _state.discardTopCard!.toJson(),
-      });
+      _broadcastCardPlayed(
+        playerId: playerId,
+        cards: cards,
+        activeSkipBefore: skipBefore,
+        directionBefore: dirBefore,
+      );
 
       // Ask the acting player to choose a suit.
       _sendTo(playerId, {
@@ -517,6 +520,8 @@ class GameSession {
       return;
     }
 
+    final skipBefore = _state.activeSkipCount;
+    final dirBefore = _state.direction;
     _pushDiscardUnderTop();
     _state = applyPlay(
       state: _state,
@@ -526,12 +531,12 @@ class GameSession {
     );
     _checkBustPlacementPileRule();
 
-    _broadcast({
-      'type': 'card_played',
-      'playerId': playerId,
-      'cards': cards.map((c) => c.toJson()).toList(),
-      'newDiscardTop': _state.discardTopCard!.toJson(),
-    });
+    _broadcastCardPlayed(
+      playerId: playerId,
+      cards: cards,
+      activeSkipBefore: skipBefore,
+      directionBefore: dirBefore,
+    );
 
     _checkWin();
     _broadcastStateSnapshots();
@@ -642,6 +647,8 @@ class GameSession {
       return;
     }
 
+    final skipBefore = _state.activeSkipCount;
+    final dirBefore = _state.direction;
     _pushDiscardUnderTop();
     _state = beginJokerPlay(
       state: _state,
@@ -662,12 +669,12 @@ class GameSession {
     );
     _checkBustPlacementPileRule();
 
-    _broadcast({
-      'type': 'card_played',
-      'playerId': playerId,
-      'cards': [resolvedCard.toJson()],
-      'newDiscardTop': _state.discardTopCard!.toJson(),
-    });
+    _broadcastCardPlayed(
+      playerId: playerId,
+      cards: [resolvedCard],
+      activeSkipBefore: skipBefore,
+      directionBefore: dirBefore,
+    );
 
     _checkWin();
     _broadcastStateSnapshots();
@@ -1121,6 +1128,16 @@ class GameSession {
       }
     }
 
+    // Same contract as [_handleDrawCard] for multi-card penalty draws: clients
+    // play one cardDraw + one penaltyDraw from [penalty_applied], not from
+    // each [card_drawn].
+    _broadcast({
+      'type': 'penalty_applied',
+      'targetPlayerId': playerId,
+      'cardsDrawn': drawnCards.length,
+      'newPenaltyStack': _state.activePenaltyCount,
+    });
+
     _checkBustPlacementPileRule();
     _advanceTurn();
   }
@@ -1257,6 +1274,25 @@ class GameSession {
   void _pushDiscardUnderTop() {
     final prev = _state.discardTopCard;
     if (prev != null) _discardUnderTop.add(prev);
+  }
+
+  void _broadcastCardPlayed({
+    required String playerId,
+    required List<CardModel> cards,
+    required int activeSkipBefore,
+    required PlayDirection directionBefore,
+  }) {
+    _broadcast({
+      'type': 'card_played',
+      'playerId': playerId,
+      'cards': cards.map((c) => c.toJson()).toList(),
+      'newDiscardTop': _state.discardTopCard!.toJson(),
+      'activeSkipCountBefore': activeSkipBefore,
+      'activeSkipCountAfter': _state.activeSkipCount,
+      'skippedPlayers': skippedPlayerDisplayNamesForSkipState(_state),
+      'turnContinues': _state.currentPlayerId == playerId,
+      'directionReversed': directionBefore != _state.direction,
+    });
   }
 
   // ── Broadcast helpers ─────────────────────────────────────────────────────

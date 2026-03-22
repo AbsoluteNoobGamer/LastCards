@@ -879,6 +879,28 @@ void main() {
           reason: 'First card Ace sets suit lock');
     });
 
+    test('jokerAsAceWildFirstCard_setsSuitLockWithoutExplicitDeclaredSuit', () {
+      final jokerAsAce = c(Rank.joker, Suit.spades).copyWith(
+        jokerDeclaredRank: Rank.ace,
+        jokerDeclaredSuit: Suit.diamonds,
+      );
+      var state = buildState(
+        discardTop: c(Rank.three, Suit.clubs),
+        p1Hand: [jokerAsAce],
+      );
+      state = applyPlay(
+        state: state,
+        playerId: 'p1',
+        cards: [jokerAsAce],
+      );
+      expect(
+        state.suitLock,
+        Suit.diamonds,
+        reason:
+            'Joker-as-Ace must lock suit from declaration (matches resolveJokerPlay)',
+      );
+    });
+
     test('aceMidSequenceNotWild', () {
       var state = buildState(discardTop: c(Rank.three, Suit.hearts));
       // playing sequence 4♥ -> 3♥ -> 2♥ -> A♥
