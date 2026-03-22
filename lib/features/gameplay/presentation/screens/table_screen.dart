@@ -229,6 +229,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final localId = ref.read(gameStateProvider)?.localPlayer?.id;
       final isOpponent = localId != null && e.playerId != localId;
       if (isOpponent) {
+        // [GameNotifier] increments _opponentFlightsInFlight synchronously on
+        // card_played; we must always decrement (even if unmounted mid-flight)
+        // so deferred state_snapshot queues cannot stall forever.
         final notifier = ref.read(gameNotifierProvider.notifier);
         try {
           await _runOnlineOpponentPlayFlights(e);
