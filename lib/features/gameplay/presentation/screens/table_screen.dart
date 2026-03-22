@@ -174,6 +174,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   StreamSubscription<dynamic>? _onlineTurnTimeoutSub;
   StreamSubscription<dynamic>? _onlineReshuffleSub;
   StreamSubscription<QuickChatEvent>? _onlineQuickChatSub;
+  StreamSubscription<TurnChangedEvent>? _onlineTurnChangedSub;
+
+  /// Tracks [GameState.currentPlayerId] across [turn_changed] events so we can
+  /// finalize move-log entries for the player whose turn ended (server
+  /// `card_played.turnContinues` is unreliable because applyPlay does not
+  /// advance [currentPlayerId]).
+  String? _onlineLastKnownCurrentPlayerId;
   bool _timerWarningPlayed = false;
 
   bool _showQuickChatPanel = false;
@@ -219,6 +226,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   void _subscribeToOnlineMoveLogIfNeeded() {
     if (ref.read(gameStateProvider) == null) return;
     final handler = ref.read(gameEventHandlerProvider);
+    _onlineLastKnownCurrentPlayerId =
+        ref.read(gameStateProvider)?.currentPlayerId;
 
     // In online mode the server deals cards before the client navigates here.
     // The game state is already initialised in _initNewGame(), so no deal
@@ -298,6 +307,16 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     _onlineErrorsSub = handler.errors.listen((e) {
       if (mounted) _showError(e.message);
+    });
+
+    // When the turn advances, mark the previous player's play entry as no
+    // longer continuing (mirrors offline _finalizeTurnLogForPlayer on end turn).
+    _onlineTurnChangedSub = handler.turnChanges.listen((e) {
+      if (!mounted) return;
+      final endedTurnFor = _onlineLastKnownCurrentPlayerId;
+      _onlineLastKnownCurrentPlayerId = e.newCurrentPlayerId;
+      if (endedTurnFor == null) return;
+      setState(() => _finalizeTurnLogForPlayer(endedTurnFor));
     });
 
     // ── Turn timeout ────────────────────────────────────────────────────────
@@ -604,6 +623,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _onlineTurnTimeoutSub?.cancel();
     _onlineReshuffleSub?.cancel();
     _onlineQuickChatSub?.cancel();
+    _onlineTurnChangedSub?.cancel();
     _quickChatCooldownTimer?.cancel();
     _engineTimer.dispose();
     _reshuffleNotifier.dispose();
