@@ -73,7 +73,6 @@ void main() {
       final service = AudioService();
       await Future.delayed(const Duration(milliseconds: 50));
       expect(service.soundEffectsEnabled, isTrue);
-      expect(service.isMuted, isFalse);
     });
 
     test('setSoundEffectsEnabled(false) disables and notifies', () async {
@@ -86,7 +85,6 @@ void main() {
       await service.setSoundEffectsEnabled(false);
 
       expect(service.soundEffectsEnabled, isFalse);
-      expect(service.isMuted, isTrue);
       expect(notified, isTrue);
     });
 
@@ -112,15 +110,15 @@ void main() {
       expect(prefs.getBool('audio_muted'), isTrue);
     });
 
-    test('toggleMute (deprecated) inverts soundEffectsEnabled', () async {
+    test('setSoundEffectsEnabled(!enabled) toggles soundEffectsEnabled', () async {
       final service = AudioService();
       await Future.delayed(const Duration(milliseconds: 50));
 
-      await service.toggleMute();
-      expect(service.isMuted, isTrue);
+      await service.setSoundEffectsEnabled(!service.soundEffectsEnabled);
+      expect(service.soundEffectsEnabled, isFalse);
 
-      await service.toggleMute();
-      expect(service.isMuted, isFalse);
+      await service.setSoundEffectsEnabled(!service.soundEffectsEnabled);
+      expect(service.soundEffectsEnabled, isTrue);
     });
 
     test('restores previously saved enabled flag on next init', () async {
