@@ -302,8 +302,8 @@ class GameSession {
 
     final wasCurrent = oldState.currentPlayerId == playerId;
     if (wasCurrent) {
+      final nextCurrent = nextPlayerId(state: oldState);
       final s = oldState.copyWith(players: newPlayers);
-      final nextCurrent = nextPlayerId(state: s);
       _state = advanceTurn(s, nextId: nextCurrent);
     } else {
       _state = oldState.copyWith(players: newPlayers);
