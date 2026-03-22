@@ -47,7 +47,9 @@ class _MarqueeNameState extends State<MarqueeName>
     super.dispose();
   }
 
-  double _textWidth(BuildContext context) {
+  /// Laid-out width and height for [widget.text], using the same scaling as
+  /// rendered [Text] (including [MediaQuery.textScalerOf]).
+  Size _textMetrics(BuildContext context) {
     final textPainter = TextPainter(
       text: TextSpan(
         text: widget.text,
@@ -60,9 +62,9 @@ class _MarqueeNameState extends State<MarqueeName>
       textDirection: TextDirection.ltr,
       textScaler: MediaQuery.textScalerOf(context),
     )..layout();
-    final width = textPainter.width;
+    final size = Size(textPainter.width, textPainter.height);
     textPainter.dispose();
-    return width;
+    return size;
   }
 
   @override
@@ -72,7 +74,8 @@ class _MarqueeNameState extends State<MarqueeName>
         final availableWidth = min(widget.maxWidth, constraints.maxWidth);
         if (availableWidth <= 0) return const SizedBox.shrink();
 
-        final textWidth = _textWidth(context);
+        final metrics = _textMetrics(context);
+        final textWidth = metrics.width;
         final overflows = textWidth > availableWidth;
 
         if (!overflows) {
@@ -94,9 +97,11 @@ class _MarqueeNameState extends State<MarqueeName>
 
         const gap = 24.0;
         final totalScroll = textWidth + gap;
+        final lineHeight = metrics.height;
 
         return SizedBox(
           width: availableWidth,
+          height: lineHeight,
           child: ClipRect(
             child: AnimatedBuilder(
               animation: _animation,
@@ -108,28 +113,38 @@ class _MarqueeNameState extends State<MarqueeName>
                     }
                   });
                 }
-                return Transform.translate(
-                  offset: Offset(-_animation.value * totalScroll, 0),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        widget.text,
-                        style: widget.color != null
-                            ? widget.style.copyWith(color: widget.color)
-                            : widget.style,
-                        maxLines: 1,
+                // [Stack] + [clipBehavior] clips the wide Row without tripping
+                // RenderFlex overflow (Transform + Row did). Outer [SizedBox]
+                // height is required so the stack has a non-zero size.
+                return Stack(
+                  clipBehavior: Clip.hardEdge,
+                  alignment: Alignment.centerLeft,
+                  children: [
+                    Positioned(
+                      left: -_animation.value * totalScroll,
+                      top: 0,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.text,
+                            style: widget.color != null
+                                ? widget.style.copyWith(color: widget.color)
+                                : widget.style,
+                            maxLines: 1,
+                          ),
+                          SizedBox(width: gap),
+                          Text(
+                            widget.text,
+                            style: widget.color != null
+                                ? widget.style.copyWith(color: widget.color)
+                                : widget.style,
+                            maxLines: 1,
+                          ),
+                        ],
                       ),
-                      SizedBox(width: gap),
-                      Text(
-                        widget.text,
-                        style: widget.color != null
-                            ? widget.style.copyWith(color: widget.color)
-                            : widget.style,
-                        maxLines: 1,
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 );
               },
             ),

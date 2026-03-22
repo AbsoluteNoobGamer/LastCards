@@ -11,6 +11,8 @@
 //   flutter test test/profile_test.dart --reporter=expanded
 import 'dart:io';
 
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,6 +20,8 @@ import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:last_cards/core/providers/auth_provider.dart';
+import 'package:last_cards/core/providers/user_profile_provider.dart';
 import 'package:last_cards/core/services/profile_service.dart';
 import 'package:last_cards/core/services/nsfw_scan_service.dart';
 import 'package:last_cards/features/profile/presentation/screens/profile_screen.dart';
@@ -31,13 +35,35 @@ import 'profile_test.mocks.dart';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
+User _testSignedInUser(String displayName) => MockUser(
+      uid: 'test-uid',
+      email: 'test@example.com',
+      displayName: displayName,
+      isEmailVerified: true,
+    );
+
 /// Pumps a [ProfileScreen] inside a [ProviderScope] with the given overrides.
+///
+/// [ProfileScreen] only shows the name field when signed in; tests override
+/// [authStateProvider] and [userProfileProvider] so no Firebase is required.
 Future<void> _pumpProfileScreen(
   WidgetTester tester, {
   NsfwScanService? nsfwMock,
   List<Override> extraOverrides = const [],
+  String profileDisplayName = 'Noob 1',
 }) async {
   final overrides = <Override>[
+    authStateProvider.overrideWith(
+      (ref) => Stream<User?>.value(_testSignedInUser(profileDisplayName)),
+    ),
+    userProfileProvider.overrideWith(
+      (ref) => Stream.value(
+        UserProfile(
+          displayName: profileDisplayName,
+          profileLastChangedAt: null,
+        ),
+      ),
+    ),
     if (nsfwMock != null) nsfwScanServiceProvider.overrideWithValue(nsfwMock),
     ...extraOverrides,
   ];
@@ -395,18 +421,16 @@ void main() {
         'profile_name': 'StackMaster',
       });
 
-      await _pumpProfileScreen(tester);
-      // Wait for the async PostFrameCallback prefs load to finish.
+      await _pumpProfileScreen(tester, profileDisplayName: 'StackMaster');
       await tester.pumpAndSettle();
 
-      // The name field should be pre-populated with the saved name.
       final nameField = tester.widget<TextField>(
         find.byKey(const ValueKey('name-field')),
       );
       expect(
         nameField.controller?.text,
         equals('StackMaster'),
-        reason: 'Name field must be pre-populated with saved name on reopen',
+        reason: 'Name field must be pre-populated with merged profile name',
       );
     });
   });

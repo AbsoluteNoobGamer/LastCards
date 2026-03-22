@@ -187,6 +187,7 @@ void main() {
     // the well-known list of values we control.
     const expectedSoundFiles = <GameSound, String>{
       GameSound.cardDraw: 'Draw-Card.wav',
+      GameSound.dealCard: 'deal_card.wav',
       GameSound.cardPlace: 'card_place.wav',
       GameSound.specialTwo: 'special_two.wav',
       GameSound.specialBlackJack: 'special-black_jack.wav', // hyphen!
