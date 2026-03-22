@@ -1,23 +1,22 @@
-import 'dart:developer' as developer;
+import 'dart:io';
 
 /// Lightweight logger for the game server.
 ///
-/// Wraps `dart:developer` log so messages are routed through the standard
-/// logging infrastructure instead of raw `print()`.
+/// Writes prefixed lines to stdout (info/warning) or stderr (error).
 class Logger {
-  Logger(this._tag);
+  Logger(this._name);
 
-  final String _tag;
+  final String _name;
 
   void info(String message) {
-    developer.log(message, name: _tag);
+    stdout.writeln('[$_name] $message');
   }
 
   void warning(String message) {
-    developer.log(message, name: _tag, level: 900);
+    stdout.writeln('[$_name] WARNING: $message');
   }
 
   void error(String message) {
-    developer.log(message, name: _tag, level: 1000);
+    stderr.writeln('[$_name] ERROR: $message');
   }
 }

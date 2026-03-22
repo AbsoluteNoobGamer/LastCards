@@ -42,4 +42,10 @@ class OfflineGameEngine {
     state = result.state;
     return result;
   }
+
+  /// Drops offline AI suit-inference data for [state.sessionId]. Call when the
+  /// session ends (e.g. after the round/game finishes or the engine is discarded).
+  void dispose() {
+    clearSuitInference(state.sessionId);
+  }
 }
