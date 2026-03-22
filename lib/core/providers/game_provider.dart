@@ -244,7 +244,6 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
           return;
         }
         if (e.cardsDrawn > 1) {
-          unawaited(AudioService.instance.playSound(GameSound.cardDraw));
           unawaited(AudioService.instance.playSound(GameSound.penaltyDraw));
         }
         state = state.copyWith(
