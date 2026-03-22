@@ -229,9 +229,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final localId = ref.read(gameStateProvider)?.localPlayer?.id;
       final isOpponent = localId != null && e.playerId != localId;
       if (isOpponent) {
-        await _runOnlineOpponentPlayFlights(e);
-        if (!mounted) return;
-        ref.read(gameNotifierProvider.notifier).opponentPlayFlightsFinished();
+        final notifier = ref.read(gameNotifierProvider.notifier);
+        try {
+          await _runOnlineOpponentPlayFlights(e);
+        } finally {
+          notifier.opponentPlayFlightsFinished();
+        }
       }
       if (!mounted) return;
       final state = ref.read(gameStateProvider);
