@@ -345,6 +345,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       final nextId = nextPlayerId(state: s);
       s = s.copyWith(currentPlayerId: nextId, activeSkipCount: 0);
     }
+    s = s.copyWith(preTurnCentreSuit: s.discardTopCard?.effectiveSuit);
     return s;
   }
 
@@ -403,6 +404,18 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
           state: state.copyWith(currentPlayerId: nextId));
       guard--;
     }
+    if (_roundManager.state.eliminatedIds.contains(nextId)) {
+      for (final p in state.players) {
+        if (!_roundManager.state.eliminatedIds.contains(p.id)) {
+          debugPrint(
+            'Bust _nextActivePlayerId: fallback — nextId was eliminated ($nextId), '
+            'using ${p.id}',
+          );
+          nextId = p.id;
+          break;
+        }
+      }
+    }
     return nextId;
   }
 
@@ -413,7 +426,6 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     final drawn = _drawPile.sublist(0, count);
     _drawPile.removeRange(0, count);
     _gameState = _gameState.copyWith(drawPileCount: _drawPile.length);
-    _checkPlacementPileRule();
     return drawn;
   }
 
@@ -653,6 +665,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       playerId: playerId,
       cardFactory: _makeCards,
     );
+    _checkPlacementPileRule();
     final drawCount =
         (newState.playerById(playerId)?.hand.length ?? 0) - handSizeBefore;
 
@@ -710,6 +723,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       count: drawCount,
       cardFactory: _makeCards,
     );
+    _checkPlacementPileRule();
 
     // Play draw sounds (same pattern as TableScreen offline).
     game_audio.AudioService.instance.playSound(GameSound.cardDraw);
@@ -855,6 +869,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       cardFactory: _makeCards,
       personality: aiConfig?.personality,
     );
+    _checkPlacementPileRule();
 
     if (result.playedCards.isNotEmpty) {
       _discardPile.addAll(result.playedCards);

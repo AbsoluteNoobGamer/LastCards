@@ -494,6 +494,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           activeSkipCount: 0,
         );
       }
+      state = state.copyWith(
+        preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
+      );
     }
 
     // During a normal deal animation, show the dealer pile counting down from
@@ -839,6 +842,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       count: count,
       cardFactory: _makeCards,
     );
+    if (mounted) {
+      _reshuffleCentrePileIntoDrawPile(silent: _tournamentSimulatingRest);
+    }
 
     // Play draw sound for timeout penalty.
     game_audio.AudioService.instance.playSound(GameSound.cardDraw);
@@ -974,20 +980,16 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
   }
 
-  /// Pops [n] cards from the real draw pile.
+  /// Pops [n] cards from the real draw pile and syncs [drawPileCount].
   ///
-  /// After removing the requested cards, checks if the pile has dropped to
-  /// 5 or fewer — if so, immediately reshuffles the centre pile back in.
-  /// Using <=5 (not ==5) ensures a multi-card draw that skips exactly 5
-  /// still triggers the reshuffle.
+  /// Call [_reshuffleCentrePileIntoDrawPile] after each [applyDraw] /
+  /// [applyInvalidPlayPenalty] / [aiTakeTurn] that uses this factory — not
+  /// inside the factory — so [setState] does not run during engine callbacks.
   List<CardModel> _makeCards(int n) {
     final count = math.min(n, _drawPile.length);
     final drawn = _drawPile.sublist(0, count);
     _drawPile.removeRange(0, count);
-    // Sync counter immediately after every draw.
     _offlineState = _offlineState.copyWith(drawPileCount: _drawPile.length);
-    // Trigger reshuffle whenever pile drops to 5 or below.
-    _reshuffleCentrePileIntoDrawPile(silent: _tournamentSimulatingRest);
     return drawn;
   }
 
@@ -2035,6 +2037,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         playerId: playerId,
         cardFactory: _makeCards,
       );
+      if (mounted) {
+        _reshuffleCentrePileIntoDrawPile(silent: _tournamentSimulatingRest);
+      }
 
       // Play draw sound for penalty.
       game_audio.AudioService.instance.playSound(GameSound.cardDraw);
@@ -2118,6 +2123,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         count: drawCount,
         cardFactory: _makeCards,
       );
+      if (mounted) {
+        _reshuffleCentrePileIntoDrawPile(silent: _tournamentSimulatingRest);
+      }
 
       // Play draw sounds (moved from game_engine to UI layer for server compat).
       game_audio.AudioService.instance.playSound(GameSound.cardDraw);
@@ -2266,6 +2274,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         cardFactory: _makeCards,
         personality: aiConfig?.personality,
       );
+      if (mounted) {
+        _reshuffleCentrePileIntoDrawPile(silent: _tournamentSimulatingRest);
+      }
 
       final playedByAi = result.playedCards;
       final sequentialReplay = playedByAi.isNotEmpty &&
@@ -2519,9 +2530,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   // ── Reshuffle centre pile → draw pile ─────────────────────────────────────
 
-  /// Dedicated reshuffle function. Called from [_makeCards] every time cards
-  /// leave the draw pile — this covers ALL draw paths: player draws, penalty
-  /// draws, invalid-play penalty draws, and AI draws.
+  /// Dedicated reshuffle function. Invoke after each draw path completes
+  /// (timeout draw, invalid-play penalty, player draw, AI turn) — this covers
+  /// all draw paths that mutate [_drawPile].
   ///
   /// Fires when [_drawPile.length] drops to **5 or fewer** cards so that a
   /// multi-card draw which skips exactly 5 is never missed.
@@ -2538,6 +2549,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   /// When [silent] is true (offline tournament fast-forward), skips sound,
   /// pile animation notifier, and snackbar so simulation stays instant.
   void _reshuffleCentrePileIntoDrawPile({bool silent = false}) {
+    // Called after draw paths complete (see [_makeCards] doc) — not from the
+    // factory during [applyDraw].
     // Gate: only trigger when 5 or fewer remain AND centre pile has spare cards.
     if (_drawPile.length > 5) return;
     if (_discardPile.length <= 1) return; // nothing beyond the top card
