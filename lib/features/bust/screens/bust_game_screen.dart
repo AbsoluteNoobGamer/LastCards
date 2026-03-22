@@ -163,6 +163,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
 
   @override
   void dispose() {
+    clearSuitInference(_gameState.sessionId);
     _reshuffleNotifier.dispose();
     _quickChatCooldownTimer?.cancel();
     super.dispose();

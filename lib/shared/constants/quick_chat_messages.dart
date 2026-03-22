@@ -3,7 +3,7 @@
 /// Messages are identified by index (0-based) over the wire. Both the client
 /// UI ([QuickChatPanel]) and the server validation ([GameSession.handleQuickChat])
 /// reference this list so they stay in sync automatically.
-const kQuickMessages = [
+const List<String> kQuickMessages = [
   'Good luck!',
   'Well played',
   'Oops!',

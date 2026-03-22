@@ -91,10 +91,15 @@ class WebSocketClient {
 
   // ── Send ───────────────────────────────────────────────────────────────────
 
+  /// Sends [jsonPayload] to the server.
+  ///
+  /// If the socket is not connected, does nothing (no-op) and logs a debug
+  /// line — callers should not crash on transient disconnects.
   void send(String jsonPayload) {
     if (_stateNotifier.value != WsConnectionState.connected ||
         _channel == null) {
-      throw StateError('[WS] Cannot send — not connected');
+      debugPrint('[WS] send skipped — not connected');
+      return;
     }
     _channel!.sink.add(jsonPayload);
   }
