@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -100,33 +101,70 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
   final GameEventHandler _eventHandler;
   final List<StreamSubscription<dynamic>> _subs = [];
 
+  /// One [GameSound.cardDraw] per draw action (not per `card_drawn` line).
+  bool _drawSoundPlayedThisBatch = false;
+
+  /// After [InvalidPlayPenaltyEvent], suppress matching `card_drawn` events so
+  /// snapshot/voluntary-draw logic does not add extra [GameSound.cardDraw].
+  int _suppressCardDrawSoundCount = 0;
+
+  /// True after [invalid_play_penalty] plays cardDraw+penaltyDraw for the local
+  /// player — [penalty_applied] must not duplicate those sounds.
+  bool _invalidPenaltySoundPlayed = false;
+
+  /// Opponent [card_played] animations run before applying the paired snapshot.
+  int _opponentFlightsInFlight = 0;
+  final Queue<GameState> _deferredSnapshots = Queue<GameState>();
+
   // Convenience getter so callers that only need GameState? don't change.
   GameState? get gameState => state.gameState;
+
+  void _applyStateSnapshot(StateSnapshotEvent e) {
+    final suitChoiceResolved = state.pendingSuitChoice &&
+        state.gameState != null &&
+        e.gameState.currentPlayerId != state.gameState!.currentPlayerId;
+    state = state.copyWith(
+      gameState: e.gameState,
+      clearError: true,
+      clearSuitChoice: !e.gameState.pendingJokerResolution &&
+          (!state.pendingSuitChoice || suitChoiceResolved),
+    );
+    _drawSoundPlayedThisBatch = false;
+    wouldConfirmWin(e.gameState);
+  }
+
+  /// Called after [TableScreen] finishes opponent card flight animations.
+  void opponentPlayFlightsFinished() {
+    if (_opponentFlightsInFlight > 0) {
+      _opponentFlightsInFlight--;
+    }
+    if (_deferredSnapshots.isEmpty) return;
+    final gs = _deferredSnapshots.removeFirst();
+    _applyStateSnapshot(StateSnapshotEvent(gs));
+  }
 
   void _subscribe() {
     // ── state_snapshot ──────────────────────────────────────────────────────
     _subs.add(
       _eventHandler.stateSnapshots.listen((e) {
-        // A fresh snapshot from the server is authoritative — clear any
-        // pending UI flags that the snapshot implicitly resolves, and clear
-        // any stale error.
-        //
-        // Clear pendingSuitChoice when:
-        //   • There is no pending joker resolution (unrelated flow), AND
-        //   • Either the flag isn't set, OR the turn has moved on (the player
-        //     who triggered the suit choice is no longer current — the server
-        //     timed them out or they responded via declareSuit).
-        final suitChoiceResolved = state.pendingSuitChoice &&
-            state.gameState != null &&
-            e.gameState.currentPlayerId != state.gameState!.currentPlayerId;
-        state = state.copyWith(
-          gameState: e.gameState,
-          clearError: true,
-          clearSuitChoice: !e.gameState.pendingJokerResolution &&
-              (!state.pendingSuitChoice || suitChoiceResolved),
-        );
-        // Online mode consumes shared rules for structural dependency.
-        wouldConfirmWin(e.gameState);
+        if (_opponentFlightsInFlight > 0) {
+          _deferredSnapshots.addLast(e.gameState);
+          return;
+        }
+        _applyStateSnapshot(e);
+      }),
+    );
+
+    // ── invalid_play_penalty ────────────────────────────────────────────────
+    _subs.add(
+      _eventHandler.invalidPlayPenalties.listen((e) {
+        _suppressCardDrawSoundCount = e.drawCount;
+        final localId = state.gameState?.localPlayer?.id;
+        if (localId != null && e.playerId == localId) {
+          _invalidPenaltySoundPlayed = true;
+          unawaited(AudioService.instance.playSound(GameSound.cardDraw));
+          unawaited(AudioService.instance.playSound(GameSound.penaltyDraw));
+        }
       }),
     );
 
@@ -134,26 +172,26 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     _subs.add(
       _eventHandler.cardPlays.listen((e) {
         if (state.gameState == null) return;
-        // Every card uses card_place.wav; special cards also get their effect sound.
+        final localId = state.gameState!.localPlayer?.id;
+        if (localId != null && e.playerId != localId) {
+          _opponentFlightsInFlight++;
+        }
         for (final card in e.cards) {
           unawaited(AudioService.instance.playSound(GameSound.cardPlace));
           final s = soundForCard(card);
           if (s != null) unawaited(AudioService.instance.playSound(s));
         }
-        // Eight played → skip effect incoming
-        if (e.cards.any((c) => c.effectiveRank == Rank.eight)) {
+        final before = e.activeSkipCountBefore;
+        final after = e.activeSkipCountAfter;
+        final skipIncreased =
+            before != null && after != null && after > before;
+        if (skipIncreased) {
           unawaited(AudioService.instance.playSound(GameSound.skipApplied));
         }
-        state = state.copyWith(
-          gameState: state.gameState!.copyWith(
-            discardPileHistory: [
-              if (state.gameState!.discardTopCard != null)
-                state.gameState!.discardTopCard!,
-              ...state.gameState!.discardPileHistory,
-            ].take(5).toList(),
-            discardTopCard: e.newDiscardTop,
-          ),
-        );
+        if (e.directionReversed) {
+          unawaited(
+              AudioService.instance.playSound(GameSound.directionReversed));
+        }
       }),
     );
 
@@ -161,7 +199,14 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     _subs.add(
       _eventHandler.cardDraws.listen((e) {
         if (state.gameState == null) return;
-        unawaited(AudioService.instance.playSound(GameSound.cardDraw));
+        if (_suppressCardDrawSoundCount > 0) {
+          _suppressCardDrawSoundCount--;
+        } else {
+          if (!_drawSoundPlayedThisBatch) {
+            unawaited(AudioService.instance.playSound(GameSound.cardDraw));
+            _drawSoundPlayedThisBatch = true;
+          }
+        }
         state = state.copyWith(
           gameState: state.gameState!.copyWith(
             drawPileCount: (state.gameState!.drawPileCount - 1)
@@ -176,10 +221,6 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     _subs.add(
       _eventHandler.turnChanges.listen((e) {
         if (state.gameState == null) return;
-        if (e.direction != state.gameState!.direction) {
-          unawaited(
-              AudioService.instance.playSound(GameSound.directionReversed));
-        }
         state = state.copyWith(
           gameState: state.gameState!.copyWith(
             currentPlayerId: e.newCurrentPlayerId,
@@ -193,7 +234,19 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     _subs.add(
       _eventHandler.penalties.listen((e) {
         if (state.gameState == null) return;
-        unawaited(AudioService.instance.playSound(GameSound.penaltyDraw));
+        if (_invalidPenaltySoundPlayed) {
+          _invalidPenaltySoundPlayed = false;
+          state = state.copyWith(
+            gameState: state.gameState!.copyWith(
+              activePenaltyCount: e.newPenaltyStack,
+            ),
+          );
+          return;
+        }
+        if (e.cardsDrawn > 1) {
+          unawaited(AudioService.instance.playSound(GameSound.cardDraw));
+          unawaited(AudioService.instance.playSound(GameSound.penaltyDraw));
+        }
         state = state.copyWith(
           gameState: state.gameState!.copyWith(
             activePenaltyCount: e.newPenaltyStack,
@@ -331,10 +384,19 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
   /// Clears all online game state. Call when the user leaves an online game
   /// so that the next TableScreen (e.g. single player) does not inherit stale
   /// ranked/online state.
-  void clearOnlineState() => state = const GameNotifierState();
+  void clearOnlineState() {
+    _drawSoundPlayedThisBatch = false;
+    _suppressCardDrawSoundCount = 0;
+    _invalidPenaltySoundPlayed = false;
+    _opponentFlightsInFlight = 0;
+    _deferredSnapshots.clear();
+    state = const GameNotifierState();
+  }
 
   @override
   void dispose() {
+    _deferredSnapshots.clear();
+    _opponentFlightsInFlight = 0;
     for (final s in _subs) {
       s.cancel();
     }

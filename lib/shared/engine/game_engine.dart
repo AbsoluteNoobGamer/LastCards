@@ -431,8 +431,13 @@ GameState applyPlay({
 
   for (final card in cards) {
     final useDeclaredSuit = isWildAcePlay && card.id == cards.first.id;
-    gs = _applySpecialEffect(gs, card,
-        declaredSuit: useDeclaredSuit ? declaredSuit : null);
+    // Natural wild Ace passes [declaredSuit] from the suit picker. Joker-as-Ace
+    // encodes the chosen suit on the card ([effectiveSuit]); callers often omit
+    // [declaredSuit] — mirror [resolveJokerPlay] by falling back for jokers only.
+    final suitForAceEffect = useDeclaredSuit
+        ? (declaredSuit ?? (card.isJoker ? card.effectiveSuit : null))
+        : null;
+    gs = _applySpecialEffect(gs, card, declaredSuit: suitForAceEffect);
   }
 
   // Sequence Penalty Override: If the final card of the play is not a penalty

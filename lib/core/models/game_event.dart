@@ -37,10 +37,31 @@ final class CardPlayedEvent extends GameEvent {
   final String playerId;
   final List<CardModel> cards;
   final CardModel newDiscardTop;
+
+  /// Skip stack before this play (for online skip sound / UI).
+  final int? activeSkipCountBefore;
+
+  /// Skip stack after this play.
+  final int? activeSkipCountAfter;
+
+  /// Display names of players skipped by this play (Eight skip), if any.
+  final List<String> skippedPlayers;
+
+  /// True while the same player may continue this turn (stack more cards).
+  final bool turnContinues;
+
+  /// True if play direction flipped vs before this play (e.g. King).
+  final bool directionReversed;
+
   const CardPlayedEvent({
     required this.playerId,
     required this.cards,
     required this.newDiscardTop,
+    this.activeSkipCountBefore,
+    this.activeSkipCountAfter,
+    this.skippedPlayers = const [],
+    this.turnContinues = true,
+    this.directionReversed = false,
   });
 
   @override
@@ -384,6 +405,15 @@ GameEvent parseServerEvent(String raw) {
           newDiscardTop: CardModel.fromJson(
             json['newDiscardTop'] as Map<String, dynamic>,
           ),
+          activeSkipCountBefore:
+              (json['activeSkipCountBefore'] as num?)?.toInt(),
+          activeSkipCountAfter: (json['activeSkipCountAfter'] as num?)?.toInt(),
+          skippedPlayers: (json['skippedPlayers'] as List?)
+                  ?.map((e) => e as String)
+                  .toList() ??
+              const [],
+          turnContinues: json['turnContinues'] as bool? ?? true,
+          directionReversed: json['directionReversed'] as bool? ?? false,
         ),
       'card_drawn' => CardDrawnEvent(
           playerId: json['playerId'] as String,

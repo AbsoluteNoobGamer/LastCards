@@ -269,6 +269,12 @@ void main() {
 
       expect(p1ws.ofType('card_played'), isNotEmpty);
       expect(p1ws.ofType('state_snapshot'), isNotEmpty);
+      final cp = p1ws.lastOfType('card_played');
+      expect(cp!['activeSkipCountBefore'], isA<int>());
+      expect(cp['activeSkipCountAfter'], isA<int>());
+      expect(cp['skippedPlayers'], isA<List>());
+      expect(cp['turnContinues'], isA<bool>());
+      expect(cp['directionReversed'], isA<bool>());
     });
 
     test('not_your_turn error sent to wrong player', () {
@@ -352,6 +358,11 @@ void main() {
       final err = p1ws.lastOfType('error');
       expect(err, isNotNull);
       expect(err!['code'], equals('invalid_play'));
+
+      final penaltyAp = p1ws.lastOfType('penalty_applied');
+      expect(penaltyAp, isNotNull);
+      expect(penaltyAp!['targetPlayerId'], equals(p1Id));
+      expect(penaltyAp['cardsDrawn'], equals(2));
 
       // 2-card penalty: hand grows by 2.
       final snapAfter = _latestSnapshot(p1ws);

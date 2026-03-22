@@ -367,7 +367,13 @@ _AiPlayChoice _buildSingleCardChoice({
       aiHand: ai.hand,
       joker: card,
     );
-    return _AiPlayChoice(cards: [resolved], declaredSuit: null, score: 0);
+    return _AiPlayChoice(
+      cards: [resolved],
+      declaredSuit: resolved.effectiveRank == Rank.ace
+          ? resolved.effectiveSuit
+          : null,
+      score: 0,
+    );
   }
 
   return _AiPlayChoice(cards: [card], declaredSuit: null, score: 0);
