@@ -32,8 +32,16 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Analyze
+      - name: Analyze (Flutter app)
         run: flutter analyze
+
+      - name: Pub get (server package)
+        working-directory: server
+        run: dart pub get
+
+      - name: Analyze (server package)
+        working-directory: server
+        run: dart analyze
 
       - name: Test
         run: flutter test
