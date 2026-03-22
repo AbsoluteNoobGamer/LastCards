@@ -260,6 +260,8 @@ class GameSession {
       if (isRanked)
         'ratingChanges': {
           disconnectedPlayerId: _rankedLeaveDelta,
+          for (final p in _state.players)
+            if (p.id != disconnectedPlayerId) p.id: _rankedWinDelta,
         },
     });
   }
@@ -549,6 +551,13 @@ class GameSession {
 
   void _handleSuitChoice(String playerId, Map<String, dynamic> json) {
     if (_state.currentPlayerId != playerId) return;
+
+    if (_state.discardTopCard?.effectiveRank != Rank.ace ||
+        _state.cardsPlayedThisTurn != 1 ||
+        _state.suitLock != null) {
+      _sendError(playerId, 'invalid_action', 'No suit choice required.');
+      return;
+    }
 
     final suitStr = json['suit'] as String?;
     if (suitStr == null) return;
@@ -1202,8 +1211,10 @@ class GameSession {
     if (isBustMode) return;
     if (!wouldConfirmWin(_state)) return;
 
-    final winnerId =
-        _state.players.firstWhere((p) => p.hand.isEmpty && p.cardCount == 0).id;
+    final winner = _state.players.firstWhereOrNull(
+        (p) => p.hand.isEmpty && p.cardCount == 0);
+    if (winner == null) return;
+    final winnerId = winner.id;
     _state = _state.copyWith(phase: GamePhase.ended, winnerId: winnerId);
     _gameOver = true;
     _turnTimer?.cancel();
