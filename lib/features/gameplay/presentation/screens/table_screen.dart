@@ -692,7 +692,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _onlineDrawFlightChains[playerId] = prev.then((_) async {
       if (!mounted) return;
       await _animateDrawFlightsToPlayer(playerId, 1);
-    });
+    }).catchError((_) {});
   }
 
   /// Opponent (or non-local) plays: staggered flights matching offline AI pacing.
