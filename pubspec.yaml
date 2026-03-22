@@ -45,6 +45,8 @@ dependencies:
   nsfw_detector_flutter: ^1.0.5
 
 dev_dependencies:
+  async: ^2.11.0
+  stream_channel: ^2.1.4
   flutter_test:
     sdk: flutter
   integration_test:
