@@ -627,6 +627,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _quickChatCooldownTimer?.cancel();
     _engineTimer.dispose();
     _reshuffleNotifier.dispose();
+    clearSuitInference(_offlineState.sessionId);
     super.dispose();
   }
 
@@ -797,6 +798,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             cardsPlayedThisTurn: 0,
             lastPlayedThisTurn: null,
             activeSkipCount: 0,
+            queenSuitLock: null,
             preTurnCentreSuit: _offlineState.discardTopCard?.effectiveSuit,
           );
         });
@@ -807,7 +809,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       }
       if (_offlineState.currentPlayerId == OfflineGameState.localId &&
           !_aiThinking) {
-        // Timeout rule: always force a single draw, end the turn, and pass play.
+        // Timeout rule: draw penalty chain (or 1 card), end the turn, pass play.
         game_audio.AudioService.instance.playSound(GameSound.timerExpired);
         _forcedTimeoutDrawAndEnd();
       }
@@ -826,12 +828,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (_aiThinking) return;
     if (_localActionInProgress) return;
 
-    _showError('Timeout! Drew 1 card as penalty.');
+    final count = _offlineState.activePenaltyCount > 0
+        ? _offlineState.activePenaltyCount
+        : 1;
+    _showError('Timeout! Drew $count card(s) as penalty.');
 
     var newState = applyDraw(
       state: _offlineState,
       playerId: OfflineGameState.localId,
-      count: 1,
+      count: count,
       cardFactory: _makeCards,
     );
 
@@ -856,7 +861,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         playerName:
             _offlineState.playerById(OfflineGameState.localId)?.displayName ??
                 OfflineGameState.localId,
-        drawCount: 1,
+        drawCount: count,
       ));
     });
 
@@ -920,6 +925,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         cardsPlayedThisTurn: 0,
         lastPlayedThisTurn: null,
         activeSkipCount: 0,
+        queenSuitLock: null,
         preTurnCentreSuit: _offlineState.discardTopCard?.effectiveSuit,
       );
     });
@@ -1985,6 +1991,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             cardsPlayedThisTurn: 0,
             lastPlayedThisTurn: null,
             activeSkipCount: 0,
+            queenSuitLock: null,
             preTurnCentreSuit: _offlineState.discardTopCard?.effectiveSuit,
           );
         });

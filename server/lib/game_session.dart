@@ -150,6 +150,9 @@ class GameSession {
   /// Returns the current discard-under-top size (for assertions in tests).
   int get discardUnderTopCountForTesting => _discardUnderTop.length;
 
+  /// Invokes the turn-timeout handler (for tests).
+  void triggerTurnTimeoutForTesting() => _onTurnTimeout();
+
   /// Bust per-player turn counts this round (for tests).
   Map<String, int> get bustTurnsThisRoundForTesting =>
       Map<String, int>.from(_bustTurnsThisRound);
@@ -647,6 +650,30 @@ class GameSession {
       return;
     }
 
+    final top = _state.discardTopCard;
+    if (top == null) {
+      _sendError(playerId, 'invalid_joker', 'Invalid Joker declaration.');
+      return;
+    }
+    final jokerContext =
+        jokerPlayContextFromCardsPlayed(_state.cardsPlayedThisTurn);
+    final jokerAnchor = jokerContext == JokerPlayContext.midTurnContinuance
+        ? (_state.lastPlayedThisTurn ?? top)
+        : top;
+    final validOptions = getValidJokerOptions(
+      state: _state,
+      discardTop: top,
+      context: jokerContext,
+      contextTopCard: jokerAnchor,
+    );
+    final declarationOk = validOptions.any(
+      (c) => c.suit == declaredSuit && c.rank == declaredRank,
+    );
+    if (!declarationOk) {
+      _sendError(playerId, 'invalid_joker', 'Invalid Joker declaration.');
+      return;
+    }
+
     final skipBefore = _state.activeSkipCount;
     final dirBefore = _state.direction;
     _pushDiscardUnderTop();
@@ -1040,12 +1067,13 @@ class GameSession {
     if (_gameOver) return;
     final timedOutPlayerId = _state.currentPlayerId;
 
-    // Force draw 1 card as timeout penalty.
+    final count =
+        _state.activePenaltyCount > 0 ? _state.activePenaltyCount : 1;
     final drawnCards = <CardModel>[];
     _state = applyDraw(
       state: _state,
       playerId: timedOutPlayerId,
-      count: 1,
+      count: count,
       cardFactory: (n) {
         final cards = _drawCards(n);
         drawnCards.addAll(cards);
@@ -1071,6 +1099,15 @@ class GameSession {
           entry.value.ws.sink.add(encoded);
         }
       }
+    }
+
+    if (count > 1) {
+      _broadcast({
+        'type': 'penalty_applied',
+        'targetPlayerId': timedOutPlayerId,
+        'cardsDrawn': count,
+        'newPenaltyStack': 0,
+      });
     }
 
     // Broadcast turn_timeout before advancing.
@@ -1328,7 +1365,7 @@ class GameSession {
           personalizedPlayers
               .add(p.copyWith(tablePosition: TablePosition.bottom));
         } else {
-          others.add(p.copyWith(hand: const [], cardCount: p.hand.length));
+          others.add(p.copyWith(hand: const [], cardCount: p.cardCount));
         }
       }
       personalizedPlayers.addAll(others);
