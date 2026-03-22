@@ -502,7 +502,7 @@ class TrophyRecorder {
         players,
     required int playerCount,
   }) async {
-    final n = playerCount.clamp(2, 7);
+    final n = playerCount.clamp(2, 10);
     _log.info(
         'Recording $collection (${n}p) — winner player: $winnerPlayerId, '
         'participants: ${players.map((p) => p.playerId).join(', ')}');

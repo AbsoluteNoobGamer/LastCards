@@ -590,7 +590,7 @@ void main() {
         'type': 'declare_joker',
         'jokerCardId': 'joker_r',
         'declaredSuit': 'hearts',
-        'declaredRank': 'seven',
+        'declaredRank': 'four',
       });
 
       final played = p1ws.lastOfType('card_played');
@@ -600,7 +600,62 @@ void main() {
       final card = cards.first as Map<String, dynamic>;
       expect(card['rank'], equals('joker'));
       expect(card['jokerDeclaredSuit'], equals('hearts'));
-      expect(card['jokerDeclaredRank'], equals('seven'));
+      expect(card['jokerDeclaredRank'], equals('four'));
+    });
+
+    test('invalid declare_joker sends error and does not play card', () {
+      final (:session, :sockets, :ids) = _makeSession(2);
+      final p1ws = sockets[0];
+      final p1Id = ids[0];
+      final p2Id = ids[1];
+
+      final joker = _joker('joker_r', Suit.hearts);
+      final p1Hand = [joker];
+      final p2Hand = [_card(Rank.five, Suit.hearts)];
+      final discardTop = _card(Rank.four, Suit.spades);
+      final drawPile = List.generate(
+          5, (i) => CardModel(id: 'filler_$i', rank: Rank.seven, suit: Suit.clubs));
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: p1Id,
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: p1Hand,
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: p2Id,
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: p2Hand,
+            cardCount: 1,
+          ),
+        ],
+        currentPlayerId: p1Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: discardTop,
+        drawPileCount: drawPile.length,
+        preTurnCentreSuit: Suit.spades,
+      );
+
+      session.seedStateForTesting(state: state, drawPile: drawPile);
+      p1ws.clear();
+
+      session.handleAction(p1Id, {
+        'type': 'declare_joker',
+        'jokerCardId': 'joker_r',
+        'declaredSuit': 'hearts',
+        'declaredRank': 'king',
+      });
+
+      final err = p1ws.lastOfType('error');
+      expect(err, isNotNull);
+      expect(err!['code'], equals('invalid_joker'));
+      expect(p1ws.ofType('card_played'), isEmpty);
     });
   });
 
@@ -1078,6 +1133,56 @@ void main() {
 
       final snap = _latestSnapshot(p1ws);
       expect(snap['currentPlayerId'], equals(p2Id));
+    });
+
+    test('turn timeout draws full active penalty chain', () {
+      final (:session, :sockets, :ids) = _makeSession(2);
+      final p1ws = sockets[0];
+      final p1Id = ids[0];
+      final p2Id = ids[1];
+
+      final p1Hand = [_card(Rank.three, Suit.spades)];
+      final discardTop = _card(Rank.two, Suit.hearts);
+      final drawPile = List.generate(
+          10,
+          (i) => CardModel(id: 'filler_$i', rank: Rank.seven, suit: Suit.clubs));
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: p1Id,
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: p1Hand,
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: p2Id,
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: [_card(Rank.five, Suit.hearts)],
+            cardCount: 1,
+          ),
+        ],
+        currentPlayerId: p1Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: discardTop,
+        drawPileCount: drawPile.length,
+        preTurnCentreSuit: Suit.hearts,
+        activePenaltyCount: 4,
+      );
+
+      session.seedStateForTesting(state: state, drawPile: drawPile);
+      p1ws.clear();
+
+      session.triggerTurnTimeoutForTesting();
+
+      final timeout = p1ws.lastOfType('turn_timeout');
+      expect(timeout, isNotNull);
+      expect(timeout!['cardsDrawn'], equals(4));
+      expect(session.drawPileCountForTesting, equals(6));
     });
   });
 

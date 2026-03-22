@@ -39,6 +39,11 @@ void resetSuitInferenceForTests() {
   _suitInferenceBySession.clear();
 }
 
+/// Removes inference data for [sessionId] when an offline session ends.
+void clearSuitInference(String sessionId) {
+  _suitInferenceBySession.remove(sessionId);
+}
+
 // ── AI opponent (Player 2) ────────────────────────────────────────────────────
 
 class _AiPlayChoice {
