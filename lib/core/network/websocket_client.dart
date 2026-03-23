@@ -83,14 +83,18 @@ class WebSocketClient {
           if (data is String) _messageController.add(data);
         },
         onError: (Object err) {
-          debugPrint('[WS] Error: $err');
+          if (kDebugMode) {
+            debugPrint('[WS] Error: $err');
+          }
           _handleDisconnect();
         },
         onDone: _handleDisconnect,
         cancelOnError: false,
       );
     } catch (e) {
-      debugPrint('[WS] Connection failed: $e');
+      if (kDebugMode) {
+        debugPrint('[WS] Connection failed: $e');
+      }
       _handleDisconnect();
       rethrow;
     }
@@ -105,7 +109,9 @@ class WebSocketClient {
   void send(String jsonPayload) {
     if (_stateNotifier.value != WsConnectionState.connected ||
         _channel == null) {
-      debugPrint('[WS] send skipped — not connected');
+      if (kDebugMode) {
+        debugPrint('[WS] send skipped — not connected');
+      }
       return;
     }
     _channel!.sink.add(jsonPayload);
@@ -120,14 +126,18 @@ class WebSocketClient {
 
     if (_manualDisconnect) return;
     if (_retryCount >= _maxRetries) {
-      debugPrint('[WS] Max retries reached. Giving up.');
+      if (kDebugMode) {
+        debugPrint('[WS] Max retries reached. Giving up.');
+      }
       return;
     }
 
     _retryCount++;
     final delay = Duration(milliseconds: 500 * (1 << _retryCount));
-    debugPrint('[WS] Reconnecting in ${delay.inMilliseconds}ms '
-        '(attempt $_retryCount/$_maxRetries)');
+    if (kDebugMode) {
+      debugPrint('[WS] Reconnecting in ${delay.inMilliseconds}ms '
+          '(attempt $_retryCount/$_maxRetries)');
+    }
     Future.delayed(delay, _doConnect);
   }
 

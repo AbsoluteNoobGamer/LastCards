@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -265,7 +266,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       merged.sort((a, b) => b.wins.compareTo(a.wins));
       return merged;
     } catch (e) {
-      debugPrint('Mode leaderboard fetch error for $collectionName: $e');
+      if (kDebugMode) {
+        debugPrint('Mode leaderboard fetch error for $collectionName: $e');
+      }
       if (n != null) return [];
       return localEntries
           .map((e) => _ModeEntry(
@@ -534,7 +537,9 @@ class _RankedLeaderboardState extends State<_RankedLeaderboard> {
         }
 
         if (snap.hasError || !snap.hasData) {
-          debugPrint('Leaderboard fetch error: ${snap.error}');
+          if (kDebugMode) {
+            debugPrint('Leaderboard fetch error: ${snap.error}');
+          }
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,

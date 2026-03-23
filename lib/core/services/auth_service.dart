@@ -104,8 +104,10 @@ class AuthService {
       final userCredential = await auth.signInWithCredential(credential);
       return GoogleSignInResult.success(userCredential);
     } catch (e, st) {
-      debugPrint('Google sign-in failed: $e');
-      debugPrint('StackTrace: $st');
+      if (kDebugMode) {
+        debugPrint('Google sign-in failed: $e');
+        debugPrint('StackTrace: $st');
+      }
       return GoogleSignInResult.failure(e.toString());
     }
   }

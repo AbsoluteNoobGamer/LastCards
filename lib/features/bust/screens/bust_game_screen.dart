@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -408,10 +409,12 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     if (_roundManager.state.eliminatedIds.contains(nextId)) {
       for (final p in state.players) {
         if (!_roundManager.state.eliminatedIds.contains(p.id)) {
-          debugPrint(
-            'Bust _nextActivePlayerId: fallback — nextId was eliminated ($nextId), '
-            'using ${p.id}',
-          );
+          if (kDebugMode) {
+            debugPrint(
+              'Bust _nextActivePlayerId: fallback — nextId was eliminated ($nextId), '
+              'using ${p.id}',
+            );
+          }
           nextId = p.id;
           break;
         }
