@@ -70,11 +70,11 @@ class _WinDialogState extends ConsumerState<_WinDialog>
     final headline = widget.isLocalWin ? 'YOU WIN!' : '${widget.winnerName} WINS!';
     final sub = widget.isLocalWin
         ? (widget.isOnlineMode
-            ? 'You played your last card first!'
-            : 'Excellent hand — you beat the Dealer!')
+            ? 'Well Done, You played your last card first!'
+            : 'Excellent Win!')
         : (widget.isOnlineMode
             ? '${widget.winnerName} played their last card first. Better luck next time!'
-            : 'The Dealer played their last card first.');
+            : '${widget.winnerName} played their last card first.');
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -85,7 +85,7 @@ class _WinDialogState extends ConsumerState<_WinDialog>
         child: Stack(
           alignment: Alignment.center,
           children: [
-            if (!reduce && !_celebrationDone)
+            if (!reduce && !_celebrationDone && widget.isLocalWin)
               Positioned.fill(
                 child: WinCelebrationOverlay(
                   theme: theme,
@@ -161,33 +161,89 @@ class _WinDialogState extends ConsumerState<_WinDialog>
                               ),
                             ],
                             const SizedBox(height: AppDimensions.xl),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: widget.onPlayAgain,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: theme.accentPrimary,
-                                  foregroundColor: theme.backgroundDeep,
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: AppDimensions.md),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(
-                                        AppDimensions.radiusButton),
+                            if (widget.isOnlineMode)
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: widget.onPlayAgain,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: theme.accentPrimary,
+                                    foregroundColor: theme.backgroundDeep,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: AppDimensions.md),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                          AppDimensions.radiusButton),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'BACK TO MENU',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 1.2,
+                                      fontSize: 15,
+                                      color: theme.backgroundDeep,
+                                    ),
                                   ),
                                 ),
-                                child: Text(
-                                  widget.isOnlineMode
-                                      ? 'BACK TO MENU'
-                                      : 'PLAY AGAIN',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 1.2,
-                                    fontSize: 15,
-                                    color: theme.backgroundDeep,
+                              )
+                            else
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: () => Navigator.of(context)
+                                          .popUntil((route) => route.isFirst),
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: AppDimensions.md),
+                                        side: BorderSide(
+                                          color: theme.accentDark
+                                              .withValues(alpha: 0.5),
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                              AppDimensions.radiusButton),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        'Main Menu',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 1.0,
+                                          fontSize: 14,
+                                          color: theme.textSecondary,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(width: AppDimensions.sm),
+                                  Expanded(
+                                    child: ElevatedButton(
+                                      onPressed: widget.onPlayAgain,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: theme.accentPrimary,
+                                        foregroundColor: theme.backgroundDeep,
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: AppDimensions.md),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                              AppDimensions.radiusButton),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        'PLAY AGAIN',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 1.2,
+                                          fontSize: 15,
+                                          color: theme.backgroundDeep,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
                           ],
                         ),
                       ),
