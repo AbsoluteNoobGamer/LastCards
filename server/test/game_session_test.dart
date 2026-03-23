@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:last_cards/core/models/card_model.dart';
 import 'package:last_cards/core/models/game_state.dart';
 import 'package:last_cards/core/models/player_model.dart';
+import 'package:last_cards/core/models/table_position_layout.dart';
 import 'package:test/test.dart';
 
 import 'package:last_cards_server/game_session.dart';
@@ -42,15 +43,7 @@ CardModel _joker(String id, Suit suit) =>
     CardModel(id: id, rank: Rank.joker, suit: suit);
 
 /// Mirrors GameSession._positionFor for building test states.
-TablePosition _positionFor(int index) {
-  if (index == 0) return TablePosition.bottom;
-  const positions = [
-    TablePosition.left,
-    TablePosition.top,
-    TablePosition.right,
-  ];
-  return positions[(index - 1) % positions.length];
-}
+TablePosition _positionFor(int index) => tablePositionForSeatIndex(index);
 
 // ── Session builders ──────────────────────────────────────────────────────────
 

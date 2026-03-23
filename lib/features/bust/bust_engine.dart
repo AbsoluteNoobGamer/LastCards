@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:last_cards/core/models/offline_game_state.dart';
+import 'package:last_cards/core/models/table_position_layout.dart';
 import 'package:last_cards/shared/engine/game_engine.dart';
 import 'package:last_cards/shared/engine/shuffle_utils.dart';
 
@@ -92,20 +93,6 @@ abstract final class BustEngine {
       return drawn;
     }
 
-    // Positions cycle through all 9 opponent slots so up to 10-player Bust
-    // matches the server's _positionFor logic in game_session.dart.
-    const aiPositionCycle = [
-      TablePosition.top,
-      TablePosition.left,
-      TablePosition.right,
-      TablePosition.bottomLeft,
-      TablePosition.topLeft,
-      TablePosition.topRight,
-      TablePosition.bottomRight,
-      TablePosition.farLeft,
-      TablePosition.farRight,
-    ];
-
     final players = <PlayerModel>[];
     for (var i = 0; i < playerCount; i++) {
       final id = seatIds[i];
@@ -119,12 +106,11 @@ abstract final class BustEngine {
           cardCount: hand.length,
         ));
       } else {
-        final aiSlot = i - 1;
         players.add(PlayerModel(
           id: id,
           displayName:
               aiNames[id] ?? id.replaceFirst(RegExp(r'^player-'), 'Player '),
-          tablePosition: aiPositionCycle[aiSlot % aiPositionCycle.length],
+          tablePosition: tablePositionForSeatIndex(i),
           hand: hand,
           cardCount: hand.length,
         ));
@@ -139,7 +125,7 @@ abstract final class BustEngine {
     final firstId = startingPlayerId ??
         players[rng.nextInt(players.length)].id;
 
-    final state = GameState(
+    var state = GameState(
       sessionId: 'bust-session',
       phase: GamePhase.playing,
       players: players,
@@ -152,6 +138,8 @@ abstract final class BustEngine {
       queenSuitLock: null,
       winnerId: null,
     );
+
+    state = applyInitialFaceUpEffect(state: state);
 
     return (gameState: state, drawPile: drawPile);
   }

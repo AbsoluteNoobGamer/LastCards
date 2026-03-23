@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
+import 'package:last_cards/core/models/table_position_layout.dart';
 import 'package:last_cards/shared/constants/quick_chat_messages.dart';
 import 'package:last_cards/shared/engine/game_engine.dart';
 import 'package:last_cards/shared/engine/shuffle_utils.dart';
@@ -1440,19 +1441,5 @@ class GameSession {
 
   // ── Position helper ───────────────────────────────────────────────────────
 
-  TablePosition _positionFor(int index) {
-    if (index == 0) return TablePosition.bottom;
-    const opponentPositions = [
-      TablePosition.left,
-      TablePosition.top,
-      TablePosition.right,
-      TablePosition.bottomLeft,
-      TablePosition.topLeft,
-      TablePosition.topRight,
-      TablePosition.bottomRight,
-      TablePosition.farLeft,
-      TablePosition.farRight,
-    ];
-    return opponentPositions[(index - 1) % opponentPositions.length];
-  }
+  TablePosition _positionFor(int index) => tablePositionForSeatIndex(index);
 }

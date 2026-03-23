@@ -3,6 +3,7 @@ import 'package:last_cards/shared/engine/game_engine.dart' show buildShuffledDec
 import '../models/card_model.dart';
 import '../models/game_state.dart';
 import '../models/player_model.dart';
+import 'table_position_layout.dart';
 
 /// Pre-built GameState + shuffled draw pile for offline mode.
 ///
@@ -60,21 +61,13 @@ abstract final class OfflineGameState {
       ),
     ];
 
-    // 2. Deal AIs — positions cycle through the three non-bottom slots so that
-    //    games with more than 4 players remain compatible with the engine.
-    //    Bust mode ignores tablePosition for display (uses colorIndex instead).
-    const aiPositionCycle = [
-      TablePosition.top,
-      TablePosition.left,
-      TablePosition.right,
-    ];
-
+    // 2. Deal AIs — same seat→position mapping as online [GameSession].
     for (int i = 0; i < totalPlayers - 1; i++) {
       final aiHand = draw(handSize);
       players.add(PlayerModel(
         id: 'player-${i + 2}',
         displayName: aiNames['player-${i + 2}'] ?? 'Player ${i + 2}',
-        tablePosition: aiPositionCycle[i % aiPositionCycle.length],
+        tablePosition: tablePositionForSeatIndex(i + 1),
         hand: aiHand,
         cardCount: aiHand.length,
       ));

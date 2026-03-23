@@ -211,7 +211,7 @@ List<CardModel> getValidJokerOptions({
 }) {
   final List<CardModel> validOptions = [];
   final playContext =
-      context ?? jokerPlayContextFromCardsPlayed(state.actionsThisTurn);
+      context ?? jokerPlayContextFromCardsPlayed(state.cardsPlayedThisTurn);
   final anchorCard = contextTopCard ??
       (playContext == JokerPlayContext.midTurnContinuance &&
               state.lastPlayedThisTurn != null

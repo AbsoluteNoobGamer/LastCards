@@ -342,7 +342,6 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       drawPileCount: _drawPile.length,
       preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
     );
-    s = applyInitialFaceUpEffect(state: s);
     if (s.activeSkipCount > 0) {
       final nextId = nextPlayerId(state: s);
       s = s.copyWith(currentPlayerId: nextId, activeSkipCount: 0);
