@@ -7,9 +7,17 @@ import 'package:http/http.dart' as http;
 /// Set [FIREBASE_API_KEY] (your Firebase Web API key) as an environment
 /// variable when deploying. If unset, verification is skipped and returns null.
 class FirebaseAuthVerifier {
-  FirebaseAuthVerifier._();
+  FirebaseAuthVerifier._({http.Client? httpClient})
+      : _http = httpClient ?? http.Client();
 
+  /// Production singleton; uses a default [http.Client].
   static final FirebaseAuthVerifier instance = FirebaseAuthVerifier._();
+
+  /// Verifier that uses [client] for HTTP (e.g. [MockClient] in tests).
+  factory FirebaseAuthVerifier.withClient(http.Client client) =>
+      FirebaseAuthVerifier._(httpClient: client);
+
+  final http.Client _http;
 
   static const _lookupUrl =
       'https://identitytoolkit.googleapis.com/v1/accounts:lookup';
@@ -34,7 +42,7 @@ class FirebaseAuthVerifier {
     }
 
     try {
-      final response = await http.post(
+      final response = await _http.post(
         Uri.parse('$_lookupUrl?key=$apiKey'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'idToken': idToken}),
