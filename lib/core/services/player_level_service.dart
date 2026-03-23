@@ -58,6 +58,38 @@ class PlayerLevelService {
     return level.clamp(1, _levelThresholds.length);
   }
 
+  /// XP interval for the current level band: `[bandStartXp, nextBandStartXp)` until max level.
+  ///
+  /// [progressFraction] is linear progress within that band (1.0 at max level).
+  static ({
+    double progressFraction,
+    int bandStartXp,
+    int? nextBandStartXp,
+    int level,
+  }) progressForTotalXp(int totalXP) {
+    final xp = math.max(0, totalXP);
+    final level = levelFromTotalXP(xp);
+    final bandStart = _levelThresholds[level - 1];
+    if (level >= _levelThresholds.length) {
+      return (
+        progressFraction: 1.0,
+        bandStartXp: bandStart,
+        nextBandStartXp: null,
+        level: level,
+      );
+    }
+    final nextStart = _levelThresholds[level];
+    final span = nextStart - bandStart;
+    final frac =
+        span > 0 ? ((xp - bandStart) / span).clamp(0.0, 1.0) : 1.0;
+    return (
+      progressFraction: frac,
+      bandStartXp: bandStart,
+      nextBandStartXp: nextStart,
+      level: level,
+    );
+  }
+
   Future<void> init() async {
     if (_initialized) return;
     final prefs = await SharedPreferences.getInstance();

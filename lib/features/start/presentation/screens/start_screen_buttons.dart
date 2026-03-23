@@ -74,8 +74,12 @@ class _AuthProfileBadge extends ConsumerWidget {
               child: avatarWidget,
             ),
             const SizedBox(width: 8),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 110),
+            PlayerLevelChip(
+              accentColor: theme.accentPrimary,
+              backgroundColor: theme.accentPrimary.withValues(alpha: 0.15),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
               child: Text(
                 displayName,
                 style: const TextStyle(
@@ -105,11 +109,19 @@ class _AuthProfileBadge extends ConsumerWidget {
 // Auth Profile Sheet (account info + Sign out)
 // -----------------------------------------------------------------------------
 
-class _AuthProfileSheet extends ConsumerWidget {
+class _AuthProfileSheet extends ConsumerStatefulWidget {
   const _AuthProfileSheet();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_AuthProfileSheet> createState() => _AuthProfileSheetState();
+}
+
+class _AuthProfileSheetState extends ConsumerState<_AuthProfileSheet> {
+  late final Future<RankedStatsSnapshot?> _rankedFuture =
+      fetchRankedStatsForCurrentUser();
+
+  @override
+  Widget build(BuildContext context) {
     final userProfile = ref.watch(userProfileProvider).valueOrNull;
     final theme = ref.watch(themeProvider).theme;
     final authService = ref.read(authServiceProvider);
@@ -181,7 +193,78 @@ class _AuthProfileSheet extends ConsumerWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+              PlayerXpProgressBarThemed(theme: theme),
+              const SizedBox(height: 16),
+              FutureBuilder<RankedStatsSnapshot?>(
+                future: _rankedFuture,
+                builder: (context, snap) {
+                  final ranked = snap.data;
+                  if (ranked == null) return const SizedBox.shrink();
+                  final tier = rankTierForMmr(ranked.rating);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.surfaceDark.withValues(alpha: 0.65),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: theme.accentPrimary.withValues(alpha: 0.45),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'RANKED',
+                            style: TextStyle(
+                              color: theme.textSecondary,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.1,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Text(
+                                tier.emoji,
+                                style: const TextStyle(fontSize: 18),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '${ranked.rating} MMR · ${tier.label}',
+                                  style: TextStyle(
+                                    color: theme.accentPrimary,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${ranked.wins}W / ${ranked.losses}L',
+                            style: TextStyle(
+                              color: theme.textSecondary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(

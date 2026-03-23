@@ -7,6 +7,7 @@ import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/utils/profile_cooldown_utils.dart';
+import '../../widgets/profile_stats_section.dart';
 
 const Set<String> kReservedNames = {'Player 2', 'Player 3', 'Player 4'};
 const int kMaxNameLength = 17;
@@ -315,6 +316,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
             ),
+            const ProfileStatsSection(),
           ],
         ),
       ),
