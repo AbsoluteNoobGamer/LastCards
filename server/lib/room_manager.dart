@@ -22,6 +22,13 @@ String sanitizeDisplayName(String raw) {
 }
 
 class RoomManager {
+  RoomManager({
+    Future<String?> Function(String idToken)? verifyIdToken,
+  }) : _verifyIdToken =
+            verifyIdToken ?? FirebaseAuthVerifier.instance.verifyToken;
+
+  final Future<String?> Function(String idToken) _verifyIdToken;
+
   final _log = Logger('RoomManager');
   final _rooms = <String, GameSession>{};
   final _playerRooms = <dynamic, String>{};
@@ -61,7 +68,7 @@ class RoomManager {
     if ((type == 'create_room' || type == 'join_room' || type == 'quickplay') &&
         json.containsKey('idToken')) {
       final token = json['idToken'] as String;
-      final uid = await FirebaseAuthVerifier.instance.verifyToken(token);
+      final uid = await _verifyIdToken(token);
       if (uid != null) {
         _playerUserIds[ws] = uid;
       }

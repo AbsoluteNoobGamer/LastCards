@@ -14,6 +14,90 @@ const _kLossDelta = -15;
 const _kLeaveDelta = -20;
 const _kInitialRating = 1000;
 
+// ── Pure stat maps (unit-tested; used by [TrophyRecorder]) ───────────────────
+
+/// Firestore increment + default-field maps for one ranked player at game end.
+({Map<String, int> increments, Map<String, dynamic> defaultFields})
+    rankedResultStatMaps({
+  required bool isWinner,
+  required int playerCount,
+}) {
+  final n = playerCount.clamp(2, 7);
+  final hasBracket = playerCount >= 2;
+  final ratingDelta = isWinner ? _kWinDelta : _kLossDelta;
+  return (
+    increments: {
+      'rating': ratingDelta,
+      if (isWinner) 'wins': 1,
+      if (!isWinner) 'losses': 1,
+      'gamesPlayed': 1,
+      if (hasBracket) 'gamesPlayed_$n': 1,
+      if (hasBracket && isWinner) 'wins_$n': 1,
+      if (hasBracket && !isWinner) 'losses_$n': 1,
+    },
+    defaultFields: {
+      'rating': _kInitialRating,
+      'wins': 0,
+      'losses': 0,
+      'leaves': 0,
+      'gamesPlayed': 0,
+      if (hasBracket) 'wins_$n': 0,
+      if (hasBracket) 'losses_$n': 0,
+      if (hasBracket) 'gamesPlayed_$n': 0,
+    },
+  );
+}
+
+/// Firestore increment + default-field maps for a ranked leave penalty.
+({Map<String, int> increments, Map<String, dynamic> defaultFields})
+    rankedLeavePenaltyStatMaps() {
+  return (
+    increments: {
+      'rating': _kLeaveDelta,
+      'leaves': 1,
+      'gamesPlayed': 1,
+    },
+    defaultFields: {
+      'rating': _kInitialRating,
+      'wins': 0,
+      'losses': 0,
+      'leaves': 0,
+      'gamesPlayed': 0,
+    },
+  );
+}
+
+/// Firestore increment + default-field maps for casual/bust online leaderboards.
+({Map<String, int> increments, Map<String, dynamic> defaultFields})
+    modeLeaderboardStatMaps({
+  required bool won,
+  required int playerCount,
+}) {
+  final n = playerCount.clamp(2, 10);
+  return (
+    increments: {
+      'gamesPlayed': 1,
+      if (won) 'wins': 1,
+      if (!won) 'losses': 1,
+      'gamesPlayed_$n': 1,
+      if (won) 'wins_$n': 1,
+      if (!won) 'losses_$n': 1,
+    },
+    defaultFields: {
+      'wins': 0,
+      'losses': 0,
+      'gamesPlayed': 0,
+      'wins_$n': 0,
+      'losses_$n': 0,
+      'gamesPlayed_$n': 0,
+    },
+  );
+}
+
+/// Whether a participant should persist to mode leaderboards (Firestore doc id).
+bool modeLeaderboardUidEligible(String? firebaseUid) =>
+    firebaseUid != null && firebaseUid.isNotEmpty;
+
 // ── Firestore client ──────────────────────────────────────────────────────────
 
 /// Minimal Firestore REST client authenticated via a Google service account.
@@ -407,7 +491,10 @@ class TrophyRecorder {
     for (final entry in allPlayerUids) {
       final uid = entry.uid;
       final isWinner = uid == winnerUid;
-      final ratingDelta = isWinner ? _kWinDelta : _kLossDelta;
+      final maps = rankedResultStatMaps(
+        isWinner: isWinner,
+        playerCount: playerCount,
+      );
 
       // Single atomic commit per player: creates with baseline defaults if the
       // doc is missing, then applies all increments. No double-counting, no
@@ -416,26 +503,8 @@ class TrophyRecorder {
         _firestoreClient.atomicUpdate(
           collection: _collection,
           docId: uid,
-          increments: {
-            'rating': ratingDelta,
-            if (isWinner) 'wins': 1,
-            if (!isWinner) 'losses': 1,
-            'gamesPlayed': 1,
-            // Per-bracket fields for "N players" filter.
-            if (hasBracket) 'gamesPlayed_$n': 1,
-            if (hasBracket && isWinner) 'wins_$n': 1,
-            if (hasBracket && !isWinner) 'losses_$n': 1,
-          },
-          defaultFields: {
-            'rating': _kInitialRating,
-            'wins': 0,
-            'losses': 0,
-            'leaves': 0,
-            'gamesPlayed': 0,
-            if (hasBracket) 'wins_$n': 0,
-            if (hasBracket) 'losses_$n': 0,
-            if (hasBracket) 'gamesPlayed_$n': 0,
-          },
+          increments: maps.increments,
+          defaultFields: maps.defaultFields,
           stringFields: {
             'displayName': entry.displayName,
           },
@@ -509,31 +578,16 @@ class TrophyRecorder {
 
     final futures = <Future<void>>[];
     for (final p in players) {
-      final uid = p.firebaseUid;
-      if (uid == null || uid.isEmpty) continue;
+      if (!modeLeaderboardUidEligible(p.firebaseUid)) continue;
+      final uid = p.firebaseUid!;
       final won = p.playerId == winnerPlayerId;
+      final maps = modeLeaderboardStatMaps(won: won, playerCount: playerCount);
       futures.add(
         _firestoreClient.atomicUpdate(
           collection: collection,
           docId: uid,
-          increments: {
-            // Global totals (for "All" filter in the leaderboard UI).
-            'gamesPlayed': 1,
-            if (won) 'wins': 1,
-            if (!won) 'losses': 1,
-            // Per-bracket totals (for "N players" filter).
-            'gamesPlayed_$n': 1,
-            if (won) 'wins_$n': 1,
-            if (!won) 'losses_$n': 1,
-          },
-          defaultFields: {
-            'wins': 0,
-            'losses': 0,
-            'gamesPlayed': 0,
-            'wins_$n': 0,
-            'losses_$n': 0,
-            'gamesPlayed_$n': 0,
-          },
+          increments: maps.increments,
+          defaultFields: maps.defaultFields,
           stringFields: {
             'displayName': p.displayName,
           },
@@ -548,21 +602,12 @@ class TrophyRecorder {
   Future<void> _persistLeavePenalty(String uid,
       {required String displayName}) async {
     _log.info('Recording leave penalty for $uid');
+    final maps = rankedLeavePenaltyStatMaps();
     await _firestoreClient.atomicUpdate(
       collection: _collection,
       docId: uid,
-      increments: {
-        'rating': _kLeaveDelta,
-        'leaves': 1,
-        'gamesPlayed': 1,
-      },
-      defaultFields: {
-        'rating': _kInitialRating,
-        'wins': 0,
-        'losses': 0,
-        'leaves': 0,
-        'gamesPlayed': 0,
-      },
+      increments: maps.increments,
+      defaultFields: maps.defaultFields,
       stringFields: {
         'displayName': displayName,
       },
