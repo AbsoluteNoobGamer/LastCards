@@ -23,7 +23,9 @@ Future<void> main() async {
       await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
     }
   } catch (e) {
-    debugPrint('Firebase init skipped (run flutterfire configure if needed): $e');
+    if (kDebugMode) {
+      debugPrint('Firebase init skipped (run flutterfire configure if needed): $e');
+    }
   }
 
   // Lock to portrait on phones (avoids broken landscape layout).
@@ -39,7 +41,9 @@ Future<void> main() async {
     if (description.contains('AudioError') ||
         description.contains('PlatformException') ||
         description.contains('AndroidAudioError')) {
-      debugPrint('Non-fatal audio error (swallowed): ${details.exception}');
+      if (kDebugMode) {
+        debugPrint('Non-fatal audio error (swallowed): ${details.exception}');
+      }
       return;
     }
     FlutterError.presentError(details);

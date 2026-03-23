@@ -67,7 +67,9 @@ class LeaderboardStatsWriter {
           );
     } catch (e, st) {
       // Keep silent for release builds, but still allow debugging.
-      debugPrint('Leaderboard Firestore write failed: $e\n$st');
+      if (kDebugMode) {
+        debugPrint('Leaderboard Firestore write failed: $e\n$st');
+      }
     }
   }
 }

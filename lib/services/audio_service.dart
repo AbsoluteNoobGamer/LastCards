@@ -112,7 +112,9 @@ class AudioService {
         ),
       );
     } catch (e) {
-      debugPrint('AudioService: setAudioContext failed: $e');
+      if (kDebugMode) {
+        debugPrint('AudioService: setAudioContext failed: $e');
+      }
     }
 
     try {
@@ -173,7 +175,9 @@ class AudioService {
     // Missing files will fail in _play* and are caught there.
     if (!_hasAssetFor(sound)) {
       // Log only in debug to avoid noise; still attempt play for path variations.
-      debugPrint('AudioService: asset not in manifest for $sound, trying anyway');
+      if (kDebugMode) {
+        debugPrint('AudioService: asset not in manifest for $sound, trying anyway');
+      }
     }
 
     final assetSubpath = _assetSubpathFor(sound);
@@ -244,7 +248,9 @@ class AudioService {
       await player.setVolume(_volume);
       await player.play(AssetSource(assetSubpath));
     } catch (e) {
-      debugPrint('AudioService._playOverlappingSound($assetSubpath) error: $e');
+      if (kDebugMode) {
+        debugPrint('AudioService._playOverlappingSound($assetSubpath) error: $e');
+      }
     }
   }
 
@@ -262,7 +268,9 @@ class AudioService {
       await player.setVolume(_volume);
       await player.play(AssetSource(assetSubpath));
     } catch (e) {
-      debugPrint('AudioService._playCategorySound($assetSubpath) error: $e');
+      if (kDebugMode) {
+        debugPrint('AudioService._playCategorySound($assetSubpath) error: $e');
+      }
     }
   }
 
@@ -278,7 +286,9 @@ class AudioService {
       }
       _cardDrawPlayers.clear();
     } catch (e) {
-      debugPrint('AudioService.dispose error: $e');
+      if (kDebugMode) {
+        debugPrint('AudioService.dispose error: $e');
+      }
     }
     _turnPlayer = null;
     _specialPlayer = null;
