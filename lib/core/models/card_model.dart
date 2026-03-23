@@ -127,5 +127,6 @@ extension CardModelX on CardModel {
   /// The effective rank to use for matching (Joker uses declared rank).
   Rank get effectiveRank => isJoker ? (jokerDeclaredRank ?? rank) : rank;
 
-  String get shortLabel => '${rank.displayLabel}${suit.symbol}';
+  String get shortLabel =>
+      '${effectiveRank.displayLabel}${effectiveSuit.symbol}';
 }

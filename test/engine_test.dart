@@ -1020,8 +1020,10 @@ void main() {
 
     test('jokerOptions_midTurn_generalized_jack', () {
       var state = buildState(discardTop: c(Rank.jack, Suit.diamonds));
-      state =
-          state.copyWith(actionsThisTurn: 1); // Simulate playing a card already
+      state = state.copyWith(
+        actionsThisTurn: 1,
+        cardsPlayedThisTurn: 1,
+      ); // Simulate playing a card already
 
       final options =
           getValidJokerOptions(state: state, discardTop: state.discardTopCard!);
@@ -1060,8 +1062,10 @@ void main() {
 
     test('jokerOptions_midTurn_generalized_eight', () {
       var state = buildState(discardTop: c(Rank.eight, Suit.clubs));
-      state =
-          state.copyWith(actionsThisTurn: 1); // Simulate playing a card already
+      state = state.copyWith(
+        actionsThisTurn: 1,
+        cardsPlayedThisTurn: 1,
+      ); // Simulate playing a card already
 
       final options =
           getValidJokerOptions(state: state, discardTop: state.discardTopCard!);

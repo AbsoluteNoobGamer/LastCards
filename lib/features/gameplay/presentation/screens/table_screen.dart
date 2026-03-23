@@ -1795,7 +1795,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       // Intercept Joker plays (mirrors Ace popup flow)
       if (played.length == 1 && played.first.isJoker && mounted) {
         final jokerContext =
-            jokerPlayContextFromCardsPlayed(_offlineState.actionsThisTurn);
+            jokerPlayContextFromCardsPlayed(_offlineState.cardsPlayedThisTurn);
         final jokerAnchor = jokerContext == JokerPlayContext.midTurnContinuance
             ? (_offlineState.lastPlayedThisTurn ??
                 _offlineState.discardTopCard!)

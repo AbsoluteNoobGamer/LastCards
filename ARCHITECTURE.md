@@ -1,100 +1,84 @@
 # Last Cards — Architecture
 
 ## Overview
-Last Cards is a 4-player card game built in Flutter. All core game rules and engine
-logic live in a centralised shared module. Game modes consume shared logic and must not
-implement their own rule logic.
+
+Last Cards is a Flutter card game. **Authoritative game rules and engine behavior** live under `lib/shared/` (engine + rules) and **`lib/core/models/`** (serializable state and models). The `lib/shared/models/*.dart` files are **barrel re-exports** of the core models for convenient imports from shared code and the server; implement types in `lib/core/models/`, not duplicate definitions.
+
+Game flows (offline, online, tournament, Bust) live under **`lib/features/`** and **`lib/tournament/`** as thin coordinators; they must not fork rule logic.
 
 ---
 
-## Folder Structure
-
-
+## Folder structure (high level)
 
 ```
 lib/
+  core/models/          ← canonical CardModel, GameState, PlayerModel, layout helpers, offline glue
   shared/
-    rules/
-      card_rules.dart
-...
+    engine/             ← game_engine.dart, timers, shuffle_utils
+    rules/              ← card_rules, pickup_chain_rules, win_condition_rules, move_log_support
+    models/             ← barrel exports → package:last_cards/core/models/...
+  features/             ← gameplay UI, bust, profile, settings, etc.
+  tournament/             ← tournament orchestration (uses shared engine)
+server/                   ← Dart server; imports package:last_cards (shared engine + core)
+
+test/                     ← engine_test, shared_rules_test, feature tests (e.g. test/bust/, test/tournament/)
 ```
- ← definitions of all special cards (2s, Black Jacks, Joker modes)
-pickup_chain_rules.dart ← chain stacking, counter validation, chain resolution
-win_condition_rules.dart ← immediate vs deferred win logic
-engine/
-game_engine.dart ← turn management, hand management, card play validation
-models/
-card_model.dart ← shared card model
-game_state_model.dart ← shared game state model
-
-modes/
-online/
-online_game_mode.dart ← online multiplayer mode (imports from shared only)
-offline/
-offline_game_mode.dart ← offline/AI mode (imports from shared only)
-practice/
-practice_mode.dart ← practice mode (imports from shared only)
-tournament/
-tournament_mode.dart ← tournament entry point
-tournament_rules.dart ← tournament-only rules (brackets, elimination)
-tournament_engine.dart ← tournament-only logic
-tournament_bracket.dart ← bracket and elimination logic
-tournament_scoring.dart ← points, rankings, tiebreakers
-
-screens/ ← UI screens only, no game logic
-widgets/ ← reusable UI components only, no game logic
-
 
 ---
 
-## Core Rules (lib/shared/)
+## Core rules (`lib/shared/`)
 
-### Pick-Up Cards
-- **2♠, 2♥, 2♦, 2♣** — force next player to pick up 2 cards
-- **J♠, J♣ (Black Jacks)** — force next player to pick up 5 cards
-- **Joker (pick-up mode)** — force next player to pick up Joker's defined value
+### Pick-up cards
 
-### Joker Dual Mode
-- **Pick-up mode** — Joker joins the pick-up chain, valid as a counter against any pick-up card
-- **Transform/wild mode** — Joker transforms into any card; cannot be used as a counter in a chain
+- **2♠, 2♥, 2♦, 2♣** — add +2 to the active pick-up chain
+- **J♠, J♣ (Black Jacks)** — add +5 to the chain
+- **J♥, J♦ (Red Jacks)** — cancel the chain (+0)
 
-### Pick-Up Chain
-- Any pick-up card can counter any other pick-up card
-- Pick-up values stack cumulatively across the full chain
-- Chain resolves when a player cannot counter and must draw
+### Joker (54-card modes)
 
-### Win Condition
+- **Wild play** — the Joker is played as a chosen rank/suit (including specials) for matching and sequences; it is not a separate fixed “pick-up value” on its own.
+- **Penalty chains** — a Joker can **participate in the pick-up chain** when declared as a penalty-generating card (e.g. as a **2** or **Black Jack**), using the usual penalty rules for that declared rank.
+
+### Pick-up chain
+
+- Penalty cards can counter each other per shared rules; values stack until resolved by draw or Red Jack.
+
+### Win condition
+
 - Last card is NOT a pick-up card → win immediately
 - Last card IS a pick-up card → win deferred until chain fully resolves
-- If player is forced to draw from the chain, they no longer have zero cards and do not win
+- If a player is forced to draw from the chain, they no longer have zero cards and do not win
+
+See [`docs/rules-by-mode.md`](docs/rules-by-mode.md) for mode-specific notes.
 
 ---
 
-## Architecture Rules
+## Architecture rules
 
-1. **All core game rules live in `lib/shared/rules/` only**
-2. **All engine logic lives in `lib/shared/engine/` only**
-3. **Game modes import from `lib/shared/` — they must not contain their own rule logic**
-4. **Tournament-only logic lives in `lib/modes/tournament/` only**
-5. **UI screens and widgets must not contain any game rule or engine logic**
-6. **No circular dependencies between shared and mode-specific modules**
-7. **Any new rule that applies to all modes goes in `lib/shared/rules/`**
-8. **Any rule that applies only to one mode goes in `lib/modes/{mode}/`**
+1. **Shared rules** live in `lib/shared/rules/`; **engine** in `lib/shared/engine/`.
+2. **Canonical models** live in `lib/core/models/`; `lib/shared/models/` re-exports only.
+3. **Game modes and screens** must not duplicate engine rules; they configure flows and call `validatePlay` / `applyPlay` / `applyDraw` from the shared engine.
+4. **Tournament / Bust–specific orchestration** lives under `lib/features/` and `lib/tournament/` (not a parallel `lib/modes/` tree).
+5. **UI** must not own core rule logic; keep validation in the shared engine.
 
 ---
 
-## Decision Rule
-Before placing any logic, ask:
-> "Does this rule apply when playing a casual online game?"
-- **Yes** → `lib/shared/`
-- **No** → `lib/modes/{specific_mode}/`
+## Decision rule
+
+Before placing a change, ask:
+
+> Does this rule apply when playing a casual online game?
+
+- **Yes** → `lib/shared/` (engine + rules) and, if needed, `lib/core/models/` for state shape
+- **No** → `lib/features/{feature}/` or `lib/tournament/` for orchestration only
 
 ---
 
 ## Testing
-- All shared rule tests live in `test/shared/`
-- All mode-specific tests live in `test/modes/{mode}/`
-- All pre-existing tests must pass after any refactor
-- New rules must include regression tests before merging
+
+- **Engine and shared rules:** `test/engine_test.dart`, `test/shared_rules_test.dart`, and focused files (e.g. `test/joker_popup_options_test.dart`).
+- **Feature / mode:** e.g. `test/bust/`, `test/tournament/`, `test/widgets/`.
+- **Server:** `server/test/` (game session, protocol).
+- New rules should include regression tests that would fail if the shared engine changes.
 
 ---

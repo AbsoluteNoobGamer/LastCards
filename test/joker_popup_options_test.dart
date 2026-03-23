@@ -4,6 +4,7 @@ import 'package:last_cards/core/models/offline_game_engine.dart';
 GameState _baseState({
   required CardModel discardTop,
   int actionsThisTurn = 0,
+  int cardsPlayedThisTurn = 0,
   CardModel? lastPlayedThisTurn,
   int activePenaltyCount = 0,
   List<CardModel>? localHand,
@@ -34,6 +35,7 @@ GameState _baseState({
     drawPileCount: 20,
     activePenaltyCount: activePenaltyCount,
     actionsThisTurn: actionsThisTurn,
+    cardsPlayedThisTurn: cardsPlayedThisTurn,
     lastPlayedThisTurn: lastPlayedThisTurn,
     suitLock: suitLock,
     queenSuitLock: queenSuitLock,
@@ -208,6 +210,7 @@ void main() {
       final state = _baseState(
         discardTop: top,
         actionsThisTurn: 1,
+        cardsPlayedThisTurn: 1,
         lastPlayedThisTurn: top,
       );
 
@@ -231,6 +234,7 @@ void main() {
       final state = _baseState(
         discardTop: top,
         actionsThisTurn: 1,
+        cardsPlayedThisTurn: 1,
         lastPlayedThisTurn: top,
       );
 
@@ -253,6 +257,7 @@ void main() {
       final state = _baseState(
         discardTop: top,
         actionsThisTurn: 1,
+        cardsPlayedThisTurn: 1,
         lastPlayedThisTurn: top,
       );
 
@@ -286,6 +291,7 @@ void main() {
       final state = _baseState(
         discardTop: top,
         actionsThisTurn: 1,
+        cardsPlayedThisTurn: 1,
         lastPlayedThisTurn: top,
         activePenaltyCount: 2,
       );
@@ -311,6 +317,40 @@ void main() {
   });
 
   group('Joker regression checks', () {
+    test('shortLabel uses declared Joker representation not base rank/suit', () {
+      const joker = CardModel(
+        id: 'j1',
+        rank: Rank.joker,
+        suit: Suit.spades,
+        jokerDeclaredRank: Rank.five,
+        jokerDeclaredSuit: Suit.hearts,
+      );
+      expect(joker.shortLabel, '5♥');
+    });
+
+    test(
+        'default Joker context uses cardsPlayedThisTurn not actionsThisTurn (draw then Joker)',
+        () {
+      const top = CardModel(id: '5h', rank: Rank.five, suit: Suit.hearts);
+      final state = _baseState(
+        discardTop: top,
+        actionsThisTurn: 1,
+        cardsPlayedThisTurn: 0,
+      );
+
+      final options = getValidJokerOptions(
+        state: state,
+        discardTop: top,
+      );
+
+      expect(
+        options.length,
+        15,
+        reason:
+            'Turn starter (no cards played yet): 12 same suit + 3 cross-rank',
+      );
+    });
+
     test('Pickup stack logic unchanged: playing a 2 increases penalty by 2',
         () {
       const top = CardModel(id: '9c', rank: Rank.nine, suit: Suit.clubs);
@@ -363,6 +403,7 @@ void main() {
       final state = _baseState(
         discardTop: top,
         actionsThisTurn: 1,
+        cardsPlayedThisTurn: 1,
         lastPlayedThisTurn: top,
         localHand: const [joker],
       );
