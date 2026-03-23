@@ -13,6 +13,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/services/nsfw_scan_service.dart';
 import '../../../../core/utils/profile_cooldown_utils.dart';
+import '../../widgets/profile_stats_section.dart';
 
 /// The opponent display names that the local player cannot use.
 const Set<String> kReservedNames = {'Player 2', 'Player 3', 'Player 4'};
@@ -376,6 +377,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 },
               ),
             ),
+            const ProfileStatsSection(),
           ],
         ),
       ),

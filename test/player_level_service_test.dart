@@ -42,5 +42,38 @@ void main() {
       expect(PlayerLevelService.levelFromTotalXP(999999), 10);
     });
   });
+
+  group('PlayerLevelService.progressForTotalXp', () {
+    test('level 1 band and fraction', () {
+      final p = PlayerLevelService.progressForTotalXp(0);
+      expect(p.level, 1);
+      expect(p.bandStartXp, 0);
+      expect(p.nextBandStartXp, 100);
+      expect(p.progressFraction, 0.0);
+
+      final mid = PlayerLevelService.progressForTotalXp(50);
+      expect(mid.progressFraction, 0.5);
+    });
+
+    test('mid-level progress matches band', () {
+      final p = PlayerLevelService.progressForTotalXp(350);
+      expect(p.level, 3);
+      expect(p.bandStartXp, 300);
+      expect(p.nextBandStartXp, 600);
+      expect(p.progressFraction, closeTo(50 / 300, 1e-9));
+    });
+
+    test('max level has full bar and no next band', () {
+      final p = PlayerLevelService.progressForTotalXp(4500);
+      expect(p.level, 10);
+      expect(p.bandStartXp, 4500);
+      expect(p.nextBandStartXp, isNull);
+      expect(p.progressFraction, 1.0);
+
+      final over = PlayerLevelService.progressForTotalXp(999999);
+      expect(over.nextBandStartXp, isNull);
+      expect(over.progressFraction, 1.0);
+    });
+  });
 }
 

@@ -25,6 +25,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/services/player_level_service.dart';
+import '../../../../core/utils/ranked_tier_utils.dart';
 import '../../../../core/models/move_log_entry.dart';
 import '../../../../core/models/game_event.dart';
 import '../../../../core/providers/theme_provider.dart';
@@ -2790,6 +2791,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               _aiThinking = false;
             });
           },
+          xpAwarded: winner.id == OfflineGameState.localId ? 50 : 10,
         ),
       );
     });

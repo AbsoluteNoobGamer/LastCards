@@ -2,16 +2,6 @@ part of 'table_screen.dart';
 
 // ── Win dialog ────────────────────────────────────────────────────────────────
 
-/// Rank tier thresholds (MMR): Bronze < 1100, Silver < 1300, Gold < 1500,
-/// Diamond < 1800, Master 1800+
-({String label, String emoji}) _rankTierForMmr(int mmr) {
-  if (mmr >= 1800) return (label: 'Master', emoji: '👑');
-  if (mmr >= 1500) return (label: 'Diamond', emoji: '💎');
-  if (mmr >= 1300) return (label: 'Gold', emoji: '🥇');
-  if (mmr >= 1100) return (label: 'Silver', emoji: '🥈');
-  return (label: 'Bronze', emoji: '🥉');
-}
-
 class _WinDialog extends ConsumerStatefulWidget {
   const _WinDialog({
     required this.winnerName,
@@ -19,6 +9,7 @@ class _WinDialog extends ConsumerStatefulWidget {
     required this.onPlayAgain,
     this.isOnlineMode = false,
     this.ratingDelta,
+    this.xpAwarded,
   });
 
   final String winnerName;
@@ -28,6 +19,9 @@ class _WinDialog extends ConsumerStatefulWidget {
 
   /// Rating change for the local player in a ranked game, or null.
   final int? ratingDelta;
+
+  /// Local XP gained this game (offline only), or null to hide.
+  final int? xpAwarded;
 
   @override
   ConsumerState<_WinDialog> createState() => _WinDialogState();
@@ -144,6 +138,21 @@ class _WinDialogState extends ConsumerState<_WinDialog>
                               ),
                               textAlign: TextAlign.center,
                             ),
+                            if (widget.xpAwarded != null) ...[
+                              const SizedBox(height: AppDimensions.md),
+                              FadeTransition(
+                                opacity: _fade,
+                                child: Text(
+                                  '+${widget.xpAwarded} XP',
+                                  style: TextStyle(
+                                    color: theme.accentPrimary,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.6,
+                                  ),
+                                ),
+                              ),
+                            ],
                             if (widget.ratingDelta != null) ...[
                               const SizedBox(height: AppDimensions.md),
                               _RankedResultsSection(
@@ -241,7 +250,7 @@ class _RankedResultsSectionState extends State<_RankedResultsSection> {
       future: _statsFuture,
       builder: (context, snap) {
         final stats = snap.data;
-        final tier = stats != null ? _rankTierForMmr(stats.rating) : null;
+        final tier = stats != null ? rankTierForMmr(stats.rating) : null;
 
         final theme = widget.theme;
         final ratingDelta = widget.ratingDelta;
