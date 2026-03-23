@@ -83,9 +83,18 @@ class PlayerXpProgressBar extends StatelessWidget {
       builder: (context, _) {
         final xp = PlayerLevelService.instance.currentXP.value;
         final p = PlayerLevelService.progressForTotalXp(xp);
-        final label = p.nextBandStartXp == null
-            ? 'Level ${p.level} · Max level · $xp XP'
-            : 'Level ${p.level} · $xp / ${p.nextBandStartXp} XP';
+        final String label;
+        if (p.nextBandStartXp == null) {
+          label = 'Level ${p.level} · Max level · $xp XP';
+        } else {
+          final bandStart = p.bandStartXp;
+          final nextStart = p.nextBandStartXp!;
+          final span = nextStart - bandStart;
+          final intoBand = xp - bandStart;
+          label = span > 0
+              ? 'Level ${p.level} · $intoBand / $span XP'
+              : 'Level ${p.level} · $xp / $nextStart XP';
+        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
