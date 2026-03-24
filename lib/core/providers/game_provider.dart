@@ -368,11 +368,20 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
           .where((e) => e is PlayerSocketRestoredEvent)
           .cast<PlayerSocketRestoredEvent>()
           .listen((e) {
+        // If we just reconnected ourselves, clear all stale disconnect flags
+        // — we may have missed PlayerSocketRestoredEvent for other players
+        // while offline.
+        final localId = state.gameState?.localPlayer?.id;
+        if (localId != null && e.playerId == localId) {
+          state = state.copyWith(clearSocketDisconnected: true);
+          return;
+        }
         if (!state.socketDisconnectedPlayerIds.contains(e.playerId)) return;
         final next = Set<String>.from(state.socketDisconnectedPlayerIds)
           ..remove(e.playerId);
         state = state.copyWith(socketDisconnectedPlayerIds: next);
       }),
+    );
     );
     _subs.add(
       _eventHandler.events
