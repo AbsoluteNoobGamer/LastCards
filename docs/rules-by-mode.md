@@ -51,12 +51,13 @@ When multiple effects are active together, resolve in this order:
 - A player cannot win on a forced penalty draw unless a rule explicitly allows it.
 
 ### Last Cards (not in Bust mode)
-- You must press **Last Cards** before your turn to be eligible to win when you empty your hand.
-- If you play out without declaring, you draw 1 card instead of winning and your turn ends.
-- The button appears when your hand has at most 4 cards, or contains a Joker or a pick-up card (2 or Jack), and it is not already your turn.
+- Press **Last Cards** before your turn when you believe you can shed your whole hand in one turn.
+- The server (and offline engine) record whether your hand **was** clearable in one turn when your turn **starts**. You must have declared only if that snapshot is true; otherwise you can still win without declaring (e.g. you drew into a winning hand).
+- If you must declare and play out without having declared, you draw 1 card instead of winning and your turn ends.
+- The button is available when it is not your turn and you have not already declared (no fixed hand-size gate in the UI).
 - Declaring is public: everyone sees who declared.
-- A Joker in hand means your declaration is always valid (no silent bluff check).
-- A false declaration is caught when your turn starts: you draw 2 penalty cards and your declaration is cleared.
+- A false declaration (hand not clearable in one turn) is caught when your turn starts: you draw 2 penalty cards and your declaration is cleared.
+- Clearability uses the same play rules as the rest of the game (including multi-card sequences and Jokers); hands with only Jokers use a hand-chain fallback consistent with numerical flow.
 - **Bust mode** does not use this rule.
 
 ---

@@ -14,7 +14,6 @@ import 'package:last_cards/features/gameplay/presentation/widgets/dealing_animat
 import '../../domain/usecases/offline_game_engine.dart';
 import 'package:last_cards/shared/engine/shuffle_utils.dart';
 import 'package:last_cards/shared/rules/move_log_support.dart';
-import 'package:last_cards/shared/rules/last_cards_rules.dart';
 import 'package:last_cards/shared/rules/win_condition_rules.dart'
     show canConfirmPlayerWin, needsUndeclaredLastCardsDraw, wouldConfirmWin;
 import '../../data/datasources/offline_game_state_datasource.dart';
@@ -513,6 +512,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       state = state.copyWith(
         preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
       );
+      state = initializeFirstTurnClearability(state, isBustMode: false);
     }
 
     // During a normal deal animation, show the dealer pile counting down from
@@ -2775,7 +2775,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         isBustMode: false,
         cardFactory: _makeCards,
       );
-      _showError('You must declare Last Cards before winning!');
+      final offenderName =
+          state.playerById(p.id)?.displayName ?? p.id;
+      if (p.id == OfflineGameState.localId) {
+        _showError('You must declare Last Cards before winning!');
+      } else {
+        _showError(
+          '$offenderName tried to win without declaring Last Cards.',
+        );
+      }
       if (mounted) {
         _reshuffleCentrePileIntoDrawPile(silent: _tournamentSimulatingRest);
       }
@@ -2791,12 +2799,19 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         if (local != null) _syncHandOrder(local.hand);
       });
       _engineTimer.cancel();
-      if (ns.currentPlayerId != OfflineGameState.localId) {
-        _scheduleAiTurn(ns.currentPlayerId,
-            simulate: _tournamentSimulatingRest);
-      } else {
-        _startTimer();
-      }
+      // Defer so this does not run while [_scheduleAiTurn] still holds
+      // [_aiThinking]; nested calls return immediately at the guard and the
+      // game would stall with no follow-up turn.
+      final followUpId = ns.currentPlayerId;
+      final simRest = _tournamentSimulatingRest;
+      Future.microtask(() {
+        if (!mounted) return;
+        if (followUpId != OfflineGameState.localId) {
+          _scheduleAiTurn(followUpId, simulate: simRest);
+        } else {
+          _startTimer();
+        }
+      });
       return true;
     }
     return false;
@@ -3160,15 +3175,17 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final localId = OfflineGameState.localId;
     if (_offlineState.currentPlayerId == localId) return;
     if (_offlineState.lastCardsDeclaredBy.contains(localId)) return;
-    final hand = _offlineState.playerById(localId)?.hand ?? [];
-    final hasJoker = hand.any((c) => c.isJoker);
     final name =
         _offlineState.playerById(localId)?.displayName ?? localId;
+    final bluff = !canClearHandInOneTurn(
+      state: _offlineState,
+      playerId: localId,
+    );
     setState(() {
       _offlineState = _offlineState.copyWith(
         lastCardsDeclaredBy: {..._offlineState.lastCardsDeclaredBy, localId},
       );
-      if (!hasJoker && !canHandClearInOneTurn(hand)) {
+      if (bluff) {
         _offlineLastCardsBluffedBy.add(localId);
       }
     });

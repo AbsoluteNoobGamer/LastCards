@@ -7,7 +7,6 @@ import 'package:last_cards/core/models/table_position_layout.dart';
 import 'package:last_cards/shared/constants/quick_chat_messages.dart';
 import 'package:last_cards/shared/engine/game_engine.dart';
 import 'package:last_cards/shared/engine/shuffle_utils.dart';
-import 'package:last_cards/shared/rules/last_cards_rules.dart';
 import 'package:last_cards/shared/rules/move_log_support.dart';
 import 'package:last_cards/shared/rules/win_condition_rules.dart'
     show
@@ -422,6 +421,8 @@ class GameSession {
       );
     }
 
+    _state = initializeFirstTurnClearability(_state, isBustMode: isBustMode);
+
     // Notify clients of session type (private vs ranked, trophy eligibility).
     _broadcast({
       'type': 'session_config',
@@ -752,14 +753,15 @@ class GameSession {
     final player = _state.players.firstWhereOrNull((p) => p.id == playerId);
     if (player == null) return;
 
-    final hand = player.hand;
-    final hasJoker = hand.any((c) => c.isJoker);
-
     _state = _state.copyWith(
       lastCardsDeclaredBy: {..._state.lastCardsDeclaredBy, playerId},
     );
 
-    if (!hasJoker && !canHandClearInOneTurn(hand)) {
+    if (!canClearHandInOneTurn(
+      state: _state,
+      playerId: playerId,
+      isBustMode: isBustMode,
+    )) {
       _lastCardsBluffedBy.add(playerId);
     }
 
@@ -778,7 +780,7 @@ class GameSession {
     );
 
     final drawnCards = <CardModel>[];
-    _state = applyDraw(
+    _state = applyLastCardsBluffPenaltyDraw(
       state: _state,
       playerId: nextPlayerId,
       count: 2,

@@ -31,6 +31,11 @@ mixin _$PlayerModel {
   /// Number of cards the player holds. Always accurate for all players.
   int get cardCount => throw _privateConstructorUsedError;
 
+  /// Set when this player's turn begins: their hand could be emptied in one
+  /// legal turn (Last Cards rule). Server-authoritative for online opponents.
+  bool get lastCardsHandWasClearableAtTurnStart =>
+      throw _privateConstructorUsedError;
+
   /// Serializes this PlayerModel to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
 
@@ -52,7 +57,8 @@ abstract class $PlayerModelCopyWith<$Res> {
       String displayName,
       TablePosition tablePosition,
       List<CardModel> hand,
-      int cardCount});
+      int cardCount,
+      bool lastCardsHandWasClearableAtTurnStart});
 }
 
 /// @nodoc
@@ -75,6 +81,7 @@ class _$PlayerModelCopyWithImpl<$Res, $Val extends PlayerModel>
     Object? tablePosition = null,
     Object? hand = null,
     Object? cardCount = null,
+    Object? lastCardsHandWasClearableAtTurnStart = null,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -97,6 +104,11 @@ class _$PlayerModelCopyWithImpl<$Res, $Val extends PlayerModel>
           ? _value.cardCount
           : cardCount // ignore: cast_nullable_to_non_nullable
               as int,
+      lastCardsHandWasClearableAtTurnStart: null ==
+              lastCardsHandWasClearableAtTurnStart
+          ? _value.lastCardsHandWasClearableAtTurnStart
+          : lastCardsHandWasClearableAtTurnStart // ignore: cast_nullable_to_non_nullable
+              as bool,
     ) as $Val);
   }
 }
@@ -114,7 +126,8 @@ abstract class _$$PlayerModelImplCopyWith<$Res>
       String displayName,
       TablePosition tablePosition,
       List<CardModel> hand,
-      int cardCount});
+      int cardCount,
+      bool lastCardsHandWasClearableAtTurnStart});
 }
 
 /// @nodoc
@@ -135,6 +148,7 @@ class __$$PlayerModelImplCopyWithImpl<$Res>
     Object? tablePosition = null,
     Object? hand = null,
     Object? cardCount = null,
+    Object? lastCardsHandWasClearableAtTurnStart = null,
   }) {
     return _then(_$PlayerModelImpl(
       id: null == id
@@ -157,6 +171,11 @@ class __$$PlayerModelImplCopyWithImpl<$Res>
           ? _value.cardCount
           : cardCount // ignore: cast_nullable_to_non_nullable
               as int,
+      lastCardsHandWasClearableAtTurnStart: null ==
+              lastCardsHandWasClearableAtTurnStart
+          ? _value.lastCardsHandWasClearableAtTurnStart
+          : lastCardsHandWasClearableAtTurnStart // ignore: cast_nullable_to_non_nullable
+              as bool,
     ));
   }
 }
@@ -169,7 +188,8 @@ class _$PlayerModelImpl implements _PlayerModel {
       required this.displayName,
       required this.tablePosition,
       final List<CardModel> hand = const [],
-      this.cardCount = 0})
+      this.cardCount = 0,
+      this.lastCardsHandWasClearableAtTurnStart = false})
       : _hand = hand;
 
   factory _$PlayerModelImpl.fromJson(Map<String, dynamic> json) =>
@@ -201,9 +221,15 @@ class _$PlayerModelImpl implements _PlayerModel {
   @JsonKey()
   final int cardCount;
 
+  /// Set when this player's turn begins: their hand could be emptied in one
+  /// legal turn (Last Cards rule). Server-authoritative for online opponents.
+  @override
+  @JsonKey()
+  final bool lastCardsHandWasClearableAtTurnStart;
+
   @override
   String toString() {
-    return 'PlayerModel(id: $id, displayName: $displayName, tablePosition: $tablePosition, hand: $hand, cardCount: $cardCount)';
+    return 'PlayerModel(id: $id, displayName: $displayName, tablePosition: $tablePosition, hand: $hand, cardCount: $cardCount, lastCardsHandWasClearableAtTurnStart: $lastCardsHandWasClearableAtTurnStart)';
   }
 
   @override
@@ -218,13 +244,23 @@ class _$PlayerModelImpl implements _PlayerModel {
                 other.tablePosition == tablePosition) &&
             const DeepCollectionEquality().equals(other._hand, _hand) &&
             (identical(other.cardCount, cardCount) ||
-                other.cardCount == cardCount));
+                other.cardCount == cardCount) &&
+            (identical(other.lastCardsHandWasClearableAtTurnStart,
+                    lastCardsHandWasClearableAtTurnStart) ||
+                other.lastCardsHandWasClearableAtTurnStart ==
+                    lastCardsHandWasClearableAtTurnStart));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, id, displayName, tablePosition,
-      const DeepCollectionEquality().hash(_hand), cardCount);
+  int get hashCode => Object.hash(
+      runtimeType,
+      id,
+      displayName,
+      tablePosition,
+      const DeepCollectionEquality().hash(_hand),
+      cardCount,
+      lastCardsHandWasClearableAtTurnStart);
 
   /// Create a copy of PlayerModel
   /// with the given fields replaced by the non-null parameter values.
@@ -248,7 +284,8 @@ abstract class _PlayerModel implements PlayerModel {
       required final String displayName,
       required final TablePosition tablePosition,
       final List<CardModel> hand,
-      final int cardCount}) = _$PlayerModelImpl;
+      final int cardCount,
+      final bool lastCardsHandWasClearableAtTurnStart}) = _$PlayerModelImpl;
 
   factory _PlayerModel.fromJson(Map<String, dynamic> json) =
       _$PlayerModelImpl.fromJson;
@@ -268,6 +305,11 @@ abstract class _PlayerModel implements PlayerModel {
   /// Number of cards the player holds. Always accurate for all players.
   @override
   int get cardCount;
+
+  /// Set when this player's turn begins: their hand could be emptied in one
+  /// legal turn (Last Cards rule). Server-authoritative for online opponents.
+  @override
+  bool get lastCardsHandWasClearableAtTurnStart;
 
   /// Create a copy of PlayerModel
   /// with the given fields replaced by the non-null parameter values.

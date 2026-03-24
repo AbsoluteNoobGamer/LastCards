@@ -16,6 +16,8 @@ _$PlayerModelImpl _$$PlayerModelImplFromJson(Map<String, dynamic> json) =>
               .toList() ??
           const [],
       cardCount: (json['cardCount'] as num?)?.toInt() ?? 0,
+      lastCardsHandWasClearableAtTurnStart:
+          json['lastCardsHandWasClearableAtTurnStart'] as bool? ?? false,
     );
 
 Map<String, dynamic> _$$PlayerModelImplToJson(_$PlayerModelImpl instance) =>
@@ -25,6 +27,8 @@ Map<String, dynamic> _$$PlayerModelImplToJson(_$PlayerModelImpl instance) =>
       'tablePosition': _$TablePositionEnumMap[instance.tablePosition]!,
       'hand': instance.hand,
       'cardCount': instance.cardCount,
+      'lastCardsHandWasClearableAtTurnStart':
+          instance.lastCardsHandWasClearableAtTurnStart,
     };
 
 const _$TablePositionEnumMap = {

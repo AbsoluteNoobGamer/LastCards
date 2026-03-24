@@ -1343,6 +1343,38 @@ void main() {
       expect(after.currentPlayerId, 'p2');
     });
 
+    test('advanceTurn sets lastCardsHandWasClearableAtTurnStart for incoming player',
+        () {
+      final top = c(Rank.six, Suit.spades);
+      final state = GameState(
+        sessionId: 'test',
+        phase: GamePhase.playing,
+        currentPlayerId: 'p1',
+        direction: PlayDirection.clockwise,
+        discardTopCard: top,
+        drawPileCount: 10,
+        players: [
+          PlayerModel(
+            id: 'p1',
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: const [],
+            cardCount: 0,
+          ),
+          PlayerModel(
+            id: 'p2',
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: [c(Rank.seven, Suit.spades)],
+            cardCount: 1,
+          ),
+        ],
+      );
+      final after = advanceTurn(state);
+      expect(after.playerById('p2')!.lastCardsHandWasClearableAtTurnStart, isTrue);
+      expect(after.playerById('p1')!.lastCardsHandWasClearableAtTurnStart, isFalse);
+    });
+
     test('applyLastCardsBluffPenaltyDraw leaves actionsThisTurn at 0 for new turn',
         () {
       CardModel one(int i) => CardModel(

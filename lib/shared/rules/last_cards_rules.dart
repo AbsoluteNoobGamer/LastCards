@@ -4,26 +4,20 @@ import 'pickup_chain_rules.dart';
 /// Max hand size for showing the Last Cards button without Joker / pick-up cards.
 const int lastCardsMaxHandSize = 4;
 
-/// Whether [hand] can be fully played in one turn without referencing discard,
-/// using the same chain rules as mid-turn play (except discard matching).
+/// Hand-only chain check (no [validatePlay] / discard top). Used as a fallback
+/// when the hand contains Jokers (mixed plays go through `declare_joker` online).
 ///
-/// If the hand contains any Joker, returns `true` immediately (bluff immunity).
-bool canHandClearInOneTurn(List<CardModel> hand) {
+/// Explores single-card orderings; mid-turn flow mirrors [validatePlay] without
+/// discard matching on the first card.
+bool canHandClearInOneTurnHandOnly(List<CardModel> hand) {
   if (hand.isEmpty) return true;
-  if (hand.any((c) => c.isJoker)) return true;
-
   final cards = List<CardModel>.from(hand);
-  return _canOrderChain(cards);
-}
-
-bool _canOrderChain(List<CardModel> cards) {
   return _dfsChain(cards, null);
 }
 
 bool _dfsChain(List<CardModel> remaining, CardModel? lastPlayed) {
   if (remaining.isEmpty) {
     if (lastPlayed == null) return true;
-    // Terminal: last card cannot be an uncovered Queen.
     return lastPlayed.effectiveRank != Rank.queen;
   }
 
@@ -44,8 +38,12 @@ bool _validChainStep(CardModel prev, CardModel next) {
   if (next.effectiveRank == Rank.queen) return true;
 
   if (prev.effectiveRank == Rank.queen) {
-    return next.effectiveSuit == prev.effectiveSuit;
+    return next.effectiveSuit == prev.effectiveSuit ||
+        next.effectiveRank == Rank.queen ||
+        next.isJoker;
   }
+
+  if (prev.isJoker || next.isJoker) return true;
 
   if (isPenaltyChain(prev, next)) return true;
 
