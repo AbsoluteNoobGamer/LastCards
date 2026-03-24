@@ -3220,12 +3220,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
     final localId = OfflineGameState.localId;
     if (_offlineState.lastCardsDeclaredBy.contains(localId)) return;
-    final name =
-        _offlineState.playerById(localId)?.displayName ?? localId;
-    final bluff = !canClearHandInOneTurn(
-      state: _offlineState,
-      playerId: localId,
-    );
+    final p = _offlineState.playerById(localId);
+    final name = p?.displayName ?? localId;
+    final hasJoker = p != null && p.hand.any((c) => c.isJoker);
+    final bluff = !hasJoker &&
+        !canClearHandInOneTurn(
+          state: _offlineState,
+          playerId: localId,
+        );
     setState(() {
       _offlineState = _offlineState.copyWith(
         lastCardsDeclaredBy: {..._offlineState.lastCardsDeclaredBy, localId},

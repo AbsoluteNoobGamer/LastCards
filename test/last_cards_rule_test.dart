@@ -79,20 +79,13 @@ void main() {
   });
 
   group('canClearHandInOneTurn (engine)', () {
-    test('sequence then value chain is clearable with valid discard', () {
-      final top = c(Rank.two, Suit.hearts);
-      final hand = [
-        c(Rank.three, Suit.hearts),
-        c(Rank.four, Suit.hearts),
-        c(Rank.five, Suit.hearts),
-        c(Rank.five, Suit.clubs),
-      ];
-      final state = GameState(
+    GameState stateForP1(List<CardModel> hand, {required CardModel discardTop}) {
+      return GameState(
         sessionId: 't',
         phase: GamePhase.playing,
         currentPlayerId: 'p1',
         direction: PlayDirection.clockwise,
-        discardTopCard: top,
+        discardTopCard: discardTop,
         drawPileCount: 10,
         players: [
           PlayerModel(
@@ -111,7 +104,59 @@ void main() {
           ),
         ],
       );
+    }
+
+    test('sequence then value chain: discard top does not affect clearability', () {
+      final hand = [
+        c(Rank.three, Suit.hearts),
+        c(Rank.four, Suit.hearts),
+        c(Rank.five, Suit.hearts),
+        c(Rank.five, Suit.clubs),
+      ];
+      final mismatchTop = c(Rank.king, Suit.spades);
+      final state = stateForP1(hand, discardTop: mismatchTop);
       expect(canClearHandInOneTurn(state: state, playerId: 'p1'), isTrue);
+    });
+
+    test(
+        'Joker + failing hand-only chain: engine not clearable; human bluff uses Joker exemption at call site',
+        () {
+      final hand = [
+        c(Rank.two, Suit.hearts),
+        c(Rank.four, Suit.diamonds),
+        c(Rank.six, Suit.clubs),
+        c(Rank.eight, Suit.spades),
+        c(Rank.joker, Suit.spades),
+      ];
+      expect(canHandClearInOneTurnHandOnly(hand), isFalse);
+      final state = stateForP1(hand, discardTop: c(Rank.king, Suit.clubs));
+      expect(canClearHandInOneTurn(state: state, playerId: 'p1'), isFalse);
+      final hasJoker = hand.any((c) => c.isJoker);
+      final bluff = !hasJoker &&
+          !canClearHandInOneTurn(state: state, playerId: 'p1');
+      expect(bluff, isFalse);
+    });
+
+    test('non-Joker chain [2♥,3♥,4♥,4♠] clearable regardless of discard top', () {
+      final hand = [
+        c(Rank.two, Suit.hearts),
+        c(Rank.three, Suit.hearts),
+        c(Rank.four, Suit.hearts),
+        c(Rank.four, Suit.spades),
+      ];
+      final state = stateForP1(hand, discardTop: c(Rank.ace, Suit.diamonds));
+      expect(canClearHandInOneTurn(state: state, playerId: 'p1'), isTrue);
+    });
+
+    test('non-Joker hand with broken run returns false', () {
+      final hand = [
+        c(Rank.two, Suit.hearts),
+        c(Rank.three, Suit.hearts),
+        c(Rank.five, Suit.hearts),
+        c(Rank.four, Suit.spades),
+      ];
+      final state = stateForP1(hand, discardTop: c(Rank.two, Suit.hearts));
+      expect(canClearHandInOneTurn(state: state, playerId: 'p1'), isFalse);
     });
   });
 
