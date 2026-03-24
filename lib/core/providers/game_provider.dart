@@ -382,7 +382,7 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
         state = state.copyWith(socketDisconnectedPlayerIds: next);
       }),
     );
-    );
+
     _subs.add(
       _eventHandler.events
           .where((e) => e is PlayerLeftEvent)
