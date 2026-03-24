@@ -39,7 +39,7 @@ import '../widgets/player_zone_widget.dart';
 import '../widgets/card_widget.dart';
 import '../widgets/floating_action_bar_widget.dart';
 import '../widgets/turn_indicator_overlay.dart';
-import '../widgets/last_move_panel_widget.dart';
+import '../widgets/game_move_log_overlay.dart';
 import '../widgets/quick_chat_panel.dart';
 
 import '../../../../widgets/turn_timer_bar.dart';
@@ -1410,26 +1410,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
               // ── Game log panel (centred, below player avatars) ───────────
               if (_moveLogEntries.isNotEmpty)
-                Positioned(
-                  top: MediaQuery.of(context).padding.top +
-                      (isLandscapeMobile ? 72 : 175),
-                  left: MediaQuery.of(context).size.width * 0.08,
-                  right: MediaQuery.of(context).size.width * 0.08,
-                  child: IgnorePointer(
-                    child: Container(
-                      constraints: const BoxConstraints(maxHeight: 140),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      child: LastMovePanelWidget(entries: _moveLogEntries),
-                    ),
-                  ),
-                ),
+                GameMoveLogOverlay(entries: _moveLogEntries),
 
               // ── Tournament Skip (offline, when qualified) ───────────────────
               if (widget.isTournamentMode &&
