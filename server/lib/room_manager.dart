@@ -125,7 +125,11 @@ class RoomManager {
     final displayName =
         sanitizeDisplayName(json['displayName'] as String? ?? 'Player');
     final firebaseUid = _playerUserIds[ws];
-    final session = GameSession(roomCode, isPrivate: true);
+    final session = GameSession(
+      roomCode,
+      isPrivate: true,
+      onBecameEmpty: (_) => _rooms.remove(roomCode),
+    );
     _rooms[roomCode] = session;
 
     final playerId = session.addPlayer(ws, displayName, firebaseUid: firebaseUid);
@@ -260,11 +264,14 @@ class RoomManager {
       while (_rooms.containsKey(roomCode)) {
         roomCode = _uuid.v4().substring(0, 6).toUpperCase();
       }
-      final session = GameSession(roomCode,
-          isPrivate: false,
-          maxPlayerCount: playerCount,
-          isBustMode: isBust,
-          isRanked: isRanked);
+      final session = GameSession(
+        roomCode,
+        isPrivate: false,
+        maxPlayerCount: playerCount,
+        isBustMode: isBust,
+        isRanked: isRanked,
+        onBecameEmpty: (_) => _rooms.remove(roomCode),
+      );
       _rooms[roomCode] = session;
       _log.info(
           'Match found! Creating room $roomCode with $playerCount players');
@@ -313,7 +320,7 @@ class RoomManager {
     final playerId = _playerIds.remove(ws);
     if (roomCode != null && playerId != null) {
       final session = _rooms[roomCode];
-      session?.handleSocketDisconnected(playerId);
+      session?.handleSocketDisconnected(playerId, ws);
 
       // Clean up empty rooms only when the session has no players left.
       if (session != null && session.isEmpty) {

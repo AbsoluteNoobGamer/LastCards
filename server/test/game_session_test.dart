@@ -1906,24 +1906,60 @@ void main() {
         () {
       final g = _makeKnownGame();
       g.p2ws.clear();
-      g.session.handleSocketDisconnected(g.p1Id);
+      g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
       expect(g.p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
     });
 
     test('removePlayer after grace ends game for other player', () {
       final g = _makeKnownGame();
       g.p2ws.clear();
-      g.session.handleSocketDisconnected(g.p1Id);
+      g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
       g.session.removePlayer(g.p1Id);
       expect(g.p2ws.lastOfType('game_ended')?['reason'], 'player_disconnected');
     });
 
     test('tryReattachSocket sends state_snapshot to new socket', () {
       final g = _makeKnownGame();
-      g.session.handleSocketDisconnected(g.p1Id);
+      g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
       final newWs = _FakeWs();
       expect(g.session.tryReattachSocket(g.p1Id, newWs), isTrue);
       expect(newWs.messages.any((m) => m['type'] == 'state_snapshot'), isTrue);
+    });
+
+    test('tryReattachSocket replaces socket when previous still connected', () {
+      final g = _makeKnownGame();
+      final newWs = _FakeWs();
+      expect(g.session.tryReattachSocket(g.p1Id, newWs), isTrue);
+      expect(newWs.messages.any((m) => m['type'] == 'state_snapshot'), isTrue);
+    });
+
+    test('handleSocketDisconnected ignores stale socket after reattach', () {
+      final g = _makeKnownGame();
+      final newWs = _FakeWs();
+      expect(g.session.tryReattachSocket(g.p1Id, newWs), isTrue);
+      g.p2ws.clear();
+      g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
+      expect(g.p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
+    });
+
+    test('onBecameEmpty when last player removed after game over', () {
+      var emptyCalled = false;
+      final session = GameSession(
+        'ROOM',
+        onBecameEmpty: (_) => emptyCalled = true,
+      );
+      final w1 = _FakeWs();
+      final w2 = _FakeWs();
+      final id1 = session.addPlayer(w1, 'A');
+      final id2 = session.addPlayer(w2, 'B');
+      session.markReady(id1);
+      session.markReady(id2);
+      session.handleSocketDisconnected(id1, w1);
+      session.handleSocketDisconnected(id2, w2);
+      session.removePlayer(id1);
+      expect(emptyCalled, isFalse);
+      session.removePlayer(id2);
+      expect(emptyCalled, isTrue);
     });
 
     test('declare_last_cards works on current player turn', () {

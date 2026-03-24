@@ -70,6 +70,7 @@ class GameSession {
     this.isBustMode = false,
     this.isRanked = false,
     TrophyRecorder? trophyRecorder,
+    this.onBecameEmpty,
   }) : _trophyRecorder = trophyRecorder ?? TrophyRecorder.instance;
 
   final String roomCode;
@@ -88,6 +89,10 @@ class GameSession {
   final bool isRanked;
 
   final TrophyRecorder _trophyRecorder;
+
+  /// Called after [removePlayer] when no players remain (e.g. grace timers
+  /// removed everyone). [RoomManager] uses this to drop the room from memory.
+  final void Function(String roomCode)? onBecameEmpty;
 
   final _players = <String, _ConnectedPlayer>{};
 
@@ -213,9 +218,18 @@ class GameSession {
   /// Called when a client's socket closes. Standard in-progress games enter a
   /// grace period so the client can [tryReattachSocket]. Lobby / Bust / ended
   /// games use immediate [removePlayer].
-  void handleSocketDisconnected(String playerId) {
+  ///
+  /// [disconnectedWs] must be the socket that closed. If [tryReattachSocket]
+  /// already replaced it, this is ignored so a late close on the old socket
+  /// does not clear the new connection.
+  void handleSocketDisconnected(String playerId, dynamic disconnectedWs) {
     final leavingPlayer = _players[playerId];
     if (leavingPlayer == null) return;
+
+    if (leavingPlayer.ws != null &&
+        !identical(leavingPlayer.ws, disconnectedWs)) {
+      return;
+    }
 
     if (!_started || _gameOver || isBustMode) {
       removePlayer(playerId);
@@ -235,13 +249,11 @@ class GameSession {
   /// Returns false if the slot is invalid or grace expired.
   bool tryReattachSocket(
     String playerId,
-    dynamic ws, {
+    dynamic newWs, {
     String? firebaseUidFromToken,
   }) {
     final p = _players[playerId];
     if (p == null) return false;
-    if (p.ws != null) return false;
-    if (!_disconnectGraceTimers.containsKey(playerId)) return false;
 
     if (isRanked) {
       final expected = p.firebaseUid;
@@ -253,8 +265,22 @@ class GameSession {
       }
     }
 
+    // Grace-period reconnect (ws was nulled by [handleSocketDisconnected]).
+    if (p.ws == null) {
+      if (!_disconnectGraceTimers.containsKey(playerId)) return false;
+      _disconnectGraceTimers.remove(playerId)?.cancel();
+      p.ws = newWs;
+      _broadcastStateSnapshots();
+      return true;
+    }
+
+    // Stale socket: TCP close not detected yet; same client opened a new
+    // connection and sent rejoin_session — replace the old WebSocket.
+    try {
+      p.ws.sink.close();
+    } catch (_) {}
     _disconnectGraceTimers.remove(playerId)?.cancel();
-    p.ws = ws;
+    p.ws = newWs;
     _broadcastStateSnapshots();
     return true;
   }
@@ -286,6 +312,10 @@ class GameSession {
     final displayName = leavingPlayer?.displayName ?? playerId;
     _players.remove(playerId);
     _broadcast({'type': 'player_left', 'playerId': playerId});
+
+    if (_players.isEmpty) {
+      onBecameEmpty?.call(roomCode);
+    }
 
     if (!_started || _gameOver) return;
 
