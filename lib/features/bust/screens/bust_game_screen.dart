@@ -11,6 +11,7 @@ import 'package:last_cards/core/models/offline_game_state.dart';
 import 'package:last_cards/services/audio_service.dart' as game_audio;
 import 'package:last_cards/services/game_sound.dart';
 import 'package:last_cards/core/models/move_log_entry.dart';
+import 'package:last_cards/core/models/move_log_merge.dart';
 import 'package:last_cards/core/providers/theme_provider.dart';
 import 'package:last_cards/core/providers/user_profile_provider.dart';
 import 'package:last_cards/core/theme/app_colors.dart';
@@ -975,20 +976,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       turnContinues: afterState.currentPlayerId == playerId,
     );
 
-    if (_moveLogEntries.isNotEmpty) {
-      final top = _moveLogEntries.first;
-      if (top.type == MoveLogEntryType.play &&
-          top.playerId == playerId &&
-          top.turnContinues) {
-        _moveLogEntries[0] = top.copyWith(
-          cardActions: [...top.cardActions, ...entry.cardActions],
-          skippedPlayerNames: entry.skippedPlayerNames,
-          turnContinues: entry.turnContinues,
-        );
-        return;
-      }
-    }
-    _pushMoveLog(entry);
+    mergeOrPrependPlayLog(_moveLogEntries, entry);
   }
 
   void _applyAceDeclarationToLog({
