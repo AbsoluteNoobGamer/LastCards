@@ -59,7 +59,8 @@ When multiple effects are active together, resolve in this order:
 - Declaring is public: everyone sees who declared.
 - A false declaration (hand not clearable in one turn) is caught when your turn starts: you draw 2 penalty cards and your declaration is cleared.
 - Clearability is evaluated from **your hand only** (valid multi-card chains, penalty-card chains, etc.), **independent of the current discard top** — so it does not change if an opponent plays before your turn.
-- If you hold **any Joker**, your declaration is always treated as valid for humans (no bluff penalty from the clearability check). **AI opponents** do not get that exemption: their eligibility to auto-declare uses the same hand-only chain check without a free pass for holding a Joker.
+- **Must-declare / turn-start snapshots** and **AI** use that same hand-only clearability with no special case for Jokers.
+- When **you** press Last Cards (offline or online), if you hold **any Joker**, you are never flagged as bluffing from the clearability check alone; AI does not get that pass.
 - **Bust mode** does not use this rule.
 
 ---

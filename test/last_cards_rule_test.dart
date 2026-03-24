@@ -118,7 +118,9 @@ void main() {
       expect(canClearHandInOneTurn(state: state, playerId: 'p1'), isTrue);
     });
 
-    test('Joker in hand: human clearability is true even when hand-only chain fails', () {
+    test(
+        'Joker + failing hand-only chain: engine not clearable; human bluff uses Joker exemption at call site',
+        () {
       final hand = [
         c(Rank.two, Suit.hearts),
         c(Rank.four, Suit.diamonds),
@@ -128,7 +130,11 @@ void main() {
       ];
       expect(canHandClearInOneTurnHandOnly(hand), isFalse);
       final state = stateForP1(hand, discardTop: c(Rank.king, Suit.clubs));
-      expect(canClearHandInOneTurn(state: state, playerId: 'p1'), isTrue);
+      expect(canClearHandInOneTurn(state: state, playerId: 'p1'), isFalse);
+      final hasJoker = hand.any((c) => c.isJoker);
+      final bluff = !hasJoker &&
+          !canClearHandInOneTurn(state: state, playerId: 'p1');
+      expect(bluff, isFalse);
     });
 
     test('non-Joker chain [2♥,3♥,4♥,4♠] clearable regardless of discard top', () {

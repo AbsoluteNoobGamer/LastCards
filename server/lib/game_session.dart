@@ -864,11 +864,13 @@ class GameSession {
       lastCardsDeclaredBy: {..._state.lastCardsDeclaredBy, playerId},
     );
 
-    if (!canClearHandInOneTurn(
-      state: _state,
-      playerId: playerId,
-      isBustMode: isBustMode,
-    )) {
+    final hasJoker = player.hand.any((c) => c.isJoker);
+    if (!hasJoker &&
+        !canClearHandInOneTurn(
+          state: _state,
+          playerId: playerId,
+          isBustMode: isBustMode,
+        )) {
       _lastCardsBluffedBy.add(playerId);
     }
 

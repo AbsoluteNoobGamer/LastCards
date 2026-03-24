@@ -901,11 +901,11 @@ bool needsBustPlacementPileReshuffleFromUnderTop(int underTopCardCount) =>
 // ── Last Cards — hand clearability (shared offline + server) ─────────────────
 
 /// Whether [playerId]'s hand can be emptied in one turn for Last Cards
-/// bluff / must-declare checks. Uses [canHandClearInOneTurnHandOnly] (discard
-/// pile is ignored so clearability does not change when the top card changes
-/// before your turn). If the hand contains a Joker, returns `true` for human
-/// players (declaration is always valid; no bluff penalty). [isBustMode]
-/// forces `false` (no Last Cards in Bust).
+/// must-declare snapshots and AI declaration eligibility. Uses
+/// [canHandClearInOneTurnHandOnly] (discard pile ignored). Human-only Joker
+/// bluff exemption is **not** applied here — add it at offline/server Last
+/// Cards declaration handlers when recording a bluff. [isBustMode] forces
+/// `false` (no Last Cards in Bust).
 ///
 /// When the opponent's hand is hidden (`cardCount` ≠ `hand.length`), returns
 /// `false` (server has full hands; online clients rely on snapshots).
@@ -919,7 +919,6 @@ bool canClearHandInOneTurn({
   if (p == null) return false;
   if (p.hand.isEmpty) return true;
   if (p.hand.length != p.cardCount) return false;
-  if (p.hand.any((c) => c.isJoker)) return true;
   return canHandClearInOneTurnHandOnly(p.hand);
 }
 
