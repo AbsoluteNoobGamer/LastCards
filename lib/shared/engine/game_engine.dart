@@ -4,6 +4,7 @@ import '../models/card_model.dart';
 import '../models/game_state_model.dart';
 import '../rules/card_rules.dart';
 import '../rules/pickup_chain_rules.dart';
+import '../rules/last_cards_rules.dart' show canHandClearInOneTurnHandOnly;
 import '../rules/win_condition_rules.dart' show needsUndeclaredLastCardsDraw;
 import 'shuffle_utils.dart';
 
@@ -859,6 +860,60 @@ bool needsBustPlacementPileReshuffle(int totalDiscardCount) =>
 bool needsBustPlacementPileReshuffleFromUnderTop(int underTopCardCount) =>
     needsBustPlacementPileReshuffle(underTopCardCount + 1);
 
+// ── Last Cards — hand clearability (shared offline + server) ─────────────────
+
+/// Whether [playerId]'s hand can be emptied in one turn using [validatePlay] /
+/// [applyPlay] rules. [isBustMode] forces `false` (no Last Cards in Bust).
+///
+/// When the opponent's hand is hidden (`cardCount` ≠ `hand.length`), returns
+/// `false` (server has full hands; online clients rely on snapshots).
+bool canClearHandInOneTurn({
+  required GameState state,
+  required String playerId,
+  bool isBustMode = false,
+}) {
+  if (isBustMode) return false;
+  final top = state.discardTopCard;
+  if (top == null) return false;
+  final p = state.playerById(playerId);
+  if (p == null) return false;
+  if (p.hand.isEmpty) return true;
+  if (p.hand.length != p.cardCount) return false;
+  if (p.hand.any((c) => c.isJoker)) {
+    return canHandClearInOneTurnHandOnly(p.hand);
+  }
+  final sim = state.copyWith(
+    currentPlayerId: playerId,
+    actionsThisTurn: 0,
+    cardsPlayedThisTurn: 0,
+    lastPlayedThisTurn: null,
+  );
+  return _dfsClearPlayOut(sim, playerId);
+}
+
+bool _dfsClearPlayOut(GameState gs, String playerId) {
+  final hand = gs.playerById(playerId)?.hand ?? [];
+  if (hand.isEmpty) {
+    return gs.queenSuitLock == null;
+  }
+  final n = hand.length;
+  for (var mask = 1; mask < (1 << n); mask++) {
+    final play = <CardModel>[];
+    for (var i = 0; i < n; i++) {
+      if (mask & (1 << i) != 0) play.add(hand[i]);
+    }
+    final err = validatePlay(
+      cards: play,
+      discardTop: gs.discardTopCard!,
+      state: gs,
+    );
+    if (err != null) continue;
+    final next = applyPlay(state: gs, playerId: playerId, cards: play);
+    if (_dfsClearPlayOut(next, playerId)) return true;
+  }
+  return false;
+}
+
 // ── Shared turn advancement ───────────────────────────────────────────────────
 
 /// Advances to the next player and resets all per-turn state fields.
@@ -870,11 +925,14 @@ bool needsBustPlacementPileReshuffleFromUnderTop(int underTopCardCount) =>
 /// Resets: [currentPlayerId], [actionsThisTurn], [cardsPlayedThisTurn],
 /// [lastPlayedThisTurn], [activeSkipCount], [preTurnCentreSuit],
 /// and [queenSuitLock].
+///
+/// Sets [PlayerModel.lastCardsHandWasClearableAtTurnStart] for the incoming
+/// player only.
 GameState advanceTurn(GameState state, {String? nextId}) {
   final id = nextId ?? nextPlayerId(state: state);
   final outgoing = state.currentPlayerId;
   final nextDeclared = {...state.lastCardsDeclaredBy}..remove(outgoing);
-  return state.copyWith(
+  final base = state.copyWith(
     currentPlayerId: id,
     actionsThisTurn: 0,
     cardsPlayedThisTurn: 0,
@@ -884,6 +942,17 @@ GameState advanceTurn(GameState state, {String? nextId}) {
     queenSuitLock: null,
     lastCardsDeclaredBy: nextDeclared,
   );
+  final players = base.players.map((p) {
+    if (p.id != id) {
+      return p.copyWith(lastCardsHandWasClearableAtTurnStart: false);
+    }
+    final clearable = canClearHandInOneTurn(
+      state: base,
+      playerId: id,
+    );
+    return p.copyWith(lastCardsHandWasClearableAtTurnStart: clearable);
+  }).toList();
+  return base.copyWith(players: players);
 }
 
 // ── Shared invalid-play penalty ───────────────────────────────────────────────

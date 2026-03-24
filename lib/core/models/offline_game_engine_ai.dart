@@ -63,8 +63,6 @@ GameState _maybeAiDeclareLastCards({
   required String aiPlayerId,
 }) {
   if (state.lastCardsDeclaredBy.contains(aiPlayerId)) return state;
-  final ai = state.players.firstWhere((p) => p.id == aiPlayerId);
-  final hand = ai.hand;
   if (!shouldShowLastCardsButton(
     isBustMode: false,
     isLocalTurn: false,
@@ -73,8 +71,9 @@ GameState _maybeAiDeclareLastCards({
   )) {
     return state;
   }
-  final hasJoker = hand.any((c) => c.isJoker);
-  if (!hasJoker && !canHandClearInOneTurn(hand)) return state;
+  if (!canClearHandInOneTurn(state: state, playerId: aiPlayerId)) {
+    return state;
+  }
   return state.copyWith(
     lastCardsDeclaredBy: {...state.lastCardsDeclaredBy, aiPlayerId},
   );

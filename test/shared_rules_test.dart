@@ -19,6 +19,7 @@ GameState buildState({
   int activePenalty = 0,
   Suit? queenSuitLock,
   String currentPlayerId = 'p1',
+  bool p1LastCardsClearableAtTurnStart = false,
 }) {
   final p1 = PlayerModel(
     id: 'p1',
@@ -26,6 +27,7 @@ GameState buildState({
     tablePosition: TablePosition.bottom,
     hand: p1Hand,
     cardCount: p1Hand.length,
+    lastCardsHandWasClearableAtTurnStart: p1LastCardsClearableAtTurnStart,
   );
   final p2 = PlayerModel(
     id: 'p2',
@@ -107,6 +109,7 @@ void main() {
         p1Hand: [],
         p2Hand: [c(Rank.king, Suit.hearts)],
         activePenalty: 0,
+        p1LastCardsClearableAtTurnStart: true,
       ).copyWith(lastCardsDeclaredBy: {'p1'});
       expect(wouldConfirmWin(state), isTrue);
 

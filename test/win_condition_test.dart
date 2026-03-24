@@ -19,6 +19,7 @@ GameState buildState({
   List<CardModel> p2Hand = const [],
   int activePenalty = 0,
   Suit? queenSuitLock,
+  bool p1LastCardsClearableAtTurnStart = false,
 }) {
   final p1 = PlayerModel(
     id: 'p1',
@@ -26,6 +27,7 @@ GameState buildState({
     tablePosition: TablePosition.bottom,
     hand: p1Hand,
     cardCount: p1Hand.length,
+    lastCardsHandWasClearableAtTurnStart: p1LastCardsClearableAtTurnStart,
   );
   final p2 = PlayerModel(
     id: 'p2',
@@ -261,6 +263,7 @@ void main() {
         discardTop: c(Rank.four, Suit.hearts),
         p1Hand: const [],
         p2Hand: [c(Rank.king, Suit.clubs)],
+        p1LastCardsClearableAtTurnStart: true,
       );
       expect(
         state.players.firstWhere((p) => p.id == 'p1').hand,
@@ -282,6 +285,7 @@ void main() {
         discardTop: c(Rank.four, Suit.hearts),
         p1Hand: const [],
         p2Hand: [c(Rank.king, Suit.clubs)],
+        p1LastCardsClearableAtTurnStart: true,
       ).copyWith(lastCardsDeclaredBy: {'p1'});
       expect(canConfirmPlayerWin(state: state, playerId: 'p1'), isTrue);
     });

@@ -36,6 +36,9 @@ class PlayerModel with _$PlayerModel {
     /// Number of cards the player holds. Always accurate for all players.
     @Default(0) int cardCount,
 
+    /// Set when this player's turn begins: their hand could be emptied in one
+    /// legal turn (Last Cards rule). Server-authoritative for online opponents.
+    @Default(false) bool lastCardsHandWasClearableAtTurnStart,
   }) = _PlayerModel;
 
   factory PlayerModel.fromJson(Map<String, dynamic> json) =>

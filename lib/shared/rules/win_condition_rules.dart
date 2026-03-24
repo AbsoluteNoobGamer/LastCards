@@ -27,7 +27,11 @@ bool canConfirmPlayerWin({
     return false;
   }
 
-  if (!skipLastCardsCheck && !state.lastCardsDeclaredBy.contains(playerId)) {
+  final skipBecauseHandWasNotClearable =
+      !candidate.lastCardsHandWasClearableAtTurnStart;
+  if (!skipLastCardsCheck &&
+      !skipBecauseHandWasNotClearable &&
+      !state.lastCardsDeclaredBy.contains(playerId)) {
     return false;
   }
 
@@ -60,6 +64,9 @@ bool needsUndeclaredLastCardsDraw({
   bool isBustMode = false,
 }) {
   if (isBustMode) return false;
+  final candidate = state.players.where((p) => p.id == playerId).firstOrNull;
+  if (candidate == null) return false;
+  if (!candidate.lastCardsHandWasClearableAtTurnStart) return false;
   if (state.lastCardsDeclaredBy.contains(playerId)) return false;
   return canConfirmPlayerWin(
     state: state,
