@@ -28,6 +28,7 @@ import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/services/player_level_service.dart';
 import '../../../../core/utils/ranked_tier_utils.dart';
 import '../../../../core/models/move_log_entry.dart';
+import '../../../../core/models/move_log_merge.dart';
 import '../../../../core/models/game_event.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
@@ -263,13 +264,16 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final actions = e.cards.map((c) => MoveCardAction(card: c)).toList();
       setState(() {
         _onlineDiscardCount += e.cards.length;
-        _pushMoveLog(MoveLogEntry.play(
-          playerId: e.playerId,
-          playerName: name,
-          cardActions: actions,
-          skippedPlayerNames: e.skippedPlayers,
-          turnContinues: e.turnContinues,
-        ));
+        mergeOrPrependPlayLog(
+          _moveLogEntries,
+          MoveLogEntry.play(
+            playerId: e.playerId,
+            playerName: name,
+            cardActions: actions,
+            skippedPlayerNames: e.skippedPlayers,
+            turnContinues: e.turnContinues,
+          ),
+        );
       });
     });
 
@@ -3148,20 +3152,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           turnContinuesOverride ?? (afterState.currentPlayerId == playerId),
     );
 
-    if (_moveLogEntries.isNotEmpty) {
-      final top = _moveLogEntries.first;
-      if (top.type == MoveLogEntryType.play &&
-          top.playerId == playerId &&
-          top.turnContinues) {
-        _moveLogEntries[0] = top.copyWith(
-          cardActions: [...top.cardActions, ...entry.cardActions],
-          skippedPlayerNames: entry.skippedPlayerNames,
-          turnContinues: entry.turnContinues,
-        );
-        return;
-      }
-    }
-    _pushMoveLog(entry);
+    mergeOrPrependPlayLog(_moveLogEntries, entry);
   }
 
   void _applyAceDeclarationToLatestPlay({
