@@ -104,7 +104,11 @@ class BustRoundManager {
       // Final showdown: winner is whoever legally confirmed an empty hand first.
       String? raceWinner;
       for (final id in _state.activePlayerIds) {
-        if (canConfirmPlayerWin(state: gameState, playerId: id)) {
+        if (canConfirmPlayerWin(
+          state: gameState,
+          playerId: id,
+          skipLastCardsCheck: true,
+        )) {
           raceWinner = id;
           break;
         }
@@ -163,7 +167,11 @@ class BustRoundManager {
   String? checkFinalShowdownWinner(GameState gameState) {
     if (!_state.isFinalShowdown) return null;
     for (final id in _state.activePlayerIds) {
-      if (canConfirmPlayerWin(state: gameState, playerId: id)) {
+      if (canConfirmPlayerWin(
+        state: gameState,
+        playerId: id,
+        skipLastCardsCheck: true,
+      )) {
         return id;
       }
     }

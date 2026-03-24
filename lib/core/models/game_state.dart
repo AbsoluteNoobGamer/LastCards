@@ -7,6 +7,13 @@ import 'player_model.dart';
 part 'game_state.freezed.dart';
 part 'game_state.g.dart';
 
+Set<String> _stringSetFromJson(Object? json) {
+  if (json == null) return {};
+  return (json as List<dynamic>).map((e) => e as String).toSet();
+}
+
+List<String> _stringSetToJson(Set<String> set) => set.toList();
+
 /// Phase of a game session.
 enum GamePhase { lobby, playing, ended }
 
@@ -68,6 +75,11 @@ class GameState with _$GameState {
     /// True while a Joker has been committed as a play but still needs
     /// its represented card selection to be finalized in UI.
     @Default(false) bool pendingJokerResolution,
+
+    /// Player IDs that pressed "Last Cards" (visible to all players).
+    @JsonKey(fromJson: _stringSetFromJson, toJson: _stringSetToJson)
+    @Default({})
+    Set<String> lastCardsDeclaredBy,
   }) = _GameState;
 
   factory GameState.fromJson(Map<String, dynamic> json) =>

@@ -28,6 +28,7 @@ class PlayerZoneWidget extends ConsumerWidget {
     this.isActiveTurn = false,
     this.isTournamentFinished = false,
     this.isTournamentEliminated = false,
+    this.hasLastCardsDeclared = false,
     this.aiConfig,
     this.child,
     this.compact = false,
@@ -37,6 +38,8 @@ class PlayerZoneWidget extends ConsumerWidget {
   });
 
   final PlayerModel player;
+  /// Shows a "LAST CARDS" pill when this player has declared.
+  final bool hasLastCardsDeclared;
   final bool isLocalPlayer;
   final bool isActiveTurn;
   /// Opponent seat: show "thinking" affordance while AI chooses a move.
@@ -77,12 +80,13 @@ class PlayerZoneWidget extends ConsumerWidget {
         player.copyWith(cardCount: reactiveCardCount);
 
     if (!isLocalPlayer && child == null) {
-      return _OpponentAvatarZone(
+        return _OpponentAvatarZone(
         player: playerWithReactiveCount,
         isActiveTurn: isActiveTurn,
         isAiThinking: isAiThinking,
         isTournamentFinished: isTournamentFinished,
         isTournamentEliminated: isTournamentEliminated,
+        hasLastCardsDeclared: hasLastCardsDeclared,
         appTheme: appTheme,
         aiConfig: aiConfig,
         chatBubble: chatBubble,
@@ -154,6 +158,7 @@ class PlayerZoneWidget extends ConsumerWidget {
               player: playerWithReactiveCount,
               isActiveTurn: isActiveTurn,
               isLocalPlayer: isLocalPlayer,
+              hasLastCardsDeclared: hasLastCardsDeclared,
               appTheme: appTheme,
               compact: compact,
             ),
@@ -174,6 +179,7 @@ class _OpponentAvatarZone extends StatelessWidget {
     this.isAiThinking = false,
     this.isTournamentFinished = false,
     this.isTournamentEliminated = false,
+    this.hasLastCardsDeclared = false,
     this.aiConfig,
     this.chatBubble,
     this.onRemoveQuickChatBubble,
@@ -185,6 +191,7 @@ class _OpponentAvatarZone extends StatelessWidget {
   final bool isAiThinking;
   final bool isTournamentFinished;
   final bool isTournamentEliminated;
+  final bool hasLastCardsDeclared;
   final AiPlayerConfig? aiConfig;
   final QuickChatBubbleData? chatBubble;
   final void Function(String id)? onRemoveQuickChatBubble;
@@ -353,6 +360,30 @@ class _OpponentAvatarZone extends StatelessWidget {
               : (appTheme.textPrimary as Color),
         ),
 
+        if (hasLastCardsDeclared) ...[
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: (appTheme.accentPrimary as Color).withValues(alpha: 0.15),
+              border: Border.all(
+                color: (appTheme.accentPrimary as Color),
+                width: 1,
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'LAST CARDS',
+              style: TextStyle(
+                color: appTheme.accentPrimary as Color,
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ),
+        ],
+
         // ── Tournament status badge ────────────────────────────────────────
         if (hasTournamentStatus) ...[
           const SizedBox(height: 4),
@@ -396,6 +427,7 @@ class _PlayerLabel extends StatelessWidget {
     required this.appTheme,
     this.isActiveTurn = false,
     this.isLocalPlayer = false,
+    this.hasLastCardsDeclared = false,
     this.compact = false,
   });
 
@@ -403,6 +435,7 @@ class _PlayerLabel extends StatelessWidget {
   final dynamic appTheme;
   final bool isActiveTurn;
   final bool isLocalPlayer;
+  final bool hasLastCardsDeclared;
   final bool compact;
 
   @override
@@ -452,10 +485,40 @@ class _PlayerLabel extends StatelessWidget {
 
     final positionColor = PlayerStyles.getColor(player.tablePosition);
 
+    final lastCardsPill = hasLastCardsDeclared
+        ? Padding(
+            padding: EdgeInsets.only(right: gap),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 4 : 6,
+                vertical: compact ? 1 : 2,
+              ),
+              decoration: BoxDecoration(
+                color: (appTheme.accentPrimary as Color).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(compact ? 3 : 4),
+                border: Border.all(
+                  color: (appTheme.accentPrimary as Color),
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                'LAST CARDS',
+                style: TextStyle(
+                  color: appTheme.accentPrimary as Color,
+                  fontSize: compact ? 6.5 : 8,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          )
+        : const SizedBox.shrink();
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         badgeWidget,
+        lastCardsPill,
         Transform.scale(
           scale: isActiveTurn && !compact ? 1.05 : 1.0,
           child: Row(

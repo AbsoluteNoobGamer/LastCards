@@ -50,6 +50,15 @@ When multiple effects are active together, resolve in this order:
 - If draw pile is empty, reshuffle discard pile (except top card) into a new draw pile.
 - A player cannot win on a forced penalty draw unless a rule explicitly allows it.
 
+### Last Cards (not in Bust mode)
+- You must press **Last Cards** before your turn to be eligible to win when you empty your hand.
+- If you play out without declaring, you draw 1 card instead of winning and your turn ends.
+- The button appears when your hand has at most 4 cards, or contains a Joker or a pick-up card (2 or Jack), and it is not already your turn.
+- Declaring is public: everyone sees who declared.
+- A Joker in hand means your declaration is always valid (no silent bluff check).
+- A false declaration is caught when your turn starts: you draw 2 penalty cards and your declaration is cleared.
+- **Bust mode** does not use this rule.
+
 ---
 
 ## Mode-Specific Rules

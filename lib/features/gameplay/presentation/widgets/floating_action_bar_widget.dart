@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../domain/entities/game_state.dart';
 import '../../../../services/audio_service.dart' as game_audio;
 import '../../../../services/game_sound.dart';
+import '../../../../core/models/game_state.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/providers/theme_provider.dart';
 
@@ -20,6 +21,21 @@ class FloatingActionBarWidget extends ConsumerStatefulWidget {
   /// Who follows when the current turn ends (8 / K / direction). Null to hide.
   final String? nextTurnLabel;
 
+  /// True when it is the local player's turn — left slot shows animated direction.
+  /// When false (and [lastCardsEnabled]), left slot shows Last Cards.
+  final bool isLocalTurn;
+
+  /// Grey out / disable Last Cards after it was pressed.
+  final bool hasAlreadyDeclared;
+
+  /// When false (e.g. Bust), left slot always shows direction; Last Cards is hidden.
+  final bool lastCardsEnabled;
+
+  /// Local player's current hand size (drives one-time highlight when crossing to ≤5).
+  final int localHandSize;
+
+  final VoidCallback? onLastCards;
+
   const FloatingActionBarWidget({
     super.key,
     required this.activePlayerName,
@@ -29,6 +45,11 @@ class FloatingActionBarWidget extends ConsumerStatefulWidget {
     this.compact = false,
     this.pulseLocalTurn = false,
     this.nextTurnLabel,
+    this.isLocalTurn = false,
+    this.hasAlreadyDeclared = false,
+    this.lastCardsEnabled = true,
+    this.localHandSize = 0,
+    this.onLastCards,
   });
 
   /// When true, uses smaller padding/fonts for landscape layout.
@@ -40,8 +61,15 @@ class FloatingActionBarWidget extends ConsumerStatefulWidget {
 }
 
 class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidget>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _pulseCtrl;
+  late AnimationController _directionRotateCtrl;
+
+  /// Bumps when hand size crosses from strictly above 5 down to 5 or below.
+  int _lastCardsHighlightKey = 0;
+
+  bool get _showDirectionLeft =>
+      !widget.lastCardsEnabled || widget.isLocalTurn;
 
   @override
   void initState() {
@@ -50,7 +78,15 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     );
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncPulse());
+    _directionRotateCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _syncPulse();
+      _syncDirectionRotation();
+    });
   }
 
   void _syncPulse() {
@@ -65,16 +101,155 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
     }
   }
 
+  /// Starts/stops the direction icon rotation (reduced motion + Last Cards slot).
+  void _syncDirectionRotation() {
+    if (!mounted) return;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _directionRotateCtrl.stop();
+      return;
+    }
+    if (!_showDirectionLeft) {
+      _directionRotateCtrl.stop();
+      return;
+    }
+    if (!_directionRotateCtrl.isAnimating) {
+      _directionRotateCtrl.repeat();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncDirectionRotation();
+  }
+
   @override
   void didUpdateWidget(covariant FloatingActionBarWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.pulseLocalTurn != widget.pulseLocalTurn) _syncPulse();
+    if (oldWidget.localHandSize > 5 && widget.localHandSize <= 5) {
+      _lastCardsHighlightKey++;
+    }
+    if (oldWidget.pulseLocalTurn != widget.pulseLocalTurn) {
+      _syncPulse();
+    }
+    if (oldWidget.isLocalTurn != widget.isLocalTurn ||
+        oldWidget.lastCardsEnabled != widget.lastCardsEnabled ||
+        oldWidget.direction != widget.direction) {
+      _syncDirectionRotation();
+    }
   }
 
   @override
   void dispose() {
     _pulseCtrl.dispose();
+    _directionRotateCtrl.dispose();
     super.dispose();
+  }
+
+  Widget _buildLastCardsButton({
+    required bool useCompact,
+    required bool isMobile,
+    required double slotWidth,
+    required Color accent,
+    required Color accentLight,
+    required Color accentDark,
+    required Color surface,
+    required Color textSec,
+    required Color bgDeep,
+  }) {
+    final declared = widget.hasAlreadyDeclared;
+    final disableAnim = MediaQuery.disableAnimationsOf(context);
+    final bump = _lastCardsHighlightKey > 0 && !disableAnim;
+    final startScale = bump ? 1.25 : 1.0;
+    final scaleMs = bump ? 500 : 1;
+    final glowMs = bump ? 800 : 1;
+
+    final inner = AnimatedOpacity(
+      opacity: declared ? 0.45 : 1.0,
+      duration: const Duration(milliseconds: 200),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: declared
+                ? [surface, surface]
+                : [accentLight, accentDark],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+          borderRadius: BorderRadius.circular(AppDimensions.radiusButton),
+          boxShadow: declared
+              ? null
+              : [
+                  BoxShadow(
+                    color: accent.withValues(alpha: 0.35),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+        ),
+        child: ElevatedButton(
+          onPressed: declared ? null : widget.onLastCards,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            foregroundColor: declared ? textSec : bgDeep,
+            padding: EdgeInsets.symmetric(
+              horizontal: useCompact ? 4 : (isMobile ? 6 : 8),
+              vertical: useCompact ? 6 : (isMobile ? 8 : 10),
+            ),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          child: Text(
+            'Last Cards',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: useCompact ? 9 : (isMobile ? 10 : 12),
+            ),
+            maxLines: 2,
+          ),
+        ),
+      ),
+    );
+
+    final scaled = TweenAnimationBuilder<double>(
+      key: ValueKey('lc-scale-$_lastCardsHighlightKey'),
+      tween: Tween(begin: startScale, end: 1.0),
+      duration: Duration(milliseconds: scaleMs),
+      curve: Curves.elasticOut,
+      builder: (context, scale, child) =>
+          Transform.scale(scale: scale, child: child!),
+      child: inner,
+    );
+
+    final withGlow = TweenAnimationBuilder<double>(
+      key: ValueKey('lc-glow-$_lastCardsHighlightKey'),
+      tween: Tween(begin: bump ? 1.0 : 0.0, end: 0.0),
+      duration: Duration(milliseconds: glowMs),
+      curve: Curves.easeOut,
+      builder: (context, glowValue, child) {
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppDimensions.radiusButton),
+            boxShadow: glowValue > 0.001
+                ? [
+                    BoxShadow(
+                      color: AppColors.goldPrimary
+                          .withValues(alpha: 0.6 * glowValue),
+                      blurRadius: 16 * glowValue,
+                      spreadRadius: 2 * glowValue,
+                    ),
+                  ]
+                : null,
+          ),
+          child: child,
+        );
+      },
+      child: scaled,
+    );
+
+    return SizedBox(width: slotWidth, child: withGlow);
   }
 
   @override
@@ -87,13 +262,8 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
     final textSec = theme.textSecondary;
     final bgDeep = theme.backgroundDeep;
 
-    final bool isCw = widget.direction == PlayDirection.clockwise;
-    final String dirIcon = isCw ? '↻' : '↺';
-    final String dirText = isCw ? 'Clockwise' : 'Counter-Clockwise';
-
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Use shorter dimension: in landscape, maxWidth is the long axis.
         final isMobile = math.min(constraints.maxWidth, constraints.maxHeight) <
             AppDimensions.breakpointMobile;
         final useCompact = widget.compact ||
@@ -157,6 +327,62 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
           );
         }
 
+        final isCw = widget.direction == PlayDirection.clockwise;
+        final directionIconData =
+            isCw ? Icons.rotate_right : Icons.rotate_left;
+        final dirIconSize = useCompact ? 16.0 : (isMobile ? 20.0 : 24.0);
+        final disableDirAnim = MediaQuery.disableAnimationsOf(context);
+
+        Widget leftSection() {
+          final double slotWidth =
+              useCompact ? 64.0 : (isMobile ? 90.0 : 120.0);
+          if (_showDirectionLeft) {
+            final directionIconChild = Icon(
+              directionIconData,
+              color: accent,
+              size: dirIconSize,
+            );
+
+            return SizedBox(
+              width: slotWidth,
+              child: Center(
+                child: Semantics(
+                  label: isCw
+                      ? 'Play direction: clockwise'
+                      : 'Play direction: counter-clockwise',
+                  child: disableDirAnim
+                      ? directionIconChild
+                      : AnimatedBuilder(
+                          animation: _directionRotateCtrl,
+                          child: directionIconChild,
+                          builder: (_, child) {
+                            final angle = isCw
+                                ? _directionRotateCtrl.value * 2 * math.pi
+                                : -_directionRotateCtrl.value * 2 * math.pi;
+                            return Transform.rotate(
+                              angle: angle,
+                              child: child,
+                            );
+                          },
+                        ),
+                ),
+              ),
+            );
+          }
+
+          return _buildLastCardsButton(
+            useCompact: useCompact,
+            isMobile: isMobile,
+            slotWidth: slotWidth,
+            accent: accent,
+            accentLight: accentLight,
+            accentDark: accentDark,
+            surface: surface,
+            textSec: textSec,
+            bgDeep: bgDeep,
+          );
+        }
+
         return Container(
           padding: EdgeInsets.symmetric(
             horizontal: useCompact ? 8 : (isMobile ? AppDimensions.sm : AppDimensions.md),
@@ -180,34 +406,8 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Left: Direction
-              SizedBox(
-                width: useCompact ? 64 : (isMobile ? 90 : 120),
-                child: Row(
-                  children: [
-                    Icon(
-                      isCw ? Icons.rotate_right : Icons.rotate_left,
-                      color: accent,
-                      size: useCompact ? 12 : (isMobile ? 14 : 16),
-                    ),
-                    SizedBox(width: useCompact ? 2 : 4),
-                    Expanded(
-                      child: Text(
-                        '$dirIcon $dirText',
-                        style: TextStyle(
-                          color: textSec.withValues(alpha: 0.9),
-                          fontSize: useCompact ? 9 : (isMobile ? 10 : 12),
-                          fontStyle: FontStyle.italic,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              leftSection(),
 
-              // Divider
               Container(
                 width: 1,
                 height: useCompact ? 18 : 24,
@@ -215,7 +415,6 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
                 margin: EdgeInsets.symmetric(horizontal: useCompact ? 4 : 8),
               ),
 
-              // Center: Whose turn + next player (8 / K aware)
               Expanded(
                 child: AnimatedBuilder(
                   animation: _pulseCtrl,
@@ -281,9 +480,8 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
                 margin: EdgeInsets.symmetric(horizontal: useCompact ? 4 : 8),
               ),
 
-              // Right: End Turn Button
               SizedBox(
-                width: useCompact ? 64 : (isMobile ? 90 : 120),
+                width: useCompact ? 64.0 : (isMobile ? 90.0 : 120.0),
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: endTurnButton(),

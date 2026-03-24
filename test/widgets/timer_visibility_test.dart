@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:last_cards/core/models/game_state.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/floating_action_bar_widget.dart';
-import 'package:last_cards/features/gameplay/domain/entities/game_state.dart';
 
 void main() {
   testWidgets('FloatingActionBarWidget does not show timer', (WidgetTester tester) async {
@@ -14,6 +14,7 @@ void main() {
               activePlayerName: 'Test Player',
               direction: PlayDirection.clockwise,
               canEndTurn: true,
+              localHandSize: 0,
             ),
           ),
         ),

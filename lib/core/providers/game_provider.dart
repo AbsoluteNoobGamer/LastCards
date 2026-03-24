@@ -241,10 +241,18 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
       _eventHandler.turnChanges.listen((e) {
         if (state.gameState == null) return;
         _drawSoundPlayedThisBatch = false;
+        // Partial patch arrives before state_snapshot; reset per-turn fields so
+        // draw/play gating (actionsThisTurn) matches a fresh turn until the
+        // snapshot lands (mirrors [advanceTurn]).
         state = state.copyWith(
           gameState: state.gameState!.copyWith(
             currentPlayerId: e.newCurrentPlayerId,
             direction: e.direction,
+            actionsThisTurn: 0,
+            cardsPlayedThisTurn: 0,
+            lastPlayedThisTurn: null,
+            activeSkipCount: 0,
+            queenSuitLock: null,
           ),
         );
       }),
@@ -397,6 +405,8 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
   }
 
   void endTurn() => _eventHandler.sendEndTurn();
+
+  void declareLastCards() => _eventHandler.sendDeclareLastCards();
 
   /// Clears the last error so the UI can dismiss an error banner.
   void clearError() => state = state.copyWith(clearError: true);

@@ -7,8 +7,13 @@ import 'package:last_cards/core/models/table_position_layout.dart';
 import 'package:last_cards/shared/constants/quick_chat_messages.dart';
 import 'package:last_cards/shared/engine/game_engine.dart';
 import 'package:last_cards/shared/engine/shuffle_utils.dart';
+import 'package:last_cards/shared/rules/last_cards_rules.dart';
 import 'package:last_cards/shared/rules/move_log_support.dart';
-import 'package:last_cards/shared/rules/win_condition_rules.dart';
+import 'package:last_cards/shared/rules/win_condition_rules.dart'
+    show
+        canConfirmPlayerWin,
+        needsUndeclaredLastCardsDraw,
+        wouldConfirmWin;
 
 import 'trophy_recorder.dart';
 
@@ -92,6 +97,9 @@ class GameSession {
   Map<String, int> _bustPenaltyPoints = {};
   List<String> _bustEliminatedIds = [];
   int _playerCounter = 0;
+
+  /// Server-only: players who falsely declared Last Cards (not sent to clients).
+  final Set<String> _lastCardsBluffedBy = {};
 
   late GameState _state;
 
@@ -442,6 +450,8 @@ class GameSession {
         _handleEndTurn(playerId);
       case 'suit_choice':
         _handleSuitChoice(playerId, json);
+      case 'declare_last_cards':
+        _handleDeclareLastCards(playerId);
     }
   }
 
@@ -734,6 +744,134 @@ class GameSession {
     _advanceTurn();
   }
 
+  void _handleDeclareLastCards(String playerId) {
+    if (isBustMode) return;
+    if (_state.currentPlayerId == playerId) return;
+    if (_state.lastCardsDeclaredBy.contains(playerId)) return;
+
+    final player = _state.players.firstWhereOrNull((p) => p.id == playerId);
+    if (player == null) return;
+
+    final hand = player.hand;
+    final hasJoker = hand.any((c) => c.isJoker);
+
+    _state = _state.copyWith(
+      lastCardsDeclaredBy: {..._state.lastCardsDeclaredBy, playerId},
+    );
+
+    if (!hasJoker && !canHandClearInOneTurn(hand)) {
+      _lastCardsBluffedBy.add(playerId);
+    }
+
+    _broadcast({
+      'type': 'last_cards_pressed',
+      'playerId': playerId,
+    });
+    _broadcastStateSnapshots();
+  }
+
+  void _applyLastCardsBluffPenalty(String nextPlayerId) {
+    final name = _players[nextPlayerId]?.displayName ?? nextPlayerId;
+    _lastCardsBluffedBy.remove(nextPlayerId);
+    _state = _state.copyWith(
+      lastCardsDeclaredBy: {..._state.lastCardsDeclaredBy}..remove(nextPlayerId),
+    );
+
+    final drawnCards = <CardModel>[];
+    _state = applyDraw(
+      state: _state,
+      playerId: nextPlayerId,
+      count: 2,
+      cardFactory: (n) {
+        final cards = _drawCards(n);
+        drawnCards.addAll(cards);
+        return cards;
+      },
+    );
+
+    _broadcast({
+      'type': 'last_cards_bluff',
+      'playerId': nextPlayerId,
+      'playerName': name,
+      'drawCount': drawnCards.length,
+    });
+
+    for (final card in drawnCards) {
+      _sendTo(nextPlayerId, {
+        'type': 'card_drawn',
+        'playerId': nextPlayerId,
+        'card': card.toJson(),
+      });
+    }
+    for (final entry in _players.entries) {
+      if (entry.key != nextPlayerId) {
+        final encoded = jsonEncode({
+          'type': 'card_drawn',
+          'playerId': nextPlayerId,
+        });
+        for (var i = 0; i < drawnCards.length; i++) {
+          entry.value.ws.sink.add(encoded);
+        }
+      }
+    }
+
+    _broadcast({
+      'type': 'penalty_applied',
+      'targetPlayerId': nextPlayerId,
+      'cardsDrawn': drawnCards.length,
+      'newPenaltyStack': _state.activePenaltyCount,
+    });
+  }
+
+  void _applyUndeclaredLastCardsDrawAndEndTurn(String playerId) {
+    final drawn = <CardModel>[];
+    _state = applyUndeclaredLastCardsDraw(
+      state: _state,
+      playerId: playerId,
+      isBustMode: false,
+      cardFactory: (n) {
+        final cards = _drawCards(n);
+        drawn.addAll(cards);
+        return cards;
+      },
+    );
+
+    _sendTo(playerId, {
+      'type': 'error',
+      'code': 'last_cards_required',
+      'message': 'You must declare Last Cards before winning!',
+    });
+
+    for (final card in drawn) {
+      _sendTo(playerId, {
+        'type': 'card_drawn',
+        'playerId': playerId,
+        'card': card.toJson(),
+      });
+    }
+    for (final entry in _players.entries) {
+      if (entry.key != playerId) {
+        final encoded = jsonEncode({
+          'type': 'card_drawn',
+          'playerId': playerId,
+        });
+        for (var i = 0; i < drawn.length; i++) {
+          entry.value.ws.sink.add(encoded);
+        }
+      }
+    }
+
+    _broadcast({
+      'type': 'penalty_applied',
+      'targetPlayerId': playerId,
+      'cardsDrawn': drawn.length,
+      'newPenaltyStack': _state.activePenaltyCount,
+    });
+
+    _broadcastStateSnapshots();
+    _advanceTurn();
+  }
+
   // ── Turn advancement (shared by end_turn and timeout) ─────────────────────
 
   /// Advances to the next player, broadcasts turn_changed, resets timer.
@@ -743,6 +881,15 @@ class GameSession {
     final oldSkipCount = _state.activeSkipCount;
     final players = _state.players;
     final directionForWalk = _state.direction;
+
+    if (!isBustMode) {
+      final nextId = nextPlayerId(state: _state);
+      if (_lastCardsBluffedBy.contains(nextId)) {
+        _applyLastCardsBluffPenalty(nextId);
+      }
+      _lastCardsBluffedBy.remove(completedPlayerId);
+    }
+
     _state = advanceTurn(_state);
     final newCurrentId = _state.currentPlayerId;
 
@@ -779,7 +926,11 @@ class GameSession {
       // _onTurnComplete → _maybeFinalizeBustFinalShowdown() check.
       if (_bustSurvivorIds.length == 2) {
         for (final id in _bustSurvivorIds) {
-          if (canConfirmPlayerWin(state: _state, playerId: id)) {
+          if (canConfirmPlayerWin(
+            state: _state,
+            playerId: id,
+            skipLastCardsCheck: true,
+          )) {
             _completeBustFinalShowdown(id);
             return;
           }
@@ -811,7 +962,11 @@ class GameSession {
 
     if (_bustSurvivorIds.length == 2) {
       for (final id in _bustSurvivorIds) {
-        if (canConfirmPlayerWin(state: _state, playerId: id)) {
+        if (canConfirmPlayerWin(
+          state: _state,
+          playerId: id,
+          skipLastCardsCheck: true,
+        )) {
           _completeBustFinalShowdown(id);
           return;
         }
@@ -1194,8 +1349,21 @@ class GameSession {
   void _checkWin() {
     if (_gameOver) return;
 
+    if (!isBustMode) {
+      for (final p in _state.players) {
+        if (needsUndeclaredLastCardsDraw(
+          state: _state,
+          playerId: p.id,
+          isBustMode: false,
+        )) {
+          _applyUndeclaredLastCardsDrawAndEndTurn(p.id);
+          return;
+        }
+      }
+    }
+
     if (isBustMode && _bustSurvivorIds.length == 2) {
-      if (!wouldConfirmWin(_state)) return;
+      if (!wouldConfirmWin(_state, skipLastCardsCheck: true)) return;
       final winnerId = _state.players
           .where((p) => p.hand.isEmpty && p.cardCount == 0)
           .firstOrNull

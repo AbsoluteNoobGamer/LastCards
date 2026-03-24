@@ -37,6 +37,9 @@ _$GameStateImpl _$$GameStateImplFromJson(Map<String, dynamic> json) =>
           : CardModel.fromJson(
               json['lastPlayedThisTurn'] as Map<String, dynamic>),
       pendingJokerResolution: json['pendingJokerResolution'] as bool? ?? false,
+      lastCardsDeclaredBy: json['lastCardsDeclaredBy'] == null
+          ? const {}
+          : _stringSetFromJson(json['lastCardsDeclaredBy']),
     );
 
 Map<String, dynamic> _$$GameStateImplToJson(_$GameStateImpl instance) =>
@@ -59,6 +62,7 @@ Map<String, dynamic> _$$GameStateImplToJson(_$GameStateImpl instance) =>
       'cardsPlayedThisTurn': instance.cardsPlayedThisTurn,
       'lastPlayedThisTurn': instance.lastPlayedThisTurn,
       'pendingJokerResolution': instance.pendingJokerResolution,
+      'lastCardsDeclaredBy': _stringSetToJson(instance.lastCardsDeclaredBy),
     };
 
 const _$GamePhaseEnumMap = {
