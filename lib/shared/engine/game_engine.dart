@@ -900,8 +900,12 @@ bool needsBustPlacementPileReshuffleFromUnderTop(int underTopCardCount) =>
 
 // ── Last Cards — hand clearability (shared offline + server) ─────────────────
 
-/// Whether [playerId]'s hand can be emptied in one turn using [validatePlay] /
-/// [applyPlay] rules. [isBustMode] forces `false` (no Last Cards in Bust).
+/// Whether [playerId]'s hand can be emptied in one turn for Last Cards
+/// bluff / must-declare checks. Uses [canHandClearInOneTurnHandOnly] (discard
+/// pile is ignored so clearability does not change when the top card changes
+/// before your turn). If the hand contains a Joker, returns `true` for human
+/// players (declaration is always valid; no bluff penalty). [isBustMode]
+/// forces `false` (no Last Cards in Bust).
 ///
 /// When the opponent's hand is hidden (`cardCount` ≠ `hand.length`), returns
 /// `false` (server has full hands; online clients rely on snapshots).
@@ -911,45 +915,12 @@ bool canClearHandInOneTurn({
   bool isBustMode = false,
 }) {
   if (isBustMode) return false;
-  final top = state.discardTopCard;
-  if (top == null) return false;
   final p = state.playerById(playerId);
   if (p == null) return false;
   if (p.hand.isEmpty) return true;
   if (p.hand.length != p.cardCount) return false;
-  if (p.hand.any((c) => c.isJoker)) {
-    return canHandClearInOneTurnHandOnly(p.hand);
-  }
-  final sim = state.copyWith(
-    currentPlayerId: playerId,
-    actionsThisTurn: 0,
-    cardsPlayedThisTurn: 0,
-    lastPlayedThisTurn: null,
-  );
-  return _dfsClearPlayOut(sim, playerId);
-}
-
-bool _dfsClearPlayOut(GameState gs, String playerId) {
-  final hand = gs.playerById(playerId)?.hand ?? [];
-  if (hand.isEmpty) {
-    return gs.queenSuitLock == null;
-  }
-  final n = hand.length;
-  for (var mask = 1; mask < (1 << n); mask++) {
-    final play = <CardModel>[];
-    for (var i = 0; i < n; i++) {
-      if (mask & (1 << i) != 0) play.add(hand[i]);
-    }
-    final err = validatePlay(
-      cards: play,
-      discardTop: gs.discardTopCard!,
-      state: gs,
-    );
-    if (err != null) continue;
-    final next = applyPlay(state: gs, playerId: playerId, cards: play);
-    if (_dfsClearPlayOut(next, playerId)) return true;
-  }
-  return false;
+  if (p.hand.any((c) => c.isJoker)) return true;
+  return canHandClearInOneTurnHandOnly(p.hand);
 }
 
 /// Sets [PlayerModel.lastCardsHandWasClearableAtTurnStart] for

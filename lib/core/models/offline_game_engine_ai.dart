@@ -69,7 +69,8 @@ GameState _maybeAiDeclareLastCards({
   )) {
     return state;
   }
-  if (!canClearHandInOneTurn(state: state, playerId: aiPlayerId)) {
+  final p = state.playerById(aiPlayerId);
+  if (p == null || !canHandClearInOneTurnHandOnly(p.hand)) {
     return state;
   }
   return state.copyWith(
