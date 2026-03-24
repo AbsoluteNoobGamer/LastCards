@@ -870,18 +870,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     // Play draw sound for timeout penalty.
     game_audio.AudioService.instance.playSound(GameSound.cardDraw);
 
-    // End turn automatically
-    final nextId = nextPlayerId(state: newState);
-    final resolvedNextId = _resolveTournamentNextPlayerId(newState, nextId);
-    newState = advanceTurn(newState, nextId: resolvedNextId);
+    final afterDraw = newState.copyWith(drawPileCount: _drawPile.length);
 
-    final localAfter = newState.players
+    final localAfter = afterDraw.players
         .where((p) => p.tablePosition == TablePosition.bottom)
         .firstOrNull;
 
-    final forWinCheck = newState.copyWith(drawPileCount: _drawPile.length);
     setState(() {
-      _offlineState = forWinCheck;
+      _offlineState = afterDraw;
       _selectedCardId = null;
       if (localAfter != null) _syncHandOrder(localAfter.hand);
       _pushMoveLog(MoveLogEntry.timeoutDraw(
@@ -893,9 +889,21 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       ));
     });
 
-    if (_checkWin(OfflineGameState.localId, forWinCheck)) {
+    // Match server [_handleDrawCard]: win / undeclared Last Cards before turn advance.
+    if (_checkWin(OfflineGameState.localId, afterDraw)) {
       return;
     }
+
+    final nextId = nextPlayerId(state: afterDraw);
+    final resolvedNextId = _resolveTournamentNextPlayerId(afterDraw, nextId);
+    final advanced =
+        advanceTurn(afterDraw, nextId: resolvedNextId).copyWith(
+      drawPileCount: _drawPile.length,
+    );
+
+    setState(() {
+      _offlineState = advanced;
+    });
 
     _engineTimer.cancel();
     if (resolvedNextId != OfflineGameState.localId) {
@@ -2229,12 +2237,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     required GameState newState,
     required PlayerModel? localAfterDraw,
   }) {
-    var nextId = nextPlayerId(state: newState);
-    nextId = _resolveTournamentNextPlayerId(newState, nextId);
-    final advanced = advanceTurn(newState, nextId: nextId);
-    final forWinCheck = advanced.copyWith(drawPileCount: _drawPile.length);
+    final afterDraw = newState.copyWith(drawPileCount: _drawPile.length);
+
     setState(() {
-      _offlineState = forWinCheck;
+      _offlineState = afterDraw;
       _selectedCardId = null;
       if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
       _pushMoveLog(MoveLogEntry.draw(
@@ -2243,9 +2249,22 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         drawCount: drawCount,
       ));
     });
-    if (_checkWin(playerId, forWinCheck)) {
+
+    // Match server [_handleDrawCard]: win / undeclared Last Cards before turn advance.
+    if (_checkWin(playerId, afterDraw)) {
       return;
     }
+
+    var nextId = nextPlayerId(state: afterDraw);
+    nextId = _resolveTournamentNextPlayerId(afterDraw, nextId);
+    final advanced = advanceTurn(afterDraw, nextId: nextId).copyWith(
+      drawPileCount: _drawPile.length,
+    );
+
+    setState(() {
+      _offlineState = advanced;
+    });
+
     _engineTimer.cancel();
     if (nextId != OfflineGameState.localId) {
       _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
