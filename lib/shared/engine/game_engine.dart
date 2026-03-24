@@ -914,6 +914,32 @@ bool _dfsClearPlayOut(GameState gs, String playerId) {
   return false;
 }
 
+/// Sets [PlayerModel.lastCardsHandWasClearableAtTurnStart] for
+/// [GameState.currentPlayerId] via [canClearHandInOneTurn], and clears the flag
+/// for everyone else.
+///
+/// Call once after game start when [currentPlayerId] and the discard pile are
+/// finalized (including [applyInitialFaceUpEffect] and opening Eight skip).
+/// [advanceTurn] sets this flag for subsequent turns; do not replace that path.
+GameState initializeFirstTurnClearability(
+  GameState state, {
+  bool isBustMode = false,
+}) {
+  final id = state.currentPlayerId;
+  final clearable = canClearHandInOneTurn(
+    state: state,
+    playerId: id,
+    isBustMode: isBustMode,
+  );
+  final players = state.players.map((p) {
+    if (p.id != id) {
+      return p.copyWith(lastCardsHandWasClearableAtTurnStart: false);
+    }
+    return p.copyWith(lastCardsHandWasClearableAtTurnStart: clearable);
+  }).toList();
+  return state.copyWith(players: players);
+}
+
 // ── Shared turn advancement ───────────────────────────────────────────────────
 
 /// Advances to the next player and resets all per-turn state fields.

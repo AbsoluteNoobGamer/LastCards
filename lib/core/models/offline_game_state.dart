@@ -1,4 +1,5 @@
-import 'package:last_cards/shared/engine/game_engine.dart' show buildShuffledDeck;
+import 'package:last_cards/shared/engine/game_engine.dart'
+    show buildShuffledDeck, initializeFirstTurnClearability;
 
 import '../models/card_model.dart';
 import '../models/game_state.dart';
@@ -76,7 +77,7 @@ abstract final class OfflineGameState {
     final discardTop = draw(1).first;
     final drawPile = deck.sublist(deckIndex);
 
-    final state = GameState(
+    var state = GameState(
       sessionId: 'demo-session',
       phase: GamePhase.playing,
       players: players,
@@ -89,6 +90,10 @@ abstract final class OfflineGameState {
       queenSuitLock: null,
       winnerId: null,
     );
+    state = state.copyWith(
+      preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
+    );
+    state = initializeFirstTurnClearability(state, isBustMode: false);
 
     return (state, drawPile);
   }

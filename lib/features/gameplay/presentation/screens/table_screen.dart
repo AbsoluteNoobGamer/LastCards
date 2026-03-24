@@ -512,6 +512,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       state = state.copyWith(
         preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
       );
+      state = initializeFirstTurnClearability(state, isBustMode: false);
     }
 
     // During a normal deal animation, show the dealer pile counting down from

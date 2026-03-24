@@ -421,6 +421,8 @@ class GameSession {
       );
     }
 
+    _state = initializeFirstTurnClearability(_state, isBustMode: isBustMode);
+
     // Notify clients of session type (private vs ranked, trophy eligibility).
     _broadcast({
       'type': 'session_config',
