@@ -18,33 +18,30 @@ class GameMoveLogOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isLandscapeMobile =
-            math.min(constraints.maxWidth, constraints.maxHeight) <
-                    AppDimensions.breakpointMobile &&
-                constraints.maxWidth > constraints.maxHeight;
-        final media = MediaQuery.of(context);
-        return Positioned(
-          top: media.padding.top + (isLandscapeMobile ? 72 : 175),
-          left: media.size.width * 0.08,
-          right: media.size.width * 0.08,
-          child: IgnorePointer(
-            child: Container(
-              constraints: const BoxConstraints(maxHeight: 140),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.55),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 6,
-              ),
-              child: LastMovePanelWidget(entries: entries),
-            ),
+    final media = MediaQuery.of(context);
+    final size = media.size;
+    final isLandscapeMobile =
+        math.min(size.width, size.height) <
+                AppDimensions.breakpointMobile &&
+            size.width > size.height;
+    return Positioned(
+      top: media.padding.top + (isLandscapeMobile ? 72 : 175),
+      left: size.width * 0.08,
+      right: size.width * 0.08,
+      child: IgnorePointer(
+        child: Container(
+          constraints: const BoxConstraints(maxHeight: 140),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(12),
           ),
-        );
-      },
+          padding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 6,
+          ),
+          child: LastMovePanelWidget(entries: entries),
+        ),
+      ),
     );
   }
 }
