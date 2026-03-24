@@ -23,7 +23,7 @@ import 'package:last_cards/features/gameplay/presentation/widgets/discard_pile_w
 import 'package:last_cards/features/gameplay/presentation/widgets/draw_pile_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/floating_action_bar_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/hud_overlay_widget.dart';
-import 'package:last_cards/features/gameplay/presentation/widgets/last_move_panel_widget.dart';
+import 'package:last_cards/features/gameplay/presentation/widgets/game_move_log_overlay.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/player_hand_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/player_zone_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/quick_chat_panel.dart' show kQuickMessages, QuickChatPanel;
@@ -1297,25 +1297,9 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                 ),
               ),
 
-              // Move log
+              // Move log (shared with TableScreen)
               if (_moveLogEntries.isNotEmpty)
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 175,
-                  left: MediaQuery.of(context).size.width * 0.08,
-                  right: MediaQuery.of(context).size.width * 0.08,
-                  child: IgnorePointer(
-                    child: Container(
-                      constraints: const BoxConstraints(maxHeight: 140),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      child: LastMovePanelWidget(entries: _moveLogEntries),
-                    ),
-                  ),
-                ),
+                GameMoveLogOverlay(entries: _moveLogEntries),
 
               // Direction indicator
               Positioned.fill(
