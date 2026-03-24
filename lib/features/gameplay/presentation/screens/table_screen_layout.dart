@@ -32,7 +32,16 @@ class _TableLayout extends StatelessWidget {
     this.quickChatBubblesByPlayer = const {},
     this.onRemoveQuickChatBubble,
     this.nextTurnLabel,
+    this.isLocalTurn = false,
+    this.hasAlreadyDeclaredLastCards = false,
+    this.localHandSize = 0,
+    this.onLastCardsTap,
   });
+
+  final bool isLocalTurn;
+  final bool hasAlreadyDeclaredLastCards;
+  final int localHandSize;
+  final VoidCallback? onLastCardsTap;
 
   /// Shown under current turn — who follows (8 / K / direction).
   final String? nextTurnLabel;
@@ -159,6 +168,10 @@ class _TableLayout extends StatelessWidget {
             aiConfigs: aiConfigs,
             quickChatBubblesByPlayer: quickChatBubblesByPlayer,
             onRemoveQuickChatBubble: onRemoveQuickChatBubble,
+            isLocalTurn: isLocalTurn,
+            hasAlreadyDeclaredLastCards: hasAlreadyDeclaredLastCards,
+            localHandSize: localHandSize,
+            onLastCardsTap: onLastCardsTap,
           );
         }
 
@@ -212,6 +225,9 @@ class _TableLayout extends StatelessWidget {
                                     isTournamentEliminated: _isEliminatedBadge(
                                       tournamentStatusBadges[leftOpp.id],
                                     ),
+                                    hasLastCardsDeclared: gameState
+                                        .lastCardsDeclaredBy
+                                        .contains(leftOpp.id),
                                     aiConfig: aiConfigs[leftOpp.id],
                                     chatBubble: quickChatBubblesByPlayer[leftOpp.id],
                                     onRemoveQuickChatBubble: onRemoveQuickChatBubble,
@@ -233,6 +249,9 @@ class _TableLayout extends StatelessWidget {
                                       isTournamentEliminated: _isEliminatedBadge(
                                         tournamentStatusBadges[topOpp.id],
                                       ),
+                                      hasLastCardsDeclared: gameState
+                                          .lastCardsDeclaredBy
+                                          .contains(topOpp.id),
                                       aiConfig: aiConfigs[topOpp.id],
                                       chatBubble: quickChatBubblesByPlayer[topOpp.id],
                                       onRemoveQuickChatBubble: onRemoveQuickChatBubble,
@@ -255,6 +274,9 @@ class _TableLayout extends StatelessWidget {
                                       isTournamentEliminated: _isEliminatedBadge(
                                         tournamentStatusBadges[rightOpp.id],
                                       ),
+                                      hasLastCardsDeclared: gameState
+                                          .lastCardsDeclaredBy
+                                          .contains(rightOpp.id),
                                       aiConfig: aiConfigs[rightOpp.id],
                                       chatBubble: quickChatBubblesByPlayer[rightOpp.id],
                                       onRemoveQuickChatBubble: onRemoveQuickChatBubble,
@@ -385,6 +407,11 @@ class _TableLayout extends StatelessWidget {
                       onEndTurn: onEndTurnTap,
                       pulseLocalTurn: isMyTurn,
                       nextTurnLabel: nextTurnLabel,
+                      isLocalTurn: isLocalTurn,
+                      hasAlreadyDeclared: hasAlreadyDeclaredLastCards,
+                      lastCardsEnabled: true,
+                      localHandSize: localHandSize,
+                      onLastCards: onLastCardsTap,
                     ),
                   ],
                 ),
@@ -403,6 +430,8 @@ class _TableLayout extends StatelessWidget {
                 isLocalPlayer: true,
                 isActiveTurn: gameState.currentPlayerId == localPlayer.id,
                 compact: false,
+                hasLastCardsDeclared:
+                    gameState.lastCardsDeclaredBy.contains(localPlayer.id),
                 chatBubble: quickChatBubblesByPlayer[localPlayer.id],
                 onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                 child: finishedPlayerIds.contains(localPlayer.id)
@@ -496,9 +525,18 @@ class _LandscapeTableLayout extends StatelessWidget {
     this.quickChatBubblesByPlayer = const {},
     this.onRemoveQuickChatBubble,
     this.nextTurnLabel,
+    this.isLocalTurn = false,
+    this.hasAlreadyDeclaredLastCards = false,
+    this.localHandSize = 0,
+    this.onLastCardsTap,
   });
 
   final String? nextTurnLabel;
+
+  final bool isLocalTurn;
+  final bool hasAlreadyDeclaredLastCards;
+  final int localHandSize;
+  final VoidCallback? onLastCardsTap;
 
   final Map<String, QuickChatBubbleData> quickChatBubblesByPlayer;
   final void Function(String id)? onRemoveQuickChatBubble;
@@ -586,6 +624,8 @@ class _LandscapeTableLayout extends StatelessWidget {
                               isTournamentEliminated: _isEliminatedBadge(
                                 tournamentStatusBadges[leftOpp!.id],
                               ),
+                              hasLastCardsDeclared: gameState.lastCardsDeclaredBy
+                                  .contains(leftOpp!.id),
                               aiConfig: aiConfigs[leftOpp!.id],
                               chatBubble: quickChatBubblesByPlayer[leftOpp!.id],
                               onRemoveQuickChatBubble: onRemoveQuickChatBubble,
@@ -609,6 +649,8 @@ class _LandscapeTableLayout extends StatelessWidget {
                               isTournamentEliminated: _isEliminatedBadge(
                                 tournamentStatusBadges[topOpp!.id],
                               ),
+                              hasLastCardsDeclared: gameState.lastCardsDeclaredBy
+                                  .contains(topOpp!.id),
                               aiConfig: aiConfigs[topOpp!.id],
                               chatBubble: quickChatBubblesByPlayer[topOpp!.id],
                               onRemoveQuickChatBubble: onRemoveQuickChatBubble,
@@ -632,6 +674,8 @@ class _LandscapeTableLayout extends StatelessWidget {
                               isTournamentEliminated: _isEliminatedBadge(
                                 tournamentStatusBadges[rightOpp!.id],
                               ),
+                              hasLastCardsDeclared: gameState.lastCardsDeclaredBy
+                                  .contains(rightOpp!.id),
                               aiConfig: aiConfigs[rightOpp!.id],
                               chatBubble: quickChatBubblesByPlayer[rightOpp!.id],
                               onRemoveQuickChatBubble: onRemoveQuickChatBubble,
@@ -727,6 +771,11 @@ class _LandscapeTableLayout extends StatelessWidget {
             compact: true,
             pulseLocalTurn: isMyTurn,
             nextTurnLabel: nextTurnLabel,
+            isLocalTurn: isLocalTurn,
+            hasAlreadyDeclared: hasAlreadyDeclaredLastCards,
+            lastCardsEnabled: true,
+            localHandSize: localHandSize,
+            onLastCards: onLastCardsTap,
           ),
           const SizedBox(height: 2),
 
@@ -739,6 +788,8 @@ class _LandscapeTableLayout extends StatelessWidget {
                 player: localPlayer,
                 isLocalPlayer: true,
                 isActiveTurn: gameState.currentPlayerId == localPlayer.id,
+                hasLastCardsDeclared:
+                    gameState.lastCardsDeclaredBy.contains(localPlayer.id),
                 chatBubble: quickChatBubblesByPlayer[localPlayer.id],
                 onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                 compact: true,

@@ -107,7 +107,7 @@ void main() {
         p1Hand: [],
         p2Hand: [c(Rank.king, Suit.hearts)],
         activePenalty: 0,
-      );
+      ).copyWith(lastCardsDeclaredBy: {'p1'});
       expect(wouldConfirmWin(state), isTrue);
 
       state = buildState(

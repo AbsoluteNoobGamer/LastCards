@@ -1232,6 +1232,10 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                         onEndTurn: isMyTurn && !_isDealing ? _endTurn : null,
                         pulseLocalTurn: isMyTurn,
                         nextTurnLabel: nextTurnLabel,
+                        isLocalTurn: isMyTurn,
+                        hasAlreadyDeclared: false,
+                        lastCardsEnabled: false,
+                        localHandSize: localPlayer?.hand.length ?? 0,
                       ),
                     ),
 
@@ -1336,6 +1340,8 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
               Positioned.fill(
                 child: CardFlightOverlay(key: _playFlightKey),
               ),
+
+              // Direction: left slot of [FloatingActionBarWidget] (no Last Cards in Bust).
 
               // Back button
               Positioned(

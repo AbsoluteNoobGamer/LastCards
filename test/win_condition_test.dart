@@ -168,7 +168,7 @@ void main() {
         p1Hand: [], // P1 already empty
         p2Hand: [c(Rank.king, Suit.hearts), c(Rank.five, Suit.clubs)], // P2 drew cards
         activePenalty: 0, // Chain fully resolved — P2 drew the penalty cards
-      );
+      ).copyWith(lastCardsDeclaredBy: {'p1'});
 
       // Confirm P1 is still on zero cards
       final p1 = state.players.firstWhere((p) => p.id == 'p1');
@@ -252,6 +252,38 @@ void main() {
         isFalse,
         reason: 'P1 is no longer on zero cards — win did not happen',
       );
+    });
+  });
+
+  group('Last Cards', () {
+    test('empty hand without declaration cannot confirm win', () {
+      final state = buildState(
+        discardTop: c(Rank.four, Suit.hearts),
+        p1Hand: const [],
+        p2Hand: [c(Rank.king, Suit.clubs)],
+      );
+      expect(
+        state.players.firstWhere((p) => p.id == 'p1').hand,
+        isEmpty,
+      );
+      expect(canConfirmPlayerWin(state: state, playerId: 'p1'), isFalse);
+      expect(
+        canConfirmPlayerWin(
+          state: state,
+          playerId: 'p1',
+          skipLastCardsCheck: true,
+        ),
+        isTrue,
+      );
+    });
+
+    test('declared player can confirm win', () {
+      final state = buildState(
+        discardTop: c(Rank.four, Suit.hearts),
+        p1Hand: const [],
+        p2Hand: [c(Rank.king, Suit.clubs)],
+      ).copyWith(lastCardsDeclaredBy: {'p1'});
+      expect(canConfirmPlayerWin(state: state, playerId: 'p1'), isTrue);
     });
   });
 }

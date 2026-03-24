@@ -4,6 +4,7 @@ import '../models/card_model.dart';
 import '../models/game_state_model.dart';
 import '../rules/card_rules.dart';
 import '../rules/pickup_chain_rules.dart';
+import '../rules/win_condition_rules.dart' show needsUndeclaredLastCardsDraw;
 import 'shuffle_utils.dart';
 
 export '../models/card_model.dart';
@@ -661,6 +662,51 @@ GameState applyDraw({
   );
 }
 
+/// Draws [count] cards for a Last Cards bluff penalty without consuming the
+/// recipient's voluntary turn action.
+///
+/// On the server, bluff draws run before [advanceTurn] while [currentPlayerId]
+/// is still the outgoing player; [applyDraw]'s [actionsThisTurn] bump is cleared
+/// by [advanceTurn]. Offline, penalties run **after** [advanceTurn] for the
+/// penalized player — use this instead of [applyDraw] so [actionsThisTurn]
+/// stays 0 and draw/play UI remains available.
+GameState applyLastCardsBluffPenaltyDraw({
+  required GameState state,
+  required String playerId,
+  required int count,
+  required List<CardModel> Function(int n) cardFactory,
+}) {
+  return applyDraw(
+    state: state,
+    playerId: playerId,
+    count: count,
+    cardFactory: cardFactory,
+  ).copyWith(actionsThisTurn: 0);
+}
+
+/// Draws one card when [playerId] emptied their hand without Last Cards
+/// declaration (non-Bust). No-op if not needed.
+GameState applyUndeclaredLastCardsDraw({
+  required GameState state,
+  required String playerId,
+  bool isBustMode = false,
+  required List<CardModel> Function(int n) cardFactory,
+}) {
+  if (!needsUndeclaredLastCardsDraw(
+    state: state,
+    playerId: playerId,
+    isBustMode: isBustMode,
+  )) {
+    return state;
+  }
+  return applyDraw(
+    state: state,
+    playerId: playerId,
+    count: 1,
+    cardFactory: cardFactory,
+  );
+}
+
 // ── Turn advancement ──────────────────────────────────────────────────────────
 
 /// Returns the next player's ID, honouring direction and optional skip.
@@ -826,6 +872,8 @@ bool needsBustPlacementPileReshuffleFromUnderTop(int underTopCardCount) =>
 /// and [queenSuitLock].
 GameState advanceTurn(GameState state, {String? nextId}) {
   final id = nextId ?? nextPlayerId(state: state);
+  final outgoing = state.currentPlayerId;
+  final nextDeclared = {...state.lastCardsDeclaredBy}..remove(outgoing);
   return state.copyWith(
     currentPlayerId: id,
     actionsThisTurn: 0,
@@ -834,6 +882,7 @@ GameState advanceTurn(GameState state, {String? nextId}) {
     activeSkipCount: 0,
     preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
     queenSuitLock: null,
+    lastCardsDeclaredBy: nextDeclared,
   );
 }
 

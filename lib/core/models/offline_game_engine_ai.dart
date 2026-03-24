@@ -58,6 +58,28 @@ class _AiPlayChoice {
   });
 }
 
+GameState _maybeAiDeclareLastCards({
+  required GameState state,
+  required String aiPlayerId,
+}) {
+  if (state.lastCardsDeclaredBy.contains(aiPlayerId)) return state;
+  final ai = state.players.firstWhere((p) => p.id == aiPlayerId);
+  final hand = ai.hand;
+  if (!shouldShowLastCardsButton(
+    isBustMode: false,
+    isLocalTurn: false,
+    alreadyDeclared: false,
+    skipMustBeBeforeYourTurn: true,
+  )) {
+    return state;
+  }
+  final hasJoker = hand.any((c) => c.isJoker);
+  if (!hasJoker && !canHandClearInOneTurn(hand)) return state;
+  return state.copyWith(
+    lastCardsDeclaredBy: {...state.lastCardsDeclaredBy, aiPlayerId},
+  );
+}
+
 bool aiHasPlayableTurn({
   required GameState state,
   required String aiPlayerId,
@@ -80,23 +102,24 @@ bool aiHasPlayableTurn({
   required List<CardModel> Function(int n) cardFactory,
   AiPersonality? personality,
 }) {
-  final ai = state.players.firstWhere((p) => p.id == aiPlayerId);
+  var s = _maybeAiDeclareLastCards(state: state, aiPlayerId: aiPlayerId);
+  final ai = s.players.firstWhere((p) => p.id == aiPlayerId);
   final List<CardModel> playedCards = [];
-  final discardTop = state.discardTopCard!;
+  final discardTop = s.discardTopCard!;
 
   // Win awareness: if only one card remains and it's playable, take the win now.
   if (ai.hand.length == 1 &&
       validatePlay(
-              cards: [ai.hand.first], discardTop: discardTop, state: state) ==
+              cards: [ai.hand.first], discardTop: discardTop, state: s) ==
           null) {
     final oneCardChoice = _buildSingleCardChoice(
-      state: state,
+      state: s,
       ai: ai,
       aiPlayerId: aiPlayerId,
       card: ai.hand.first,
     );
     final result = _executeChoice(
-      state: state,
+      state: s,
       aiPlayerId: aiPlayerId,
       choice: oneCardChoice,
       playedCards: playedCards,
@@ -109,7 +132,7 @@ bool aiHasPlayableTurn({
   }
 
   final choices = _generateAiChoices(
-    state: state,
+    state: s,
     ai: ai,
     aiPlayerId: aiPlayerId,
     personality: personality,
@@ -117,10 +140,10 @@ bool aiHasPlayableTurn({
 
   if (choices.isEmpty) {
     final drawCount =
-        state.activePenaltyCount > 0 ? state.activePenaltyCount : 1;
-    recordDrawSuitInference(state: state, drawingPlayerId: aiPlayerId);
+        s.activePenaltyCount > 0 ? s.activePenaltyCount : 1;
+    recordDrawSuitInference(state: s, drawingPlayerId: aiPlayerId);
     final afterDraw = applyDraw(
-      state: state,
+      state: s,
       playerId: aiPlayerId,
       count: drawCount,
       cardFactory: cardFactory,
@@ -135,7 +158,7 @@ bool aiHasPlayableTurn({
       ? best.declaredSuit
       : null;
   var afterPlay = _executeChoice(
-    state: state,
+    state: s,
     aiPlayerId: aiPlayerId,
     choice: best,
     playedCards: playedCards,

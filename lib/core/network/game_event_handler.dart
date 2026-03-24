@@ -74,6 +74,12 @@ class GameEventHandler {
           .where((e) => e is InvalidPlayPenaltyEvent)
           .cast<InvalidPlayPenaltyEvent>();
 
+  Stream<LastCardsPressedEvent> get lastCardsPressed =>
+      events.where((e) => e is LastCardsPressedEvent).cast<LastCardsPressedEvent>();
+
+  Stream<LastCardsBluffEvent> get lastCardsBluffs =>
+      events.where((e) => e is LastCardsBluffEvent).cast<LastCardsBluffEvent>();
+
   // ── Outgoing helpers ───────────────────────────────────────────────────────
 
   void sendPlayCards(PlayCardsAction action) =>
@@ -85,6 +91,9 @@ class GameEventHandler {
       _wsClient.send(action.toJsonString());
 
   void sendEndTurn() => _wsClient.send(const EndTurnAction().toJsonString());
+
+  void sendDeclareLastCards() =>
+      _wsClient.send(const DeclareLastCardsAction().toJsonString());
 
   void sendSuitChoice(SuitChoiceAction action) =>
       _wsClient.send(action.toJsonString());

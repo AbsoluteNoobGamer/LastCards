@@ -14,7 +14,9 @@ import 'package:last_cards/features/gameplay/presentation/widgets/dealing_animat
 import '../../domain/usecases/offline_game_engine.dart';
 import 'package:last_cards/shared/engine/shuffle_utils.dart';
 import 'package:last_cards/shared/rules/move_log_support.dart';
-import 'package:last_cards/shared/rules/win_condition_rules.dart';
+import 'package:last_cards/shared/rules/last_cards_rules.dart';
+import 'package:last_cards/shared/rules/win_condition_rules.dart'
+    show canConfirmPlayerWin, needsUndeclaredLastCardsDraw, wouldConfirmWin;
 import '../../data/datasources/offline_game_state_datasource.dart';
 import '../../../../shared/engine/game_turn_timer.dart';
 
@@ -176,6 +178,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   StreamSubscription<dynamic>? _onlineReshuffleSub;
   StreamSubscription<QuickChatEvent>? _onlineQuickChatSub;
   StreamSubscription<TurnChangedEvent>? _onlineTurnChangedSub;
+  StreamSubscription<LastCardsBluffEvent>? _lastCardsBluffSub;
+
+  /// Offline-only: players who falsely declared Last Cards.
+  final Set<String> _offlineLastCardsBluffedBy = {};
+
+  String? _lastCardsBluffBannerText;
 
   /// Tracks [GameState.currentPlayerId] across [turn_changed] events so we can
   /// finalize move-log entries for the player whose turn ended (server
@@ -385,6 +393,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           state.playerById(e.playerId)?.displayName ?? e.playerId;
       _showQuickChatBubble(e.playerId, senderName, e.messageIndex,
           isLocal: false);
+    });
+
+    _lastCardsBluffSub = handler.lastCardsBluffs.listen((e) {
+      if (!mounted) return;
+      _flashLastCardsBluffBanner(
+        '"${e.playerName}" bluffed Last Cards! Drew ${e.drawCount} cards.',
+      );
     });
 
     // Start turn timer when it's our turn in online mode (e.g. game just started)
@@ -628,6 +643,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _onlineReshuffleSub?.cancel();
     _onlineQuickChatSub?.cancel();
     _onlineTurnChangedSub?.cancel();
+    _lastCardsBluffSub?.cancel();
     _quickChatCooldownTimer?.cancel();
     _engineTimer.dispose();
     _reshuffleNotifier.dispose();
@@ -774,6 +790,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   void _startTimer({bool playTurnSound = true}) {
     _timerWarningPlayed = false;
     _timerWarningSub?.cancel();
+    if (ref.read(gameStateProvider) == null &&
+        _offlineState.currentPlayerId == OfflineGameState.localId) {
+      _offlineApplyLastCardsBluffPenaltyIfNeeded(OfflineGameState.localId);
+    }
     if (playTurnSound) {
       game_audio.AudioService.instance.playSound(GameSound.turnStart);
     }
@@ -1043,6 +1063,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           ? '${label(resolvedNextId)} again'
           : label(resolvedNextId);
     }
+
+    final localPlayerForLc = gameState.players
+        .where((p) => p.tablePosition == TablePosition.bottom)
+        .firstOrNull;
+    final localPidLc = localPlayerForLc?.id;
+    final localHandSize = localPlayerForLc?.hand.length ?? 0;
+    final alreadyDeclaredLastCards = localPidLc != null &&
+        gameState.lastCardsDeclaredBy.contains(localPidLc);
 
     // In online mode, start turn timer when it becomes our turn (e.g. after opponent ends)
     ref.listen(isLocalTurnProvider, (prev, next) {
@@ -1357,6 +1385,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         },
                         onRemoveQuickChatBubble: _removeQuickChatBubble,
                         nextTurnLabel: nextTurnLabel,
+                        isLocalTurn: isMyTurn,
+                        hasAlreadyDeclaredLastCards: alreadyDeclaredLastCards,
+                        localHandSize: localHandSize,
+                        onLastCardsTap: _onDeclareLastCards,
                       ),
                     ),
                   ],
@@ -1571,6 +1603,38 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             ],
                           ),
                         ],
+                      ),
+                    ),
+                  ),
+                ),
+
+              if (_lastCardsBluffBannerText != null)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Center(
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 32),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.82),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color:
+                                AppColors.goldPrimary.withValues(alpha: 0.75),
+                          ),
+                        ),
+                        child: Text(
+                          _lastCardsBluffBannerText!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -2240,6 +2304,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       return;
     }
     if (_aiThinking) return;
+    _offlineApplyLastCardsBluffPenaltyIfNeeded(aiId);
     setState(() => _aiThinking = true);
 
     var scheduledNext = false;
@@ -2662,6 +2727,81 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   // ── Win detection ──────────────────────────────────────────────────
 
+  void _offlineApplyLastCardsBluffPenaltyIfNeeded(String playerId) {
+    if (ref.read(gameStateProvider) != null) return;
+    if (!_offlineLastCardsBluffedBy.contains(playerId)) return;
+    _offlineLastCardsBluffedBy.remove(playerId);
+    setState(() {
+      _offlineState = _offlineState.copyWith(
+        lastCardsDeclaredBy: {..._offlineState.lastCardsDeclaredBy}
+          ..remove(playerId),
+      );
+      _offlineState = applyLastCardsBluffPenaltyDraw(
+        state: _offlineState,
+        playerId: playerId,
+        count: 2,
+        cardFactory: _makeCards,
+      ).copyWith(drawPileCount: _drawPile.length);
+    });
+    final name =
+        _offlineState.playerById(playerId)?.displayName ?? playerId;
+    _pushMoveLog(MoveLogEntry.lastCardsBluff(
+      playerId: playerId,
+      playerName: name,
+      drawCount: 2,
+    ));
+    _flashLastCardsBluffBanner(
+      '"$name" bluffed Last Cards! Drew 2 cards.',
+    );
+    if (mounted) {
+      _reshuffleCentrePileIntoDrawPile(silent: _tournamentSimulatingRest);
+    }
+  }
+
+  /// Returns true when undeclared empty-hand draw was applied (offline only).
+  bool _tryApplyOfflineUndeclaredLastCardsDraw(GameState state) {
+    if (ref.read(gameStateProvider) != null) return false;
+    for (final p in state.players) {
+      if (!needsUndeclaredLastCardsDraw(
+        state: state,
+        playerId: p.id,
+        isBustMode: false,
+      )) {
+        continue;
+      }
+      var ns = applyUndeclaredLastCardsDraw(
+        state: state,
+        playerId: p.id,
+        isBustMode: false,
+        cardFactory: _makeCards,
+      );
+      _showError('You must declare Last Cards before winning!');
+      if (mounted) {
+        _reshuffleCentrePileIntoDrawPile(silent: _tournamentSimulatingRest);
+      }
+      final nextId = nextPlayerId(state: ns);
+      final resolved = _resolveTournamentNextPlayerId(ns, nextId);
+      ns = advanceTurn(ns, nextId: resolved);
+      setState(() {
+        _offlineState = ns.copyWith(drawPileCount: _drawPile.length);
+        _selectedCardId = null;
+        final local = _offlineState.players
+            .where((x) => x.tablePosition == TablePosition.bottom)
+            .firstOrNull;
+        if (local != null) _syncHandOrder(local.hand);
+      });
+      _engineTimer.cancel();
+      if (ns.currentPlayerId != OfflineGameState.localId) {
+        _scheduleAiTurn(ns.currentPlayerId,
+            simulate: _tournamentSimulatingRest);
+      } else {
+        _startTimer();
+      }
+      return true;
+    }
+    return false;
+  }
+
   bool _checkWin(
     String lastActorId,
     GameState state, {
@@ -2758,6 +2898,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         _startTimer();
       }
       return true;
+    }
+
+    if (shouldShowStandardWinOverlay(
+        isTournamentMode: widget.isTournamentMode)) {
+      if (_tryApplyOfflineUndeclaredLastCardsDraw(state)) {
+        return true;
+      }
     }
 
     if (!wouldConfirmWin(state)) return false;
@@ -2995,6 +3142,40 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  void _flashLastCardsBluffBanner(String text) {
+    setState(() => _lastCardsBluffBannerText = text);
+    Future.delayed(const Duration(milliseconds: 2500), () {
+      if (mounted) setState(() => _lastCardsBluffBannerText = null);
+    });
+  }
+
+  void _onDeclareLastCards() {
+    final live = ref.read(gameStateProvider);
+    if (live != null) {
+      ref.read(gameNotifierProvider.notifier).declareLastCards();
+      return;
+    }
+    final localId = OfflineGameState.localId;
+    if (_offlineState.currentPlayerId == localId) return;
+    if (_offlineState.lastCardsDeclaredBy.contains(localId)) return;
+    final hand = _offlineState.playerById(localId)?.hand ?? [];
+    final hasJoker = hand.any((c) => c.isJoker);
+    final name =
+        _offlineState.playerById(localId)?.displayName ?? localId;
+    setState(() {
+      _offlineState = _offlineState.copyWith(
+        lastCardsDeclaredBy: {..._offlineState.lastCardsDeclaredBy, localId},
+      );
+      if (!hasJoker && !canHandClearInOneTurn(hand)) {
+        _offlineLastCardsBluffedBy.add(localId);
+      }
+    });
+    _pushMoveLog(MoveLogEntry.lastCardsDeclared(
+      playerId: localId,
+      playerName: name,
+    ));
   }
 
   // ── Quick chat ──────────────────────────────────────────────────────────

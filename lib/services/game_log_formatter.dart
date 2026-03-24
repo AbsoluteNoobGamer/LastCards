@@ -26,6 +26,10 @@ class GameLogFormatter {
         return 'drew ${_cardCountLabel(entry.drawCount)}';
       case MoveLogEntryType.invalidPlayDraw:
         return 'drew ${_cardCountLabel(entry.drawCount)} for invalid play';
+      case MoveLogEntryType.lastCardsDeclared:
+        return 'declared Last Cards';
+      case MoveLogEntryType.lastCardsBluff:
+        return 'bluffed Last Cards, drew ${_cardCountLabel(entry.drawCount)}';
       case MoveLogEntryType.play:
         return _formatPlay(entry);
     }

@@ -73,6 +73,10 @@ mixin _$GameState {
   /// its represented card selection to be finalized in UI.
   bool get pendingJokerResolution => throw _privateConstructorUsedError;
 
+  /// Player IDs that pressed "Last Cards" (visible to all players).
+  @JsonKey(fromJson: _stringSetFromJson, toJson: _stringSetToJson)
+  Set<String> get lastCardsDeclaredBy => throw _privateConstructorUsedError;
+
   /// Serializes this GameState to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
 
@@ -106,7 +110,9 @@ abstract class $GameStateCopyWith<$Res> {
       int actionsThisTurn,
       int cardsPlayedThisTurn,
       CardModel? lastPlayedThisTurn,
-      bool pendingJokerResolution});
+      bool pendingJokerResolution,
+      @JsonKey(fromJson: _stringSetFromJson, toJson: _stringSetToJson)
+      Set<String> lastCardsDeclaredBy});
 
   $CardModelCopyWith<$Res>? get discardTopCard;
   $CardModelCopyWith<$Res>? get lastPlayedThisTurn;
@@ -145,6 +151,7 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
     Object? cardsPlayedThisTurn = null,
     Object? lastPlayedThisTurn = freezed,
     Object? pendingJokerResolution = null,
+    Object? lastCardsDeclaredBy = null,
   }) {
     return _then(_value.copyWith(
       sessionId: null == sessionId
@@ -219,6 +226,10 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
           ? _value.pendingJokerResolution
           : pendingJokerResolution // ignore: cast_nullable_to_non_nullable
               as bool,
+      lastCardsDeclaredBy: null == lastCardsDeclaredBy
+          ? _value.lastCardsDeclaredBy
+          : lastCardsDeclaredBy // ignore: cast_nullable_to_non_nullable
+              as Set<String>,
     ) as $Val);
   }
 
@@ -277,7 +288,9 @@ abstract class _$$GameStateImplCopyWith<$Res>
       int actionsThisTurn,
       int cardsPlayedThisTurn,
       CardModel? lastPlayedThisTurn,
-      bool pendingJokerResolution});
+      bool pendingJokerResolution,
+      @JsonKey(fromJson: _stringSetFromJson, toJson: _stringSetToJson)
+      Set<String> lastCardsDeclaredBy});
 
   @override
   $CardModelCopyWith<$Res>? get discardTopCard;
@@ -316,6 +329,7 @@ class __$$GameStateImplCopyWithImpl<$Res>
     Object? cardsPlayedThisTurn = null,
     Object? lastPlayedThisTurn = freezed,
     Object? pendingJokerResolution = null,
+    Object? lastCardsDeclaredBy = null,
   }) {
     return _then(_$GameStateImpl(
       sessionId: null == sessionId
@@ -390,6 +404,10 @@ class __$$GameStateImplCopyWithImpl<$Res>
           ? _value.pendingJokerResolution
           : pendingJokerResolution // ignore: cast_nullable_to_non_nullable
               as bool,
+      lastCardsDeclaredBy: null == lastCardsDeclaredBy
+          ? _value._lastCardsDeclaredBy
+          : lastCardsDeclaredBy // ignore: cast_nullable_to_non_nullable
+              as Set<String>,
     ));
   }
 }
@@ -415,9 +433,12 @@ class _$GameStateImpl implements _GameState {
       this.actionsThisTurn = 0,
       this.cardsPlayedThisTurn = 0,
       this.lastPlayedThisTurn,
-      this.pendingJokerResolution = false})
+      this.pendingJokerResolution = false,
+      @JsonKey(fromJson: _stringSetFromJson, toJson: _stringSetToJson)
+      final Set<String> lastCardsDeclaredBy = const {}})
       : _players = players,
-        _discardPileHistory = discardPileHistory;
+        _discardPileHistory = discardPileHistory,
+        _lastCardsDeclaredBy = lastCardsDeclaredBy;
 
   factory _$GameStateImpl.fromJson(Map<String, dynamic> json) =>
       _$$GameStateImplFromJson(json);
@@ -514,9 +535,22 @@ class _$GameStateImpl implements _GameState {
   @JsonKey()
   final bool pendingJokerResolution;
 
+  /// Player IDs that pressed "Last Cards" (visible to all players).
+  final Set<String> _lastCardsDeclaredBy;
+
+  /// Player IDs that pressed "Last Cards" (visible to all players).
+  @override
+  @JsonKey(fromJson: _stringSetFromJson, toJson: _stringSetToJson)
+  Set<String> get lastCardsDeclaredBy {
+    if (_lastCardsDeclaredBy is EqualUnmodifiableSetView)
+      return _lastCardsDeclaredBy;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableSetView(_lastCardsDeclaredBy);
+  }
+
   @override
   String toString() {
-    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardPileHistory: $discardPileHistory, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, activeSkipCount: $activeSkipCount, suitLock: $suitLock, preTurnCentreSuit: $preTurnCentreSuit, queenSuitLock: $queenSuitLock, winnerId: $winnerId, actionsThisTurn: $actionsThisTurn, cardsPlayedThisTurn: $cardsPlayedThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn, pendingJokerResolution: $pendingJokerResolution)';
+    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardPileHistory: $discardPileHistory, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, activeSkipCount: $activeSkipCount, suitLock: $suitLock, preTurnCentreSuit: $preTurnCentreSuit, queenSuitLock: $queenSuitLock, winnerId: $winnerId, actionsThisTurn: $actionsThisTurn, cardsPlayedThisTurn: $cardsPlayedThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn, pendingJokerResolution: $pendingJokerResolution, lastCardsDeclaredBy: $lastCardsDeclaredBy)';
   }
 
   @override
@@ -557,31 +591,35 @@ class _$GameStateImpl implements _GameState {
             (identical(other.lastPlayedThisTurn, lastPlayedThisTurn) ||
                 other.lastPlayedThisTurn == lastPlayedThisTurn) &&
             (identical(other.pendingJokerResolution, pendingJokerResolution) ||
-                other.pendingJokerResolution == pendingJokerResolution));
+                other.pendingJokerResolution == pendingJokerResolution) &&
+            const DeepCollectionEquality()
+                .equals(other._lastCardsDeclaredBy, _lastCardsDeclaredBy));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      sessionId,
-      phase,
-      const DeepCollectionEquality().hash(_players),
-      currentPlayerId,
-      direction,
-      discardTopCard,
-      const DeepCollectionEquality().hash(_discardPileHistory),
-      drawPileCount,
-      activePenaltyCount,
-      activeSkipCount,
-      suitLock,
-      preTurnCentreSuit,
-      queenSuitLock,
-      winnerId,
-      actionsThisTurn,
-      cardsPlayedThisTurn,
-      lastPlayedThisTurn,
-      pendingJokerResolution);
+  int get hashCode => Object.hashAll([
+        runtimeType,
+        sessionId,
+        phase,
+        const DeepCollectionEquality().hash(_players),
+        currentPlayerId,
+        direction,
+        discardTopCard,
+        const DeepCollectionEquality().hash(_discardPileHistory),
+        drawPileCount,
+        activePenaltyCount,
+        activeSkipCount,
+        suitLock,
+        preTurnCentreSuit,
+        queenSuitLock,
+        winnerId,
+        actionsThisTurn,
+        cardsPlayedThisTurn,
+        lastPlayedThisTurn,
+        pendingJokerResolution,
+        const DeepCollectionEquality().hash(_lastCardsDeclaredBy)
+      ]);
 
   /// Create a copy of GameState
   /// with the given fields replaced by the non-null parameter values.
@@ -618,7 +656,9 @@ abstract class _GameState implements GameState {
       final int actionsThisTurn,
       final int cardsPlayedThisTurn,
       final CardModel? lastPlayedThisTurn,
-      final bool pendingJokerResolution}) = _$GameStateImpl;
+      final bool pendingJokerResolution,
+      @JsonKey(fromJson: _stringSetFromJson, toJson: _stringSetToJson)
+      final Set<String> lastCardsDeclaredBy}) = _$GameStateImpl;
 
   factory _GameState.fromJson(Map<String, dynamic> json) =
       _$GameStateImpl.fromJson;
@@ -693,6 +733,11 @@ abstract class _GameState implements GameState {
   /// its represented card selection to be finalized in UI.
   @override
   bool get pendingJokerResolution;
+
+  /// Player IDs that pressed "Last Cards" (visible to all players).
+  @override
+  @JsonKey(fromJson: _stringSetFromJson, toJson: _stringSetToJson)
+  Set<String> get lastCardsDeclaredBy;
 
   /// Create a copy of GameState
   /// with the given fields replaced by the non-null parameter values.

@@ -1309,4 +1309,84 @@ void main() {
       expect(a.map((c) => c.id).toList(), b.map((c) => c.id).toList());
     });
   });
+
+  group('Last Cards / advanceTurn', () {
+    test('advanceTurn removes outgoing player from lastCardsDeclaredBy', () {
+      final top = c(Rank.six, Suit.spades);
+      final state = GameState(
+        sessionId: 'test',
+        phase: GamePhase.playing,
+        currentPlayerId: 'p1',
+        direction: PlayDirection.clockwise,
+        discardTopCard: top,
+        drawPileCount: 10,
+        players: [
+          PlayerModel(
+            id: 'p1',
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: const [],
+            cardCount: 0,
+          ),
+          PlayerModel(
+            id: 'p2',
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: [c(Rank.king, Suit.hearts)],
+            cardCount: 1,
+          ),
+        ],
+        lastCardsDeclaredBy: {'p1'},
+      );
+      final after = advanceTurn(state);
+      expect(after.lastCardsDeclaredBy.contains('p1'), isFalse);
+      expect(after.currentPlayerId, 'p2');
+    });
+
+    test('applyLastCardsBluffPenaltyDraw leaves actionsThisTurn at 0 for new turn',
+        () {
+      CardModel one(int i) => CardModel(
+            id: 'draw_$i',
+            rank: Rank.three,
+            suit: Suit.hearts,
+          );
+      final top = c(Rank.six, Suit.spades);
+      var state = GameState(
+        sessionId: 'test',
+        phase: GamePhase.playing,
+        currentPlayerId: 'p1',
+        direction: PlayDirection.clockwise,
+        discardTopCard: top,
+        drawPileCount: 10,
+        players: [
+          PlayerModel(
+            id: 'p1',
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: const [],
+            cardCount: 0,
+          ),
+          PlayerModel(
+            id: 'p2',
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: const [],
+            cardCount: 0,
+          ),
+        ],
+      );
+      state = advanceTurn(state, nextId: 'p2');
+      expect(state.actionsThisTurn, 0);
+      expect(state.currentPlayerId, 'p2');
+
+      final afterPenalty = applyLastCardsBluffPenaltyDraw(
+        state: state,
+        playerId: 'p2',
+        count: 2,
+        cardFactory: (n) => List.generate(n, one),
+      );
+      expect(afterPenalty.actionsThisTurn, 0);
+      expect(afterPenalty.playerById('p2')!.hand.length, 2);
+    });
+  });
 }

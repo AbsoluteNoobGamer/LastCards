@@ -121,6 +121,30 @@ final class PenaltyAppliedEvent extends GameEvent {
   String get type => 'penalty_applied';
 }
 
+/// A player pressed the "Last Cards" button (visible to all).
+final class LastCardsPressedEvent extends GameEvent {
+  final String playerId;
+  const LastCardsPressedEvent({required this.playerId});
+
+  @override
+  String get type => 'last_cards_pressed';
+}
+
+/// A player was caught bluffing "Last Cards" — drew penalty cards.
+final class LastCardsBluffEvent extends GameEvent {
+  final String playerId;
+  final String playerName;
+  final int drawCount;
+  const LastCardsBluffEvent({
+    required this.playerId,
+    required this.playerName,
+    this.drawCount = 2,
+  });
+
+  @override
+  String get type => 'last_cards_bluff';
+}
+
 /// A player joined the session.
 final class PlayerJoinedEvent extends GameEvent {
   final PlayerModel player;
@@ -362,6 +386,16 @@ final class EndTurnAction extends GameEvent {
   String toJsonString() => jsonEncode({'type': type});
 }
 
+/// Declare "Last Cards" before your turn (eligible to win).
+final class DeclareLastCardsAction extends GameEvent {
+  const DeclareLastCardsAction();
+
+  @override
+  String get type => 'declare_last_cards';
+
+  String toJsonString() => jsonEncode({'type': type});
+}
+
 /// Respond to a [SuitChoiceRequiredEvent] — declare which suit the Ace locks.
 final class SuitChoiceAction extends GameEvent {
   final Suit suit;
@@ -435,6 +469,14 @@ GameEvent parseServerEvent(String raw) {
           targetPlayerId: json['targetPlayerId'] as String,
           cardsDrawn: json['cardsDrawn'] as int,
           newPenaltyStack: json['newPenaltyStack'] as int,
+        ),
+      'last_cards_pressed' => LastCardsPressedEvent(
+          playerId: json['playerId'] as String,
+        ),
+      'last_cards_bluff' => LastCardsBluffEvent(
+          playerId: json['playerId'] as String,
+          playerName: json['playerName'] as String? ?? '',
+          drawCount: (json['drawCount'] as num?)?.toInt() ?? 2,
         ),
       'player_joined' => PlayerJoinedEvent(
           PlayerModel.fromJson(json['player'] as Map<String, dynamic>),
