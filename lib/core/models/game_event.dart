@@ -8,7 +8,8 @@ import 'player_model.dart';
 ///
 /// Incoming (server → client): [StateSnapshotEvent], [CardPlayedEvent],
 ///   [CardDrawnEvent], [TurnChangedEvent], [PenaltyAppliedEvent],
-///   [PlayerJoinedEvent], [PlayerLeftEvent], [GameEndedEvent], [ErrorEvent],
+///   [PlayerJoinedEvent], [PlayerLeftEvent], [PlayerSocketLostEvent],
+///   [PlayerSocketRestoredEvent], [GameEndedEvent], [ErrorEvent],
 ///   [SuitChoiceRequiredEvent], [JokerChoiceRequiredEvent],
 ///   [TurnTimeoutEvent], [ReshuffleEvent], [BustRoundOverEvent],
 ///   [BustRoundStartEvent], [QuickChatEvent]
@@ -161,6 +162,26 @@ final class PlayerLeftEvent extends GameEvent {
 
   @override
   String get type => 'player_left';
+}
+
+/// Standard online: a player's WebSocket dropped; they may reattach within
+/// the server grace period. Other clients should hide that seat until
+/// [PlayerSocketRestoredEvent] or the game ends.
+final class PlayerSocketLostEvent extends GameEvent {
+  final String playerId;
+  const PlayerSocketLostEvent(this.playerId);
+
+  @override
+  String get type => 'player_socket_lost';
+}
+
+/// Standard online: a player reconnected after [PlayerSocketLostEvent].
+final class PlayerSocketRestoredEvent extends GameEvent {
+  final String playerId;
+  const PlayerSocketRestoredEvent(this.playerId);
+
+  @override
+  String get type => 'player_socket_restored';
 }
 
 /// Game has concluded.
@@ -485,6 +506,10 @@ GameEvent parseServerEvent(String raw) {
           PlayerModel.fromJson(json['player'] as Map<String, dynamic>),
         ),
       'player_left' => PlayerLeftEvent(json['playerId'] as String),
+      'player_socket_lost' =>
+        PlayerSocketLostEvent(json['playerId'] as String),
+      'player_socket_restored' =>
+        PlayerSocketRestoredEvent(json['playerId'] as String),
       'game_ended' => GameEndedEvent(
           json['winnerId'] as String,
           ratingChanges: (json['ratingChanges'] as Map<String, dynamic>?)

@@ -238,6 +238,7 @@ class GameSession {
 
     _disconnectGraceTimers[playerId]?.cancel();
     leavingPlayer.ws = null;
+    _broadcast({'type': 'player_socket_lost', 'playerId': playerId});
     _disconnectGraceTimers[playerId] =
         Timer(_disconnectGraceDuration, () {
       _disconnectGraceTimers.remove(playerId);
@@ -270,6 +271,7 @@ class GameSession {
       if (!_disconnectGraceTimers.containsKey(playerId)) return false;
       _disconnectGraceTimers.remove(playerId)?.cancel();
       p.ws = newWs;
+      _broadcast({'type': 'player_socket_restored', 'playerId': playerId});
       _broadcastStateSnapshots();
       return true;
     }

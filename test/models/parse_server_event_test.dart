@@ -49,4 +49,22 @@ void main() {
     expect(event, isA<ReshuffleEvent>());
     expect((event as ReshuffleEvent).newDrawPileCount, 30);
   });
+
+  test('player_socket_lost parses playerId', () {
+    final event = parseServerEvent(jsonEncode({
+      'type': 'player_socket_lost',
+      'playerId': 'player-1',
+    }));
+    expect(event, isA<PlayerSocketLostEvent>());
+    expect((event as PlayerSocketLostEvent).playerId, 'player-1');
+  });
+
+  test('player_socket_restored parses playerId', () {
+    final event = parseServerEvent(jsonEncode({
+      'type': 'player_socket_restored',
+      'playerId': 'player-2',
+    }));
+    expect(event, isA<PlayerSocketRestoredEvent>());
+    expect((event as PlayerSocketRestoredEvent).playerId, 'player-2');
+  });
 }

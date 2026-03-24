@@ -28,10 +28,16 @@ class GameNotifierState {
     this.lastError,
     this.rankedRatingChanges,
     this.isRanked = false,
+    this.socketDisconnectedPlayerIds = const <String>{},
   });
 
   /// The authoritative server game state. Null until the first snapshot arrives.
   final GameState? gameState;
+
+  /// Online: [PlayerSocketLostEvent] — hide opponent avatars until restored or
+  /// [GameEndedEvent]. Does not include the local player (they do not receive
+  /// this event while disconnected).
+  final Set<String> socketDisconnectedPlayerIds;
 
   /// True while the server is waiting for the local player to pick a suit
   /// (after playing an Ace). Cleared when [SuitChoiceAction] is sent.
@@ -68,9 +74,11 @@ class GameNotifierState {
     String? lastError,
     Map<String, int>? rankedRatingChanges,
     bool? isRanked,
+    Set<String>? socketDisconnectedPlayerIds,
     bool clearError = false,
     bool clearSuitChoice = false,
     bool clearJokerResolution = false,
+    bool clearSocketDisconnected = false,
   }) {
     return GameNotifierState(
       gameState: gameState ?? this.gameState,
@@ -88,6 +96,9 @@ class GameNotifierState {
       lastError: clearError ? null : (lastError ?? this.lastError),
       rankedRatingChanges: rankedRatingChanges ?? this.rankedRatingChanges,
       isRanked: isRanked ?? this.isRanked,
+      socketDisconnectedPlayerIds: clearSocketDisconnected
+          ? const <String>{}
+          : (socketDisconnectedPlayerIds ?? this.socketDisconnectedPlayerIds),
     );
   }
 }
@@ -130,11 +141,16 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     final suitChoiceResolved = state.pendingSuitChoice &&
         state.gameState != null &&
         e.gameState.currentPlayerId != state.gameState!.currentPlayerId;
+    final inGame = e.gameState.players.map((p) => p.id).toSet();
+    final prunedDisconnected = state.socketDisconnectedPlayerIds
+        .where(inGame.contains)
+        .toSet();
     state = state.copyWith(
       gameState: e.gameState,
       clearError: true,
       clearSuitChoice: !e.gameState.pendingJokerResolution &&
           (!state.pendingSuitChoice || suitChoiceResolved),
+      socketDisconnectedPlayerIds: prunedDisconnected,
     );
     wouldConfirmWin(e.gameState);
   }
@@ -327,7 +343,46 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
             winnerId: e.winnerId,
           ),
           rankedRatingChanges: e.ratingChanges,
+          clearSocketDisconnected: true,
         );
+      }),
+    );
+
+    // ── player_socket_lost / restored (standard disconnect grace) ───────────
+    _subs.add(
+      _eventHandler.events
+          .where((e) => e is PlayerSocketLostEvent)
+          .cast<PlayerSocketLostEvent>()
+          .listen((e) {
+        if (state.gameState == null) return;
+        state = state.copyWith(
+          socketDisconnectedPlayerIds: {
+            ...state.socketDisconnectedPlayerIds,
+            e.playerId,
+          },
+        );
+      }),
+    );
+    _subs.add(
+      _eventHandler.events
+          .where((e) => e is PlayerSocketRestoredEvent)
+          .cast<PlayerSocketRestoredEvent>()
+          .listen((e) {
+        if (!state.socketDisconnectedPlayerIds.contains(e.playerId)) return;
+        final next = Set<String>.from(state.socketDisconnectedPlayerIds)
+          ..remove(e.playerId);
+        state = state.copyWith(socketDisconnectedPlayerIds: next);
+      }),
+    );
+    _subs.add(
+      _eventHandler.events
+          .where((e) => e is PlayerLeftEvent)
+          .cast<PlayerLeftEvent>()
+          .listen((e) {
+        if (!state.socketDisconnectedPlayerIds.contains(e.playerId)) return;
+        final next = Set<String>.from(state.socketDisconnectedPlayerIds)
+          ..remove(e.playerId);
+        state = state.copyWith(socketDisconnectedPlayerIds: next);
       }),
     );
 

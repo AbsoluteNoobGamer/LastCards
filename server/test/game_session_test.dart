@@ -1908,6 +1908,7 @@ void main() {
       g.p2ws.clear();
       g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
       expect(g.p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
+      expect(g.p2ws.lastOfType('player_socket_lost')?['playerId'], g.p1Id);
     });
 
     test('removePlayer after grace ends game for other player', () {
@@ -1921,9 +1922,11 @@ void main() {
     test('tryReattachSocket sends state_snapshot to new socket', () {
       final g = _makeKnownGame();
       g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
+      g.p2ws.clear();
       final newWs = _FakeWs();
       expect(g.session.tryReattachSocket(g.p1Id, newWs), isTrue);
       expect(newWs.messages.any((m) => m['type'] == 'state_snapshot'), isTrue);
+      expect(g.p2ws.lastOfType('player_socket_restored')?['playerId'], g.p1Id);
     });
 
     test('tryReattachSocket replaces socket when previous still connected', () {
