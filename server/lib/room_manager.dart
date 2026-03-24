@@ -65,7 +65,10 @@ class RoomManager {
     final json = jsonDecode(raw) as Map<String, dynamic>;
     final type = json['type'] as String;
 
-    if ((type == 'create_room' || type == 'join_room' || type == 'quickplay') &&
+    if ((type == 'create_room' ||
+            type == 'join_room' ||
+            type == 'quickplay' ||
+            type == 'rejoin_session') &&
         json.containsKey('idToken')) {
       final token = json['idToken'] as String;
       final uid = await _verifyIdToken(token);
@@ -89,11 +92,15 @@ class RoomManager {
       case 'quickplay':
         _handleQuickplay(ws, json);
         break;
+      case 'rejoin_session':
+        await _rejoinSession(ws, json);
+        break;
       case 'play_cards':
       case 'draw_card':
       case 'declare_joker':
       case 'end_turn':
       case 'suit_choice':
+      case 'declare_last_cards':
         final roomCode = _playerRooms[ws];
         final playerId = _playerIds[ws];
         if (roomCode != null && playerId != null) {
@@ -118,7 +125,11 @@ class RoomManager {
     final displayName =
         sanitizeDisplayName(json['displayName'] as String? ?? 'Player');
     final firebaseUid = _playerUserIds[ws];
-    final session = GameSession(roomCode, isPrivate: true);
+    final session = GameSession(
+      roomCode,
+      isPrivate: true,
+      onBecameEmpty: (_) => _rooms.remove(roomCode),
+    );
     _rooms[roomCode] = session;
 
     final playerId = session.addPlayer(ws, displayName, firebaseUid: firebaseUid);
@@ -159,6 +170,41 @@ class RoomManager {
       'roomCode': code,
       'playerId': playerId,
       'isPrivate': session.isPrivate,
+    }));
+  }
+
+  Future<void> _rejoinSession(dynamic ws, Map<String, dynamic> json) async {
+    final roomCode = (json['roomCode'] as String).toUpperCase();
+    final playerId = json['playerId'] as String;
+    final session = _rooms[roomCode];
+    if (session == null) {
+      ws.sink.add(jsonEncode({
+        'type': 'error',
+        'code': 'room_not_found',
+        'message': 'Room $roomCode does not exist.',
+      }));
+      return;
+    }
+    final uid = _playerUserIds[ws];
+    if (!session.tryReattachSocket(
+      playerId,
+      ws,
+      firebaseUidFromToken: uid,
+    )) {
+      ws.sink.add(jsonEncode({
+        'type': 'error',
+        'code': 'rejoin_failed',
+        'message':
+            'Could not rejoin this game. It may have ended or the reconnect window expired.',
+      }));
+      return;
+    }
+    _playerRooms[ws] = roomCode;
+    _playerIds[ws] = playerId;
+    ws.sink.add(jsonEncode({
+      'type': 'rejoin_ok',
+      'roomCode': roomCode,
+      'playerId': playerId,
     }));
   }
 
@@ -218,11 +264,14 @@ class RoomManager {
       while (_rooms.containsKey(roomCode)) {
         roomCode = _uuid.v4().substring(0, 6).toUpperCase();
       }
-      final session = GameSession(roomCode,
-          isPrivate: false,
-          maxPlayerCount: playerCount,
-          isBustMode: isBust,
-          isRanked: isRanked);
+      final session = GameSession(
+        roomCode,
+        isPrivate: false,
+        maxPlayerCount: playerCount,
+        isBustMode: isBust,
+        isRanked: isRanked,
+        onBecameEmpty: (_) => _rooms.remove(roomCode),
+      );
       _rooms[roomCode] = session;
       _log.info(
           'Match found! Creating room $roomCode with $playerCount players');
@@ -271,10 +320,10 @@ class RoomManager {
     final playerId = _playerIds.remove(ws);
     if (roomCode != null && playerId != null) {
       final session = _rooms[roomCode];
-      session?.removePlayer(playerId);
+      session?.handleSocketDisconnected(playerId, ws);
 
-      // Clean up empty rooms to prevent memory leaks on long-running servers.
-      if (session != null && !_playerRooms.containsValue(roomCode)) {
+      // Clean up empty rooms only when the session has no players left.
+      if (session != null && session.isEmpty) {
         _rooms.remove(roomCode);
       }
     }

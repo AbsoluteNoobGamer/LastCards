@@ -23,6 +23,10 @@ import 'trophy_recorder.dart';
 
 const _turnDuration = Duration(seconds: 60);
 
+/// Grace period before a disconnected standard-mode player is removed and the
+/// game ends (allows [GameSession.tryReattachSocket]).
+const _disconnectGraceDuration = Duration(seconds: 45);
+
 // ── Connected player ──────────────────────────────────────────────────────────
 
 class _ConnectedPlayer {
@@ -31,7 +35,8 @@ class _ConnectedPlayer {
     required this.displayName,
     this.firebaseUid,
   });
-  final dynamic ws;
+  /// Null while the client is disconnected but within [_disconnectGraceDuration].
+  dynamic ws;
   final String displayName;
   final String? firebaseUid;
   bool isReady = false;
@@ -65,6 +70,7 @@ class GameSession {
     this.isBustMode = false,
     this.isRanked = false,
     TrophyRecorder? trophyRecorder,
+    this.onBecameEmpty,
   }) : _trophyRecorder = trophyRecorder ?? TrophyRecorder.instance;
 
   final String roomCode;
@@ -84,7 +90,14 @@ class GameSession {
 
   final TrophyRecorder _trophyRecorder;
 
+  /// Called after [removePlayer] when no players remain (e.g. grace timers
+  /// removed everyone). [RoomManager] uses this to drop the room from memory.
+  final void Function(String roomCode)? onBecameEmpty;
+
   final _players = <String, _ConnectedPlayer>{};
+
+  /// Per-socket disconnect grace — only used for standard (non-Bust) in-progress games.
+  final Map<String, Timer> _disconnectGraceTimers = {};
 
   /// Per-player timestamp of last quick chat message (server-side rate limit).
   final _lastQuickChatTime = <String, DateTime>{};
@@ -158,6 +171,9 @@ class GameSession {
   /// Returns the current discard-under-top size (for assertions in tests).
   int get discardUnderTopCountForTesting => _discardUnderTop.length;
 
+  /// True when there are no players left in this session (room may be discarded).
+  bool get isEmpty => _players.isEmpty;
+
   /// Invokes the turn-timeout handler (for tests).
   void triggerTurnTimeoutForTesting() => _onTurnTimeout();
 
@@ -199,6 +215,76 @@ class GameSession {
     return id;
   }
 
+  /// Called when a client's socket closes. Standard in-progress games enter a
+  /// grace period so the client can [tryReattachSocket]. Lobby / Bust / ended
+  /// games use immediate [removePlayer].
+  ///
+  /// [disconnectedWs] must be the socket that closed. If [tryReattachSocket]
+  /// already replaced it, this is ignored so a late close on the old socket
+  /// does not clear the new connection.
+  void handleSocketDisconnected(String playerId, dynamic disconnectedWs) {
+    final leavingPlayer = _players[playerId];
+    if (leavingPlayer == null) return;
+
+    if (leavingPlayer.ws != null &&
+        !identical(leavingPlayer.ws, disconnectedWs)) {
+      return;
+    }
+
+    if (!_started || _gameOver || isBustMode) {
+      removePlayer(playerId);
+      return;
+    }
+
+    _disconnectGraceTimers[playerId]?.cancel();
+    leavingPlayer.ws = null;
+    _disconnectGraceTimers[playerId] =
+        Timer(_disconnectGraceDuration, () {
+      _disconnectGraceTimers.remove(playerId);
+      removePlayer(playerId);
+    });
+  }
+
+  /// Reattaches a new WebSocket after a transient disconnect (within grace).
+  /// Returns false if the slot is invalid or grace expired.
+  bool tryReattachSocket(
+    String playerId,
+    dynamic newWs, {
+    String? firebaseUidFromToken,
+  }) {
+    final p = _players[playerId];
+    if (p == null) return false;
+
+    if (isRanked) {
+      final expected = p.firebaseUid;
+      if (expected != null) {
+        if (firebaseUidFromToken == null ||
+            firebaseUidFromToken != expected) {
+          return false;
+        }
+      }
+    }
+
+    // Grace-period reconnect (ws was nulled by [handleSocketDisconnected]).
+    if (p.ws == null) {
+      if (!_disconnectGraceTimers.containsKey(playerId)) return false;
+      _disconnectGraceTimers.remove(playerId)?.cancel();
+      p.ws = newWs;
+      _broadcastStateSnapshots();
+      return true;
+    }
+
+    // Stale socket: TCP close not detected yet; same client opened a new
+    // connection and sent rejoin_session — replace the old WebSocket.
+    try {
+      p.ws.sink.close();
+    } catch (_) {}
+    _disconnectGraceTimers.remove(playerId)?.cancel();
+    p.ws = newWs;
+    _broadcastStateSnapshots();
+    return true;
+  }
+
   /// Sends player_joined for every current player to [ws].
   /// Used after quickplay matching so late-joining clients learn about
   /// players that were added before them.
@@ -219,11 +305,17 @@ class GameSession {
   }
 
   void removePlayer(String playerId) {
+    _disconnectGraceTimers.remove(playerId)?.cancel();
+
     final leavingPlayer = _players[playerId];
     final firebaseUid = leavingPlayer?.firebaseUid;
     final displayName = leavingPlayer?.displayName ?? playerId;
     _players.remove(playerId);
     _broadcast({'type': 'player_left', 'playerId': playerId});
+
+    if (_players.isEmpty) {
+      onBecameEmpty?.call(roomCode);
+    }
 
     if (!_started || _gameOver) return;
 
@@ -426,6 +518,7 @@ class GameSession {
     // Notify clients of session type (private vs ranked, trophy eligibility).
     _broadcast({
       'type': 'session_config',
+      'roomCode': roomCode,
       'isPrivate': isPrivate,
       'isRanked': isRanked,
       'trophyEligible': _trophyEligible,
@@ -624,12 +717,14 @@ class GameSession {
     // their GameNotifier decrements drawPileCount correctly.
     for (final entry in _players.entries) {
       if (entry.key != playerId) {
+        final w = entry.value.ws;
+        if (w == null) continue;
         final encoded = jsonEncode({
           'type': 'card_drawn',
           'playerId': playerId,
         });
         for (int i = 0; i < drawnCards.length; i++) {
-          entry.value.ws.sink.add(encoded);
+          w.sink.add(encoded);
         }
       }
     }
@@ -758,7 +853,6 @@ class GameSession {
 
   void _handleDeclareLastCards(String playerId) {
     if (isBustMode) return;
-    if (_state.currentPlayerId == playerId) return;
     if (_state.lastCardsDeclaredBy.contains(playerId)) return;
 
     final player = _state.players.firstWhereOrNull((p) => p.id == playerId);
@@ -818,12 +912,14 @@ class GameSession {
     }
     for (final entry in _players.entries) {
       if (entry.key != nextPlayerId) {
+        final w = entry.value.ws;
+        if (w == null) continue;
         final encoded = jsonEncode({
           'type': 'card_drawn',
           'playerId': nextPlayerId,
         });
         for (var i = 0; i < drawnCards.length; i++) {
-          entry.value.ws.sink.add(encoded);
+          w.sink.add(encoded);
         }
       }
     }
@@ -864,12 +960,14 @@ class GameSession {
     }
     for (final entry in _players.entries) {
       if (entry.key != playerId) {
+        final w = entry.value.ws;
+        if (w == null) continue;
         final encoded = jsonEncode({
           'type': 'card_drawn',
           'playerId': playerId,
         });
         for (var i = 0; i < drawn.length; i++) {
-          entry.value.ws.sink.add(encoded);
+          w.sink.add(encoded);
         }
       }
     }
@@ -1269,12 +1367,14 @@ class GameSession {
     }
     for (final entry in _players.entries) {
       if (entry.key != timedOutPlayerId) {
+        final w = entry.value.ws;
+        if (w == null) continue;
         final encoded = jsonEncode({
           'type': 'card_drawn',
           'playerId': timedOutPlayerId,
         });
         for (int i = 0; i < drawnCards.length; i++) {
-          entry.value.ws.sink.add(encoded);
+          w.sink.add(encoded);
         }
       }
     }
@@ -1333,12 +1433,14 @@ class GameSession {
     }
     for (final entry in _players.entries) {
       if (entry.key != playerId) {
+        final w = entry.value.ws;
+        if (w == null) continue;
         final encoded = jsonEncode({
           'type': 'card_drawn',
           'playerId': playerId,
         });
         for (int i = 0; i < drawnCards.length; i++) {
-          entry.value.ws.sink.add(encoded);
+          w.sink.add(encoded);
         }
       }
     }
@@ -1549,6 +1651,7 @@ class GameSession {
     for (final entry in _players.entries) {
       final playerId = entry.key;
       final ws = entry.value.ws;
+      if (ws == null) continue;
 
       final personalizedPlayers = <PlayerModel>[];
       final others = <PlayerModel>[];
@@ -1586,12 +1689,14 @@ class GameSession {
   void _broadcast(Map<String, dynamic> event) {
     final encoded = jsonEncode(event);
     for (final p in _players.values) {
-      p.ws.sink.add(encoded);
+      final w = p.ws;
+      if (w != null) w.sink.add(encoded);
     }
   }
 
   void _sendTo(String playerId, Map<String, dynamic> event) {
-    _players[playerId]?.ws.sink.add(jsonEncode(event));
+    final w = _players[playerId]?.ws;
+    if (w != null) w.sink.add(jsonEncode(event));
   }
 
   void _sendError(String playerId, String code, String message) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme/app_theme_data.dart';
+import '../core/providers/online_rejoin_listener_provider.dart';
 import '../core/providers/theme_provider.dart';
 import '../features/settings/presentation/widgets/settings_modal.dart';
 import 'router/app_routes.dart';
@@ -25,6 +26,7 @@ class _StackAndFlowAppState extends ConsumerState<StackAndFlowApp> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(onlineRejoinListenerProvider);
     final themeState = ref.watch(themeProvider);
     final reduceMotion = ref.watch(reduceMotionProvider);
     return MaterialApp(

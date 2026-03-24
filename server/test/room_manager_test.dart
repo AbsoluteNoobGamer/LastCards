@@ -212,6 +212,20 @@ void main() {
       );
     });
 
+    test('rejoin_session unknown room returns room_not_found', () async {
+      final rm = RoomManager();
+      final ws = FakeWs();
+      rm.handleConnection(ws);
+      ws.addIncoming(jsonEncode({
+        'type': 'rejoin_session',
+        'roomCode': 'ABCDEF',
+        'playerId': 'player-1',
+      }));
+      await _flushAsync();
+
+      expect(ws.lastOfType('error')?['code'], 'room_not_found');
+    });
+
     test('disconnect removes empty room so rejoin fails', () async {
       final rm = RoomManager();
       final ws = FakeWs();

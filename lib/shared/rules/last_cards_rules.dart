@@ -67,16 +67,13 @@ bool _validChainStep(CardModel prev, CardModel next) {
   return isConsecutiveSameSuit;
 }
 
-/// Whether Last Cards can be acted on (AI / helpers). UI always shows the
-/// button when not your turn; there is no hand-size visibility gate.
+/// Whether Last Cards can be acted on (AI / helpers). There is no hand-size
+/// visibility gate. Declaring on your own turn or before is allowed.
 bool shouldShowLastCardsButton({
   required bool isBustMode,
-  required bool isLocalTurn,
   required bool alreadyDeclared,
-  bool skipMustBeBeforeYourTurn = false,
 }) {
   if (isBustMode) return false;
-  if (!skipMustBeBeforeYourTurn && isLocalTurn) return false;
   if (alreadyDeclared) return false;
   return true;
 }

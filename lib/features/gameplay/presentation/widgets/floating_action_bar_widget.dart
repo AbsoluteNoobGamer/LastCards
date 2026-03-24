@@ -336,7 +336,14 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
         Widget leftSection() {
           final double slotWidth =
               useCompact ? 64.0 : (isMobile ? 90.0 : 120.0);
-          if (_showDirectionLeft) {
+          final canDeclareLastCards = widget.lastCardsEnabled &&
+              widget.onLastCards != null &&
+              !widget.hasAlreadyDeclared;
+          final showLastCardsSlot = widget.lastCardsEnabled &&
+              widget.onLastCards != null;
+
+          Widget directionIcon({double? width}) {
+            final w = width ?? slotWidth;
             final directionIconChild = Icon(
               directionIconData,
               color: accent,
@@ -344,7 +351,7 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
             );
 
             return SizedBox(
-              width: slotWidth,
+              width: w,
               child: Center(
                 child: Semantics(
                   label: isCw
@@ -368,6 +375,52 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
                 ),
               ),
             );
+          }
+
+          // Opponent's turn: Last Cards slot (greyed after declaring).
+          if (!widget.isLocalTurn && showLastCardsSlot) {
+            return _buildLastCardsButton(
+              useCompact: useCompact,
+              isMobile: isMobile,
+              slotWidth: slotWidth,
+              accent: accent,
+              accentLight: accentLight,
+              accentDark: accentDark,
+              surface: surface,
+              textSec: textSec,
+              bgDeep: bgDeep,
+            );
+          }
+
+          // Your turn + not yet declared: direction + Last Cards (can declare now).
+          if (widget.isLocalTurn && canDeclareLastCards) {
+            final narrowLc =
+                useCompact ? 72.0 : (isMobile ? 88.0 : 104.0);
+            final dirW = useCompact ? 34.0 : 40.0;
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                directionIcon(width: dirW),
+                SizedBox(width: useCompact ? 4 : 6),
+                _buildLastCardsButton(
+                  useCompact: useCompact,
+                  isMobile: isMobile,
+                  slotWidth: narrowLc,
+                  accent: accent,
+                  accentLight: accentLight,
+                  accentDark: accentDark,
+                  surface: surface,
+                  textSec: textSec,
+                  bgDeep: bgDeep,
+                ),
+              ],
+            );
+          }
+
+          // Direction only (your turn after declaring, Bust, or no Last Cards).
+          if (_showDirectionLeft) {
+            return directionIcon();
           }
 
           return _buildLastCardsButton(

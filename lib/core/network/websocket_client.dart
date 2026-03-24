@@ -43,6 +43,14 @@ class WebSocketClient {
   final _stateNotifier =
       ValueNotifier<WsConnectionState>(WsConnectionState.disconnected);
 
+  /// True after automatic reconnect has given up ([_maxRetries] exhausted).
+  /// Reset to false on the next successful [connect] or successful reconnect.
+  final ValueNotifier<bool> reconnectExhausted = ValueNotifier<bool>(false);
+
+  /// Fired after a successful socket open that followed a failed attempt
+  /// (auto-reconnect path). Not fired on the first open after [connect].
+  void Function()? onConnectedAfterReconnect;
+
   /// Stream of raw JSON strings from the server.
   Stream<String> get messages => _messageController.stream;
 
@@ -59,6 +67,7 @@ class WebSocketClient {
     if (uri != null) _uri = uri;
     _manualDisconnect = false;
     _retryCount = 0;
+    reconnectExhausted.value = false;
     await _doConnect();
   }
 
@@ -75,8 +84,13 @@ class WebSocketClient {
       _channel = _channelFactory(_uri);
       await _channel!.ready;
 
+      final wasReconnectAttempt = _retryCount > 0;
       _stateNotifier.value = WsConnectionState.connected;
       _retryCount = 0;
+      reconnectExhausted.value = false;
+      if (wasReconnectAttempt) {
+        onConnectedAfterReconnect?.call();
+      }
 
       _subscription = _channel!.stream.listen(
         (data) {
@@ -104,17 +118,18 @@ class WebSocketClient {
 
   /// Sends [jsonPayload] to the server.
   ///
-  /// If the socket is not connected, does nothing (no-op) and logs a debug
-  /// line — callers should not crash on transient disconnects.
-  void send(String jsonPayload) {
+  /// Returns `false` if the socket is not connected (message not sent).
+  /// Callers may show feedback or retry when this returns false.
+  bool send(String jsonPayload) {
     if (_stateNotifier.value != WsConnectionState.connected ||
         _channel == null) {
       if (kDebugMode) {
         debugPrint('[WS] send skipped — not connected');
       }
-      return;
+      return false;
     }
     _channel!.sink.add(jsonPayload);
+    return true;
   }
 
   // ── Disconnect handling ────────────────────────────────────────────────────
@@ -126,6 +141,7 @@ class WebSocketClient {
 
     if (_manualDisconnect) return;
     if (_retryCount >= _maxRetries) {
+      reconnectExhausted.value = true;
       if (kDebugMode) {
         debugPrint('[WS] Max retries reached. Giving up.');
       }
@@ -155,5 +171,6 @@ class WebSocketClient {
     await disconnect();
     _messageController.close();
     _stateNotifier.dispose();
+    reconnectExhausted.dispose();
   }
 }

@@ -128,13 +128,22 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
       gameMode = 'ranked';
     }
 
-    wsClient.send(jsonEncode({
+    if (!wsClient.send(jsonEncode({
       'type': 'quickplay',
       'playerCount': playerCount,
       if (gameMode != null) 'gameMode': gameMode,
       'displayName': displayName.isEmpty ? 'Player' : displayName,
       if (idToken != null) 'idToken': idToken,
-    }));
+    }))) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Connection lost. Reconnecting — try again.'),
+          backgroundColor: Color(0xFFB71C1C),
+        ),
+      );
+      return;
+    }
   }
 
   bool _navigatedForward = false;

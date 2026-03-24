@@ -1900,4 +1900,79 @@ void main() {
       expect(snap['activePenaltyCount'], equals(4)); // 2 + 2
     });
   });
+
+  group('disconnect grace (standard)', () {
+    test('handleSocketDisconnected does not broadcast game_ended immediately',
+        () {
+      final g = _makeKnownGame();
+      g.p2ws.clear();
+      g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
+      expect(g.p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
+    });
+
+    test('removePlayer after grace ends game for other player', () {
+      final g = _makeKnownGame();
+      g.p2ws.clear();
+      g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
+      g.session.removePlayer(g.p1Id);
+      expect(g.p2ws.lastOfType('game_ended')?['reason'], 'player_disconnected');
+    });
+
+    test('tryReattachSocket sends state_snapshot to new socket', () {
+      final g = _makeKnownGame();
+      g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
+      final newWs = _FakeWs();
+      expect(g.session.tryReattachSocket(g.p1Id, newWs), isTrue);
+      expect(newWs.messages.any((m) => m['type'] == 'state_snapshot'), isTrue);
+    });
+
+    test('tryReattachSocket replaces socket when previous still connected', () {
+      final g = _makeKnownGame();
+      final newWs = _FakeWs();
+      expect(g.session.tryReattachSocket(g.p1Id, newWs), isTrue);
+      expect(newWs.messages.any((m) => m['type'] == 'state_snapshot'), isTrue);
+    });
+
+    test('handleSocketDisconnected ignores stale socket after reattach', () {
+      final g = _makeKnownGame();
+      final newWs = _FakeWs();
+      expect(g.session.tryReattachSocket(g.p1Id, newWs), isTrue);
+      g.p2ws.clear();
+      g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
+      expect(g.p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
+    });
+
+    test('onBecameEmpty when last player removed after game over', () {
+      var emptyCalled = false;
+      final session = GameSession(
+        'ROOM',
+        onBecameEmpty: (_) => emptyCalled = true,
+      );
+      final w1 = _FakeWs();
+      final w2 = _FakeWs();
+      final id1 = session.addPlayer(w1, 'A');
+      final id2 = session.addPlayer(w2, 'B');
+      session.markReady(id1);
+      session.markReady(id2);
+      session.handleSocketDisconnected(id1, w1);
+      session.handleSocketDisconnected(id2, w2);
+      session.removePlayer(id1);
+      expect(emptyCalled, isFalse);
+      session.removePlayer(id2);
+      expect(emptyCalled, isTrue);
+    });
+
+    test('declare_last_cards works on current player turn', () {
+      final g = _makeKnownGame();
+      expect(g.p1ws.messages.any((m) => m['type'] == 'last_cards_pressed'),
+          isFalse);
+      g.session.handleAction(g.p1Id, {'type': 'declare_last_cards'});
+      expect(g.p1ws.lastOfType('last_cards_pressed')?['playerId'], g.p1Id);
+      final snap = _latestSnapshot(g.p1ws);
+      expect(
+        (snap['lastCardsDeclaredBy'] as List).map((e) => e as String),
+        contains(g.p1Id),
+      );
+    });
+  });
 }

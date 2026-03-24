@@ -55,9 +55,9 @@ class _MemoryWebSocketSink extends DelegatingStreamSink implements WebSocketSink
 }
 
 void main() {
-  test('send is a no-op when not connected', () async {
+  test('send returns false when not connected', () async {
     final client = WebSocketClient(uri: Uri.parse('ws://localhost:0'));
-    expect(() => client.send('{}'), returnsNormally);
+    expect(client.send('{}'), isFalse);
     await client.dispose();
   });
 
@@ -100,7 +100,7 @@ void main() {
     );
 
     await client.connect();
-    client.send('ping');
+    expect(client.send('ping'), isTrue);
     expect(memory.sentByClient, contains('ping'));
 
     await client.dispose();

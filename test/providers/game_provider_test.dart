@@ -6,6 +6,7 @@ import 'package:last_cards/core/models/game_state.dart';
 import 'package:last_cards/core/models/player_model.dart';
 import 'package:last_cards/core/network/game_event_handler.dart';
 import 'package:last_cards/core/providers/game_provider.dart';
+import 'package:last_cards/core/providers/online_rejoin_provider.dart';
 
 import '../helpers/fake_websocket_client.dart';
 import '../helpers/mock_audio_platform.dart';
@@ -50,7 +51,7 @@ void main() {
     mockAudioChannels();
     fakeWs = FakeWebSocketClient();
     handler = GameEventHandler(fakeWs);
-    notifier = GameNotifier(handler);
+    notifier = GameNotifier(handler, OnlineRejoinNotifier());
   });
 
   tearDown(() async {

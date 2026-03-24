@@ -1699,6 +1699,47 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   bannerAlignment: const Alignment(0, 0.22),
                 ),
               ),
+
+              // ── Connection lost / reconnecting (blocks interaction) ───────
+              if (!isOfflineMode)
+                Positioned.fill(
+                  child: ValueListenableBuilder<WsConnectionState>(
+                    valueListenable:
+                        ref.read(wsClientProvider).connectionState,
+                    builder: (context, connState, _) {
+                      return ValueListenableBuilder<bool>(
+                        valueListenable:
+                            ref.read(wsClientProvider).reconnectExhausted,
+                        builder: (context, exhausted, _) {
+                          if (connState == WsConnectionState.connected &&
+                              !exhausted) {
+                            return const SizedBox.shrink();
+                          }
+                          final message = exhausted
+                              ? "Couldn't reconnect. Check your network or leave the table."
+                              : 'Reconnecting…';
+                          return Material(
+                            color: Colors.black.withValues(alpha: 0.55),
+                            child: Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: Text(
+                                  message,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
             ],
           );
           if (isOfflineMode) return stack;
@@ -1755,8 +1796,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (!mounted) return;
       send();
     } finally {
+      _onlineLastCardFlightInProgress = false;
       if (mounted) {
-        _onlineLastCardFlightInProgress = false;
         setState(() => _flyingCardId = null);
       }
     }
@@ -3201,7 +3242,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       return;
     }
     final localId = OfflineGameState.localId;
-    if (_offlineState.currentPlayerId == localId) return;
     if (_offlineState.lastCardsDeclaredBy.contains(localId)) return;
     final name =
         _offlineState.playerById(localId)?.displayName ?? localId;
@@ -3289,7 +3329,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     if (!isOfflineMode) {
       final handler = ref.read(gameEventHandlerProvider);
-      handler.sendQuickChat(QuickChatAction(messageIndex: messageIndex));
+      if (!handler.sendQuickChat(QuickChatAction(messageIndex: messageIndex))) {
+        ref.read(gameNotifierProvider.notifier).connectionSendFailed();
+      }
     }
 
     setState(() {

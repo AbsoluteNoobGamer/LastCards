@@ -12,6 +12,7 @@ import '../models/game_event.dart';
 import '../models/game_state.dart';
 import '../network/game_event_handler.dart';
 import 'connection_provider.dart';
+import 'online_rejoin_provider.dart';
 
 // ── Notifier state wrapper ────────────────────────────────────────────────────
 
@@ -94,11 +95,12 @@ class GameNotifierState {
 // ── Game State Notifier ───────────────────────────────────────────────────────
 
 class GameNotifier extends StateNotifier<GameNotifierState> {
-  GameNotifier(this._eventHandler) : super(const GameNotifierState()) {
+  GameNotifier(this._eventHandler, this._onlineRejoin) : super(const GameNotifierState()) {
     _subscribe();
   }
 
   final GameEventHandler _eventHandler;
+  final OnlineRejoinNotifier _onlineRejoin;
   final List<StreamSubscription<dynamic>> _subs = [];
 
   /// One [GameSound.cardDraw] per draw action (not per `card_drawn` line).
@@ -118,6 +120,8 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
   /// Opponent [card_played] animations run before applying the paired snapshot.
   int _opponentFlightsInFlight = 0;
   final Queue<GameState> _deferredSnapshots = Queue<GameState>();
+  static const Duration _opponentFlightWatchdogDuration = Duration(seconds: 6);
+  Timer? _opponentFlightWatchdog;
 
   // Convenience getter so callers that only need GameState? don't change.
   GameState? get gameState => state.gameState;
@@ -137,6 +141,7 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
 
   /// Called after [TableScreen] finishes opponent card flight animations.
   void opponentPlayFlightsFinished() {
+    _cancelOpponentFlightWatchdog();
     if (_opponentFlightsInFlight > 0) {
       _opponentFlightsInFlight--;
     }
@@ -153,12 +158,37 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     _applyStateSnapshot(StateSnapshotEvent(latest!));
   }
 
+  void _cancelOpponentFlightWatchdog() {
+    _opponentFlightWatchdog?.cancel();
+    _opponentFlightWatchdog = null;
+  }
+
+  void _armOpponentFlightWatchdog() {
+    _opponentFlightWatchdog?.cancel();
+    _opponentFlightWatchdog = Timer(_opponentFlightWatchdogDuration, () {
+      _opponentFlightWatchdog = null;
+      if (_opponentFlightsInFlight <= 0) return;
+      _opponentFlightsInFlight = 0;
+      if (_deferredSnapshots.isEmpty) return;
+      GameState? latest;
+      while (_deferredSnapshots.isNotEmpty) {
+        latest = _deferredSnapshots.removeFirst();
+      }
+      _applyStateSnapshot(StateSnapshotEvent(latest!));
+    });
+  }
+
   void _subscribe() {
     // ── state_snapshot ──────────────────────────────────────────────────────
     _subs.add(
       _eventHandler.stateSnapshots.listen((e) {
+        final localId = e.gameState.localPlayer?.id;
+        if (localId != null) {
+          _onlineRejoin.setPlayerId(localId);
+        }
         if (_opponentFlightsInFlight > 0) {
           _deferredSnapshots.addLast(e.gameState);
+          _armOpponentFlightWatchdog();
           return;
         }
         _applyStateSnapshot(e);
@@ -189,6 +219,7 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
         final localId = state.gameState!.localPlayer?.id;
         if (localId != null && e.playerId != localId) {
           _opponentFlightsInFlight++;
+          _armOpponentFlightWatchdog();
         }
         for (final card in e.cards) {
           unawaited(AudioService.instance.playSound(GameSound.cardPlace));
@@ -355,6 +386,10 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     // ── session_config ──────────────────────────────────────────────────────
     _subs.add(
       _eventHandler.sessionConfigs.listen((e) {
+        final rc = e.roomCode;
+        if (rc != null) {
+          _onlineRejoin.setRoomCode(rc);
+        }
         state = state.copyWith(isRanked: e.isRanked);
       }),
     );
@@ -371,15 +406,24 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
 
   // ── Actions ───────────────────────────────────────────────────────────────
 
+  static const _sendFailedMessage =
+      'Connection lost. Reconnecting — try again in a moment.';
+
   void playCards(List<String> cardIds, {String? declaredSuit}) {
-    _eventHandler.sendPlayCards(PlayCardsAction(
+    if (!_eventHandler.sendPlayCards(PlayCardsAction(
       cardIds: cardIds,
       declaredSuit:
           declaredSuit != null ? Suit.values.byName(declaredSuit) : null,
-    ));
+    ))) {
+      state = state.copyWith(lastError: _sendFailedMessage);
+    }
   }
 
-  void drawCard() => _eventHandler.sendDrawCard();
+  void drawCard() {
+    if (!_eventHandler.sendDrawCard()) {
+      state = state.copyWith(lastError: _sendFailedMessage);
+    }
+  }
 
   void declareJoker({
     required String jokerCardId,
@@ -389,27 +433,53 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     // Clear the pending joker flag optimistically; the server will confirm
     // via the next state_snapshot.
     state = state.copyWith(clearJokerResolution: true);
-    _eventHandler.sendDeclareJoker(DeclareJokerAction(
+    if (!_eventHandler.sendDeclareJoker(DeclareJokerAction(
       jokerCardId: jokerCardId,
       declaredSuit: Suit.values.byName(suitName),
       declaredRank: Rank.values.byName(rankName),
-    ));
+    ))) {
+      state = state.copyWith(
+        lastError: _sendFailedMessage,
+        pendingJokerResolution: true,
+        pendingJokerCardId: jokerCardId,
+      );
+    }
   }
 
   void declareSuit(String suitName) {
+    final aceCardId = state.pendingSuitChoiceCardId;
     // Clear the pending suit-choice flag optimistically.
     state = state.copyWith(clearSuitChoice: true);
-    _eventHandler.sendSuitChoice(
+    if (!_eventHandler.sendSuitChoice(
       SuitChoiceAction(suit: Suit.values.byName(suitName)),
-    );
+    )) {
+      state = state.copyWith(
+        lastError: _sendFailedMessage,
+        pendingSuitChoice: true,
+        pendingSuitChoiceCardId: aceCardId,
+      );
+    }
   }
 
-  void endTurn() => _eventHandler.sendEndTurn();
+  void endTurn() {
+    if (!_eventHandler.sendEndTurn()) {
+      state = state.copyWith(lastError: _sendFailedMessage);
+    }
+  }
 
-  void declareLastCards() => _eventHandler.sendDeclareLastCards();
+  void declareLastCards() {
+    if (!_eventHandler.sendDeclareLastCards()) {
+      state = state.copyWith(lastError: _sendFailedMessage);
+    }
+  }
 
   /// Clears the last error so the UI can dismiss an error banner.
   void clearError() => state = state.copyWith(clearError: true);
+
+  /// When a non-game action (e.g. quick chat) could not be sent over the socket.
+  void connectionSendFailed() {
+    state = state.copyWith(lastError: _sendFailedMessage);
+  }
 
   /// Clears all online game state. Call when the user leaves an online game
   /// so that the next TableScreen (e.g. single player) does not inherit stale
@@ -420,11 +490,14 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     _invalidPenaltySoundPlayed = false;
     _opponentFlightsInFlight = 0;
     _deferredSnapshots.clear();
+    _cancelOpponentFlightWatchdog();
+    _onlineRejoin.clear();
     state = const GameNotifierState();
   }
 
   @override
   void dispose() {
+    _cancelOpponentFlightWatchdog();
     _deferredSnapshots.clear();
     _suppressCardDrawSoundByPlayerId.clear();
     _opponentFlightsInFlight = 0;
@@ -440,7 +513,8 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
 final gameNotifierProvider =
     StateNotifierProvider<GameNotifier, GameNotifierState>((ref) {
   final handler = ref.watch(gameEventHandlerProvider);
-  return GameNotifier(handler);
+  final rejoin = ref.read(onlineRejoinProvider.notifier);
+  return GameNotifier(handler, rejoin);
 });
 
 /// Convenience selector — the current game state (may be null before connect).
