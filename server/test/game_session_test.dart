@@ -1900,4 +1900,43 @@ void main() {
       expect(snap['activePenaltyCount'], equals(4)); // 2 + 2
     });
   });
+
+  group('disconnect grace (standard)', () {
+    test('handleSocketDisconnected does not broadcast game_ended immediately',
+        () {
+      final g = _makeKnownGame();
+      g.p2ws.clear();
+      g.session.handleSocketDisconnected(g.p1Id);
+      expect(g.p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
+    });
+
+    test('removePlayer after grace ends game for other player', () {
+      final g = _makeKnownGame();
+      g.p2ws.clear();
+      g.session.handleSocketDisconnected(g.p1Id);
+      g.session.removePlayer(g.p1Id);
+      expect(g.p2ws.lastOfType('game_ended')?['reason'], 'player_disconnected');
+    });
+
+    test('tryReattachSocket sends state_snapshot to new socket', () {
+      final g = _makeKnownGame();
+      g.session.handleSocketDisconnected(g.p1Id);
+      final newWs = _FakeWs();
+      expect(g.session.tryReattachSocket(g.p1Id, newWs), isTrue);
+      expect(newWs.messages.any((m) => m['type'] == 'state_snapshot'), isTrue);
+    });
+
+    test('declare_last_cards works on current player turn', () {
+      final g = _makeKnownGame();
+      expect(g.p1ws.messages.any((m) => m['type'] == 'last_cards_pressed'),
+          isFalse);
+      g.session.handleAction(g.p1Id, {'type': 'declare_last_cards'});
+      expect(g.p1ws.lastOfType('last_cards_pressed')?['playerId'], g.p1Id);
+      final snap = _latestSnapshot(g.p1ws);
+      expect(
+        (snap['lastCardsDeclaredBy'] as List).map((e) => e as String),
+        contains(g.p1Id),
+      );
+    });
+  });
 }

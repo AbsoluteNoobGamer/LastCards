@@ -275,12 +275,21 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       return;
     }
     if (!mounted) return;
-    wsClient.send(jsonEncode({
+    if (!wsClient.send(jsonEncode({
       'type': 'join_room',
       'roomCode': code,
       'displayName': ref.read(displayNameForGameProvider),
       if (idToken != null) 'idToken': idToken,
-    }));
+    }))) {
+      setState(() => _pendingJoin = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Connection lost. Reconnecting — try again.'),
+          backgroundColor: Color(0xFFB71C1C),
+        ),
+      );
+      return;
+    }
     // If no response after 8s, show hint (wrong server IP or room code).
     Future.delayed(const Duration(seconds: 8), () {
       if (!mounted || !_pendingJoin) return;
@@ -314,11 +323,19 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       return;
     }
     if (!mounted) return;
-    wsClient.send(jsonEncode({
+    if (!wsClient.send(jsonEncode({
       'type': 'create_room',
       'displayName': ref.read(displayNameForGameProvider),
       if (idToken != null) 'idToken': idToken,
-    }));
+    }))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Connection lost. Reconnecting — try again.'),
+          backgroundColor: Color(0xFFB71C1C),
+        ),
+      );
+      return;
+    }
     // Navigation happens when room_created is received (see initState listener).
   }
 
@@ -330,7 +347,16 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     // prematurely.
     if (willBeReady) {
       final wsClient = ref.read(wsClientProvider);
-      wsClient.send(jsonEncode({'type': 'ready'}));
+      if (!wsClient.send(jsonEncode({'type': 'ready'}))) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Connection lost. Reconnecting — try again.'),
+              backgroundColor: Color(0xFFB71C1C),
+            ),
+          );
+        }
+      }
     }
   }
 

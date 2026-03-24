@@ -268,10 +268,13 @@ final class ReshuffleEvent extends GameEvent {
 /// Session configuration broadcast (sent when game starts).
 /// Contains whether the match is ranked, private, trophy-eligible, etc.
 final class SessionConfigEvent extends GameEvent {
+  /// Server room code (needed for [rejoin_session] after reconnect).
+  final String? roomCode;
   final bool isPrivate;
   final bool isRanked;
   final bool trophyEligible;
   const SessionConfigEvent({
+    this.roomCode,
     this.isPrivate = false,
     this.isRanked = false,
     this.trophyEligible = false,
@@ -386,7 +389,7 @@ final class EndTurnAction extends GameEvent {
   String toJsonString() => jsonEncode({'type': type});
 }
 
-/// Declare "Last Cards" before your turn (eligible to win).
+/// Declare "Last Cards" when eligible to win (your turn or before).
 final class DeclareLastCardsAction extends GameEvent {
   const DeclareLastCardsAction();
 
@@ -534,6 +537,7 @@ GameEvent parseServerEvent(String raw) {
           newDrawPileCount: json['newDrawPileCount'] as int? ?? 0,
         ),
       'session_config' => SessionConfigEvent(
+          roomCode: json['roomCode'] as String?,
           isPrivate: json['isPrivate'] as bool? ?? false,
           isRanked: json['isRanked'] as bool? ?? false,
           trophyEligible: json['trophyEligible'] as bool? ?? false,

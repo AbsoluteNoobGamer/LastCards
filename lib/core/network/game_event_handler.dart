@@ -82,23 +82,24 @@ class GameEventHandler {
 
   // ── Outgoing helpers ───────────────────────────────────────────────────────
 
-  void sendPlayCards(PlayCardsAction action) =>
+  bool sendPlayCards(PlayCardsAction action) =>
       _wsClient.send(action.toJsonString());
 
-  void sendDrawCard() => _wsClient.send(const DrawCardAction().toJsonString());
+  bool sendDrawCard() =>
+      _wsClient.send(const DrawCardAction().toJsonString());
 
-  void sendDeclareJoker(DeclareJokerAction action) =>
+  bool sendDeclareJoker(DeclareJokerAction action) =>
       _wsClient.send(action.toJsonString());
 
-  void sendEndTurn() => _wsClient.send(const EndTurnAction().toJsonString());
+  bool sendEndTurn() => _wsClient.send(const EndTurnAction().toJsonString());
 
-  void sendDeclareLastCards() =>
+  bool sendDeclareLastCards() =>
       _wsClient.send(const DeclareLastCardsAction().toJsonString());
 
-  void sendSuitChoice(SuitChoiceAction action) =>
+  bool sendSuitChoice(SuitChoiceAction action) =>
       _wsClient.send(action.toJsonString());
 
-  void sendQuickChat(QuickChatAction action) =>
+  bool sendQuickChat(QuickChatAction action) =>
       _wsClient.send(action.toJsonString());
 
   // ── Internal ───────────────────────────────────────────────────────────────

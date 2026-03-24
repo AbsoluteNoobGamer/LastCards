@@ -15,7 +15,10 @@ class FakeWebSocketClient extends WebSocketClient {
   void injectServerMessage(String json) => _controller.add(json);
 
   @override
-  void send(String jsonPayload) => sentMessages.add(jsonPayload);
+  bool send(String jsonPayload) {
+    sentMessages.add(jsonPayload);
+    return true;
+  }
 
   @override
   Future<void> dispose() async {

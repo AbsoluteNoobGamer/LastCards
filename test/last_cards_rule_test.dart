@@ -116,11 +116,10 @@ void main() {
   });
 
   group('shouldShowLastCardsButton', () {
-    test('respects bust, turn, declared (no hand-size gate)', () {
+    test('respects bust and declared (no hand-size gate)', () {
       expect(
         shouldShowLastCardsButton(
           isBustMode: true,
-          isLocalTurn: false,
           alreadyDeclared: false,
         ),
         isFalse,
@@ -128,26 +127,16 @@ void main() {
       expect(
         shouldShowLastCardsButton(
           isBustMode: false,
-          isLocalTurn: true,
-          alreadyDeclared: false,
-        ),
-        isFalse,
-      );
-      expect(
-        shouldShowLastCardsButton(
-          isBustMode: false,
-          isLocalTurn: false,
-          alreadyDeclared: true,
-        ),
-        isFalse,
-      );
-      expect(
-        shouldShowLastCardsButton(
-          isBustMode: false,
-          isLocalTurn: false,
           alreadyDeclared: false,
         ),
         isTrue,
+      );
+      expect(
+        shouldShowLastCardsButton(
+          isBustMode: false,
+          alreadyDeclared: true,
+        ),
+        isFalse,
       );
     });
   });

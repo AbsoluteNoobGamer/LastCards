@@ -65,9 +65,7 @@ GameState _maybeAiDeclareLastCards({
   if (state.lastCardsDeclaredBy.contains(aiPlayerId)) return state;
   if (!shouldShowLastCardsButton(
     isBustMode: false,
-    isLocalTurn: false,
     alreadyDeclared: false,
-    skipMustBeBeforeYourTurn: true,
   )) {
     return state;
   }
