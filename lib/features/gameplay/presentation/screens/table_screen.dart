@@ -1041,6 +1041,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
 
     final isOfflineMode = liveState == null;
+    final socketDisconnectedPlayerIds = isOfflineMode
+        ? const <String>{}
+        : ref.watch(gameNotifierProvider).socketDisconnectedPlayerIds;
     final gameState = liveState ?? _offlineState;
     final isMyTurn = isOfflineMode
         ? (_offlineState.currentPlayerId == OfflineGameState.localId &&
@@ -1337,6 +1340,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     Expanded(
                       child: _TableLayout(
                         gameState: gameState,
+                        socketDisconnectedPlayerIds:
+                            socketDisconnectedPlayerIds,
                         selectedCardId: _selectedCardId,
                         orderedHand: _orderedHand(
                           gameState.players

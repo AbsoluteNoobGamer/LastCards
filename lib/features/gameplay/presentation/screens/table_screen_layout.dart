@@ -2,9 +2,21 @@ part of 'table_screen.dart';
 
 // ── Table layout ──────────────────────────────────────────────────────────────
 
+String _activePlayerDisplayName(
+  GameState gameState,
+  Set<String> socketDisconnectedPlayerIds,
+) {
+  final id = gameState.currentPlayerId;
+  if (socketDisconnectedPlayerIds.contains(id)) {
+    return 'Reconnecting…';
+  }
+  return gameState.playerById(id)?.displayName ?? '';
+}
+
 class _TableLayout extends StatelessWidget {
   const _TableLayout({
     required this.gameState,
+    required this.socketDisconnectedPlayerIds,
     required this.selectedCardId,
     required this.orderedHand,
     required this.isMyTurn,
@@ -37,6 +49,9 @@ class _TableLayout extends StatelessWidget {
     this.localHandSize = 0,
     this.onLastCardsTap,
   });
+
+  /// Online: hide opponent seats while server grace reports socket loss.
+  final Set<String> socketDisconnectedPlayerIds;
 
   final bool isLocalTurn;
   final bool hasAlreadyDeclaredLastCards;
@@ -93,6 +108,14 @@ class _TableLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var players = gameState.players;
+    if (socketDisconnectedPlayerIds.isNotEmpty) {
+      players = players
+          .where((p) => !socketDisconnectedPlayerIds.contains(p.id))
+          .toList();
+    }
+
+    final activePlayerDisplayName =
+        _activePlayerDisplayName(gameState, socketDisconnectedPlayerIds);
 
     // Create new player models masked by visible counts if dealing is active.
     if (isDealing) {
@@ -138,6 +161,7 @@ class _TableLayout extends StatelessWidget {
         if (isLandscapeMobile) {
           return _LandscapeTableLayout(
             gameState: gameState,
+            activePlayerDisplayName: activePlayerDisplayName,
             selectedCardId: selectedCardId,
             orderedHand: orderedHand,
             isMyTurn: isMyTurn,
@@ -398,10 +422,7 @@ class _TableLayout extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     FloatingActionBarWidget(
-                      activePlayerName: gameState
-                              .playerById(gameState.currentPlayerId)
-                              ?.displayName ??
-                          '',
+                      activePlayerName: activePlayerDisplayName,
                       direction: gameState.direction,
                       canEndTurn: canEndTurn,
                       onEndTurn: onEndTurnTap,
@@ -495,6 +516,7 @@ class _TableLayout extends StatelessWidget {
 class _LandscapeTableLayout extends StatelessWidget {
   const _LandscapeTableLayout({
     required this.gameState,
+    required this.activePlayerDisplayName,
     required this.selectedCardId,
     required this.orderedHand,
     required this.isMyTurn,
@@ -537,6 +559,8 @@ class _LandscapeTableLayout extends StatelessWidget {
   final bool hasAlreadyDeclaredLastCards;
   final int localHandSize;
   final VoidCallback? onLastCardsTap;
+
+  final String activePlayerDisplayName;
 
   final Map<String, QuickChatBubbleData> quickChatBubblesByPlayer;
   final void Function(String id)? onRemoveQuickChatBubble;
@@ -761,10 +785,7 @@ class _LandscapeTableLayout extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           FloatingActionBarWidget(
-            activePlayerName: gameState
-                    .playerById(gameState.currentPlayerId)
-                    ?.displayName ??
-                '',
+            activePlayerName: activePlayerDisplayName,
             direction: gameState.direction,
             canEndTurn: canEndTurn,
             onEndTurn: onEndTurnTap,
