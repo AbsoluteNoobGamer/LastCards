@@ -151,12 +151,12 @@ String? validatePlay({
     // Aces are no longer special overrides mid-turn; they must exactly follow numerical flow.
     final isSpecialOverride = next.effectiveRank == Rank.queen || next.isJoker;
 
-    // Penalty chaining bypass:
+    // Penalty chaining bypass (when [GameState.isPenaltyChainActive]):
     // If the previous card was a penalty card (2 or Jack) and the next card is
     // also a penalty-capable card (2 or Jack), they can chain directly
-    // regardless of suite/rank adjacencies to build or reset penalties.
+    // regardless of suit/rank adjacencies to build or reset penalties.
     if (!isSpecialOverride &&
-        !(state.activePenaltyCount > 0 && isPenaltyChain(prev, next))) {
+        !(state.isPenaltyChainActive && isPenaltyChain(prev, next))) {
       final sameSuit = next.effectiveSuit == prev.effectiveSuit;
       final rankDiff =
           (next.effectiveRank.numericValue - prev.effectiveRank.numericValue)
@@ -204,8 +204,8 @@ String? validatePlay({
 /// Joker specific role capabilities (per user rules):
 /// 1. Same rank as discard, different suit.
 /// 2. Adjacent rank (±1 or Ace=1 for 2) as discard, same suit.
-/// 3. If discard is a penalty card and penalty active, can also stack 2s (if 2 chain)
-///    or Red Jacks/Black Jacks depending on standard penalty rules.
+/// 3. If discard is a penalty card and [GameState.isPenaltyChainActive], can also
+///    stack 2s or Red/Black Jacks per penalty-on-penalty rules.
 List<CardModel> getValidJokerOptions({
   required GameState state,
   required CardModel discardTop,
@@ -265,7 +265,7 @@ List<CardModel> getValidJokerOptions({
       final candidateIsPenalty =
           rank == Rank.two || rank == Rank.jack;
 
-      if (state.activePenaltyCount > 0 &&
+      if (state.isPenaltyChainActive &&
           discardIsPenalty &&
           candidateIsPenalty) {
         // Penalty-on-penalty: mirrors _validateSingle where any penalty card
@@ -274,15 +274,18 @@ List<CardModel> getValidJokerOptions({
       } else if (state.queenSuitLock != null) {
         // Mirrors _validateSingle: Queen lock replaces suit/rank rules until
         // resolved (penalty-on-penalty stacking is handled before Queen lock).
-        // When a pickup penalty is also active, [validatePlay] lets plays that are
+        // When the pick-up chain is live, [validatePlay] lets plays that are
         // only penalty-addressing cards bypass queen lock — mirror that here.
         if (suit == state.queenSuitLock ||
             rank == Rank.queen ||
-            (state.activePenaltyCount > 0 && candidateIsPenalty)) {
+            (state.isPenaltyChainActive && candidateIsPenalty)) {
           isValidMatch = true;
         }
       } else if (state.activePenaltyCount > 0) {
-        // During an active penalty, standard adjacent/rank matching doesn't apply.
+        // Use [activePenaltyCount] only here (not [isPenaltyChainActive]): when the
+        // draw count is zero but the chain is still live after a Red Jack, the player
+        // is not forced into “penalty-only” Joker modes and normal turn-start options apply.
+        // While a draw is pending, standard adjacent/rank matching doesn't apply.
         // A player MUST address the penalty. Valid cards are 2s, Black Jacks, and Red Jacks.
         // So a Joker can mimic ANY 2, ANY Black Jack, or ANY Red Jack (except the exact dupe).
         // Sequence continuations of the active sequence are also allowed.
@@ -329,8 +332,8 @@ String? _validateSingle(CardModel card, CardModel discard, GameState state) {
   if (card.isJoker) return null;
 
   // Red Jack acts as a wildcard specifically when cancelling penalties.
-  // If there's an active penalty, a Red Jack is always valid.
-  if (state.activePenaltyCount > 0 &&
+  // Valid while a draw is pending or the pick-up chain is still live.
+  if (state.isPenaltyChainActive &&
       card.effectiveRank == Rank.jack &&
       !card.isBlackJack) {
     return null;
@@ -341,13 +344,14 @@ String? _validateSingle(CardModel card, CardModel discard, GameState state) {
     return null;
   }
 
-  // Penalty substitution: Any penalty card (2 or Jack) can be played on top
-  // of any other penalty card (2 or Jack) to build or reset a penalty chain.
+  // Penalty substitution when the chain is live ([isPenaltyChainActive]): any
+  // penalty card (2 or Jack) on any other penalty card (2 or Jack) to build or
+  // reset the chain, including after a Red Jack zeros the draw count.
   final discardIsPenalty =
       discard.effectiveRank == Rank.two || discard.effectiveRank == Rank.jack;
   final cardIsPenalty =
       card.effectiveRank == Rank.two || card.effectiveRank == Rank.jack;
-  if (state.activePenaltyCount > 0 && discardIsPenalty && cardIsPenalty) {
+  if (state.isPenaltyChainActive && discardIsPenalty && cardIsPenalty) {
     return null;
   }
 
@@ -450,7 +454,13 @@ GameState applyPlay({
   // This rewards players for continuing a numerical sequence out of a penalty.
   final lastCard = cards.last;
   if (shouldClearPenaltyAfterPlay(lastCard)) {
-    gs = gs.copyWith(activePenaltyCount: 0);
+    final redJackKeepsChainLive = lastCard.effectiveRank == Rank.jack &&
+        !lastCard.isBlackJack;
+    gs = gs.copyWith(
+      activePenaltyCount: 0,
+      // Red Jack zeros the draw count but keeps the pick-up chain live for matching.
+      penaltyChainLive: redJackKeepsChainLive ? gs.penaltyChainLive : false,
+    );
   }
 
   // Eight Skip Cancellation: if the last card played is not an Eight, any skip
@@ -482,12 +492,18 @@ GameState applyInitialFaceUpEffect({
 
   switch (top.effectiveRank) {
     case Rank.two:
-      return state.copyWith(activePenaltyCount: state.activePenaltyCount + 2);
+      return state.copyWith(
+        activePenaltyCount: state.activePenaltyCount + 2,
+        penaltyChainLive: true,
+      );
     case Rank.jack:
       if (top.isBlackJack) {
-        return state.copyWith(activePenaltyCount: state.activePenaltyCount + 5);
+        return state.copyWith(
+          activePenaltyCount: state.activePenaltyCount + 5,
+          penaltyChainLive: true,
+        );
       }
-      return state.copyWith(activePenaltyCount: 0);
+      return state.copyWith(activePenaltyCount: 0, penaltyChainLive: true);
     case Rank.king:
       return state.copyWith(
         direction: state.direction == PlayDirection.clockwise
@@ -531,20 +547,23 @@ GameState applyInitialFaceUpEffect({
 ///
 /// Because a raw Joker hits the Sequence Penalty Override and Eight Skip
 /// Cancellation paths inside [applyPlay] (it is neither a 2/Jack nor an 8),
-/// we save and restore [activePenaltyCount] and [activeSkipCount] so the
-/// penalty/skip chain is preserved for [resolveJokerPlay] to act on.
+/// we save and restore [activePenaltyCount], [penaltyChainLive], and
+/// [activeSkipCount] so the penalty/skip chain is preserved for
+/// [resolveJokerPlay] to act on.
 GameState beginJokerPlay({
   required GameState state,
   required String playerId,
   required CardModel jokerCard,
 }) {
   final savedPenalty = state.activePenaltyCount;
+  final savedChainLive = state.penaltyChainLive;
   final savedSkip = state.activeSkipCount;
   final played =
       applyPlay(state: state, playerId: playerId, cards: [jokerCard]);
   return played.copyWith(
     pendingJokerResolution: true,
     activePenaltyCount: savedPenalty,
+    penaltyChainLive: savedChainLive,
     activeSkipCount: savedSkip,
   );
 }
@@ -575,7 +594,13 @@ GameState resolveJokerPlay({
   // Sequence Penalty Override: mirror applyPlay — if the resolved card is not
   // a penalty-generating card, clear any accumulated penalty.
   if (shouldClearPenaltyAfterPlay(resolvedJokerCard)) {
-    resolved = resolved.copyWith(activePenaltyCount: 0);
+    final redJackKeepsChainLive = resolvedJokerCard.effectiveRank == Rank.jack &&
+        !resolvedJokerCard.isBlackJack;
+    resolved = resolved.copyWith(
+      activePenaltyCount: 0,
+      penaltyChainLive:
+          redJackKeepsChainLive ? resolved.penaltyChainLive : false,
+    );
   }
 
   // Eight Skip Cancellation: mirror applyPlay — if the resolved card is not
@@ -595,13 +620,22 @@ GameState _applySpecialEffect(
 }) {
   switch (card.effectiveRank) {
     case Rank.two:
-      return gs.copyWith(activePenaltyCount: gs.activePenaltyCount + 2);
+      return gs.copyWith(
+        activePenaltyCount: gs.activePenaltyCount + 2,
+        penaltyChainLive: true,
+      );
 
     case Rank.jack:
       if (card.isBlackJack) {
-        return gs.copyWith(activePenaltyCount: gs.activePenaltyCount + 5);
+        return gs.copyWith(
+          activePenaltyCount: gs.activePenaltyCount + 5,
+          penaltyChainLive: true,
+        );
       } else {
-        return gs.copyWith(activePenaltyCount: 0); // Red Jack cancels
+        return gs.copyWith(
+          activePenaltyCount: 0,
+          penaltyChainLive: true,
+        ); // Red Jack cancels draw count; chain stays live for matching
       }
 
     case Rank.king:
@@ -646,7 +680,7 @@ GameState _removeCardsFromHand(
 // ── Draw card ─────────────────────────────────────────────────────────────────
 
 /// Draws [count] cards for [playerId] using [cardFactory] and clears any
-/// active penalty.
+/// active draw penalty and the live pick-up chain for matching.
 GameState applyDraw({
   required GameState state,
   required String playerId,
@@ -662,6 +696,7 @@ GameState applyDraw({
     }).toList(),
     drawPileCount: math.max(0, state.drawPileCount - count),
     activePenaltyCount: 0,
+    penaltyChainLive: false,
     actionsThisTurn: state.actionsThisTurn + 1,
   );
 }
@@ -953,7 +988,8 @@ GameState initializeFirstTurnClearability(
 ///
 /// Resets: [currentPlayerId], [actionsThisTurn], [cardsPlayedThisTurn],
 /// [lastPlayedThisTurn], [activeSkipCount], [preTurnCentreSuit],
-/// and [queenSuitLock].
+/// [queenSuitLock], and may clear [penaltyChainLive] when the outgoing player
+/// did not end on a penalty card.
 ///
 /// Sets [PlayerModel.lastCardsHandWasClearableAtTurnStart] for the incoming
 /// player only.
@@ -961,6 +997,10 @@ GameState advanceTurn(GameState state, {String? nextId}) {
   final id = nextId ?? nextPlayerId(state: state);
   final outgoing = state.currentPlayerId;
   final nextDeclared = {...state.lastCardsDeclaredBy}..remove(outgoing);
+  final lastCard = state.lastPlayedThisTurn;
+  final lastWasPenalty = lastCard != null &&
+      (lastCard.effectiveRank == Rank.two ||
+          lastCard.effectiveRank == Rank.jack);
   final base = state.copyWith(
     currentPlayerId: id,
     actionsThisTurn: 0,
@@ -970,6 +1010,7 @@ GameState advanceTurn(GameState state, {String? nextId}) {
     preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
     queenSuitLock: null,
     lastCardsDeclaredBy: nextDeclared,
+    penaltyChainLive: lastWasPenalty ? state.penaltyChainLive : false,
   );
   final players = base.players.map((p) {
     if (p.id != id) {
@@ -987,7 +1028,8 @@ GameState advanceTurn(GameState state, {String? nextId}) {
 // ── Shared invalid-play penalty ───────────────────────────────────────────────
 
 /// Draws 2 cards as an invalid-play penalty for [playerId] and restores any
-/// [GameState.activePenaltyCount] that [applyDraw] would otherwise clear.
+/// [GameState.activePenaltyCount] and [GameState.penaltyChainLive] that
+/// [applyDraw] would otherwise clear.
 ///
 /// An invalid play must not cancel an ongoing 2/Jack penalty chain.
 /// Does NOT advance the turn — callers should call [advanceTurn] afterwards.
@@ -997,11 +1039,15 @@ GameState applyInvalidPlayPenalty({
   required List<CardModel> Function(int n) cardFactory,
 }) {
   final savedPenalty = state.activePenaltyCount;
+  final savedChainLive = state.penaltyChainLive;
   final after = applyDraw(
     state: state,
     playerId: playerId,
     count: 2,
     cardFactory: cardFactory,
   );
-  return after.copyWith(activePenaltyCount: savedPenalty);
+  return after.copyWith(
+    activePenaltyCount: savedPenalty,
+    penaltyChainLive: savedChainLive,
+  );
 }

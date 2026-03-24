@@ -17,6 +17,7 @@ GameState buildState({
   List<CardModel> p1Hand = const [],
   List<CardModel> p2Hand = const [],
   int activePenalty = 0,
+  bool penaltyChainLive = false,
   Suit? queenSuitLock,
   String currentPlayerId = 'p1',
   bool p1LastCardsClearableAtTurnStart = false,
@@ -45,6 +46,7 @@ GameState buildState({
     discardTopCard: discardTop,
     drawPileCount: 20,
     activePenaltyCount: activePenalty,
+    penaltyChainLive: penaltyChainLive,
     queenSuitLock: queenSuitLock,
     players: [p1, p2],
   );
@@ -162,6 +164,7 @@ void main() {
         cardFactory: (_) => drawn,
       );
       expect(state.activePenaltyCount, 0);
+      expect(state.penaltyChainLive, isFalse);
       expect(state.players.firstWhere((p) => p.id == 'p2').hand.length, 2);
     });
 
@@ -182,6 +185,7 @@ void main() {
       state = buildState(
         discardTop: c(Rank.two, Suit.spades),
         activePenalty: 0,
+        penaltyChainLive: false,
       );
       expect(
         validatePlay(
@@ -191,6 +195,34 @@ void main() {
         ),
         isNotNull,
       );
+    });
+
+    test('advanceTurn clears penaltyChainLive when outgoing last card not penalty',
+        () {
+      var state = buildState(
+        discardTop: c(Rank.two, Suit.spades),
+        activePenalty: 2,
+      ).copyWith(
+        penaltyChainLive: true,
+        lastPlayedThisTurn: c(Rank.five, Suit.hearts),
+        actionsThisTurn: 1,
+      );
+      state = advanceTurn(state);
+      expect(state.penaltyChainLive, isFalse);
+    });
+
+    test(
+        'advanceTurn preserves penaltyChainLive when outgoing ends on penalty card',
+        () {
+      var state = buildState(
+        discardTop: c(Rank.two, Suit.spades),
+      ).copyWith(
+        penaltyChainLive: true,
+        lastPlayedThisTurn: c(Rank.two, Suit.hearts),
+        actionsThisTurn: 1,
+      );
+      state = advanceTurn(state);
+      expect(state.penaltyChainLive, isTrue);
     });
   });
 }

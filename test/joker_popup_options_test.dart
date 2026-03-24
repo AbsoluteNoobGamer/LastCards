@@ -7,6 +7,7 @@ GameState _baseState({
   int cardsPlayedThisTurn = 0,
   CardModel? lastPlayedThisTurn,
   int activePenaltyCount = 0,
+  bool penaltyChainLive = false,
   List<CardModel>? localHand,
   Suit? suitLock,
   Suit? queenSuitLock,
@@ -34,6 +35,7 @@ GameState _baseState({
     discardTopCard: discardTop,
     drawPileCount: 20,
     activePenaltyCount: activePenaltyCount,
+    penaltyChainLive: penaltyChainLive,
     actionsThisTurn: actionsThisTurn,
     cardsPlayedThisTurn: cardsPlayedThisTurn,
     lastPlayedThisTurn: lastPlayedThisTurn,
@@ -251,7 +253,7 @@ void main() {
     });
 
     test(
-        'Context B edge case: Joker after 2♥ with no live penalty — sequence and cross-suit 2s only (no penalty-on-penalty Jacks)',
+        'Context B edge case: Joker after 2♥ returns sequence, cross-suit 2s, and penalty-on-penalty Jacks when chain is live',
         () {
       const top = CardModel(id: '2h', rank: Rank.two, suit: Suit.hearts);
       final state = _baseState(
@@ -259,6 +261,7 @@ void main() {
         actionsThisTurn: 1,
         cardsPlayedThisTurn: 1,
         lastPlayedThisTurn: top,
+        penaltyChainLive: true,
       );
 
       final options = getValidJokerOptions(
@@ -269,15 +272,18 @@ void main() {
       );
 
       final labels = options.map((c) => c.shortLabel).toSet();
-      expect(options.length, 5);
+      expect(options.length, 9);
       expect(labels, containsAll({
         'A♥',
         '3♥',
         '2♠',
         '2♦',
         '2♣',
+        'J♠',
+        'J♣',
+        'J♥',
+        'J♦',
       }));
-      expect(labels.any((l) => l.startsWith('J')), isFalse);
     });
 
     test(

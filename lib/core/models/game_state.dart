@@ -41,6 +41,12 @@ class GameState with _$GameState {
     /// Accumulated draw penalty count (from stacked 2s and Black Jacks).
     @Default(0) int activePenaltyCount,
 
+    /// True while the pick-up "chain" is conceptually active for matching: a
+    /// penalty card (2 or Jack) was last relevant, so penalty-on-penalty free
+    /// matching may apply. Stays true after a Red Jack zeros [activePenaltyCount]
+    /// until someone draws or a non-penalty card ends the chain (see engine).
+    @Default(false) bool penaltyChainLive,
+
     /// Accumulated skips built up during a turn by playing 8s.
     @Default(0) int activeSkipCount,
 
@@ -96,6 +102,10 @@ extension GameStateX on GameState {
       localPlayer != null && currentPlayerId == localPlayer!.id;
 
   bool get hasActivePenalty => activePenaltyCount > 0;
+
+  /// True when either a draw penalty is pending or the pick-up chain is still
+  /// live for penalty-on-penalty matching (e.g. after a Red Jack cancels count).
+  bool get isPenaltyChainActive => activePenaltyCount > 0 || penaltyChainLive;
 
   bool get hasQueenLock => queenSuitLock != null;
 }

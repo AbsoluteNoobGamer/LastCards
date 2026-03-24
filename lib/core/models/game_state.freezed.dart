@@ -38,6 +38,12 @@ mixin _$GameState {
   /// Accumulated draw penalty count (from stacked 2s and Black Jacks).
   int get activePenaltyCount => throw _privateConstructorUsedError;
 
+  /// True while the pick-up "chain" is conceptually active for matching: a
+  /// penalty card (2 or Jack) was last relevant, so penalty-on-penalty free
+  /// matching may apply. Stays true after a Red Jack zeros [activePenaltyCount]
+  /// until someone draws or a non-penalty card ends the chain (see engine).
+  bool get penaltyChainLive => throw _privateConstructorUsedError;
+
   /// Accumulated skips built up during a turn by playing 8s.
   int get activeSkipCount => throw _privateConstructorUsedError;
 
@@ -102,6 +108,7 @@ abstract class $GameStateCopyWith<$Res> {
       List<CardModel> discardPileHistory,
       int drawPileCount,
       int activePenaltyCount,
+      bool penaltyChainLive,
       int activeSkipCount,
       Suit? suitLock,
       Suit? preTurnCentreSuit,
@@ -142,6 +149,7 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
     Object? discardPileHistory = null,
     Object? drawPileCount = null,
     Object? activePenaltyCount = null,
+    Object? penaltyChainLive = null,
     Object? activeSkipCount = null,
     Object? suitLock = freezed,
     Object? preTurnCentreSuit = freezed,
@@ -190,6 +198,10 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
           ? _value.activePenaltyCount
           : activePenaltyCount // ignore: cast_nullable_to_non_nullable
               as int,
+      penaltyChainLive: null == penaltyChainLive
+          ? _value.penaltyChainLive
+          : penaltyChainLive // ignore: cast_nullable_to_non_nullable
+              as bool,
       activeSkipCount: null == activeSkipCount
           ? _value.activeSkipCount
           : activeSkipCount // ignore: cast_nullable_to_non_nullable
@@ -280,6 +292,7 @@ abstract class _$$GameStateImplCopyWith<$Res>
       List<CardModel> discardPileHistory,
       int drawPileCount,
       int activePenaltyCount,
+      bool penaltyChainLive,
       int activeSkipCount,
       Suit? suitLock,
       Suit? preTurnCentreSuit,
@@ -320,6 +333,7 @@ class __$$GameStateImplCopyWithImpl<$Res>
     Object? discardPileHistory = null,
     Object? drawPileCount = null,
     Object? activePenaltyCount = null,
+    Object? penaltyChainLive = null,
     Object? activeSkipCount = null,
     Object? suitLock = freezed,
     Object? preTurnCentreSuit = freezed,
@@ -368,6 +382,10 @@ class __$$GameStateImplCopyWithImpl<$Res>
           ? _value.activePenaltyCount
           : activePenaltyCount // ignore: cast_nullable_to_non_nullable
               as int,
+      penaltyChainLive: null == penaltyChainLive
+          ? _value.penaltyChainLive
+          : penaltyChainLive // ignore: cast_nullable_to_non_nullable
+              as bool,
       activeSkipCount: null == activeSkipCount
           ? _value.activeSkipCount
           : activeSkipCount // ignore: cast_nullable_to_non_nullable
@@ -425,6 +443,7 @@ class _$GameStateImpl implements _GameState {
       final List<CardModel> discardPileHistory = const [],
       this.drawPileCount = 0,
       this.activePenaltyCount = 0,
+      this.penaltyChainLive = false,
       this.activeSkipCount = 0,
       this.suitLock,
       this.preTurnCentreSuit,
@@ -486,6 +505,14 @@ class _$GameStateImpl implements _GameState {
   @override
   @JsonKey()
   final int activePenaltyCount;
+
+  /// True while the pick-up "chain" is conceptually active for matching: a
+  /// penalty card (2 or Jack) was last relevant, so penalty-on-penalty free
+  /// matching may apply. Stays true after a Red Jack zeros [activePenaltyCount]
+  /// until someone draws or a non-penalty card ends the chain (see engine).
+  @override
+  @JsonKey()
+  final bool penaltyChainLive;
 
   /// Accumulated skips built up during a turn by playing 8s.
   @override
@@ -550,7 +577,7 @@ class _$GameStateImpl implements _GameState {
 
   @override
   String toString() {
-    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardPileHistory: $discardPileHistory, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, activeSkipCount: $activeSkipCount, suitLock: $suitLock, preTurnCentreSuit: $preTurnCentreSuit, queenSuitLock: $queenSuitLock, winnerId: $winnerId, actionsThisTurn: $actionsThisTurn, cardsPlayedThisTurn: $cardsPlayedThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn, pendingJokerResolution: $pendingJokerResolution, lastCardsDeclaredBy: $lastCardsDeclaredBy)';
+    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardPileHistory: $discardPileHistory, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, penaltyChainLive: $penaltyChainLive, activeSkipCount: $activeSkipCount, suitLock: $suitLock, preTurnCentreSuit: $preTurnCentreSuit, queenSuitLock: $queenSuitLock, winnerId: $winnerId, actionsThisTurn: $actionsThisTurn, cardsPlayedThisTurn: $cardsPlayedThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn, pendingJokerResolution: $pendingJokerResolution, lastCardsDeclaredBy: $lastCardsDeclaredBy)';
   }
 
   @override
@@ -574,6 +601,8 @@ class _$GameStateImpl implements _GameState {
                 other.drawPileCount == drawPileCount) &&
             (identical(other.activePenaltyCount, activePenaltyCount) ||
                 other.activePenaltyCount == activePenaltyCount) &&
+            (identical(other.penaltyChainLive, penaltyChainLive) ||
+                other.penaltyChainLive == penaltyChainLive) &&
             (identical(other.activeSkipCount, activeSkipCount) ||
                 other.activeSkipCount == activeSkipCount) &&
             (identical(other.suitLock, suitLock) ||
@@ -609,6 +638,7 @@ class _$GameStateImpl implements _GameState {
         const DeepCollectionEquality().hash(_discardPileHistory),
         drawPileCount,
         activePenaltyCount,
+        penaltyChainLive,
         activeSkipCount,
         suitLock,
         preTurnCentreSuit,
@@ -648,6 +678,7 @@ abstract class _GameState implements GameState {
       final List<CardModel> discardPileHistory,
       final int drawPileCount,
       final int activePenaltyCount,
+      final bool penaltyChainLive,
       final int activeSkipCount,
       final Suit? suitLock,
       final Suit? preTurnCentreSuit,
@@ -689,6 +720,13 @@ abstract class _GameState implements GameState {
   /// Accumulated draw penalty count (from stacked 2s and Black Jacks).
   @override
   int get activePenaltyCount;
+
+  /// True while the pick-up "chain" is conceptually active for matching: a
+  /// penalty card (2 or Jack) was last relevant, so penalty-on-penalty free
+  /// matching may apply. Stays true after a Red Jack zeros [activePenaltyCount]
+  /// until someone draws or a non-penalty card ends the chain (see engine).
+  @override
+  bool get penaltyChainLive;
 
   /// Accumulated skips built up during a turn by playing 8s.
   @override
