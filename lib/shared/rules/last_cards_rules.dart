@@ -45,6 +45,10 @@ bool _validChainStep(CardModel prev, CardModel next) {
 
   if (prev.isJoker || next.isJoker) return true;
 
+  // No [GameState] here: this DFS only chains cards within one hypothetical turn.
+  // After any penalty card, the next card in that turn is always "chain live"
+  // for purposes of this hand-only simulation — gate with
+  // [GameState.isPenaltyChainActive] when validating against real game state.
   if (isPenaltyChain(prev, next)) return true;
 
   if (prev.effectiveRank == next.effectiveRank) return true;

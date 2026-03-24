@@ -28,7 +28,9 @@ bool shouldClearPenaltyAfterPlay(CardModel lastCard) {
 }
 
 /// Returns true if both cards are penalty-capable (2 or Jack), allowing them to
-/// chain regardless of suit/rank adjacency.
+/// chain regardless of suit/rank adjacency **when** the pick-up chain is live.
+/// Callers with a [GameState] must also require [GameState.isPenaltyChainActive]
+/// (not this function alone).
 bool isPenaltyChain(CardModel prev, CardModel next) {
   final prevIsPenaltyNode =
       prev.effectiveRank == Rank.two || prev.effectiveRank == Rank.jack;

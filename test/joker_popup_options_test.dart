@@ -7,6 +7,7 @@ GameState _baseState({
   int cardsPlayedThisTurn = 0,
   CardModel? lastPlayedThisTurn,
   int activePenaltyCount = 0,
+  bool penaltyChainLive = false,
   List<CardModel>? localHand,
   Suit? suitLock,
   Suit? queenSuitLock,
@@ -34,6 +35,7 @@ GameState _baseState({
     discardTopCard: discardTop,
     drawPileCount: 20,
     activePenaltyCount: activePenaltyCount,
+    penaltyChainLive: penaltyChainLive,
     actionsThisTurn: actionsThisTurn,
     cardsPlayedThisTurn: cardsPlayedThisTurn,
     lastPlayedThisTurn: lastPlayedThisTurn,
@@ -251,7 +253,7 @@ void main() {
     });
 
     test(
-        'Context B edge case: Joker after 2♥ returns sequence, cross-suit 2s, and penalty-on-penalty Jacks = 9',
+        'Context B edge case: Joker after 2♥ returns sequence, cross-suit 2s, and penalty-on-penalty Jacks when chain is live',
         () {
       const top = CardModel(id: '2h', rank: Rank.two, suit: Suit.hearts);
       final state = _baseState(
@@ -259,6 +261,7 @@ void main() {
         actionsThisTurn: 1,
         cardsPlayedThisTurn: 1,
         lastPlayedThisTurn: top,
+        penaltyChainLive: true,
       );
 
       final options = getValidJokerOptions(

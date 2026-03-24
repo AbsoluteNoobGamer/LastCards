@@ -42,6 +42,7 @@ test/                     ← engine_test, shared_rules_test, feature tests (e.g
 ### Pick-up chain
 
 - Penalty cards can counter each other per shared rules; values stack until resolved by draw or Red Jack.
+- **Penalty-on-penalty free matching** applies while the penalty chain is **live** (a penalty card was most recently relevant and no player has drawn or ended the turn on a non-penalty card to break it). It stays live after a **Red Jack** zeros the draw count (`activePenaltyCount`) until someone draws, plays a non-penalty card that clears the chain, or advance-turn ends without a penalty top. The engine exposes this as `GameState.penaltyChainLive` and `GameState.isPenaltyChainActive`.
 
 ### Win condition
 

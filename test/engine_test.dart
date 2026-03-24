@@ -15,6 +15,7 @@ void main() {
     required CardModel discardTop,
     List<CardModel> p1Hand = const [],
     int activePenalty = 0,
+    bool penaltyChainLive = false,
     Suit? suitLock,
     Suit? queenSuitLock,
     Suit? preTurnCentreSuit,
@@ -27,6 +28,7 @@ void main() {
       discardTopCard: discardTop,
       drawPileCount: 40,
       activePenaltyCount: activePenalty,
+      penaltyChainLive: penaltyChainLive,
       suitLock: suitLock,
       queenSuitLock: queenSuitLock,
       preTurnCentreSuit: preTurnCentreSuit,
@@ -592,6 +594,7 @@ void main() {
 
       state = applyPlay(state: state, playerId: 'p1', cards: [rj]);
       expect(state.activePenaltyCount, 0); // Cancels
+      expect(state.penaltyChainLive, isTrue);
     });
 
     test('kingReverseDirection', () {
@@ -1008,7 +1011,10 @@ void main() {
     });
 
     test('jokerOptions_turnStart_generalized_jack', () {
-      final state = buildState(discardTop: c(Rank.jack, Suit.diamonds));
+      final state = buildState(
+        discardTop: c(Rank.jack, Suit.diamonds),
+        penaltyChainLive: true,
+      );
       final options =
           getValidJokerOptions(state: state, discardTop: state.discardTopCard!);
 
@@ -1019,7 +1025,10 @@ void main() {
     });
 
     test('jokerOptions_midTurn_generalized_jack', () {
-      var state = buildState(discardTop: c(Rank.jack, Suit.diamonds));
+      var state = buildState(
+        discardTop: c(Rank.jack, Suit.diamonds),
+        penaltyChainLive: true,
+      );
       state = state.copyWith(
         actionsThisTurn: 1,
         cardsPlayedThisTurn: 1,
@@ -1164,6 +1173,8 @@ void main() {
       expect(state.discardTopCard!.effectiveSuit, Suit.hearts);
       expect(state.activePenaltyCount, 0,
           reason: 'Red Jack should cancel the 7-card penalty');
+      expect(state.penaltyChainLive, isTrue,
+          reason: 'Chain stays live for penalty-on-penalty matching');
       expect(state.actionsThisTurn, 1);
 
       // Continue turn: Player plays 2♠ -> Pile +2 (now 2)
@@ -1216,18 +1227,110 @@ void main() {
       state = applyPlay(
           state: state, playerId: 'p1', cards: [c(Rank.jack, Suit.hearts)]);
 
-      // Play 2: 2♠ to middle (Starting new penalty after cancelling)
+      // Play 2: 2♠ on J♥ — chain still live after Red Jack; cross-suit 2 is valid.
       err = validatePlay(
           cards: [c(Rank.two, Suit.spades)],
           discardTop: state.discardTopCard!,
           state: state);
       expect(err, isNull,
           reason:
-              'Sequence: Red Jack cancelling penalty should allow 2♠ to restart penalty chain natively');
+              'Penalty chain live after Red Jack: 2♠ on J♥ without suit/rank match');
     });
 
     test('specialStartupTrigger', () {
       expect(true, isTrue);
+    });
+  });
+
+  group('5b. Live penalty-on-penalty matching', () {
+    test('activePenalty_penaltyOnPenalty_withoutRankOrSuitMatch_isValid', () {
+      final state = buildState(
+        discardTop: c(Rank.two, Suit.spades),
+        activePenalty: 2,
+      );
+      final err = validatePlay(
+        cards: [c(Rank.jack, Suit.clubs)],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNull);
+    });
+
+    test('inactivePenalty_blackJackOnTwo_requiresNormalMatch', () {
+      final state = buildState(
+        discardTop: c(Rank.two, Suit.spades),
+        activePenalty: 0,
+        penaltyChainLive: false,
+      );
+      final err = validatePlay(
+        cards: [c(Rank.jack, Suit.clubs)],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNotNull);
+    });
+
+    test('inactivePenalty_twoOnBlackJack_requiresNormalMatch', () {
+      final state = buildState(
+        discardTop: c(Rank.jack, Suit.spades),
+        activePenalty: 0,
+        penaltyChainLive: false,
+      );
+      final err = validatePlay(
+        cards: [c(Rank.two, Suit.hearts)],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNotNull);
+    });
+
+    test('inactivePenalty_midTurn_penaltyChainBlockedWithoutLiveChain', () {
+      final twoHearts = c(Rank.two, Suit.hearts);
+      final state = buildState(
+        discardTop: twoHearts,
+        activePenalty: 0,
+        penaltyChainLive: false,
+      ).copyWith(
+        actionsThisTurn: 1,
+        cardsPlayedThisTurn: 1,
+        lastPlayedThisTurn: twoHearts,
+      );
+      final err = validatePlay(
+        cards: [c(Rank.jack, Suit.clubs)],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNotNull);
+    });
+
+    test('redJack_afterActivePenalty_allowsCrossSuitTwo_whileChainLive', () {
+      var state = buildState(discardTop: c(Rank.jack, Suit.clubs)).copyWith(
+        activePenaltyCount: 7,
+      );
+      state = applyPlay(
+          state: state, playerId: 'p1', cards: [c(Rank.jack, Suit.hearts)]);
+      expect(state.penaltyChainLive, isTrue);
+      expect(state.activePenaltyCount, 0);
+      final err = validatePlay(
+        cards: [c(Rank.two, Suit.spades)],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNull);
+    });
+
+    test('applyDraw_clearsPenaltyChainLive', () {
+      var state = buildState(discardTop: c(Rank.two, Suit.spades)).copyWith(
+        penaltyChainLive: true,
+        activePenaltyCount: 2,
+      );
+      state = applyDraw(
+        state: state,
+        playerId: 'p1',
+        count: 1,
+        cardFactory: (_) => [c(Rank.ace, Suit.hearts, id: 'd1')],
+      );
+      expect(state.penaltyChainLive, isFalse);
     });
   });
 
