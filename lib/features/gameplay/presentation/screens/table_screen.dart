@@ -879,8 +879,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         .where((p) => p.tablePosition == TablePosition.bottom)
         .firstOrNull;
 
+    final forWinCheck = newState.copyWith(drawPileCount: _drawPile.length);
     setState(() {
-      _offlineState = newState.copyWith(drawPileCount: _drawPile.length);
+      _offlineState = forWinCheck;
       _selectedCardId = null;
       if (localAfter != null) _syncHandOrder(localAfter.hand);
       _pushMoveLog(MoveLogEntry.timeoutDraw(
@@ -891,6 +892,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         drawCount: count,
       ));
     });
+
+    if (_checkWin(OfflineGameState.localId, forWinCheck)) {
+      return;
+    }
 
     _engineTimer.cancel();
     if (resolvedNextId != OfflineGameState.localId) {
@@ -2227,8 +2232,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     var nextId = nextPlayerId(state: newState);
     nextId = _resolveTournamentNextPlayerId(newState, nextId);
     final advanced = advanceTurn(newState, nextId: nextId);
+    final forWinCheck = advanced.copyWith(drawPileCount: _drawPile.length);
     setState(() {
-      _offlineState = advanced.copyWith(drawPileCount: _drawPile.length);
+      _offlineState = forWinCheck;
       _selectedCardId = null;
       if (localAfterDraw != null) _syncHandOrder(localAfterDraw.hand);
       _pushMoveLog(MoveLogEntry.draw(
@@ -2237,6 +2243,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         drawCount: drawCount,
       ));
     });
+    if (_checkWin(playerId, forWinCheck)) {
+      return;
+    }
     _engineTimer.cancel();
     if (nextId != OfflineGameState.localId) {
       _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
