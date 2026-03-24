@@ -645,6 +645,17 @@ class GameSession {
 
     _broadcastStateSnapshots();
 
+    // Deferred win: opponent may have emptied on a pick-up; the chain clears
+    // only when this draw runs. Mirrors play_cards / joker paths that call
+    // [_checkWin] after mutating state.
+    final drawerId = playerId;
+    _checkWin();
+    if (_gameOver) return;
+    if (_state.currentPlayerId != drawerId) {
+      // Undeclared Last Cards path advanced the turn inside [_checkWin].
+      return;
+    }
+
     // A draw always ends the turn — mirrors offline mode where every draw
     // (voluntary or penalty) immediately advances to the next player.
     _advanceTurn();

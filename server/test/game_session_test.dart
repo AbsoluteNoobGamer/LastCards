@@ -499,6 +499,62 @@ void main() {
 
       expect(p2ws.lastOfType('error')?['code'], equals('not_your_turn'));
     });
+
+    test(
+        'draw_card on penalty stack ends game when opponent declared Last Cards '
+        'and emptied on pick-up', () {
+      final (:session, :sockets, :ids) = _makeSession(2);
+      final p1ws = sockets[0];
+      final p2ws = sockets[1];
+      final p1Id = ids[0];
+      final p2Id = ids[1];
+
+      final drawPile = List.generate(
+          10,
+          (i) =>
+              CardModel(id: 'filler_$i', rank: Rank.seven, suit: Suit.clubs));
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: p1Id,
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: [],
+            cardCount: 0,
+            lastCardsHandWasClearableAtTurnStart: true,
+          ),
+          PlayerModel(
+            id: p2Id,
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: [_card(Rank.five, Suit.hearts)],
+            cardCount: 1,
+          ),
+        ],
+        currentPlayerId: p2Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: _card(Rank.two, Suit.spades),
+        drawPileCount: drawPile.length,
+        preTurnCentreSuit: Suit.spades,
+        activePenaltyCount: 2,
+        lastCardsDeclaredBy: {p1Id},
+      );
+
+      session.seedStateForTesting(state: state, drawPile: drawPile);
+      p1ws.clear();
+      p2ws.clear();
+
+      session.handleAction(p2Id, {'type': 'draw_card'});
+
+      final ended = p1ws.lastOfType('game_ended');
+      expect(ended, isNotNull,
+          reason: 'P1 should win after the penalty draw clears the chain');
+      expect(ended!['winnerId'], equals(p1Id));
+      expect(p2ws.lastOfType('game_ended'), isNotNull);
+    });
   });
 
   // ── end_turn ───────────────────────────────────────────────────────────────
