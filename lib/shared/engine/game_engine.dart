@@ -155,7 +155,8 @@ String? validatePlay({
     // If the previous card was a penalty card (2 or Jack) and the next card is
     // also a penalty-capable card (2 or Jack), they can chain directly
     // regardless of suite/rank adjacencies to build or reset penalties.
-    if (!isSpecialOverride && !isPenaltyChain(prev, next)) {
+    if (!isSpecialOverride &&
+        !(state.activePenaltyCount > 0 && isPenaltyChain(prev, next))) {
       final sameSuit = next.effectiveSuit == prev.effectiveSuit;
       final rankDiff =
           (next.effectiveRank.numericValue - prev.effectiveRank.numericValue)
@@ -264,7 +265,9 @@ List<CardModel> getValidJokerOptions({
       final candidateIsPenalty =
           rank == Rank.two || rank == Rank.jack;
 
-      if (discardIsPenalty && candidateIsPenalty) {
+      if (state.activePenaltyCount > 0 &&
+          discardIsPenalty &&
+          candidateIsPenalty) {
         // Penalty-on-penalty: mirrors _validateSingle where any penalty card
         // can be played on any other penalty card regardless of queen lock.
         isValidMatch = true;
@@ -344,7 +347,7 @@ String? _validateSingle(CardModel card, CardModel discard, GameState state) {
       discard.effectiveRank == Rank.two || discard.effectiveRank == Rank.jack;
   final cardIsPenalty =
       card.effectiveRank == Rank.two || card.effectiveRank == Rank.jack;
-  if (discardIsPenalty && cardIsPenalty) {
+  if (state.activePenaltyCount > 0 && discardIsPenalty && cardIsPenalty) {
     return null;
   }
 

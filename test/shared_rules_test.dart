@@ -164,5 +164,33 @@ void main() {
       expect(state.activePenaltyCount, 0);
       expect(state.players.firstWhere((p) => p.id == 'p2').hand.length, 2);
     });
+
+    test('Penalty-on-penalty free match only while chain is live', () {
+      var state = buildState(
+        discardTop: c(Rank.two, Suit.spades),
+        activePenalty: 2,
+      );
+      expect(
+        validatePlay(
+          cards: [c(Rank.jack, Suit.clubs)],
+          discardTop: state.discardTopCard!,
+          state: state,
+        ),
+        isNull,
+      );
+
+      state = buildState(
+        discardTop: c(Rank.two, Suit.spades),
+        activePenalty: 0,
+      );
+      expect(
+        validatePlay(
+          cards: [c(Rank.jack, Suit.clubs)],
+          discardTop: state.discardTopCard!,
+          state: state,
+        ),
+        isNotNull,
+      );
+    });
   });
 }

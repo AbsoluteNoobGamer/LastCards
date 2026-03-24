@@ -251,7 +251,7 @@ void main() {
     });
 
     test(
-        'Context B edge case: Joker after 2♥ returns sequence, cross-suit 2s, and penalty-on-penalty Jacks = 9',
+        'Context B edge case: Joker after 2♥ with no live penalty — sequence and cross-suit 2s only (no penalty-on-penalty Jacks)',
         () {
       const top = CardModel(id: '2h', rank: Rank.two, suit: Suit.hearts);
       final state = _baseState(
@@ -269,18 +269,15 @@ void main() {
       );
 
       final labels = options.map((c) => c.shortLabel).toSet();
-      expect(options.length, 9);
+      expect(options.length, 5);
       expect(labels, containsAll({
         'A♥',
         '3♥',
         '2♠',
         '2♦',
         '2♣',
-        'J♠',
-        'J♣',
-        'J♥',
-        'J♦',
       }));
+      expect(labels.any((l) => l.startsWith('J')), isFalse);
     });
 
     test(

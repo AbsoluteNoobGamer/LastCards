@@ -77,17 +77,17 @@ class RulesScreen extends StatelessWidget {
                 _SpecialCardRow(
                   cardName: '2 (any suit)',
                   description:
-                      'Next player draws 2 cards. Stackable with other 2s (penalty accumulates)',
+                      'Next player draws 2 cards. Stackable with other 2s (penalty accumulates). While a draw penalty is active, any 2 can be played on another penalty card without matching suit or rank; once the penalty is resolved (e.g. the next player drew), a 2 on the discard pile follows normal suit or rank matching.',
                 ),
                 _SpecialCardRow(
                   cardName: 'Black Jack (♠/♣)',
                   description:
-                      'Next player draws 5 cards. Stackable, and can stack onto an active 2-chain',
+                      'Next player draws 5 cards. Stackable, and can stack onto an active 2-chain. While a draw penalty is active, Black Jacks chain with other penalty cards without suit/rank matching; after the penalty is resolved, a Jack on the discard pile follows normal matching rules.',
                 ),
                 _SpecialCardRow(
                   cardName: 'Red Jack (♥/♦)',
                   description:
-                      'Cancels any active draw penalty (resets draw stack to 0)',
+                      'Cancels any active draw penalty (resets draw stack to 0). After the chain is resolved, a 2 or Jack on top of the discard is matched with normal suit or rank rules, not automatic penalty-on-penalty.',
                 ),
                 _SpecialCardRow(
                   cardName: 'King',

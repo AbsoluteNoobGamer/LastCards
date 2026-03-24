@@ -42,6 +42,7 @@ test/                     ← engine_test, shared_rules_test, feature tests (e.g
 ### Pick-up chain
 
 - Penalty cards can counter each other per shared rules; values stack until resolved by draw or Red Jack.
+- **Penalty-on-penalty free matching** (any 2 or Jack on any other 2 or Jack without matching suit or rank) applies **only while** the pick-up chain is active (`activePenaltyCount > 0`). After the penalty is resolved, the top discard may still be a 2 or Jack, but it is matched like any other card (suit or rank).
 
 ### Win condition
 

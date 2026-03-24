@@ -1013,9 +1013,12 @@ void main() {
           getValidJokerOptions(state: state, discardTop: state.discardTopCard!);
 
       final labels = options.map((c) => c.shortLabel).toSet();
-      expect(options.length, 18);
+      // No live penalty: same 15 as other non-Jack tops (12♦ + 3 cross-rank Jacks).
+      expect(options.length, 15);
       expect(labels.contains('J♦'), isFalse, reason: 'Duplicate is excluded');
-      expect(labels, containsAll(['2♠', '2♣', '2♥']));
+      expect(labels, contains('2♦'), reason: 'Same-suit diamond');
+      expect(labels.contains('2♠'), isFalse,
+          reason: 'Cross-suit 2s need penalty-on-penalty bypass when chain is live');
     });
 
     test('jokerOptions_midTurn_generalized_jack', () {
@@ -1029,17 +1032,14 @@ void main() {
           getValidJokerOptions(state: state, discardTop: state.discardTopCard!);
 
       final labels = options.map((c) => c.shortLabel).toSet();
-      expect(options.length, 9);
+      // Mid-turn J♦: adjacent ranks + same rank other suits; no extra 2s without live penalty.
+      expect(options.length, 5);
       expect(labels, containsAll([
         '10♦',
         'Q♦',
         'J♠',
         'J♥',
         'J♣',
-        '2♠',
-        '2♣',
-        '2♥',
-        '2♦',
       ]));
     });
 
@@ -1216,18 +1216,83 @@ void main() {
       state = applyPlay(
           state: state, playerId: 'p1', cards: [c(Rank.jack, Suit.hearts)]);
 
-      // Play 2: 2♠ to middle (Starting new penalty after cancelling)
+      // Penalty-on-penalty bypass no longer applies once the chain is cleared.
+      // Simulate the next turn start (same discard J♥): 2♥ matches by suit and restarts the chain.
+      state = state.copyWith(
+        actionsThisTurn: 0,
+        cardsPlayedThisTurn: 0,
+        lastPlayedThisTurn: null,
+      );
       err = validatePlay(
-          cards: [c(Rank.two, Suit.spades)],
+          cards: [c(Rank.two, Suit.hearts)],
           discardTop: state.discardTopCard!,
           state: state);
       expect(err, isNull,
           reason:
-              'Sequence: Red Jack cancelling penalty should allow 2♠ to restart penalty chain natively');
+              'After cancel, play a 2 that matches J♥ by suit (e.g. 2♥) to restart the penalty');
     });
 
     test('specialStartupTrigger', () {
       expect(true, isTrue);
+    });
+  });
+
+  group('5b. Live penalty-on-penalty matching', () {
+    test('activePenalty_penaltyOnPenalty_withoutRankOrSuitMatch_isValid', () {
+      final state = buildState(
+        discardTop: c(Rank.two, Suit.spades),
+        activePenalty: 2,
+      );
+      final err = validatePlay(
+        cards: [c(Rank.jack, Suit.clubs)],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNull);
+    });
+
+    test('inactivePenalty_blackJackOnTwo_requiresNormalMatch', () {
+      final state = buildState(
+        discardTop: c(Rank.two, Suit.spades),
+        activePenalty: 0,
+      );
+      final err = validatePlay(
+        cards: [c(Rank.jack, Suit.clubs)],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNotNull);
+    });
+
+    test('inactivePenalty_twoOnBlackJack_requiresNormalMatch', () {
+      final state = buildState(
+        discardTop: c(Rank.jack, Suit.spades),
+        activePenalty: 0,
+      );
+      final err = validatePlay(
+        cards: [c(Rank.two, Suit.hearts)],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNotNull);
+    });
+
+    test('inactivePenalty_midTurn_penaltyChainBlockedWithoutLiveChain', () {
+      final twoHearts = c(Rank.two, Suit.hearts);
+      final state = buildState(
+        discardTop: twoHearts,
+        activePenalty: 0,
+      ).copyWith(
+        actionsThisTurn: 1,
+        cardsPlayedThisTurn: 1,
+        lastPlayedThisTurn: twoHearts,
+      );
+      final err = validatePlay(
+        cards: [c(Rank.jack, Suit.clubs)],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNotNull);
     });
   });
 
