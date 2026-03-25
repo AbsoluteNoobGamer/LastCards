@@ -151,8 +151,11 @@ TablePosition _positionFor(int index) => tablePositionForSeatIndex(index);
 }
 
 /// Two-player game: P1 has already played a King this turn ([lastPlayedThisTurn]).
-/// In 2p, [nextPlayerId] returns P1 again, so ending the turn runs the
-/// `_lastCardsBluffedBy` check on P1 (same seat).
+/// [nextPlayerId] keeps the same seat when a King was played in 2p
+/// (`lib/shared/engine/game_engine.dart`). `declare_last_cards` only updates
+/// [GameState.lastCardsDeclaredBy], so the King stays on [lastPlayedThisTurn] until
+/// [advanceTurn] runs. [GameSession] `_advanceTurn` evaluates `nextPlayerId` before
+/// the shared [advanceTurn], so `end_turn` after declare hits the bluff check on P1.
 ({
   GameSession session,
   _FakeWs p1ws,
@@ -175,7 +178,7 @@ TablePosition _positionFor(int index) => tablePositionForSeatIndex(index);
     _card(Rank.nine, Suit.hearts),
     _card(Rank.jack, Suit.hearts),
     _card(Rank.queen, Suit.hearts),
-    _card(Rank.king, Suit.hearts),
+    _card(Rank.king, Suit.diamonds),
   ];
   final drawPile = List.generate(
       20, (i) => CardModel(id: 'filler_$i', rank: Rank.four, suit: Suit.clubs));
