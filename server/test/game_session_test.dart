@@ -4,6 +4,9 @@ import 'package:last_cards/core/models/card_model.dart';
 import 'package:last_cards/core/models/game_state.dart';
 import 'package:last_cards/core/models/player_model.dart';
 import 'package:last_cards/core/models/table_position_layout.dart';
+import 'package:last_cards/shared/engine/game_engine.dart' show canClearHandInOneTurn;
+import 'package:last_cards/shared/rules/last_cards_rules.dart'
+    show canHandClearInOneTurnHandOnly;
 import 'package:test/test.dart';
 
 import 'package:last_cards_server/game_session.dart';
@@ -134,6 +137,78 @@ TablePosition _positionFor(int index) => tablePositionForSeatIndex(index);
     discardTopCard: discardTop,
     drawPileCount: drawPile.length,
     preTurnCentreSuit: Suit.spades,
+  );
+
+  session.seedStateForTesting(state: state, drawPile: drawPile);
+
+  return (
+    session: session,
+    p1ws: p1ws,
+    p2ws: p2ws,
+    p1Id: p1Id,
+    p2Id: p2Id,
+  );
+}
+
+/// Two-player game: P1 has already played a King this turn ([lastPlayedThisTurn]).
+/// [nextPlayerId] keeps the same seat when a King was played in 2p
+/// (`lib/shared/engine/game_engine.dart`). `declare_last_cards` only updates
+/// [GameState.lastCardsDeclaredBy], so the King stays on [lastPlayedThisTurn] until
+/// [advanceTurn] runs. [GameSession] `_advanceTurn` evaluates `nextPlayerId` before
+/// the shared [advanceTurn], so `end_turn` after declare hits the bluff check on P1.
+({
+  GameSession session,
+  _FakeWs p1ws,
+  _FakeWs p2ws,
+  String p1Id,
+  String p2Id,
+}) _makeTwoPlayerKingRepeatTurnForP1(List<CardModel> p1Hand) {
+  final (:session, :sockets, :ids) = _makeSession(2);
+  final p1ws = sockets[0];
+  final p2ws = sockets[1];
+  final p1Id = ids[0];
+  final p2Id = ids[1];
+
+  final kingPlayed = _card(Rank.king, Suit.hearts);
+  final p2Hand = [
+    _card(Rank.three, Suit.hearts),
+    _card(Rank.five, Suit.hearts),
+    _card(Rank.seven, Suit.hearts),
+    _card(Rank.nine, Suit.hearts),
+    _card(Rank.jack, Suit.hearts),
+    _card(Rank.queen, Suit.hearts),
+    _card(Rank.king, Suit.diamonds),
+  ];
+  final drawPile = List.generate(
+      20, (i) => CardModel(id: 'filler_$i', rank: Rank.four, suit: Suit.clubs));
+
+  final state = GameState(
+    sessionId: 'TEST',
+    phase: GamePhase.playing,
+    players: [
+      PlayerModel(
+        id: p1Id,
+        displayName: 'Player 1',
+        tablePosition: TablePosition.bottom,
+        hand: p1Hand,
+        cardCount: p1Hand.length,
+      ),
+      PlayerModel(
+        id: p2Id,
+        displayName: 'Player 2',
+        tablePosition: TablePosition.top,
+        hand: p2Hand,
+        cardCount: p2Hand.length,
+      ),
+    ],
+    currentPlayerId: p1Id,
+    direction: PlayDirection.clockwise,
+    discardTopCard: kingPlayed,
+    drawPileCount: drawPile.length,
+    preTurnCentreSuit: Suit.hearts,
+    actionsThisTurn: 1,
+    cardsPlayedThisTurn: 1,
+    lastPlayedThisTurn: kingPlayed,
   );
 
   session.seedStateForTesting(state: state, drawPile: drawPile);
@@ -1976,6 +2051,64 @@ void main() {
         (snap['lastCardsDeclaredBy'] as List).map((e) => e as String),
         contains(g.p1Id),
       );
+    });
+  });
+
+  group('last_cards declare — server Joker bluff exemption', () {
+    test('holding Joker: non-clearable hand does not record bluff penalty', () {
+      final p1Hand = [
+        _card(Rank.two, Suit.hearts),
+        _card(Rank.four, Suit.diamonds),
+        _card(Rank.six, Suit.clubs),
+        _card(Rank.eight, Suit.spades),
+        _joker('joker_r', Suit.spades),
+      ];
+      expect(canHandClearInOneTurnHandOnly(p1Hand), isFalse);
+
+      final g = _makeTwoPlayerKingRepeatTurnForP1(p1Hand);
+      expect(
+        canClearHandInOneTurn(
+          state: g.session.gameStateForTesting,
+          playerId: g.p1Id,
+          isBustMode: false,
+        ),
+        isFalse,
+      );
+
+      g.p1ws.clear();
+      g.p2ws.clear();
+      g.session.handleAction(g.p1Id, {'type': 'declare_last_cards'});
+      g.session.handleAction(g.p1Id, {'type': 'end_turn'});
+
+      expect(g.p1ws.ofType('last_cards_bluff'), isEmpty);
+    });
+
+    test('no Joker: non-clearable hand records bluff; penalty on repeat turn',
+        () {
+      final p1Hand = [
+        _card(Rank.two, Suit.hearts),
+        _card(Rank.four, Suit.diamonds),
+        _card(Rank.six, Suit.clubs),
+        _card(Rank.eight, Suit.spades),
+      ];
+      expect(canHandClearInOneTurnHandOnly(p1Hand), isFalse);
+
+      final g = _makeTwoPlayerKingRepeatTurnForP1(p1Hand);
+      expect(
+        canClearHandInOneTurn(
+          state: g.session.gameStateForTesting,
+          playerId: g.p1Id,
+          isBustMode: false,
+        ),
+        isFalse,
+      );
+
+      g.p1ws.clear();
+      g.p2ws.clear();
+      g.session.handleAction(g.p1Id, {'type': 'declare_last_cards'});
+      g.session.handleAction(g.p1Id, {'type': 'end_turn'});
+
+      expect(g.p1ws.lastOfType('last_cards_bluff')?['playerId'], g.p1Id);
     });
   });
 }

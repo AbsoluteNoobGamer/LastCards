@@ -171,6 +171,9 @@ class GameSession {
   /// Returns the current discard-under-top size (for assertions in tests).
   int get discardUnderTopCountForTesting => _discardUnderTop.length;
 
+  /// Current game state (for tests; matches what handlers use after seeding).
+  GameState get gameStateForTesting => _state;
+
   /// True when there are no players left in this session (room may be discarded).
   bool get isEmpty => _players.isEmpty;
 
