@@ -162,7 +162,6 @@ TablePosition _positionFor(int index) => tablePositionForSeatIndex(index);
   _FakeWs p2ws,
   String p1Id,
   String p2Id,
-  GameState seededState,
 }) _makeTwoPlayerKingRepeatTurnForP1(List<CardModel> p1Hand) {
   final (:session, :sockets, :ids) = _makeSession(2);
   final p1ws = sockets[0];
@@ -220,7 +219,6 @@ TablePosition _positionFor(int index) => tablePositionForSeatIndex(index);
     p2ws: p2ws,
     p1Id: p1Id,
     p2Id: p2Id,
-    seededState: state,
   );
 }
 
@@ -2070,7 +2068,7 @@ void main() {
       final g = _makeTwoPlayerKingRepeatTurnForP1(p1Hand);
       expect(
         canClearHandInOneTurn(
-          state: g.seededState,
+          state: g.session.gameStateForTesting,
           playerId: g.p1Id,
           isBustMode: false,
         ),
@@ -2098,7 +2096,7 @@ void main() {
       final g = _makeTwoPlayerKingRepeatTurnForP1(p1Hand);
       expect(
         canClearHandInOneTurn(
-          state: g.seededState,
+          state: g.session.gameStateForTesting,
           playerId: g.p1Id,
           isBustMode: false,
         ),
