@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -14,6 +15,7 @@ import '../../../../core/models/player_model.dart';
 import '../../../../core/models/table_position_layout.dart';
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/connection_provider.dart';
+import '../../../../core/network/websocket_client.dart';
 import '../../../../core/providers/game_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
@@ -48,6 +50,9 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
   final Map<String, PlayerModel> _matchedPlayers = {};
   StreamSubscription<GameEvent>? _eventSub;
   bool _lobbyNavigationScheduled = false;
+
+  /// Cached for dispose — cannot use [ref] after the widget is disposed.
+  WebSocketClient? _wsClientToDisconnectOnDispose;
 
   @override
   void initState() {
@@ -212,13 +217,15 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     _eventSub?.cancel();
     // Only disconnect if the user cancelled — not on forward navigation.
     if (!_navigatedForward) {
-      ref.read(wsClientProvider).disconnect();
+      _wsClientToDisconnectOnDispose?.disconnect();
     }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    _wsClientToDisconnectOnDispose = ref.read(wsClientProvider);
+
     final theme = ref.watch(themeProvider).theme;
     final session = ref.watch(onlineSessionProvider);
     final playerCount = session.playerCount ?? 4;
@@ -617,6 +624,9 @@ class _AnimatedWaitingIndicatorState
                           key: ValueKey(_suit),
                           suit: _suit,
                           theme: theme,
+                          fontSize:
+                              (centerSize * 0.56).clamp(46.0, 62.0),
+                          glowPulse: widget.pulseController.value,
                         ),
                       ),
                     ),
@@ -636,29 +646,122 @@ class _SuitGlyph extends StatelessWidget {
     super.key,
     required this.suit,
     required this.theme,
+    required this.fontSize,
+    required this.glowPulse,
   });
 
   final Suit suit;
   final AppThemeData theme;
+  final double fontSize;
+  /// 0–1 from pulse controller for glow breathing.
+  final double glowPulse;
 
   @override
   Widget build(BuildContext context) {
-    final color = suit.isRed ? theme.suitRed : theme.suitBlack;
-    return Text(
-      suit.symbol,
-      textAlign: TextAlign.center,
-      style: GoogleFonts.playfairDisplay(
-        fontSize: 44,
-        height: 1.0,
-        fontWeight: FontWeight.w600,
-        color: color,
-        shadows: [
-          Shadow(
-            color: color.withValues(alpha: 0.35),
-            blurRadius: 12,
-          ),
-        ],
+    final base = suit.isRed ? theme.suitRed : theme.suitBlack;
+    final highlight = suit.isRed
+        ? Color.lerp(base, const Color(0xFFFFE8EC), 0.58)!
+        : Color.lerp(base, const Color(0xFFE8EEF8), 0.5)!;
+    final deep = Color.lerp(base, Colors.black, suit.isRed ? 0.22 : 0.38)!;
+    final midTone = Color.lerp(base, deep, 0.38)!;
+
+    final textStyle = GoogleFonts.playfairDisplay(
+      fontSize: fontSize,
+      height: 1.0,
+      fontWeight: FontWeight.w800,
+      color: Colors.white,
+      letterSpacing: -0.6,
+    );
+
+    final t = glowPulse.clamp(0.0, 1.0);
+    final glowOuter = 0.42 + 0.38 * t;
+    final glowMid = 0.55 + 0.35 * t;
+    final glowInner = 0.65 + 0.25 * t;
+
+    final glyphCore = ShaderMask(
+      blendMode: BlendMode.srcIn,
+      shaderCallback: (bounds) {
+        return LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            highlight,
+            midTone,
+            base,
+            deep,
+          ],
+          stops: const [0.0, 0.35, 0.72, 1.0],
+        ).createShader(bounds);
+      },
+      child: Text(
+        suit.symbol,
+        textAlign: TextAlign.center,
+        style: textStyle,
       ),
+    );
+
+    final innerSheen = ShaderMask(
+      blendMode: BlendMode.srcIn,
+      shaderCallback: (bounds) {
+        return RadialGradient(
+          center: const Alignment(-0.35, -0.45),
+          radius: 1.05,
+          colors: [
+            Colors.white.withValues(alpha: 0.92),
+            Colors.white.withValues(alpha: 0.0),
+          ],
+          stops: const [0.0, 0.65],
+        ).createShader(bounds);
+      },
+      child: Text(
+        suit.symbol,
+        textAlign: TextAlign.center,
+        style: textStyle.copyWith(color: Colors.white),
+      ),
+    );
+
+    return Stack(
+      alignment: Alignment.center,
+      clipBehavior: Clip.none,
+      children: [
+        ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Text(
+            suit.symbol,
+            textAlign: TextAlign.center,
+            style: textStyle.copyWith(
+              color: Color.lerp(base, highlight, 0.35)!
+                  .withValues(alpha: 0.28 * glowOuter),
+            ),
+          ),
+        ),
+        ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: 9, sigmaY: 9),
+          child: Text(
+            suit.symbol,
+            textAlign: TextAlign.center,
+            style: textStyle.copyWith(
+              color: base.withValues(alpha: 0.45 * glowMid),
+            ),
+          ),
+        ),
+        ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+          child: Text(
+            suit.symbol,
+            textAlign: TextAlign.center,
+            style: textStyle.copyWith(
+              color: Color.lerp(base, Colors.white, 0.5)!
+                  .withValues(alpha: 0.62 * glowInner),
+            ),
+          ),
+        ),
+        glyphCore,
+        Opacity(
+          opacity: 0.55 + 0.2 * t,
+          child: innerSheen,
+        ),
+      ],
     );
   }
 }
