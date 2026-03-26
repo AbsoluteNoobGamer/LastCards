@@ -236,9 +236,9 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 40),
-        _buildReadyBadge(theme),
+        Center(child: _buildReadyBadge(theme)),
         const SizedBox(height: 28),
-        _buildTitleSection(theme),
+        Center(child: _buildTitleSection(theme)),
         const Spacer(flex: 2),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -256,7 +256,7 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
           ),
         ),
         const Spacer(flex: 2),
-        _buildCountdownSection(theme),
+        Center(child: _buildCountdownSection(theme)),
         Text(
           'Starting automatically…',
           textAlign: TextAlign.center,
@@ -389,39 +389,43 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
   }
 
   Widget _buildCountdownSection(AppThemeData theme) {
-    return AnimatedBuilder(
-      animation: _countdownAnim,
-      builder: (context, child) {
-        final scale = Tween<double>(begin: 1.4, end: 1.0).evaluate(
-          CurvedAnimation(
-            parent: _countdownAnim,
-            curve: Curves.easeOutBack,
-          ),
-        );
-        final opacity =
-            Tween<double>(begin: 1.0, end: 0.85).evaluate(_countdownAnim);
-        return Opacity(
-          opacity: opacity,
-          child: Transform.scale(
-            scale: scale,
-            child: child,
-          ),
-        );
-      },
-      child: ShaderMask(
-        key: ValueKey(_countdown),
-        shaderCallback: (bounds) => LinearGradient(
-          colors: [theme.accentLight, theme.accentPrimary],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ).createShader(bounds),
-        child: Text(
-          _countdown > 0 ? '$_countdown' : 'GO!',
-          style: GoogleFonts.outfit(
-            fontSize: 96,
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-            letterSpacing: -4,
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.center,
+      child: AnimatedBuilder(
+        animation: _countdownAnim,
+        builder: (context, child) {
+          final scale = Tween<double>(begin: 1.4, end: 1.0).evaluate(
+            CurvedAnimation(
+              parent: _countdownAnim,
+              curve: Curves.easeOutBack,
+            ),
+          );
+          final opacity =
+              Tween<double>(begin: 1.0, end: 0.85).evaluate(_countdownAnim);
+          return Opacity(
+            opacity: opacity,
+            child: Transform.scale(
+              scale: scale,
+              child: child,
+            ),
+          );
+        },
+        child: ShaderMask(
+          key: ValueKey(_countdown),
+          shaderCallback: (bounds) => LinearGradient(
+            colors: [theme.accentLight, theme.accentPrimary],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ).createShader(bounds),
+          child: Text(
+            _countdown > 0 ? '$_countdown' : 'GO!',
+            style: GoogleFonts.outfit(
+              fontSize: 96,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              letterSpacing: -4,
+            ),
           ),
         ),
       ),

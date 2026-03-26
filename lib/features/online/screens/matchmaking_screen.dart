@@ -21,9 +21,9 @@ import '../../tournament/providers/tournament_session_provider.dart';
 import '../providers/online_session_provider.dart';
 import 'lobby_ready_screen.dart';
 
-/// Full-screen matchmaking screen.
+/// Full-screen matchmaking screen (all online quickplay entry points use this).
 ///
-/// Shows an animated waiting indicator and player slots that fill from
+/// Shows a progress ring and player slots that fill from
 /// [QuickplayQueueUpdateEvent] while waiting, then advances when the roster is
 /// complete. The only exit is the Cancel button which pops to root.
 class MatchmakingScreen extends ConsumerStatefulWidget {
@@ -52,16 +52,16 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
   void initState() {
     super.initState();
 
-    // Orbital ring rotation
+    // Smooth highlight travel along the ring
     _rotateController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 4),
     )..repeat();
 
-    // Slow pulse on the centre glow
+    // Slow, subtle pulse on the centre orb
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: const Duration(milliseconds: 2400),
     )..repeat(reverse: true);
 
     final playerCount = ref.read(onlineSessionProvider).playerCount ?? 4;
@@ -321,6 +321,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                                       child: Text(
                                         'Finding players… ($joinedCount/$playerCount)',
                                         key: ValueKey(joinedCount),
+                                        textAlign: TextAlign.center,
                                         style: GoogleFonts.inter(
                                           fontSize: 13,
                                           color: theme.textSecondary,
@@ -376,28 +377,31 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const SizedBox(height: 32),
-                        ShaderMask(
-                          shaderCallback: (bounds) => LinearGradient(
-                            colors: [
-                              theme.accentLight,
-                              theme.accentPrimary,
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ).createShader(bounds),
-                          child: Text(
-                            'Last Cards',
-                            style: GoogleFonts.cinzel(
-                              fontSize: 32,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                              letterSpacing: 4,
+                        Center(
+                          child: ShaderMask(
+                            shaderCallback: (bounds) => LinearGradient(
+                              colors: [
+                                theme.accentLight,
+                                theme.accentPrimary,
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ).createShader(bounds),
+                            child: Text(
+                              'Last Cards',
+                              style: GoogleFonts.cinzel(
+                                fontSize: 32,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: 4,
+                              ),
                             ),
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           '$modeName · $playerCount Players',
+                          textAlign: TextAlign.center,
                           style: GoogleFonts.inter(
                             fontSize: 13,
                             color: theme.textSecondary,
@@ -405,37 +409,43 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                           ),
                         ),
                         if (session.mode == OnlineGameMode.ranked)
-                          _RankedMmrDisplay(theme: theme),
+                          Center(child: _RankedMmrDisplay(theme: theme)),
                         const Spacer(flex: 1),
-                        _AnimatedWaitingIndicator(
-                          rotateController: _rotateController,
-                          pulseController: _pulseController,
-                          joinedCount: joinedCount,
-                          totalCount: playerCount,
+                        Center(
+                          child: _AnimatedWaitingIndicator(
+                            rotateController: _rotateController,
+                            pulseController: _pulseController,
+                            joinedCount: joinedCount,
+                            totalCount: playerCount,
+                          ),
                         ),
                         const SizedBox(height: 16),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 300),
-                          child: Text(
-                            'Finding players… ($joinedCount/$playerCount)',
-                            key: ValueKey(joinedCount),
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              color: theme.textSecondary,
-                              letterSpacing: 0.3,
+                        Center(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            child: Text(
+                              'Finding players… ($joinedCount/$playerCount)',
+                              key: ValueKey(joinedCount),
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                color: theme.textSecondary,
+                                letterSpacing: 0.3,
+                              ),
                             ),
                           ),
                         ),
                         const SizedBox(height: 20),
                         Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 32),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 12,
+                            runSpacing: 14,
                             children: List.generate(playerCount, (i) {
                               return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 4),
                                 child: _PlayerSlot(
                                   label: _slotNames[i] ?? '…',
                                   isFilled: _slotNames[i] != null,
@@ -503,13 +513,19 @@ class _AnimatedWaitingIndicator extends ConsumerWidget {
       child: AnimatedBuilder(
         animation: Listenable.merge([rotateController, pulseController]),
         builder: (context, child) {
-          final pulse = 0.85 + 0.15 * pulseController.value;
+          final pulse = 0.97 + 0.03 * pulseController.value;
+          final highlightLift = 0.65 +
+              0.35 *
+                  (1 + math.sin(pulseController.value * math.pi)) /
+                  2;
+          final denom = math.max(1, totalCount);
 
           return CustomPaint(
             painter: _WaitingRingPainter(
-              angle: rotateController.value * 2 * math.pi,
+              highlightAngle: rotateController.value * 2 * math.pi,
               accent: accent,
-              progress: joinedCount / totalCount,
+              progress: joinedCount / denom,
+              highlightIntensity: highlightLift,
             ),
             child: Center(
               child: Transform.scale(
@@ -519,29 +535,34 @@ class _AnimatedWaitingIndicator extends ConsumerWidget {
                   height: centerSize,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: accent.withValues(alpha: 0.10),
+                    gradient: RadialGradient(
+                      colors: [
+                        Color.lerp(accent, Colors.white, 0.22)!,
+                        accent.withValues(alpha: 0.14),
+                        accent.withValues(alpha: 0.06),
+                      ],
+                      stops: const [0.0, 0.55, 1.0],
+                      center: const Alignment(-0.4, -0.45),
+                      radius: 1.05,
+                    ),
                     border: Border.all(
-                      color: accent.withValues(alpha: 0.30),
-                      width: 1.5,
+                      color: Colors.white.withValues(alpha: 0.20),
+                      width: 1,
                     ),
                     boxShadow: [
                       BoxShadow(
                         color: accent.withValues(
-                            alpha: 0.20 + 0.15 * pulseController.value),
-                        blurRadius: 24,
-                        spreadRadius: 4,
+                            alpha: 0.12 + 0.16 * pulseController.value),
+                        blurRadius: 28,
+                        spreadRadius: 2,
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        blurRadius: 12,
+                        spreadRadius: -2,
+                        offset: const Offset(0, 6),
                       ),
                     ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      '$joinedCount/$totalCount',
-                      style: GoogleFonts.outfit(
-                        fontSize: (centerSize * 0.35).clamp(12, 18),
-                        fontWeight: FontWeight.w700,
-                        color: accent,
-                      ),
-                    ),
                   ),
                 ),
               ),
@@ -555,65 +576,134 @@ class _AnimatedWaitingIndicator extends ConsumerWidget {
 
 class _WaitingRingPainter extends CustomPainter {
   const _WaitingRingPainter({
-    required this.angle,
+    required this.highlightAngle,
     required this.accent,
     required this.progress,
+    required this.highlightIntensity,
   });
 
-  final double angle;
+  /// Radians; soft specular travels the ring.
+  final double highlightAngle;
   final Color accent;
   final double progress;
+  final double highlightIntensity;
+
+  static const _startAngle = -math.pi / 2;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 8;
+    final radius = size.width / 2 - 10;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    final sweep = 2 * math.pi * progress.clamp(0.0, 1.0);
 
-    // Dim background ring
     canvas.drawCircle(
       center,
       radius,
       Paint()
-        ..color = accent.withValues(alpha: 0.10)
+        ..color = accent.withValues(alpha: 0.11)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 3,
+        ..strokeWidth = 2,
+    );
+    canvas.drawCircle(
+      center,
+      radius - 1.5,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.12)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
     );
 
-    // Progress arc
-    final progressPaint = Paint()
-      ..color = accent.withValues(alpha: 0.75)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -math.pi / 2,
-      2 * math.pi * progress,
-      false,
-      progressPaint,
-    );
-
-    // Spinning dots
-    final dotPaint = Paint()
-      ..color = accent
-      ..style = PaintingStyle.fill;
-
-    for (int i = 0; i < 3; i++) {
-      final dotAngle = angle + (2 * math.pi / 3) * i;
-      final dx = center.dx + radius * math.cos(dotAngle);
-      final dy = center.dy + radius * math.sin(dotAngle);
-      final opacity = 0.4 + 0.6 * ((math.sin(dotAngle * 1.5) + 1) / 2);
-      canvas.drawCircle(
-        Offset(dx, dy),
-        4,
-        dotPaint..color = accent.withValues(alpha: opacity),
+    if (sweep > 0) {
+      canvas.drawArc(
+        rect,
+        _startAngle,
+        sweep,
+        false,
+        Paint()
+          ..color = accent.withValues(alpha: 0.14)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 9
+          ..strokeCap = StrokeCap.round
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
       );
+
+      canvas.drawArc(
+        rect,
+        _startAngle,
+        sweep,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.6
+          ..strokeCap = StrokeCap.round
+          ..color = Color.lerp(accent, Colors.white, 0.12)!,
+      );
+
+      final brightSweep = (sweep * 0.22).clamp(0.0, sweep);
+      if (brightSweep > 0.02) {
+        canvas.drawArc(
+          rect,
+          _startAngle + sweep - brightSweep,
+          brightSweep,
+          false,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 3.2
+            ..strokeCap = StrokeCap.round
+            ..color = Color.lerp(accent, Colors.white, 0.45)!,
+        );
+      }
+
+      if (sweep > 0.04) {
+        final tip = _startAngle + sweep;
+        final tipPos = Offset(
+          center.dx + radius * math.cos(tip),
+          center.dy + radius * math.sin(tip),
+        );
+        canvas.drawCircle(
+          tipPos,
+          4.2,
+          Paint()
+            ..color = Color.lerp(accent, Colors.white, 0.55)!
+                .withValues(alpha: 0.95)
+            ..style = PaintingStyle.fill,
+        );
+        canvas.drawCircle(
+          tipPos,
+          2,
+          Paint()
+            ..color = Colors.white.withValues(alpha: 0.55)
+            ..style = PaintingStyle.fill,
+        );
+      }
     }
+
+    final hx = center.dx + radius * math.cos(highlightAngle);
+    final hy = center.dy + radius * math.sin(highlightAngle);
+    final hi = 0.35 + 0.65 * highlightIntensity;
+    canvas.drawCircle(
+      Offset(hx, hy),
+      5,
+      Paint()
+        ..color = accent.withValues(alpha: 0.08 * hi)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+    );
+    canvas.drawCircle(
+      Offset(hx, hy),
+      3,
+      Paint()
+        ..color = Color.lerp(accent, Colors.white, 0.35)!
+            .withValues(alpha: 0.55 * hi),
+    );
   }
 
   @override
-  bool shouldRepaint(_WaitingRingPainter old) => true;
+  bool shouldRepaint(_WaitingRingPainter old) =>
+      old.highlightAngle != highlightAngle ||
+      old.progress != progress ||
+      old.accent != accent ||
+      old.highlightIntensity != highlightIntensity;
 }
 
 // ── Player Slot ───────────────────────────────────────────────────────────────
