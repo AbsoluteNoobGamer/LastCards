@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/shadow_blur.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../domain/entities/card.dart';
 import 'card_back_widget.dart';
@@ -161,14 +162,13 @@ class CardFlightOverlayState extends State<CardFlightOverlay>
                         BoxShadow(
                           color: AppColors.goldPrimary
                               .withValues(alpha: glowAlpha),
-                          blurRadius: math.max(0.0, 32 + 28 * t),
+                          blurRadius: nonNegativeShadowBlur(32 + 28 * t),
                           spreadRadius: 2 + 8 * pulse,
                         ),
                         BoxShadow(
                           color: AppColors.goldLight
                               .withValues(alpha: 0.15 + 0.35 * pulse),
-                          blurRadius: math.max(
-                            0.0,
+                          blurRadius: nonNegativeShadowBlur(
                             48 + 24 * math.sin(t * math.pi),
                           ),
                           spreadRadius: 0,

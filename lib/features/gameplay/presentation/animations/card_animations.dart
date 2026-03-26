@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 /// Reusable animation controllers and helpers for card interactions.
 ///
+/// These helpers do not drive [BoxShadow] / [Shadow] blur; for animated blur,
+/// use `nonNegativeShadowBlur` in core/utils/shadow_blur.dart.
+///
 /// Each class is a self-contained [TickerProviderStateMixin]-compatible
 /// animation spec. Widgets compose these into their own [AnimationController]s.
 abstract final class CardAnimations {

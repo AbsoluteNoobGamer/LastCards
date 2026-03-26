@@ -9,6 +9,7 @@ import '../../../../widgets/marquee_name.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/player_styles.dart';
+import '../../../../core/utils/shadow_blur.dart';
 import '../../../../core/providers/theme_provider.dart';
 import 'quick_chat_bubble.dart';
 
@@ -109,21 +110,22 @@ class PlayerZoneWidget extends ConsumerWidget {
         duration: Duration(milliseconds: isActive && isLocalPlayer ? 1100 : 1500),
         curve: Curves.easeInOutCubic,
         builder: (context, glowValue, childWrapper) {
+          final gv = glowValue.clamp(0.0, 1.0);
           final glowMul =
               isLocalPlayer && isActive ? 0.26 : (isActive ? 0.22 : 0.16);
           return Container(
             padding: EdgeInsets.all(compact ? 4 : AppDimensions.sm),
             decoration: BoxDecoration(
               color: isActive
-                  ? appTheme.accentPrimary.withValues(alpha: glowValue * glowMul)
+                  ? appTheme.accentPrimary.withValues(alpha: gv * glowMul)
                   : Colors.transparent,
               boxShadow: isActive
                   ? [
                       BoxShadow(
                         color: appTheme.accentPrimary
-                            .withValues(alpha: 0.35 * glowValue),
-                        blurRadius: 16 + 10 * glowValue,
-                        spreadRadius: 1 + glowValue,
+                            .withValues(alpha: 0.35 * gv),
+                        blurRadius: nonNegativeShadowBlur(16 + 10 * gv),
+                        spreadRadius: 1 + gv,
                       ),
                     ]
                   : null,

@@ -7,6 +7,7 @@ import '../../../../services/game_sound.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/shadow_blur.dart';
 import '../../../../core/services/card_back_service.dart';
 import 'card_back_widget.dart';
 import 'joker_card_widget.dart';
@@ -52,8 +53,11 @@ class CardWidget extends StatelessWidget {
       duration: const Duration(milliseconds: 150),
       curve: Curves.easeOutCubic,
       builder: (context, val, innerChild) {
-        final liftY = -12.0 * val; // Lifts higher now!
-        final scale = 1.0 + (0.10 * val); // Scale 1.0 -> 1.1
+        // easeOutCubic keeps values in [0,1]; clamp aligns with selection visuals
+        // and keeps shadow math safe if this curve ever changes.
+        final v = val.clamp(0.0, 1.0);
+        final liftY = -12.0 * v; // Lifts higher now!
+        final scale = 1.0 + (0.10 * v); // Scale 1.0 -> 1.1
 
         return MouseRegion(
           cursor: onTap != null
@@ -86,22 +90,23 @@ class CardWidget extends StatelessWidget {
                         BorderRadius.circular(AppDimensions.radiusCard),
                     boxShadow: [
                       BoxShadow(
-                        color:
-                            Colors.black.withValues(alpha: 0.35 + (0.15 * val)),
-                        blurRadius: 8 + (8 * val), // Shadow expands on lift
-                        offset: Offset(0, 4 + (4 * val)),
+                        color: Colors.black.withValues(
+                            alpha: (0.35 + (0.15 * v)).clamp(0.0, 1.0)),
+                        blurRadius:
+                            nonNegativeShadowBlur(8 + (8 * v)), // expands on lift
+                        offset: Offset(0, 4 + (4 * v)),
                       ),
-                      if (val > 0)
+                      if (v > 0)
                         BoxShadow(
                           color: AppColors.goldPrimary
-                              .withValues(alpha: val * 0.85),
-                          blurRadius: 16 * val,
-                          spreadRadius: 3 * val,
+                              .withValues(alpha: v * 0.85),
+                          blurRadius: nonNegativeShadowBlur(16 * v),
+                          spreadRadius: 3 * v,
                         ),
                     ],
                     border: Border.all(
                       color: isSelected
-                          ? AppColors.goldLight.withValues(alpha: val)
+                          ? AppColors.goldLight.withValues(alpha: v)
                           : Colors.black.withValues(alpha: 0.08),
                       width: isSelected ? 2.0 : 0.5,
                     ),

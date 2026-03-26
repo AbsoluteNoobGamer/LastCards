@@ -10,6 +10,7 @@ import '../../../../core/models/game_state.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/utils/shadow_blur.dart';
 
 class FloatingActionBarWidget extends ConsumerStatefulWidget {
   final String activePlayerName;
@@ -229,16 +230,17 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
       duration: Duration(milliseconds: glowMs),
       curve: Curves.easeOut,
       builder: (context, glowValue, child) {
+        final g = glowValue.clamp(0.0, 1.0);
         return Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppDimensions.radiusButton),
-            boxShadow: glowValue > 0.001
+            boxShadow: g > 0.001
                 ? [
                     BoxShadow(
                       color: AppColors.goldPrimary
-                          .withValues(alpha: 0.6 * glowValue),
-                      blurRadius: 16 * glowValue,
-                      spreadRadius: 2 * glowValue,
+                          .withValues(alpha: 0.6 * g),
+                      blurRadius: nonNegativeShadowBlur(16 * g),
+                      spreadRadius: 2 * g,
                     ),
                   ]
                 : null,

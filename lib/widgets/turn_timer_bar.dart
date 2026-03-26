@@ -1,8 +1,10 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
-import '../../shared/engine/game_turn_timer.dart';
+
+import '../core/theme/app_colors.dart';
+import '../core/utils/shadow_blur.dart';
+import '../shared/engine/game_turn_timer.dart';
 
 class TurnTimerBar extends StatefulWidget {
   final Stream<int>? timeRemainingStream;
@@ -52,7 +54,8 @@ class _TurnTimerBarState extends State<TurnTimerBar>
       initialData: GameTurnTimer.defaultDurationSeconds,
       builder: (context, snapshot) {
         final seconds = snapshot.data ?? GameTurnTimer.defaultDurationSeconds;
-        final progress = seconds / GameTurnTimer.defaultDurationSeconds;
+        final progress = (seconds / GameTurnTimer.defaultDurationSeconds)
+            .clamp(0.0, 1.0);
 
         if (seconds <= 10) {
           if (!_urgentCtrl.isAnimating) _urgentCtrl.repeat(reverse: true);
@@ -80,37 +83,107 @@ class _TurnTimerBarState extends State<TurnTimerBar>
             return Transform.scale(
               scale: pulse,
               alignment: Alignment.center,
-              child: TweenAnimationBuilder<double>(
-                tween: Tween<double>(begin: progress, end: progress),
-                duration: const Duration(milliseconds: 500),
-                builder: (context, value, _) {
-                  return Container(
-                    height: barHeight,
-                    width: double.infinity,
-                    alignment: Alignment.centerLeft,
-                    child: FractionallySizedBox(
-                      widthFactor: value,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: barColor,
-                          borderRadius: BorderRadius.circular(radius),
-                          boxShadow: seconds <= 10
-                              ? [
-                                  BoxShadow(
-                                    color: barColor.withAlpha(160),
-                                    blurRadius: 10 + 6 * _urgentCtrl.value,
-                                    spreadRadius: 2,
-                                  ),
-                                ]
-                              : null,
-                        ),
-                      ),
-                    ),
-                  );
-                },
+              child: _AnimatedTimerProgressFill(
+                targetWidthFactor: progress,
+                barHeight: barHeight,
+                radius: radius,
+                barColor: barColor,
+                urgentGlow: seconds <= 10,
+                urgentCtrlValue: _urgentCtrl.value.clamp(0.0, 1.0),
               ),
             );
           },
+        );
+      },
+    );
+  }
+}
+
+/// Smoothly animates the fill when [targetWidthFactor] changes (stream ticks).
+class _AnimatedTimerProgressFill extends StatefulWidget {
+  const _AnimatedTimerProgressFill({
+    required this.targetWidthFactor,
+    required this.barHeight,
+    required this.radius,
+    required this.barColor,
+    required this.urgentGlow,
+    required this.urgentCtrlValue,
+  });
+
+  final double targetWidthFactor;
+  final double barHeight;
+  final double radius;
+  final Color barColor;
+  final bool urgentGlow;
+  final double urgentCtrlValue;
+
+  @override
+  State<_AnimatedTimerProgressFill> createState() =>
+      _AnimatedTimerProgressFillState();
+}
+
+class _AnimatedTimerProgressFillState extends State<_AnimatedTimerProgressFill>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _fillCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _fillCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _fillCtrl.value = widget.targetWidthFactor;
+  }
+
+  @override
+  void didUpdateWidget(_AnimatedTimerProgressFill oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.targetWidthFactor != oldWidget.targetWidthFactor) {
+      _fillCtrl.animateTo(
+        widget.targetWidthFactor,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _fillCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _fillCtrl,
+      builder: (context, _) {
+        final value = _fillCtrl.value.clamp(0.0, 1.0);
+        return Container(
+          height: widget.barHeight,
+          width: double.infinity,
+          alignment: Alignment.centerLeft,
+          child: FractionallySizedBox(
+            widthFactor: value,
+            child: Container(
+              decoration: BoxDecoration(
+                color: widget.barColor,
+                borderRadius: BorderRadius.circular(widget.radius),
+                boxShadow: widget.urgentGlow
+                    ? [
+                        BoxShadow(
+                          color: widget.barColor.withAlpha(160),
+                          blurRadius: nonNegativeShadowBlur(
+                            10 + 6 * widget.urgentCtrlValue,
+                          ),
+                          spreadRadius: 2,
+                        ),
+                      ]
+                    : null,
+              ),
+            ),
+          ),
         );
       },
     );
