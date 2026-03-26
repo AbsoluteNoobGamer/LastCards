@@ -1203,6 +1203,12 @@ removeDisconnectedStandardPlayer({
     pendingJokerResolution: state.currentPlayerId == removedPlayerId
         ? false
         : state.pendingJokerResolution,
+    activePenaltyCount: state.currentPlayerId == removedPlayerId
+        ? 0
+        : state.activePenaltyCount,
+    penaltyChainLive: state.currentPlayerId == removedPlayerId
+        ? false
+        : state.penaltyChainLive,
   );
 
   final handForDrawPile = leaverCardsToReturnToDrawPile(
