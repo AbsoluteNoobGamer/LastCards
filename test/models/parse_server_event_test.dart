@@ -67,4 +67,18 @@ void main() {
     expect(event, isA<PlayerSocketRestoredEvent>());
     expect((event as PlayerSocketRestoredEvent).playerId, 'player-2');
   });
+
+  test('quickplay_queue_update parses roster snapshot', () {
+    final event = parseServerEvent(jsonEncode({
+      'type': 'quickplay_queue_update',
+      'playerCount': 4,
+      'displayNames': ['A', 'B'],
+      'yourIndex': 1,
+    }));
+    expect(event, isA<QuickplayQueueUpdateEvent>());
+    final e = event as QuickplayQueueUpdateEvent;
+    expect(e.playerCount, 4);
+    expect(e.displayNames, ['A', 'B']);
+    expect(e.yourIndex, 1);
+  });
 }

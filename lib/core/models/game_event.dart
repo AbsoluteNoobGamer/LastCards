@@ -155,6 +155,27 @@ final class PlayerJoinedEvent extends GameEvent {
   String get type => 'player_joined';
 }
 
+/// Quickplay matchmaking queue changed (more players waiting for the same room size).
+final class QuickplayQueueUpdateEvent extends GameEvent {
+  /// Target roster size for this queue (e.g. 4).
+  final int playerCount;
+
+  /// Display names in queue order (FIFO).
+  final List<String> displayNames;
+
+  /// This client's index within [displayNames] (0-based).
+  final int yourIndex;
+
+  const QuickplayQueueUpdateEvent({
+    required this.playerCount,
+    required this.displayNames,
+    required this.yourIndex,
+  });
+
+  @override
+  String get type => 'quickplay_queue_update';
+}
+
 /// A player disconnected.
 final class PlayerLeftEvent extends GameEvent {
   final String playerId;
@@ -504,6 +525,14 @@ GameEvent parseServerEvent(String raw) {
         ),
       'player_joined' => PlayerJoinedEvent(
           PlayerModel.fromJson(json['player'] as Map<String, dynamic>),
+        ),
+      'quickplay_queue_update' => QuickplayQueueUpdateEvent(
+          playerCount: (json['playerCount'] as num?)?.toInt() ?? 4,
+          displayNames: (json['displayNames'] as List?)
+                  ?.map((e) => e as String)
+                  .toList() ??
+              const [],
+          yourIndex: (json['yourIndex'] as num?)?.toInt() ?? 0,
         ),
       'player_left' => PlayerLeftEvent(json['playerId'] as String),
       'player_socket_lost' =>

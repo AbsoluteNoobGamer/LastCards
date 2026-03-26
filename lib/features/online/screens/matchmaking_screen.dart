@@ -9,6 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/models/game_event.dart';
+import '../../../../core/models/player_model.dart';
+import '../../../../core/models/table_position_layout.dart';
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/connection_provider.dart';
 import '../../../../core/providers/game_provider.dart';
@@ -21,9 +23,9 @@ import 'lobby_ready_screen.dart';
 
 /// Full-screen matchmaking screen.
 ///
-/// Shows an animated waiting indicator and player slots that fill in
-/// as players "join" (simulated via a demo timer).
-/// The only exit is the Cancel button which pops to root.
+/// Shows an animated waiting indicator and player slots that fill from
+/// [QuickplayQueueUpdateEvent] while waiting, then advances when the roster is
+/// complete. The only exit is the Cancel button which pops to root.
 class MatchmakingScreen extends ConsumerStatefulWidget {
   const MatchmakingScreen({super.key});
 
@@ -35,8 +37,16 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     with TickerProviderStateMixin {
   late AnimationController _rotateController;
   late AnimationController _pulseController;
-  late List<bool> _slotsJoined;
+
+  /// Per-slot display name; `null` = still waiting for that seat.
+  late List<String?> _slotNames;
+
+  /// Queue / roster index of the local player (highlighted avatar).
+  late int _yourSlotIndex;
+
+  final Map<String, PlayerModel> _matchedPlayers = {};
   StreamSubscription<GameEvent>? _eventSub;
+  bool _lobbyNavigationScheduled = false;
 
   @override
   void initState() {
@@ -55,39 +65,25 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     )..repeat(reverse: true);
 
     final playerCount = ref.read(onlineSessionProvider).playerCount ?? 4;
-    // Slot 0 = local player (always joined)
-    _slotsJoined = List.generate(playerCount, (i) => i == 0);
+    final local = ref.read(displayNameForGameProvider);
+    final localLabel = local.isEmpty ? 'Player' : local;
+    _slotNames = List<String?>.generate(
+      playerCount,
+      (i) => i == 0 ? localLabel : null,
+    );
+    _yourSlotIndex = 0;
 
     // Ensure GameNotifier is subscribed before any state_snapshot arrives,
     // so the snapshot is captured even during the navigation delay.
     ref.read(gameNotifierProvider);
 
-    // Listen for real player_joined events from the server
     final handler = ref.read(gameEventHandlerProvider);
-    int nextSlot = 1;
     _eventSub = handler.events.listen((event) {
       if (!mounted) return;
-      if (event is PlayerJoinedEvent && nextSlot < playerCount) {
-        setState(() => _slotsJoined[nextSlot] = true);
-        nextSlot++;
-        if (nextSlot >= playerCount) {
-          _eventSub?.cancel();
-          _eventSub = null;
-          Future.delayed(const Duration(milliseconds: 600), () {
-            if (!mounted) return;
-            _navigatedForward = true;
-            Navigator.of(context).pushReplacement(
-              PageRouteBuilder(
-                pageBuilder: (_, __, ___) => const LobbyReadyScreen(),
-                transitionDuration: const Duration(milliseconds: 500),
-                transitionsBuilder: (_, animation, __, child) => FadeTransition(
-                  opacity: animation,
-                  child: child,
-                ),
-              ),
-            );
-          });
-        }
+      if (event is QuickplayQueueUpdateEvent) {
+        _onQueueUpdate(event);
+      } else if (event is PlayerJoinedEvent) {
+        _onPlayerJoined(event);
       }
     });
 
@@ -96,6 +92,66 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     final isRanked = ref.read(onlineSessionProvider).mode == OnlineGameMode.ranked;
     final displayName = ref.read(displayNameForGameProvider);
     _connectAndRequestMatch(playerCount, displayName: displayName, isBust: isBust, isRanked: isRanked);
+  }
+
+  void _onQueueUpdate(QuickplayQueueUpdateEvent e) {
+    final playerCount = ref.read(onlineSessionProvider).playerCount ?? 4;
+    if (e.playerCount != playerCount) return;
+    setState(() {
+      final you = e.yourIndex.clamp(0, playerCount - 1);
+      _yourSlotIndex = you;
+      for (var i = 0; i < playerCount; i++) {
+        _slotNames[i] =
+            i < e.displayNames.length ? e.displayNames[i] : null;
+      }
+    });
+  }
+
+  void _onPlayerJoined(PlayerJoinedEvent e) {
+    final playerCount = ref.read(onlineSessionProvider).playerCount ?? 4;
+    _matchedPlayers[e.player.id] = e.player;
+    _applyMatchedPlayersToSlots(playerCount);
+    if (_matchedPlayers.length >= playerCount) {
+      _scheduleNavigateToLobby();
+    }
+  }
+
+  /// Maps session roster to the linear matchmaking slots (seat order).
+  void _applyMatchedPlayersToSlots(int playerCount) {
+    if (_matchedPlayers.isEmpty) return;
+    final bySeat = <TablePosition, PlayerModel>{};
+    for (final p in _matchedPlayers.values) {
+      bySeat[p.tablePosition] = p;
+    }
+    setState(() {
+      for (var s = 0; s < playerCount; s++) {
+        final p = bySeat[tablePositionForSeatIndex(s)];
+        if (p != null) {
+          _slotNames[s] = p.displayName;
+        }
+      }
+    });
+  }
+
+  void _scheduleNavigateToLobby() {
+    if (_lobbyNavigationScheduled) return;
+    _lobbyNavigationScheduled = true;
+    _eventSub?.cancel();
+    _eventSub = null;
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (!mounted) return;
+      _navigatedForward = true;
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const LobbyReadyScreen(),
+          transitionDuration: const Duration(milliseconds: 500),
+          transitionsBuilder: (_, animation, __, child) => FadeTransition(
+            opacity: animation,
+            child: child,
+          ),
+        ),
+      );
+    });
   }
 
   Future<void> _connectAndRequestMatch(
@@ -166,7 +222,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     final session = ref.watch(onlineSessionProvider);
     final playerCount = session.playerCount ?? 4;
     final modeName = session.mode?.displayName ?? 'Quick Match';
-    final joinedCount = _slotsJoined.where((s) => s).length;
+    final joinedCount = _slotNames.where((n) => n != null).length;
 
     return PopScope(
       canPop: false, // Only Cancel button exits
@@ -287,8 +343,9 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 6),
                                         child: _PlayerSlot(
-                                          index: i,
-                                          isJoined: _slotsJoined[i],
+                                          label: _slotNames[i] ?? '…',
+                                          isFilled: _slotNames[i] != null,
+                                          isLocalSlot: i == _yourSlotIndex,
                                         ),
                                       );
                                     }),
@@ -380,8 +437,9 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 10),
                                 child: _PlayerSlot(
-                                  index: i,
-                                  isJoined: _slotsJoined[i],
+                                  label: _slotNames[i] ?? '…',
+                                  isFilled: _slotNames[i] != null,
+                                  isLocalSlot: i == _yourSlotIndex,
                                 ),
                               );
                             }),
@@ -561,15 +619,19 @@ class _WaitingRingPainter extends CustomPainter {
 // ── Player Slot ───────────────────────────────────────────────────────────────
 
 class _PlayerSlot extends ConsumerWidget {
-  const _PlayerSlot({required this.index, required this.isJoined});
+  const _PlayerSlot({
+    required this.label,
+    required this.isFilled,
+    required this.isLocalSlot,
+  });
 
-  final int index;
-  final bool isJoined;
+  final String label;
+  final bool isFilled;
+  final bool isLocalSlot;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(themeProvider).theme;
-    final localDisplayName = ref.watch(displayNameForGameProvider);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 400),
@@ -584,16 +646,16 @@ class _PlayerSlot extends ConsumerWidget {
             height: 52,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isJoined
+              color: isFilled
                   ? theme.accentPrimary.withValues(alpha: 0.18)
                   : theme.surfaceDark.withValues(alpha: 0.35),
               border: Border.all(
-                color: isJoined
+                color: isFilled
                     ? theme.accentPrimary
                     : theme.accentDark.withValues(alpha: 0.3),
-                width: isJoined ? 2 : 1,
+                width: isFilled ? 2 : 1,
               ),
-              boxShadow: isJoined
+              boxShadow: isFilled
                   ? [
                       BoxShadow(
                         color: theme.accentPrimary.withValues(alpha: 0.30),
@@ -606,9 +668,9 @@ class _PlayerSlot extends ConsumerWidget {
             child: Center(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
-                child: isJoined
+                child: isFilled
                     ? Icon(
-                        index == 0
+                        isLocalSlot
                             ? Icons.person_rounded
                             : Icons.person_outline_rounded,
                         key: const ValueKey('joined'),
@@ -629,15 +691,15 @@ class _PlayerSlot extends ConsumerWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            isJoined
-                ? (index == 0 ? localDisplayName : 'Player ${index + 1}')
-                : '…',
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.inter(
               fontSize: 10,
-              color: isJoined
+              color: isFilled
                   ? theme.textPrimary
                   : theme.textSecondary.withValues(alpha: 0.4),
-              fontWeight: isJoined ? FontWeight.w600 : FontWeight.w400,
+              fontWeight: isFilled ? FontWeight.w600 : FontWeight.w400,
               letterSpacing: 0.3,
             ),
           ),

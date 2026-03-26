@@ -37,7 +37,7 @@ class RoomManager {
   final _uuid = const Uuid();
 
   /// Quickplay matchmaking queues. Key: playerCount (int) for standard,
-  /// 'bust' (String) for Bust mode (10 players).
+  /// 'bust' (String) for Bust mode (10 players), or 'ranked-N' for ranked.
   final _quickplayQueues = <Object, List<_QueuedPlayer>>{};
 
   /// Per-socket futures used to serialize async message handling.
@@ -216,6 +216,32 @@ class RoomManager {
     }
   }
 
+  int _targetPlayerCountForQueueKey(Object queueKey) {
+    if (queueKey is int) return queueKey;
+    if (queueKey == 'bust') return 10;
+    if (queueKey is String && queueKey.startsWith('ranked-')) {
+      return int.tryParse(queueKey.substring('ranked-'.length)) ?? 4;
+    }
+    return 4;
+  }
+
+  /// Notifies every socket in [queueKey]'s quickplay queue who is waiting.
+  void _broadcastQuickplayQueueUpdate(Object queueKey) {
+    final queue = _quickplayQueues[queueKey];
+    if (queue == null || queue.isEmpty) return;
+
+    final target = _targetPlayerCountForQueueKey(queueKey);
+    final names = queue.map((q) => q.displayName).toList();
+    for (var i = 0; i < queue.length; i++) {
+      queue[i].ws.sink.add(jsonEncode({
+        'type': 'quickplay_queue_update',
+        'playerCount': target,
+        'displayNames': names,
+        'yourIndex': i,
+      }));
+    }
+  }
+
   void _handleQuickplay(dynamic ws, Map<String, dynamic> json) {
     final gameMode = json['gameMode'] as String?;
     final isBust = gameMode == 'bust';
@@ -259,6 +285,11 @@ class RoomManager {
     if (queue.length >= playerCount) {
       final matched = queue.sublist(0, playerCount);
       queue.removeRange(0, playerCount);
+      if (queue.isEmpty) {
+        _quickplayQueues.remove(queueKey);
+      } else {
+        _broadcastQuickplayQueueUpdate(queueKey);
+      }
 
       var roomCode = _uuid.v4().substring(0, 6).toUpperCase();
       while (_rooms.containsKey(roomCode)) {
@@ -300,6 +331,8 @@ class RoomManager {
 
       _log.info(
           'All players readied — game should start in room $roomCode');
+    } else {
+      _broadcastQuickplayQueueUpdate(queueKey);
     }
   }
 
@@ -309,7 +342,11 @@ class RoomManager {
     // Remove from any quickplay queue.
     final emptyKeys = <Object>[];
     for (final entry in _quickplayQueues.entries) {
+      final before = entry.value.length;
       entry.value.removeWhere((q) => q.ws == ws);
+      if (entry.value.length != before && entry.value.isNotEmpty) {
+        _broadcastQuickplayQueueUpdate(entry.key);
+      }
       if (entry.value.isEmpty) emptyKeys.add(entry.key);
     }
     for (final key in emptyKeys) {
