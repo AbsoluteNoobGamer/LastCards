@@ -129,6 +129,35 @@ void main() {
       expect(joined['isPrivate'], isTrue);
     });
 
+    test('quickplay sends queue update after each player joins queue', () async {
+      final rm = RoomManager();
+      final a = FakeWs();
+      final b = FakeWs();
+      rm.handleConnection(a);
+      rm.handleConnection(b);
+      a.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'playerCount': 2,
+        'displayName': 'P1',
+      }));
+      await _flushAsync();
+      final qu = a.lastOfType('quickplay_queue_update');
+      expect(qu, isNotNull);
+      expect(qu!['displayNames'], ['P1']);
+      expect(qu['yourIndex'], 0);
+      expect(qu['playerCount'], 2);
+      expect(b.messages.any((m) => m['type'] == 'quickplay_queue_update'), isFalse);
+
+      b.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'playerCount': 2,
+        'displayName': 'P2',
+      }));
+      await _flushAsync();
+      expect(a.messages.any((m) => m['type'] == 'player_joined'), isTrue);
+      expect(b.messages.any((m) => m['type'] == 'player_joined'), isTrue);
+    });
+
     test('quickplay casual matches two players and sends roster', () async {
       final rm = RoomManager();
       final a = FakeWs();
