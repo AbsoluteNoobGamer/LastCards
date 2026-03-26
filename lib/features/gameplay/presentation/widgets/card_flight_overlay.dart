@@ -31,6 +31,7 @@ class CardFlightOverlayState extends State<CardFlightOverlay>
     bool faceUp = true,
     Duration duration = const Duration(milliseconds: 420),
     double arcLift = 140,
+
     /// Winning / go-out play: taller arc, glow, and wobble.
     bool lastCardFromHand = false,
   }) {
@@ -48,9 +49,7 @@ class CardFlightOverlayState extends State<CardFlightOverlay>
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final effectiveDuration = reduceMotion
         ? Duration.zero
-        : (lastCardFromHand
-            ? const Duration(milliseconds: 680)
-            : duration);
+        : (lastCardFromHand ? const Duration(milliseconds: 680) : duration);
     final effectiveArc = lastCardFromHand ? math.max(arcLift, 220.0) : arcLift;
 
     final controller =
@@ -135,14 +134,12 @@ class CardFlightOverlayState extends State<CardFlightOverlay>
               final midY = (p0.dy + p2.dy) / 2 - f.arcLift;
               final cp = Offset(midX, midY);
               final invT = 1.0 - t;
-              final x = invT * invT * p0.dx +
-                  2 * invT * t * cp.dx +
-                  t * t * p2.dx;
-              final y = invT * invT * p0.dy +
-                  2 * invT * t * cp.dy +
-                  t * t * p2.dy;
-              final baseScale =
-                  1.0 + math.sin(t * math.pi) * (f.lastCardFromHand ? 0.2 : 0.12);
+              final x =
+                  invT * invT * p0.dx + 2 * invT * t * cp.dx + t * t * p2.dx;
+              final y =
+                  invT * invT * p0.dy + 2 * invT * t * cp.dy + t * t * p2.dy;
+              final baseScale = 1.0 +
+                  math.sin(t * math.pi) * (f.lastCardFromHand ? 0.2 : 0.12);
               final scale = f.lastCardFromHand
                   ? baseScale * (1.0 + 0.06 * math.sin(t * math.pi * 3))
                   : baseScale;
@@ -164,13 +161,16 @@ class CardFlightOverlayState extends State<CardFlightOverlay>
                         BoxShadow(
                           color: AppColors.goldPrimary
                               .withValues(alpha: glowAlpha),
-                          blurRadius: 32 + 28 * t,
+                          blurRadius: math.max(0.0, 32 + 28 * t),
                           spreadRadius: 2 + 8 * pulse,
                         ),
                         BoxShadow(
                           color: AppColors.goldLight
                               .withValues(alpha: 0.15 + 0.35 * pulse),
-                          blurRadius: 48 + 24 * math.sin(t * math.pi),
+                          blurRadius: math.max(
+                            0.0,
+                            48 + 24 * math.sin(t * math.pi),
+                          ),
                           spreadRadius: 0,
                         ),
                       ],

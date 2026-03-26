@@ -24,7 +24,6 @@ class DealingAnimationOverlay extends StatefulWidget {
 
 class DealingAnimationOverlayState extends State<DealingAnimationOverlay>
     with TickerProviderStateMixin {
-  
   // A queued list of currently animating flying cards
   final List<_FlyingCard> _flyingCards = [];
 
@@ -32,8 +31,10 @@ class DealingAnimationOverlayState extends State<DealingAnimationOverlay>
   /// Returns a Future that completes when the card finishes its flight.
   Future<void> animateCardDeal(String targetPlayerId) {
     // 1. Calculate positions
-    final originBox = widget.drawPileKey.currentContext?.findRenderObject() as RenderBox?;
-    final targetBox = widget.playerKeys[targetPlayerId]?.currentContext?.findRenderObject() as RenderBox?;
+    final originBox =
+        widget.drawPileKey.currentContext?.findRenderObject() as RenderBox?;
+    final targetBox = widget.playerKeys[targetPlayerId]?.currentContext
+        ?.findRenderObject() as RenderBox?;
 
     if (originBox == null || targetBox == null) {
       // If we can't find layout rects (common in some widget tests before settle)
@@ -42,17 +43,15 @@ class DealingAnimationOverlayState extends State<DealingAnimationOverlay>
     }
 
     final originPos = originBox.localToGlobal(
-      Offset(originBox.size.width / 2, originBox.size.height / 2)
-    );
+        Offset(originBox.size.width / 2, originBox.size.height / 2));
     final targetPos = targetBox.localToGlobal(
-      Offset(targetBox.size.width / 2, targetBox.size.height / 2)
-    );
+        Offset(targetBox.size.width / 2, targetBox.size.height / 2));
 
     // 2. Setup the animation
     final controller = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 400));
     final completer = Completer<void>();
-    
+
     final flyingCard = _FlyingCard(
       origin: originPos,
       target: targetPos,
@@ -100,15 +99,19 @@ class DealingAnimationOverlayState extends State<DealingAnimationOverlay>
               // P1 (control point) biases the curve into an arc. We shift it "up" visually.
               final p0 = card.origin;
               final p2 = card.target;
-              
+
               // We want the arc to swing outward slightly based on distance.
               final midX = (p0.dx + p2.dx) / 2;
               final midY = (p0.dy + p2.dy) / 2;
-              final controlPoint = Offset(midX, midY - 150); 
-              
+              final controlPoint = Offset(midX, midY - 150);
+
               final invT = 1.0 - t;
-              final currentX = invT * invT * p0.dx + 2 * invT * t * controlPoint.dx + t * t * p2.dx;
-              final currentY = invT * invT * p0.dy + 2 * invT * t * controlPoint.dy + t * t * p2.dy;
+              final currentX = invT * invT * p0.dx +
+                  2 * invT * t * controlPoint.dx +
+                  t * t * p2.dx;
+              final currentY = invT * invT * p0.dy +
+                  2 * invT * t * controlPoint.dy +
+                  t * t * p2.dy;
 
               // Scale animation: starts at 1.0, peaks midway, returns to 1.0
               final scale = 1.0 + (math.sin(t * math.pi) * 0.35);
@@ -122,16 +125,21 @@ class DealingAnimationOverlayState extends State<DealingAnimationOverlay>
                 child: Transform.scale(
                   scale: scale,
                   child: Container(
-                    decoration: BoxDecoration(
-                      boxShadow: [
-                        BoxShadow(
-                           // The shadow drops further away and gets softer at the peak of the arc
-                           color: Colors.black.withValues(alpha: 0.5 * (1 - (math.sin(t * math.pi) * 0.5))),
-                           blurRadius: 10 + (20 * math.sin(t * math.pi)),
-                           offset: Offset(0, 5 + (15 * math.sin(t * math.pi))),
-                        )
-                      ]
-                    ),
+                    decoration: BoxDecoration(boxShadow: [
+                      BoxShadow(
+                        // The shadow drops further away and gets softer at the peak of the arc.
+                        // [sin] can be negative — clamp blur so Flutter never sees < 0.
+                        color: Colors.black.withValues(
+                          alpha: (0.5 * (1 - (math.sin(t * math.pi) * 0.5)))
+                              .clamp(0.0, 1.0),
+                        ),
+                        blurRadius: math.max(
+                          0.0,
+                          10 + (20 * math.sin(t * math.pi)),
+                        ),
+                        offset: Offset(0, 5 + (15 * math.sin(t * math.pi))),
+                      )
+                    ]),
                     child: const CardBackWidget(width: cardW),
                   ),
                 ),

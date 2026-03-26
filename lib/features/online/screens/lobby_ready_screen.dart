@@ -202,8 +202,7 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
               child: SafeArea(
                 child: OrientationBuilder(
                   builder: (context, orientation) {
-                    final isLandscape =
-                        orientation == Orientation.landscape;
+                    final isLandscape = orientation == Orientation.landscape;
 
                     if (isLandscape) {
                       return _buildLandscapeLayout(
@@ -235,38 +234,49 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 40),
-        Center(child: _buildReadyBadge(theme)),
-        const SizedBox(height: 28),
-        Center(child: _buildTitleSection(theme)),
-        const Spacer(flex: 2),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 20,
-            runSpacing: 16,
-            children: List.generate(playerCount, (i) {
-              return _ConfirmedPlayerAvatar(
-                index: i,
-                isLocalPlayer: i == 0,
-                displayName: _displayNameForSlot(gameState, i, playerCount),
-              );
-            }),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 40),
+                Center(child: _buildReadyBadge(theme)),
+                const SizedBox(height: 28),
+                Center(child: _buildTitleSection(theme)),
+                const SizedBox(height: 32),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 20,
+                    runSpacing: 16,
+                    children: List.generate(playerCount, (i) {
+                      return _ConfirmedPlayerAvatar(
+                        index: i,
+                        isLocalPlayer: i == 0,
+                        displayName:
+                            _displayNameForSlot(gameState, i, playerCount),
+                      );
+                    }),
+                  ),
+                ),
+                const SizedBox(height: 28),
+                Center(child: _buildCountdownSection(theme)),
+                Text(
+                  'Starting automatically…',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: theme.textSecondary.withValues(alpha: 0.6),
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                const SizedBox(height: 32),
+              ],
+            ),
           ),
         ),
-        const Spacer(flex: 2),
-        Center(child: _buildCountdownSection(theme)),
-        Text(
-          'Starting automatically…',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            color: theme.textSecondary.withValues(alpha: 0.6),
-            letterSpacing: 0.3,
-          ),
-        ),
-        const Spacer(flex: 3),
       ],
     );
   }
