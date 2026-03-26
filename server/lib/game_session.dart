@@ -787,16 +787,16 @@ class GameSession {
       _sendError(playerId, 'invalid_joker', 'Invalid Joker declaration.');
       return;
     }
-    final jokerContext =
-        jokerPlayContextFromCardsPlayed(_state.cardsPlayedThisTurn);
-    final jokerAnchor = jokerContext == JokerPlayContext.midTurnContinuance
-        ? (_state.lastPlayedThisTurn ?? top)
-        : top;
+    final jokerIn =
+        resolveJokerPlayInputs(state: _state, discardTop: top);
+    // Pass raw [jokerIn.resolvedContext] so [getValidJokerOptions] can apply the
+    // 2-player King → turn-starter upgrade internally (do not pass
+    // [jokerIn.effectivePlayContext] here).
     final validOptions = getValidJokerOptions(
       state: _state,
       discardTop: top,
-      context: jokerContext,
-      contextTopCard: jokerAnchor,
+      context: jokerIn.resolvedContext,
+      contextTopCard: jokerIn.anchor,
     );
     final declarationOk = validOptions.any(
       (c) => c.suit == declaredSuit && c.rank == declaredRank,

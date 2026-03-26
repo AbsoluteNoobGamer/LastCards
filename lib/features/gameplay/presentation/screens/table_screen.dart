@@ -1284,30 +1284,27 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (gameState == null) return;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
-        final jokerContext =
-            jokerPlayContextFromCardsPlayed(gameState.cardsPlayedThisTurn);
-        final jokerAnchor = jokerContext == JokerPlayContext.midTurnContinuance
-            ? (gameState.lastPlayedThisTurn ?? gameState.discardTopCard!)
-            : gameState.discardTopCard!;
+        final jokerIn = resolveJokerPlayInputs(
+          state: gameState,
+          discardTop: gameState.discardTopCard!,
+        );
+        // Raw context for [getValidJokerOptions] only — that function upgrades
+        // 2p King to turn-starter internally.
         final validOptions = getValidJokerOptions(
           state: gameState,
           discardTop: gameState.discardTopCard!,
-          context: jokerContext,
-          contextTopCard: jokerAnchor,
+          context: jokerIn.resolvedContext,
+          contextTopCard: jokerIn.anchor,
         );
         if (validOptions.isEmpty || !mounted) return;
-        final activeSequenceSuit =
-            jokerContext == JokerPlayContext.midTurnContinuance
-                ? jokerAnchor.effectiveSuit
-                : null;
         final chosenCard = await showModalBottomSheet<CardModel>(
           context: context,
           backgroundColor: Colors.transparent,
           isScrollControlled: true,
           builder: (_) => _JokerSelectionSheet(
             options: validOptions,
-            playContext: jokerContext,
-            activeSequenceSuit: activeSequenceSuit,
+            playContext: jokerIn.effectivePlayContext,
+            activeSequenceSuit: jokerIn.activeSequenceSuit,
           ),
         );
         if (!mounted) return;
@@ -1808,34 +1805,31 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     // Joker: show sheet, then send declare_joker (same flow as single-player).
     if (card.isJoker && mounted) {
-      final jokerContext =
-          jokerPlayContextFromCardsPlayed(gameState.cardsPlayedThisTurn);
-      final jokerAnchor = jokerContext == JokerPlayContext.midTurnContinuance
-          ? (gameState.lastPlayedThisTurn ?? gameState.discardTopCard!)
-          : gameState.discardTopCard!;
+      final jokerIn = resolveJokerPlayInputs(
+        state: gameState,
+        discardTop: gameState.discardTopCard!,
+      );
+      // Raw context for [getValidJokerOptions] only — that function upgrades
+      // 2p King to turn-starter internally.
       final validOptions = getValidJokerOptions(
         state: gameState,
         discardTop: gameState.discardTopCard!,
-        context: jokerContext,
-        contextTopCard: jokerAnchor,
+        context: jokerIn.resolvedContext,
+        contextTopCard: jokerIn.anchor,
       );
       if (validOptions.isEmpty) {
         _showError('No valid moves available for the Joker right now.');
         return;
       }
       setState(() => _selectedCardId = cardId);
-      final activeSequenceSuit =
-          jokerContext == JokerPlayContext.midTurnContinuance
-              ? jokerAnchor.effectiveSuit
-              : null;
       final chosenCard = await showModalBottomSheet<CardModel>(
         context: context,
         backgroundColor: Colors.transparent,
         isScrollControlled: true,
         builder: (_) => _JokerSelectionSheet(
           options: validOptions,
-          playContext: jokerContext,
-          activeSequenceSuit: activeSequenceSuit,
+          playContext: jokerIn.effectivePlayContext,
+          activeSequenceSuit: jokerIn.activeSequenceSuit,
         ),
       );
       if (!mounted) return;
@@ -1903,23 +1897,18 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
       // Intercept Joker plays (mirrors Ace popup flow)
       if (played.length == 1 && played.first.isJoker && mounted) {
-        final jokerContext =
-            jokerPlayContextFromCardsPlayed(_offlineState.cardsPlayedThisTurn);
-        final jokerAnchor = jokerContext == JokerPlayContext.midTurnContinuance
-            ? (_offlineState.lastPlayedThisTurn ??
-                _offlineState.discardTopCard!)
-            : _offlineState.discardTopCard!;
+        final jokerIn = resolveJokerPlayInputs(
+          state: _offlineState,
+          discardTop: _offlineState.discardTopCard!,
+        );
 
-        final activeSequenceSuit =
-            jokerContext == JokerPlayContext.midTurnContinuance
-                ? jokerAnchor.effectiveSuit
-                : null;
-
+        // Raw context for [getValidJokerOptions] only — that function upgrades
+        // 2p King to turn-starter internally.
         final validOptions = getValidJokerOptions(
           state: _offlineState,
           discardTop: _offlineState.discardTopCard!,
-          context: jokerContext,
-          contextTopCard: jokerAnchor,
+          context: jokerIn.resolvedContext,
+          contextTopCard: jokerIn.anchor,
         );
 
         if (validOptions.isEmpty) {
@@ -1935,8 +1924,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           isScrollControlled: true,
           builder: (_) => _JokerSelectionSheet(
             options: validOptions,
-            playContext: jokerContext,
-            activeSequenceSuit: activeSequenceSuit,
+            playContext: jokerIn.effectivePlayContext,
+            activeSequenceSuit: jokerIn.activeSequenceSuit,
           ),
         );
 

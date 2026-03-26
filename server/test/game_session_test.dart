@@ -781,6 +781,72 @@ void main() {
       expect(err!['code'], equals('invalid_joker'));
       expect(p1ws.ofType('card_played'), isEmpty);
     });
+
+    test(
+        'declare_joker after 2-player King accepts turn-starter declaration (5♠ on K♠)',
+        () {
+      final (:session, :sockets, :ids) = _makeSession(2);
+      final p1ws = sockets[0];
+      final p1Id = ids[0];
+      final p2Id = ids[1];
+
+      final joker = _joker('joker_r', Suit.hearts);
+      final kingPlayed = _card(Rank.king, Suit.spades);
+      final p1Hand = [joker];
+      final p2Hand = [_card(Rank.five, Suit.hearts)];
+      final drawPile = List.generate(
+          5,
+          (i) =>
+              CardModel(id: 'filler_$i', rank: Rank.seven, suit: Suit.clubs));
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: p1Id,
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: p1Hand,
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: p2Id,
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: p2Hand,
+            cardCount: 1,
+          ),
+        ],
+        currentPlayerId: p1Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: kingPlayed,
+        drawPileCount: drawPile.length,
+        preTurnCentreSuit: Suit.spades,
+        actionsThisTurn: 1,
+        cardsPlayedThisTurn: 1,
+        lastPlayedThisTurn: kingPlayed,
+      );
+
+      session.seedStateForTesting(state: state, drawPile: drawPile);
+      p1ws.clear();
+
+      session.handleAction(p1Id, {
+        'type': 'declare_joker',
+        'jokerCardId': 'joker_r',
+        'declaredSuit': 'spades',
+        'declaredRank': 'five',
+      });
+
+      expect(p1ws.lastOfType('error'), isNull);
+      final played = p1ws.lastOfType('card_played');
+      expect(played, isNotNull);
+      final cards = played!['cards'] as List;
+      expect(cards.length, equals(1));
+      final card = cards.first as Map<String, dynamic>;
+      expect(card['jokerDeclaredSuit'], equals('spades'));
+      expect(card['jokerDeclaredRank'], equals('five'));
+    });
   });
 
   // ── suit_choice ────────────────────────────────────────────────────────────

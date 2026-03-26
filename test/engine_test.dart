@@ -849,6 +849,164 @@ void main() {
           'P1 again');
     });
 
+    test('twoPlayerKingNextPlayUsesDiscardMatchNotNumericalFlowStep', () {
+      var state = buildState(discardTop: c(Rank.five, Suit.spades));
+      final p2 = PlayerModel(
+        id: 'p2',
+        displayName: 'P2',
+        tablePosition: TablePosition.top,
+        hand: [],
+        cardCount: 0,
+      );
+      state = state.copyWith(players: [...state.players, p2]);
+
+      // Legally play K♠ on 5♠, then 4♠: same suit as K♠ but not ±1 from King
+      // (would fail numerical-flow continuation in 3+ players).
+      state = applyPlay(
+        state: state,
+        playerId: 'p1',
+        cards: [c(Rank.king, Suit.spades)],
+      );
+      expect(
+        validatePlay(
+          cards: [c(Rank.four, Suit.spades)],
+          discardTop: state.discardTopCard!,
+          state: state,
+        ),
+        isNull,
+      );
+    });
+
+    test('threePlayerKingMidTurnStillRequiresNumericalFlow', () {
+      var state = buildState(discardTop: c(Rank.five, Suit.spades));
+      final p2 = PlayerModel(
+        id: 'p2',
+        displayName: 'P2',
+        tablePosition: TablePosition.top,
+        hand: [],
+        cardCount: 0,
+      );
+      final p3 = PlayerModel(
+        id: 'p3',
+        displayName: 'P3',
+        tablePosition: TablePosition.left,
+        hand: [],
+        cardCount: 0,
+      );
+      state = state.copyWith(players: [...state.players, p2, p3]);
+
+      state = applyPlay(
+        state: state,
+        playerId: 'p1',
+        cards: [c(Rank.king, Suit.spades)],
+      );
+      expect(
+        validatePlay(
+          cards: [c(Rank.four, Suit.spades)],
+          discardTop: state.discardTopCard!,
+          state: state,
+        ),
+        isNotNull,
+      );
+    });
+
+    test('twoPlayerDoubleKingStackFollowUpUsesDiscardMatch', () {
+      var state = buildState(discardTop: c(Rank.five, Suit.spades));
+      final p2 = PlayerModel(
+        id: 'p2',
+        displayName: 'P2',
+        tablePosition: TablePosition.top,
+        hand: [],
+        cardCount: 0,
+      );
+      state = state.copyWith(players: [...state.players, p2]);
+      state = applyPlay(
+        state: state,
+        playerId: 'p1',
+        cards: [
+          c(Rank.king, Suit.spades),
+          c(Rank.king, Suit.hearts),
+        ],
+      );
+      expect(state.lastPlayedThisTurn!.effectiveRank, Rank.king);
+      expect(
+        validatePlay(
+          cards: [c(Rank.four, Suit.hearts)],
+          discardTop: state.discardTopCard!,
+          state: state,
+        ),
+        isNull,
+      );
+    });
+
+    test('twoPlayerKingFollowUpAceMatchesSuitOnlyNotWild', () {
+      var state = buildState(discardTop: c(Rank.five, Suit.spades));
+      final p2 = PlayerModel(
+        id: 'p2',
+        displayName: 'P2',
+        tablePosition: TablePosition.top,
+        hand: [],
+        cardCount: 0,
+      );
+      state = state.copyWith(players: [...state.players, p2]);
+      state = applyPlay(
+        state: state,
+        playerId: 'p1',
+        cards: [c(Rank.king, Suit.spades)],
+      );
+      expect(
+        validatePlay(
+          cards: [c(Rank.ace, Suit.spades)],
+          discardTop: state.discardTopCard!,
+          state: state,
+        ),
+        isNull,
+      );
+      expect(
+        validatePlay(
+          cards: [c(Rank.ace, Suit.hearts)],
+          discardTop: state.discardTopCard!,
+          state: state,
+        ),
+        isNotNull,
+      );
+    });
+
+    test('jokerOptions_twoPlayerKingUsesTurnStarterMatching', () {
+      var state = buildState(discardTop: c(Rank.five, Suit.spades));
+      final p2 = PlayerModel(
+        id: 'p2',
+        displayName: 'P2',
+        tablePosition: TablePosition.top,
+        hand: [],
+        cardCount: 0,
+      );
+      state = state.copyWith(players: [...state.players, p2]);
+      state = applyPlay(
+        state: state,
+        playerId: 'p1',
+        cards: [c(Rank.king, Suit.spades)],
+      );
+      final jin = resolveJokerPlayInputs(
+        state: state,
+        discardTop: state.discardTopCard!,
+      );
+      expect(jin.resolvedContext, JokerPlayContext.midTurnContinuance);
+      expect(jin.effectivePlayContext, JokerPlayContext.turnStarter);
+      expect(jin.activeSequenceSuit, isNull);
+
+      final options =
+          getValidJokerOptions(state: state, discardTop: state.discardTopCard!);
+      final labels = options.map((c) => c.shortLabel).toSet();
+      expect(
+        labels,
+        contains('5♠'),
+        reason: 'Joker may declare any ♠ on K♠ after 2p King (not adjacency-only)',
+      );
+      expect(options.length, 15,
+          reason: 'Turn-starter on K♠: 12 ♠ non-Kings + 3 other Kings');
+    });
+
     test('nextPlayerAfterTurnLabel reflects Eight skip and viewer', () {
       var state = buildState(discardTop: c(Rank.five, Suit.diamonds));
       final p2 = PlayerModel(
