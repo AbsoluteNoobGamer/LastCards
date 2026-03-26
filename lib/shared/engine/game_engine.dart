@@ -16,6 +16,12 @@ export '../rules/card_rules.dart' show JokerPlayContext, jokerPlayContextFromCar
 /// In a **2-player** game, a played [Rank.king] reverses direction onto the same
 /// seat. The next card is validated like a **new lead** against the discard top
 /// (the King), not as numerical-flow continuation off the King.
+///
+/// Uses [CardModel.effectiveRank], so a **Joker declared as King** matches a
+/// natural King here — same as the 2-player King skip in [nextPlayerId]. A **same-turn
+/// stack of multiple Kings** leaves [GameState.lastPlayedThisTurn] as the last
+/// King; direction may reverse multiple times, but the follow-up still uses this
+/// reset when the final played card is a King.
 bool twoPlayerKingResetsNumericalFlow(GameState state) {
   return state.players.length == 2 &&
       state.lastPlayedThisTurn?.effectiveRank == Rank.king;
@@ -75,6 +81,9 @@ bool twoPlayerKingResetsNumericalFlow(GameState state) {
 ///   • Exception: in a **2-player** game, after a played [Rank.king] (same seat
 ///     again), the immediate next play matches the discard top with normal
 ///     suit/rank rules — numerical flow does not step from the King.
+///     That “normal match” is **not** the first-card Ace wild: [Rank.ace] must
+///     match the King’s suit (or rank) like any other card once the player has
+///     already played this turn.
 ///
 /// The leading card (lowest for ascending, highest for descending) must satisfy
 /// the normal suit/rank match against the discard top.
@@ -260,6 +269,12 @@ String? validatePlay({
 /// **2-player King:** When [twoPlayerKingResetsNumericalFlow] is true, Joker
 /// options use turn-starter matching (same suit or same rank as anchor), not
 /// mid-turn adjacency only.
+///
+/// The [context] argument must be the **raw** play context (e.g.
+/// [resolveJokerPlayInputs] `resolvedContext` or [jokerPlayContextFromCardsPlayed]),
+/// not a caller-pre-upgraded [JokerPlayContext.turnStarter]. Passing an already
+/// upgraded `turnStarter` would skip the internal 2p-King check and use the wrong
+/// anchor derivation when [contextTopCard] is omitted.
 List<CardModel> getValidJokerOptions({
   required GameState state,
   required CardModel discardTop,

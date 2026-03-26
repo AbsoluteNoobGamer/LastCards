@@ -1288,6 +1288,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           state: gameState,
           discardTop: gameState.discardTopCard!,
         );
+        // Raw context for [getValidJokerOptions] only — that function upgrades
+        // 2p King to turn-starter internally.
         final validOptions = getValidJokerOptions(
           state: gameState,
           discardTop: gameState.discardTopCard!,
@@ -1807,6 +1809,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         state: gameState,
         discardTop: gameState.discardTopCard!,
       );
+      // Raw context for [getValidJokerOptions] only — that function upgrades
+      // 2p King to turn-starter internally.
       final validOptions = getValidJokerOptions(
         state: gameState,
         discardTop: gameState.discardTopCard!,
@@ -1898,6 +1902,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           discardTop: _offlineState.discardTopCard!,
         );
 
+        // Raw context for [getValidJokerOptions] only — that function upgrades
+        // 2p King to turn-starter internally.
         final validOptions = getValidJokerOptions(
           state: _offlineState,
           discardTop: _offlineState.discardTopCard!,

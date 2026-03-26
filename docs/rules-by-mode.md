@@ -34,7 +34,7 @@
 - `Black Jack` (`spades`/`clubs`): Next player draws 5 cards. Stackable, and can stack onto an active 2-chain.
 - `Red Jack` (`hearts`/`diamonds`): Cancels any active draw penalty (resets draw stack to 0).
 - **Pick-up matching:** While the penalty chain is **live** (a penalty card was most recently played and no player has drawn or played a non-penalty card to break it), penalty cards (`2` / Black Jack / Red Jack) may be played on other penalty cards without matching suit or rank. The chain stays **live** after a Red Jack resets the draw count to zero; it ends when someone draws, a non-penalty card clears the chain (e.g. sequence continuation), or the turn advances after a non-penalty card.
-- `King`: Reverses direction of play. **2 players:** that sends the turn back to you; your **next** card on that same turn is matched to the discard top (the King) with normal suit/rank rules — it does **not** have to be the next/previous rank in a numerical run from the King. **3+ players:** mid-turn numerical-flow rules still apply after a King like any other non-special card.
+- `King`: Reverses direction of play. **2 players:** that sends the turn back to you; your **next** card on that same turn is matched to the discard top (the King) with normal suit/rank rules — it does **not** have to be the next/previous rank in a numerical run from the King. **Ace on that follow-up** is not “change the suit” wild; it must match the King by suit or by rank like other cards. **3+ players:** mid-turn numerical-flow rules still apply after a King like any other non-special card.
 - `Ace`: Player changes the active suit.
 - `Queen`: Suit lock; next player must follow that suit (no number-match bypass).
 - `8`: Next player is skipped.

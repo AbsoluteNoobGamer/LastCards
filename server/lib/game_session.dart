@@ -789,6 +789,9 @@ class GameSession {
     }
     final jokerIn =
         resolveJokerPlayInputs(state: _state, discardTop: top);
+    // Pass raw [jokerIn.resolvedContext] so [getValidJokerOptions] can apply the
+    // 2-player King → turn-starter upgrade internally (do not pass
+    // [jokerIn.effectivePlayContext] here).
     final validOptions = getValidJokerOptions(
       state: _state,
       discardTop: top,
