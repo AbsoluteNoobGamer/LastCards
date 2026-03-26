@@ -122,6 +122,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     _stateSnapshotSub?.cancel();
     _lobbyEventsSub?.cancel();
     _codeController.dispose();
+    // Leaving the lobby must drop the socket so the server removes this client
+    // from the room; otherwise re-entry stacks duplicate "players".
+    unawaited(ref.read(wsClientProvider).disconnect());
     super.dispose();
   }
 

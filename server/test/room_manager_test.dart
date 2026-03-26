@@ -281,6 +281,42 @@ void main() {
       expect(ws2.lastOfType('error')?['code'], 'room_not_found');
     });
 
+    test('duplicate join_room from same socket does not add another roster entry',
+        () async {
+      final rm = RoomManager();
+      final host = FakeWs();
+      final guest = FakeWs();
+      rm.handleConnection(host);
+      host.addIncoming(jsonEncode({
+        'type': 'create_room',
+        'displayName': 'Host',
+      }));
+      await _flushAsync();
+      final code = host.lastOfType('room_created')!['roomCode'] as String;
+
+      rm.handleConnection(guest);
+      guest.addIncoming(jsonEncode({
+        'type': 'join_room',
+        'roomCode': code,
+        'displayName': 'Guest',
+      }));
+      await _flushAsync();
+
+      final hostJoinBefore =
+          host.messages.where((m) => m['type'] == 'player_joined').length;
+
+      guest.addIncoming(jsonEncode({
+        'type': 'join_room',
+        'roomCode': code,
+        'displayName': 'Guest',
+      }));
+      await _flushAsync();
+
+      final hostJoinAfter =
+          host.messages.where((m) => m['type'] == 'player_joined').length;
+      expect(hostJoinAfter, hostJoinBefore);
+    });
+
     test('disconnect removes player from quickplay queue', () async {
       final rm = RoomManager();
       final a = FakeWs();

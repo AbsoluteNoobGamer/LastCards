@@ -184,6 +184,11 @@ class GameSession {
           '{"type":"error","code":"game_started","message":"Game already in progress."}');
       return '';
     }
+    for (final entry in _players.entries) {
+      if (identical(entry.value.ws, ws)) {
+        return entry.key;
+      }
+    }
     final maxPlayers = isBustMode ? 10 : 7;
     if (_players.length >= maxPlayers) {
       ws.sink.add(
