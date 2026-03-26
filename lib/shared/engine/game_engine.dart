@@ -16,9 +16,47 @@ export '../rules/card_rules.dart' show JokerPlayContext, jokerPlayContextFromCar
 /// In a **2-player** game, a played [Rank.king] reverses direction onto the same
 /// seat. The next card is validated like a **new lead** against the discard top
 /// (the King), not as numerical-flow continuation off the King.
-bool _twoPlayerKingResetsNumericalFlow(GameState state) {
+bool twoPlayerKingResetsNumericalFlow(GameState state) {
   return state.players.length == 2 &&
       state.lastPlayedThisTurn?.effectiveRank == Rank.king;
+}
+
+/// Shared inputs for Joker declaration (client sheet + server validation).
+///
+/// [anchor] is the logical top card for [getValidJokerOptions] (`contextTopCard`).
+/// [effectivePlayContext] is what the UI should show (turn starter vs mid-turn),
+/// including the 2-player King numerical-flow reset.
+({
+  CardModel anchor,
+  JokerPlayContext resolvedContext,
+  JokerPlayContext effectivePlayContext,
+  Suit? activeSequenceSuit,
+}) resolveJokerPlayInputs({
+  required GameState state,
+  required CardModel discardTop,
+}) {
+  final resolvedContext =
+      jokerPlayContextFromCardsPlayed(state.cardsPlayedThisTurn);
+  final effectivePlayContext =
+      resolvedContext == JokerPlayContext.midTurnContinuance &&
+              twoPlayerKingResetsNumericalFlow(state)
+          ? JokerPlayContext.turnStarter
+          : resolvedContext;
+  final anchor = resolvedContext == JokerPlayContext.midTurnContinuance &&
+          state.lastPlayedThisTurn != null &&
+          !twoPlayerKingResetsNumericalFlow(state)
+      ? state.lastPlayedThisTurn!
+      : discardTop;
+  final activeSequenceSuit =
+      effectivePlayContext == JokerPlayContext.midTurnContinuance
+          ? anchor.effectiveSuit
+          : null;
+  return (
+    anchor: anchor,
+    resolvedContext: resolvedContext,
+    effectivePlayContext: effectivePlayContext,
+    activeSequenceSuit: activeSequenceSuit,
+  );
 }
 
 // ── Play validation ────────────────────────────────────────────────────────────
@@ -156,7 +194,7 @@ String? validatePlay({
   if (state.actionsThisTurn > 0 &&
       state.lastPlayedThisTurn != null &&
       state.queenSuitLock == null &&
-      !_twoPlayerKingResetsNumericalFlow(state)) {
+      !twoPlayerKingResetsNumericalFlow(state)) {
     final prev = state.lastPlayedThisTurn!;
     final next = cards.first;
     // Only enforce adjacency for non-special cards continuing a same-suit flow.
@@ -218,6 +256,10 @@ String? validatePlay({
 /// 2. Adjacent rank (±1 or Ace=1 for 2) as discard, same suit.
 /// 3. If discard is a penalty card and [GameState.isPenaltyChainActive], can also
 ///    stack 2s or Red/Black Jacks per penalty-on-penalty rules.
+///
+/// **2-player King:** When [twoPlayerKingResetsNumericalFlow] is true, Joker
+/// options use turn-starter matching (same suit or same rank as anchor), not
+/// mid-turn adjacency only.
 List<CardModel> getValidJokerOptions({
   required GameState state,
   required CardModel discardTop,
@@ -225,27 +267,36 @@ List<CardModel> getValidJokerOptions({
   CardModel? contextTopCard,
 }) {
   final List<CardModel> validOptions = [];
-  final playContext =
+  final resolvedContext =
       context ?? jokerPlayContextFromCardsPlayed(state.cardsPlayedThisTurn);
+  final effectivePlayContext =
+      resolvedContext == JokerPlayContext.midTurnContinuance &&
+              twoPlayerKingResetsNumericalFlow(state)
+          ? JokerPlayContext.turnStarter
+          : resolvedContext;
   final anchorCard = contextTopCard ??
-      (playContext == JokerPlayContext.midTurnContinuance &&
+      (resolvedContext == JokerPlayContext.midTurnContinuance &&
               state.lastPlayedThisTurn != null &&
-              !_twoPlayerKingResetsNumericalFlow(state)
+              !twoPlayerKingResetsNumericalFlow(state)
           ? state.lastPlayedThisTurn!
           : discardTop);
   final targetRank = anchorCard.effectiveRank;
   final targetSuit =
-      (playContext == JokerPlayContext.turnStarter && state.suitLock != null)
+      (effectivePlayContext == JokerPlayContext.turnStarter &&
+              state.suitLock != null)
           ? state.suitLock!
           : anchorCard.effectiveSuit;
   // Exact-dupe exclusion must match [anchorCard] when no Ace suit lock, or the
   // declared suit when locked (same rank + locked suit), not the anchor's suit.
   final duplicateExclusionSuit =
-      (playContext == JokerPlayContext.turnStarter && state.suitLock != null)
+      (effectivePlayContext == JokerPlayContext.turnStarter &&
+              state.suitLock != null)
           ? state.suitLock!
           : anchorCard.effectiveSuit;
   final activeSequenceSuit =
-      playContext == JokerPlayContext.midTurnContinuance ? targetSuit : null;
+      effectivePlayContext == JokerPlayContext.midTurnContinuance
+          ? targetSuit
+          : null;
 
   for (final suit in Suit.values) {
     for (final rank in Rank.values) {
@@ -311,7 +362,7 @@ List<CardModel> getValidJokerOptions({
         isValidMatch =
             isTwo || isBlackJack || isRedJack || isSequenceContinuation;
       } else {
-        if (playContext == JokerPlayContext.turnStarter) {
+        if (effectivePlayContext == JokerPlayContext.turnStarter) {
           // 1. TURN-START (first play after opponent ends):
           // Joker can mimic any card of the same suit OR any card of the same rank.
           if (suit == targetSuit || rank == targetRank) {

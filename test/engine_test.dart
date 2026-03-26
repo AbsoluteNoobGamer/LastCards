@@ -909,6 +909,41 @@ void main() {
       );
     });
 
+    test('jokerOptions_twoPlayerKingUsesTurnStarterMatching', () {
+      var state = buildState(discardTop: c(Rank.five, Suit.spades));
+      final p2 = PlayerModel(
+        id: 'p2',
+        displayName: 'P2',
+        tablePosition: TablePosition.top,
+        hand: [],
+        cardCount: 0,
+      );
+      state = state.copyWith(players: [...state.players, p2]);
+      state = applyPlay(
+        state: state,
+        playerId: 'p1',
+        cards: [c(Rank.king, Suit.diamonds)],
+      );
+      final jin = resolveJokerPlayInputs(
+        state: state,
+        discardTop: state.discardTopCard!,
+      );
+      expect(jin.resolvedContext, JokerPlayContext.midTurnContinuance);
+      expect(jin.effectivePlayContext, JokerPlayContext.turnStarter);
+      expect(jin.activeSequenceSuit, isNull);
+
+      final options =
+          getValidJokerOptions(state: state, discardTop: state.discardTopCard!);
+      final labels = options.map((c) => c.shortLabel).toSet();
+      expect(
+        labels,
+        contains('5♦'),
+        reason: 'Joker may declare any ♦ on K♦ after 2p King (not adjacency-only)',
+      );
+      expect(options.length, 15,
+          reason: 'Turn-starter on K♦: 12 ♦ non-Kings + 3 other Kings');
+    });
+
     test('nextPlayerAfterTurnLabel reflects Eight skip and viewer', () {
       var state = buildState(discardTop: c(Rank.five, Suit.diamonds));
       final p2 = PlayerModel(
