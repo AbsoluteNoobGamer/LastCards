@@ -23,10 +23,6 @@ import 'trophy_recorder.dart';
 
 const _turnDuration = Duration(seconds: 60);
 
-/// Grace period before a disconnected standard-mode player is removed and the
-/// game ends (allows [GameSession.tryReattachSocket]).
-const _disconnectGraceDuration = Duration(seconds: 45);
-
 // ── Connected player ──────────────────────────────────────────────────────────
 
 class _ConnectedPlayer {
@@ -35,7 +31,6 @@ class _ConnectedPlayer {
     required this.displayName,
     this.firebaseUid,
   });
-  /// Null while the client is disconnected but within [_disconnectGraceDuration].
   dynamic ws;
   final String displayName;
   final String? firebaseUid;
@@ -90,14 +85,11 @@ class GameSession {
 
   final TrophyRecorder _trophyRecorder;
 
-  /// Called after [removePlayer] when no players remain (e.g. grace timers
-  /// removed everyone). [RoomManager] uses this to drop the room from memory.
+  /// Called after [removePlayer] when no players remain. [RoomManager] uses
+  /// this to drop the room from memory.
   final void Function(String roomCode)? onBecameEmpty;
 
   final _players = <String, _ConnectedPlayer>{};
-
-  /// Per-socket disconnect grace — only used for standard (non-Bust) in-progress games.
-  final Map<String, Timer> _disconnectGraceTimers = {};
 
   /// Per-player timestamp of last quick chat message (server-side rate limit).
   final _lastQuickChatTime = <String, DateTime>{};
@@ -218,9 +210,8 @@ class GameSession {
     return id;
   }
 
-  /// Called when a client's socket closes. Standard in-progress games enter a
-  /// grace period so the client can [tryReattachSocket]. Lobby / Bust / ended
-  /// games use immediate [removePlayer].
+  /// Called when a client's socket closes. Drops the player from the session
+  /// immediately; there is no return window (standard or otherwise).
   ///
   /// [disconnectedWs] must be the socket that closed. If [tryReattachSocket]
   /// already replaced it, this is ignored so a late close on the old socket
@@ -234,23 +225,14 @@ class GameSession {
       return;
     }
 
-    if (!_started || _gameOver || isBustMode) {
-      removePlayer(playerId);
-      return;
-    }
-
-    _disconnectGraceTimers[playerId]?.cancel();
-    leavingPlayer.ws = null;
-    _broadcast({'type': 'player_socket_lost', 'playerId': playerId});
-    _disconnectGraceTimers[playerId] =
-        Timer(_disconnectGraceDuration, () {
-      _disconnectGraceTimers.remove(playerId);
-      removePlayer(playerId);
-    });
+    removePlayer(playerId);
   }
 
-  /// Reattaches a new WebSocket after a transient disconnect (within grace).
-  /// Returns false if the slot is invalid or grace expired.
+  /// Replaces the live WebSocket when the same client connects again before
+  /// the old socket has been torn down (e.g. sent [rejoin_session] with a new
+  /// socket while the previous one still appears open). In-progress games do
+  /// not allow returning after a full disconnect — [handleSocketDisconnected]
+  /// already removed the player.
   bool tryReattachSocket(
     String playerId,
     dynamic newWs, {
@@ -269,22 +251,9 @@ class GameSession {
       }
     }
 
-    // Grace-period reconnect (ws was nulled by [handleSocketDisconnected]).
-    if (p.ws == null) {
-      if (!_disconnectGraceTimers.containsKey(playerId)) return false;
-      _disconnectGraceTimers.remove(playerId)?.cancel();
-      p.ws = newWs;
-      _broadcast({'type': 'player_socket_restored', 'playerId': playerId});
-      _broadcastStateSnapshots();
-      return true;
-    }
-
-    // Stale socket: TCP close not detected yet; same client opened a new
-    // connection and sent rejoin_session — replace the old WebSocket.
     try {
       p.ws.sink.close();
     } catch (_) {}
-    _disconnectGraceTimers.remove(playerId)?.cancel();
     p.ws = newWs;
     _broadcastStateSnapshots();
     return true;
@@ -310,11 +279,15 @@ class GameSession {
   }
 
   void removePlayer(String playerId) {
-    _disconnectGraceTimers.remove(playerId)?.cancel();
-
     final leavingPlayer = _players[playerId];
-    final firebaseUid = leavingPlayer?.firebaseUid;
-    final displayName = leavingPlayer?.displayName ?? playerId;
+    if (leavingPlayer == null) return;
+
+    final firebaseUid = leavingPlayer.firebaseUid;
+    final displayName = leavingPlayer.displayName;
+    final wasCurrentBefore = _started &&
+        !_gameOver &&
+        !isBustMode &&
+        _state.currentPlayerId == playerId;
     _players.remove(playerId);
     _broadcast({'type': 'player_left', 'playerId': playerId});
 
@@ -333,14 +306,51 @@ class GameSession {
       return;
     }
 
-    _endGameForDisconnect(
-      disconnectedPlayerId: playerId,
-      firebaseUid: firebaseUid,
-      displayName: displayName,
+    final continueGame = removeDisconnectedStandardPlayer(
+      state: _state,
+      removedPlayerId: playerId,
+      authoritativeDrawPile: _drawPile,
+      authoritativeDiscardUnderTop: _discardUnderTop,
+      authoritativeDiscardTop: _state.discardTopCard,
     );
+
+    if (continueGame == null || _players.length < 2) {
+      _endGameForDisconnect(
+        disconnectedPlayerId: playerId,
+        firebaseUid: firebaseUid,
+        displayName: displayName,
+      );
+      return;
+    }
+
+    _lastCardsBluffedBy.remove(playerId);
+    _lastQuickChatTime.remove(playerId);
+
+    if (_trophyEligible && isRanked) {
+      final uid = firebaseUid ?? playerId;
+      _trophyRecorder.recordLeavePenalty(uid, displayName: displayName);
+    }
+
+    _drawPile.addAll(continueGame.handForDrawPile);
+    fisherYatesShuffle(_drawPile);
+    _state = continueGame.state.copyWith(drawPileCount: _drawPile.length);
+
+    _checkWin();
+    if (_gameOver) return;
+
+    _broadcastStateSnapshots();
+    if (wasCurrentBefore) {
+      _broadcast({
+        'type': 'turn_changed',
+        'currentPlayerId': _state.currentPlayerId,
+        'direction': _state.direction.name,
+      });
+    }
+    _startTurnTimer();
   }
 
-  /// Standard (non-Bust) games end when any player disconnects mid-session.
+  /// Standard (non-Bust): end the session after a leave when fewer than two
+  /// players remain or the roster could not be updated.
   void _endGameForDisconnect({
     required String disconnectedPlayerId,
     required String? firebaseUid,
@@ -348,7 +358,6 @@ class GameSession {
   }) {
     _turnTimer?.cancel();
     _gameOver = true;
-    _state = _state.copyWith(phase: GamePhase.ended);
 
     final trophyPenaltyForLeaver = _trophyEligible;
     if (trophyPenaltyForLeaver && isRanked) {
@@ -356,19 +365,35 @@ class GameSession {
       _trophyRecorder.recordLeavePenalty(uid, displayName: displayName);
     }
 
+    Map<String, int>? ratingChanges;
+    if (trophyPenaltyForLeaver && isRanked) {
+      ratingChanges = {
+        disconnectedPlayerId: _rankedLeaveDelta,
+        for (final p in _state.players)
+          if (p.id != disconnectedPlayerId) p.id: _rankedWinDelta,
+      };
+    }
+
+    final remainingIds = _players.keys.toSet();
+    final prunedPlayers =
+        _state.players.where((p) => remainingIds.contains(p.id)).toList();
+
+    _state = _state.copyWith(
+      phase: GamePhase.ended,
+      players: prunedPlayers,
+    );
+
     _broadcast({
       'type': 'game_ended',
       'winnerId': '',
       'reason': 'player_disconnected',
       'disconnectedPlayerId': disconnectedPlayerId,
       'trophyPenaltyForLeaver': trophyPenaltyForLeaver,
-      if (isRanked)
-        'ratingChanges': {
-          disconnectedPlayerId: _rankedLeaveDelta,
-          for (final p in _state.players)
-            if (p.id != disconnectedPlayerId) p.id: _rankedWinDelta,
-        },
+      if (ratingChanges != null) 'ratingChanges': ratingChanges,
     });
+    // Authoritative ended snapshot so clients never sit in a playing state until
+    // the turn timer fires; also syncs draw pile / roster with pruned players.
+    _broadcastStateSnapshots();
   }
 
   /// Bust: drop the leaver from the table; continue if more than 2 survivors remain.

@@ -4,7 +4,8 @@ import 'package:last_cards/core/models/card_model.dart';
 import 'package:last_cards/core/models/game_state.dart';
 import 'package:last_cards/core/models/player_model.dart';
 import 'package:last_cards/core/models/table_position_layout.dart';
-import 'package:last_cards/shared/engine/game_engine.dart' show canClearHandInOneTurn;
+import 'package:last_cards/shared/engine/game_engine.dart'
+    show canClearHandInOneTurn, standardFiftyFourDeckInCanonicalOrder;
 import 'package:last_cards/shared/rules/last_cards_rules.dart'
     show canHandClearInOneTurnHandOnly;
 import 'package:test/test.dart';
@@ -2042,32 +2043,151 @@ void main() {
     });
   });
 
-  group('disconnect grace (standard)', () {
-    test('handleSocketDisconnected does not broadcast game_ended immediately',
-        () {
+  group('disconnect (standard)', () {
+    test('handleSocketDisconnected ends two-player game immediately', () {
       final g = _makeKnownGame();
       g.p2ws.clear();
       g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
-      expect(g.p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
-      expect(g.p2ws.lastOfType('player_socket_lost')?['playerId'], g.p1Id);
-    });
-
-    test('removePlayer after grace ends game for other player', () {
-      final g = _makeKnownGame();
-      g.p2ws.clear();
-      g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
-      g.session.removePlayer(g.p1Id);
       expect(g.p2ws.lastOfType('game_ended')?['reason'], 'player_disconnected');
+      expect(
+        g.p2ws.messages.any((m) => m['type'] == 'player_socket_lost'),
+        isFalse,
+      );
     });
 
-    test('tryReattachSocket sends state_snapshot to new socket', () {
+    test('handleSocketDisconnected continues three-player game and returns hand to draw pile',
+        () {
+      final (:session, :sockets, :ids) = _makeSession(3);
+      final p1ws = sockets[0];
+      final p2ws = sockets[1];
+      final p3ws = sockets[2];
+      final p1Id = ids[0];
+      final p2Id = ids[1];
+      final p3Id = ids[2];
+
+      final drawPileBefore = List.generate(
+          10,
+          (i) =>
+              CardModel(id: 'filler_$i', rank: Rank.four, suit: Suit.clubs));
+      final p3Hand = [_card(Rank.six, Suit.diamonds)];
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: p1Id,
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: [_card(Rank.three, Suit.spades)],
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: p2Id,
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: [_card(Rank.five, Suit.hearts)],
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: p3Id,
+            displayName: 'P3',
+            tablePosition: TablePosition.left,
+            hand: p3Hand,
+            cardCount: 1,
+          ),
+        ],
+        currentPlayerId: p1Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: _card(Rank.two, Suit.spades),
+        drawPileCount: drawPileBefore.length,
+        preTurnCentreSuit: Suit.spades,
+      );
+
+      session.seedStateForTesting(state: state, drawPile: drawPileBefore);
+
+      p2ws.clear();
+      session.handleSocketDisconnected(p3Id, p3ws);
+
+      expect(p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
+      expect(session.drawPileCountForTesting, drawPileBefore.length + p3Hand.length);
+
+      final snap = _latestSnapshot(p1ws);
+      final players = snap['players'] as List<dynamic>;
+      expect(players.length, 2);
+    });
+
+    test('three-player leave infers hand into draw pile when hand list is empty',
+        () {
+      final (:session, :sockets, :ids) = _makeSession(3);
+      final p1ws = sockets[0];
+      final p2ws = sockets[1];
+      final p3ws = sockets[2];
+      final p1Id = ids[0];
+      final p2Id = ids[1];
+      final p3Id = ids[2];
+
+      final full = standardFiftyFourDeckInCanonicalOrder();
+      final p1Hand = full.sublist(0, 7).toList();
+      final p2Hand = full.sublist(7, 14).toList();
+      const p3CardCount = 7;
+      final discardTop = full[21];
+      final drawPileBefore = full.sublist(22).toList();
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: p1Id,
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: p1Hand,
+            cardCount: p1Hand.length,
+          ),
+          PlayerModel(
+            id: p2Id,
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: p2Hand,
+            cardCount: p2Hand.length,
+          ),
+          PlayerModel(
+            id: p3Id,
+            displayName: 'P3',
+            tablePosition: TablePosition.left,
+            hand: const [],
+            cardCount: p3CardCount,
+          ),
+        ],
+        currentPlayerId: p1Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: discardTop,
+        drawPileCount: drawPileBefore.length,
+        preTurnCentreSuit: discardTop.effectiveSuit,
+      );
+
+      session.seedStateForTesting(state: state, drawPile: drawPileBefore);
+
+      p2ws.clear();
+      session.handleSocketDisconnected(p3Id, p3ws);
+
+      expect(p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
+      expect(session.drawPileCountForTesting,
+          drawPileBefore.length + p3CardCount);
+
+      final snap = _latestSnapshot(p1ws);
+      expect((snap['drawPileCount'] as num).toInt(),
+          drawPileBefore.length + p3CardCount);
+    });
+
+    test('tryReattachSocket fails after disconnect removed player', () {
       final g = _makeKnownGame();
       g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
       g.p2ws.clear();
       final newWs = _FakeWs();
-      expect(g.session.tryReattachSocket(g.p1Id, newWs), isTrue);
-      expect(newWs.messages.any((m) => m['type'] == 'state_snapshot'), isTrue);
-      expect(g.p2ws.lastOfType('player_socket_restored')?['playerId'], g.p1Id);
+      expect(g.session.tryReattachSocket(g.p1Id, newWs), isFalse);
+      expect(newWs.messages.any((m) => m['type'] == 'state_snapshot'), isFalse);
     });
 
     test('tryReattachSocket replaces socket when previous still connected', () {
@@ -2086,7 +2206,8 @@ void main() {
       expect(g.p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
     });
 
-    test('onBecameEmpty when last player removed after game over', () {
+    test('onBecameEmpty when last connected player disconnects after game ended',
+        () {
       var emptyCalled = false;
       final session = GameSession(
         'ROOM',
@@ -2099,10 +2220,8 @@ void main() {
       session.markReady(id1);
       session.markReady(id2);
       session.handleSocketDisconnected(id1, w1);
-      session.handleSocketDisconnected(id2, w2);
-      session.removePlayer(id1);
       expect(emptyCalled, isFalse);
-      session.removePlayer(id2);
+      session.handleSocketDisconnected(id2, w2);
       expect(emptyCalled, isTrue);
     });
 

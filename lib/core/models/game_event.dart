@@ -185,9 +185,8 @@ final class PlayerLeftEvent extends GameEvent {
   String get type => 'player_left';
 }
 
-/// Standard online: a player's WebSocket dropped; they may reattach within
-/// the server grace period. Other clients should hide that seat until
-/// [PlayerSocketRestoredEvent] or the game ends.
+/// Legacy / optional: server no longer emits this — disconnect removes the
+/// player immediately ([PlayerLeftEvent] + snapshot). Kept for parsing.
 final class PlayerSocketLostEvent extends GameEvent {
   final String playerId;
   const PlayerSocketLostEvent(this.playerId);
@@ -196,7 +195,7 @@ final class PlayerSocketLostEvent extends GameEvent {
   String get type => 'player_socket_lost';
 }
 
-/// Standard online: a player reconnected after [PlayerSocketLostEvent].
+/// Legacy / optional: server no longer emits this. Kept for parsing.
 final class PlayerSocketRestoredEvent extends GameEvent {
   final String playerId;
   const PlayerSocketRestoredEvent(this.playerId);
@@ -540,12 +539,12 @@ GameEvent parseServerEvent(String raw) {
       'player_socket_restored' =>
         PlayerSocketRestoredEvent(json['playerId'] as String),
       'game_ended' => GameEndedEvent(
-          json['winnerId'] as String,
+          (json['winnerId'] as String?) ?? '',
           ratingChanges: (json['ratingChanges'] as Map<String, dynamic>?)
               ?.map((k, v) => MapEntry(k, (v as num).toInt())),
         ),
       'bust_game_ended' => GameEndedEvent(
-          json['winnerId'] as String,
+          (json['winnerId'] as String?) ?? '',
           ratingChanges: (json['ratingChanges'] as Map<String, dynamic>?)
               ?.map((k, v) => MapEntry(k, (v as num).toInt())),
         ),
