@@ -54,6 +54,26 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
   /// Cached for dispose — cannot use [ref] after the widget is disposed.
   WebSocketClient? _wsClientToDisconnectOnDispose;
 
+  /// Resizes [_slotNames] when [onlineSessionProvider.playerCount] changes.
+  void _growOrShrinkSlots(int playerCount) {
+    if (_slotNames.length == playerCount) return;
+    _slotNames = List<String?>.generate(
+      playerCount,
+      (i) => i < _slotNames.length ? _slotNames[i] : null,
+    );
+    final maxIdx = playerCount > 0 ? playerCount - 1 : 0;
+    _yourSlotIndex = _yourSlotIndex.clamp(0, maxIdx);
+  }
+
+  /// Safe for build when state list length lags behind session [playerCount].
+  List<String?> _slotsForDisplay(int playerCount) {
+    if (_slotNames.length == playerCount) return _slotNames;
+    return List<String?>.generate(
+      playerCount,
+      (i) => i < _slotNames.length ? _slotNames[i] : null,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -109,6 +129,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     setState(() {
       final you = e.yourIndex.clamp(0, playerCount - 1);
       _yourSlotIndex = you;
+      _growOrShrinkSlots(playerCount);
       for (var i = 0; i < playerCount; i++) {
         _slotNames[i] = i < e.displayNames.length ? e.displayNames[i] : null;
       }
@@ -132,6 +153,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
       bySeat[p.tablePosition] = p;
     }
     setState(() {
+      _growOrShrinkSlots(playerCount);
       for (var s = 0; s < playerCount; s++) {
         final p = bySeat[tablePositionForSeatIndex(s)];
         if (p != null) {
@@ -232,7 +254,16 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     final session = ref.watch(onlineSessionProvider);
     final playerCount = session.playerCount ?? 4;
     final modeName = session.mode?.displayName ?? 'Quick Match';
-    final joinedCount = _slotNames.where((n) => n != null).length;
+    if (_slotNames.length != playerCount) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final pc = ref.read(onlineSessionProvider).playerCount ?? 4;
+        if (_slotNames.length == pc) return;
+        setState(() => _growOrShrinkSlots(pc));
+      });
+    }
+    final slots = _slotsForDisplay(playerCount);
+    final joinedCount = slots.where((n) => n != null).length;
 
     return PopScope(
       canPop: false, // Only Cancel button exits
@@ -364,9 +395,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                                                     const EdgeInsets.symmetric(
                                                         horizontal: 6),
                                                 child: _PlayerSlot(
-                                                  label: _slotNames[i] ?? '…',
-                                                  isFilled:
-                                                      _slotNames[i] != null,
+                                                  label: slots[i] ?? '…',
+                                                  isFilled: slots[i] != null,
                                                   isLocalSlot:
                                                       i == _yourSlotIndex,
                                                 ),
@@ -480,8 +510,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 4),
                                         child: _PlayerSlot(
-                                          label: _slotNames[i] ?? '…',
-                                          isFilled: _slotNames[i] != null,
+                                          label: slots[i] ?? '…',
+                                          isFilled: slots[i] != null,
                                           isLocalSlot: i == _yourSlotIndex,
                                         ),
                                       );
@@ -939,13 +969,13 @@ class _PlayerSlot extends ConsumerWidget {
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 400),
-      curve: Curves.easeOutBack,
+      curve: Curves.easeOutCubic,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           AnimatedContainer(
             duration: const Duration(milliseconds: 400),
-            curve: Curves.easeOutBack,
+            curve: Curves.easeOutCubic,
             width: 52,
             height: 52,
             decoration: BoxDecoration(
@@ -959,15 +989,16 @@ class _PlayerSlot extends ConsumerWidget {
                     : theme.accentDark.withValues(alpha: 0.3),
                 width: isFilled ? 2 : 1,
               ),
-              boxShadow: isFilled
-                  ? [
-                      BoxShadow(
-                        color: theme.accentPrimary.withValues(alpha: 0.30),
-                        blurRadius: 14,
-                        spreadRadius: 0,
-                      ),
-                    ]
-                  : [],
+              // Single-element list always: [AnimatedContainer] lerps [BoxDecoration]s;
+              // empty vs non-empty [boxShadow] lists produced negative blur during lerp.
+              boxShadow: [
+                BoxShadow(
+                  color: theme.accentPrimary
+                      .withValues(alpha: isFilled ? 0.30 : 0.0),
+                  blurRadius: isFilled ? 14 : 0,
+                  spreadRadius: 0,
+                ),
+              ],
             ),
             child: Center(
               child: AnimatedSwitcher(
