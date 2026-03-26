@@ -98,7 +98,13 @@ class _TurnTimerBarState extends State<TurnTimerBar>
                               ? [
                                   BoxShadow(
                                     color: barColor.withAlpha(160),
-                                    blurRadius: 10 + 6 * _urgentCtrl.value,
+                                    blurRadius: math.max(
+                                      0.0,
+                                      10 +
+                                          6 *
+                                              _urgentCtrl.value
+                                                  .clamp(0.0, 1.0),
+                                    ),
                                     spreadRadius: 2,
                                   ),
                                 ]

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -52,8 +54,10 @@ class CardWidget extends StatelessWidget {
       duration: const Duration(milliseconds: 150),
       curve: Curves.easeOutCubic,
       builder: (context, val, innerChild) {
-        final liftY = -12.0 * val; // Lifts higher now!
-        final scale = 1.0 + (0.10 * val); // Scale 1.0 -> 1.1
+        // Tween can briefly overshoot on curve/dispose; blur must stay ≥ 0.
+        final v = val.clamp(0.0, 1.0);
+        final liftY = -12.0 * v; // Lifts higher now!
+        final scale = 1.0 + (0.10 * v); // Scale 1.0 -> 1.1
 
         return MouseRegion(
           cursor: onTap != null
@@ -86,22 +90,22 @@ class CardWidget extends StatelessWidget {
                         BorderRadius.circular(AppDimensions.radiusCard),
                     boxShadow: [
                       BoxShadow(
-                        color:
-                            Colors.black.withValues(alpha: 0.35 + (0.15 * val)),
-                        blurRadius: 8 + (8 * val), // Shadow expands on lift
-                        offset: Offset(0, 4 + (4 * val)),
+                        color: Colors.black.withValues(
+                            alpha: (0.35 + (0.15 * v)).clamp(0.0, 1.0)),
+                        blurRadius: math.max(0.0, 8 + (8 * v)), // Shadow expands on lift
+                        offset: Offset(0, 4 + (4 * v)),
                       ),
-                      if (val > 0)
+                      if (v > 0)
                         BoxShadow(
                           color: AppColors.goldPrimary
-                              .withValues(alpha: val * 0.85),
-                          blurRadius: 16 * val,
-                          spreadRadius: 3 * val,
+                              .withValues(alpha: v * 0.85),
+                          blurRadius: math.max(0.0, 16 * v),
+                          spreadRadius: 3 * v,
                         ),
                     ],
                     border: Border.all(
                       color: isSelected
-                          ? AppColors.goldLight.withValues(alpha: val)
+                          ? AppColors.goldLight.withValues(alpha: v)
                           : Colors.black.withValues(alpha: 0.08),
                       width: isSelected ? 2.0 : 0.5,
                     ),

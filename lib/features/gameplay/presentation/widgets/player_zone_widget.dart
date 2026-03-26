@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -109,21 +111,22 @@ class PlayerZoneWidget extends ConsumerWidget {
         duration: Duration(milliseconds: isActive && isLocalPlayer ? 1100 : 1500),
         curve: Curves.easeInOutCubic,
         builder: (context, glowValue, childWrapper) {
+          final gv = glowValue.clamp(0.0, 1.0);
           final glowMul =
               isLocalPlayer && isActive ? 0.26 : (isActive ? 0.22 : 0.16);
           return Container(
             padding: EdgeInsets.all(compact ? 4 : AppDimensions.sm),
             decoration: BoxDecoration(
               color: isActive
-                  ? appTheme.accentPrimary.withValues(alpha: glowValue * glowMul)
+                  ? appTheme.accentPrimary.withValues(alpha: gv * glowMul)
                   : Colors.transparent,
               boxShadow: isActive
                   ? [
                       BoxShadow(
                         color: appTheme.accentPrimary
-                            .withValues(alpha: 0.35 * glowValue),
-                        blurRadius: 16 + 10 * glowValue,
-                        spreadRadius: 1 + glowValue,
+                            .withValues(alpha: 0.35 * gv),
+                        blurRadius: math.max(0.0, 16 + 10 * gv),
+                        spreadRadius: 1 + gv,
                       ),
                     ]
                   : null,

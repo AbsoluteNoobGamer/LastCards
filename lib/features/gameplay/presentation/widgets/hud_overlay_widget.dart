@@ -355,9 +355,12 @@ class _QueenLockIndicatorState extends State<_QueenLockIndicator>
         AnimatedBuilder(
           animation: Listenable.merge([_glow, _rotate]),
           builder: (context, _) {
-            final blur = disable
-                ? (widget.compact ? 6.0 : 10.0)
-                : (6.0 + _glow.value * 10.0);
+            final blur = math.max(
+              0.0,
+              disable
+                  ? (widget.compact ? 6.0 : 10.0)
+                  : (6.0 + _glow.value.clamp(0.0, 1.0) * 10.0),
+            );
             final angle = disable ? 0.0 : _rotate.value * 2 * math.pi;
             return SizedBox(
               width: size + 8,

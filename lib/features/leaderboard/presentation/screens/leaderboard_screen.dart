@@ -722,6 +722,9 @@ class _Podium extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (top3.length < 3) {
+      return const SizedBox.shrink();
+    }
     const podiumColors = [
       Color(0xFFFFD700), // gold
       Color(0xFFB0BEC5), // silver
@@ -1147,6 +1150,9 @@ class _ModePodium extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (top3.length < 3) {
+      return const SizedBox.shrink();
+    }
     const podiumColors = [
       Color(0xFFFFD700), // gold
       Color(0xFFB0BEC5), // silver

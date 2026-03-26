@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/card.dart';
@@ -271,7 +273,7 @@ class _ClippedCardWithRingState extends State<_ClippedCardWithRing>
               if (widget.isJokerDisguised)
                 BoxShadow(
                   color: AppColors.goldPrimary.withValues(alpha: jokerGlowAlpha),
-                  blurRadius: jokerGlowRadius,
+                  blurRadius: math.max(0.0, jokerGlowRadius),
                   spreadRadius: 3,
                 ),
             ],
