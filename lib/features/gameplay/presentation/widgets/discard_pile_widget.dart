@@ -4,6 +4,7 @@ import '../../domain/entities/card.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/shadow_blur.dart';
 import 'card_back_widget.dart';
 import 'card_widget.dart';
 
@@ -271,7 +272,7 @@ class _ClippedCardWithRingState extends State<_ClippedCardWithRing>
               if (widget.isJokerDisguised)
                 BoxShadow(
                   color: AppColors.goldPrimary.withValues(alpha: jokerGlowAlpha),
-                  blurRadius: jokerGlowRadius,
+                  blurRadius: nonNegativeShadowBlur(jokerGlowRadius),
                   spreadRadius: 3,
                 ),
             ],
