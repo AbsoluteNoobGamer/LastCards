@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_dimensions.dart';
+import '../../../../core/utils/shadow_blur.dart';
 import 'card_back_widget.dart';
 
 class DealingAnimationOverlay extends StatefulWidget {
@@ -133,8 +134,7 @@ class DealingAnimationOverlayState extends State<DealingAnimationOverlay>
                           alpha: (0.5 * (1 - (math.sin(t * math.pi) * 0.5)))
                               .clamp(0.0, 1.0),
                         ),
-                        blurRadius: math.max(
-                          0.0,
+                        blurRadius: nonNegativeShadowBlur(
                           10 + (20 * math.sin(t * math.pi)),
                         ),
                         offset: Offset(0, 5 + (15 * math.sin(t * math.pi))),

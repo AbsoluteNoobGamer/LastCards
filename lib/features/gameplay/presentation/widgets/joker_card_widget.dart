@@ -171,7 +171,7 @@ class _JokerCardWidgetState extends ConsumerState<JokerCardWidget>
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Iridescent shimmer
+              // Iridescent shimmer (gradient sweep only; card [BoxShadow]s above are static).
               AnimatedBuilder(
                 animation: _shimmerController,
                 builder: (_, __) {

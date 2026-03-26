@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 
 /// Special card visual effects — each one is a composable AnimatedWidget
 /// that wraps whatever content is passed and applies its effect.
+/// Effects here animate scale/opacity/gradients, not [BoxShadow] blur radii.
 
 // ── Slam effect (2 / Black Jack) ──────────────────────────────────────────────
 

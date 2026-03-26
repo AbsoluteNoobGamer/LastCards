@@ -204,6 +204,7 @@ class _AnimatedRoyalBackState extends State<_AnimatedRoyalBack>
 
   @override
   Widget build(BuildContext context) {
+    // Sheen: horizontal translate only; outer card [BoxShadow] is static.
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {

@@ -159,6 +159,7 @@ class _DrawPileWidgetState extends State<DrawPileWidget>
           onTapCancel: () => setState(() => _isPressed = false),
           splashColor: AppColors.goldPrimary.withValues(alpha: 0.35),
           highlightColor: AppColors.goldLight.withValues(alpha: 0.12),
+          // Reshuffle: scale/offset/glow opacity; [BoxShadow] on badge is static.
           child: AnimatedBuilder(
           animation: _shuffleAnim,
           builder: (context, child) {

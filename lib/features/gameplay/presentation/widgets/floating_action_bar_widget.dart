@@ -10,6 +10,7 @@ import '../../../../core/models/game_state.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/utils/shadow_blur.dart';
 
 class FloatingActionBarWidget extends ConsumerStatefulWidget {
   final String activePlayerName;
@@ -238,7 +239,7 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
                     BoxShadow(
                       color: AppColors.goldPrimary
                           .withValues(alpha: 0.6 * g),
-                      blurRadius: math.max(0.0, 16 * g),
+                      blurRadius: nonNegativeShadowBlur(16 * g),
                       spreadRadius: 2 * g,
                     ),
                   ]

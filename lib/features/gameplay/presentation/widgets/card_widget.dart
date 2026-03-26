@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -9,6 +7,7 @@ import '../../../../services/game_sound.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/shadow_blur.dart';
 import '../../../../core/services/card_back_service.dart';
 import 'card_back_widget.dart';
 import 'joker_card_widget.dart';
@@ -54,7 +53,8 @@ class CardWidget extends StatelessWidget {
       duration: const Duration(milliseconds: 150),
       curve: Curves.easeOutCubic,
       builder: (context, val, innerChild) {
-        // Tween can briefly overshoot on curve/dispose; blur must stay ≥ 0.
+        // easeOutCubic keeps values in [0,1]; clamp aligns with selection visuals
+        // and keeps shadow math safe if this curve ever changes.
         final v = val.clamp(0.0, 1.0);
         final liftY = -12.0 * v; // Lifts higher now!
         final scale = 1.0 + (0.10 * v); // Scale 1.0 -> 1.1
@@ -92,14 +92,15 @@ class CardWidget extends StatelessWidget {
                       BoxShadow(
                         color: Colors.black.withValues(
                             alpha: (0.35 + (0.15 * v)).clamp(0.0, 1.0)),
-                        blurRadius: math.max(0.0, 8 + (8 * v)), // Shadow expands on lift
+                        blurRadius:
+                            nonNegativeShadowBlur(8 + (8 * v)), // expands on lift
                         offset: Offset(0, 4 + (4 * v)),
                       ),
                       if (v > 0)
                         BoxShadow(
                           color: AppColors.goldPrimary
                               .withValues(alpha: v * 0.85),
-                          blurRadius: math.max(0.0, 16 * v),
+                          blurRadius: nonNegativeShadowBlur(16 * v),
                           spreadRadius: 3 * v,
                         ),
                     ],

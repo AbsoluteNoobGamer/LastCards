@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,6 +9,7 @@ import '../../../../widgets/marquee_name.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/player_styles.dart';
+import '../../../../core/utils/shadow_blur.dart';
 import '../../../../core/providers/theme_provider.dart';
 import 'quick_chat_bubble.dart';
 
@@ -125,7 +124,7 @@ class PlayerZoneWidget extends ConsumerWidget {
                       BoxShadow(
                         color: appTheme.accentPrimary
                             .withValues(alpha: 0.35 * gv),
-                        blurRadius: math.max(0.0, 16 + 10 * gv),
+                        blurRadius: nonNegativeShadowBlur(16 + 10 * gv),
                         spreadRadius: 1 + gv,
                       ),
                     ]
