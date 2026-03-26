@@ -1177,7 +1177,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         });
       } else {
         // Game ended without a winner (all other players left).
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        scheduleMicrotask(() {
           if (!mounted) return;
           final t = ref.read(themeProvider).theme;
           showDialog<void>(
@@ -1186,11 +1186,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             builder: (_) => AlertDialog(
               backgroundColor: t.surfacePanel,
               title: Text(
-                'Players Left',
+                'Everyone else left',
                 style: TextStyle(color: t.textPrimary),
               ),
               content: Text(
-                'All other players have left. The game has ended.',
+                'You are the only one still here. Returning to the menu.',
                 style: TextStyle(color: t.textSecondary),
               ),
               actions: [

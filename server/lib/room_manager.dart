@@ -195,7 +195,7 @@ class RoomManager {
         'type': 'error',
         'code': 'rejoin_failed',
         'message':
-            'Could not rejoin this game. It may have ended or the reconnect window expired.',
+            'Could not rejoin this game. It may have ended or you were removed after disconnecting.',
       }));
       return;
     }

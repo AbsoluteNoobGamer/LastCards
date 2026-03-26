@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import '../models/card_model.dart';
 import '../models/game_state_model.dart';
+import '../models/player_model.dart';
 import '../rules/card_rules.dart';
 import '../rules/pickup_chain_rules.dart';
 import '../rules/last_cards_rules.dart' show canHandClearInOneTurnHandOnly;
@@ -868,6 +869,59 @@ String nextPlayerId({
   return players[next].id;
 }
 
+/// Like [nextPlayerId], but never returns [excludePlayerId].
+///
+/// Used when [excludePlayerId] is being removed mid-session: skip math can
+/// otherwise wrap the turn marker back onto that seat while they still appear
+/// in the pre-removal [state.players] list.
+String nextPlayerIdExcluding({
+  required GameState state,
+  required String excludePlayerId,
+}) {
+  final players = state.players;
+  final n = players.length;
+  if (n == 0) return excludePlayerId;
+
+  final base = nextPlayerId(state: state);
+  if (base != excludePlayerId) return base;
+
+  final lastCard = state.lastPlayedThisTurn;
+  final isKingPlayed = lastCard != null && lastCard.effectiveRank == Rank.king;
+  if (n == 2 && isKingPlayed) {
+    return players.firstWhere((p) => p.id != excludePlayerId).id;
+  }
+
+  final currentIndex = players.indexWhere((p) => p.id == state.currentPlayerId);
+  if (currentIndex < 0) {
+    return players.firstWhere((p) => p.id != excludePlayerId).id;
+  }
+
+  final hasSkip = state.activeSkipCount > 0;
+  final kingPlayedThisTurn =
+      state.lastPlayedThisTurn?.effectiveRank == Rank.king;
+  final directionForAdvance = (hasSkip && kingPlayedThisTurn)
+      ? (state.direction == PlayDirection.clockwise
+          ? PlayDirection.counterClockwise
+          : PlayDirection.clockwise)
+      : state.direction;
+
+  final step = directionForAdvance == PlayDirection.clockwise ? 1 : -1;
+  var idx = currentIndex;
+  final advances = 1 + state.activeSkipCount;
+
+  for (int i = 0; i < advances; i++) {
+    idx = (idx + step) % n;
+    if (idx < 0) idx += n;
+  }
+
+  for (var guard = 0; guard < n && players[idx].id == excludePlayerId; guard++) {
+    idx = (idx + step) % n;
+    if (idx < 0) idx += n;
+  }
+
+  return players[idx].id;
+}
+
 /// Human-readable name for who goes after [state.currentPlayerId] ends this turn,
 /// reflecting Eights (skip), King (reverse), and 2-player King (same again).
 ///
@@ -921,6 +975,98 @@ List<CardModel> buildShuffledDeck({int? seed, math.Random? random}) {
 
   fisherYatesShuffle(deck, seed: seed, random: random);
   return deck;
+}
+
+/// The same 54 cards as [buildShuffledDeck] but in deterministic suit/rank
+/// order (plus jokers last). Used to reconcile which physical cards must be
+/// returned to the draw pile when a leaver's [PlayerModel.hand] is empty but
+/// [PlayerModel.cardCount] is not.
+List<CardModel> standardFiftyFourDeckInCanonicalOrder() {
+  const ranks = [
+    Rank.two, Rank.three, Rank.four, Rank.five, Rank.six, Rank.seven,
+    Rank.eight, Rank.nine, Rank.ten, Rank.jack, Rank.queen, Rank.king,
+    Rank.ace,
+  ];
+  const suits = [Suit.spades, Suit.hearts, Suit.clubs, Suit.diamonds];
+
+  final deck = <CardModel>[];
+  for (final suit in suits) {
+    for (final rank in ranks) {
+      deck.add(CardModel(
+        id: '${rank.name}_${suit.name}',
+        rank: rank,
+        suit: suit,
+      ));
+    }
+  }
+  deck.add(const CardModel(id: 'joker_r', rank: Rank.joker, suit: Suit.hearts));
+  deck.add(const CardModel(id: 'joker_b', rank: Rank.joker, suit: Suit.spades));
+  return deck;
+}
+
+/// Resolves which card objects to shuffle into the server's draw pile when a
+/// standard-mode player is removed.
+///
+/// When [authoritativeDrawPile] is null (e.g. unit tests without a pile),
+/// returns [removed.hand] only.
+///
+/// When non-null, if [removed.hand.length] equals [removed.cardCount], returns
+/// a copy of the hand. Otherwise infers the missing cards as those in the full
+/// 54-card manifest not present in [authoritativeDrawPile], discard storage,
+/// [authoritativeDiscardTop], or any remaining player's hand.
+List<CardModel> leaverCardsToReturnToDrawPile({
+  required PlayerModel removed,
+  required GameState stateWithoutLeaver,
+  List<CardModel>? authoritativeDrawPile,
+  List<CardModel>? authoritativeDiscardUnderTop,
+  CardModel? authoritativeDiscardTop,
+}) {
+  final n = removed.cardCount;
+  if (n <= 0) return [];
+
+  if (authoritativeDrawPile == null) {
+    return List<CardModel>.from(removed.hand);
+  }
+
+  if (removed.hand.length == n) {
+    return List<CardModel>.from(removed.hand);
+  }
+
+  final top =
+      authoritativeDiscardTop ?? stateWithoutLeaver.discardTopCard;
+
+  final used = <String>{};
+  if (top != null) used.add(top.id);
+  for (final c in authoritativeDiscardUnderTop ?? const <CardModel>[]) {
+    used.add(c.id);
+  }
+  for (final c in authoritativeDrawPile) {
+    used.add(c.id);
+  }
+  for (final p in stateWithoutLeaver.players) {
+    for (final c in p.hand) {
+      used.add(c.id);
+    }
+  }
+
+  final fromHand = List<CardModel>.from(removed.hand);
+  for (final c in fromHand) {
+    used.add(c.id);
+  }
+
+  var need = n - fromHand.length;
+  if (need <= 0) {
+    return fromHand.length > n ? fromHand.sublist(0, n) : fromHand;
+  }
+
+  final all = standardFiftyFourDeckInCanonicalOrder();
+  final missing =
+      all.where((c) => !used.contains(c.id)).toList(growable: false);
+  if (missing.length >= need) {
+    fromHand.addAll(missing.take(need));
+    return fromHand;
+  }
+  return [...fromHand, ...missing];
 }
 
 /// Returns a 52-card deck (no Jokers) for Bust mode.
@@ -1072,6 +1218,79 @@ GameState advanceTurn(GameState state, {String? nextId}) {
     return p.copyWith(lastCardsHandWasClearableAtTurnStart: clearable);
   }).toList();
   return base.copyWith(players: players);
+}
+
+/// Standard online: removes [removedPlayerId] after a confirmed leave (socket
+/// closed or lobby kick). Returns `null` if that player is absent or fewer than **two**
+/// players would remain — callers should end the session instead.
+///
+/// [handForDrawPile]: copies [PlayerModel.hand] when it matches
+/// [PlayerModel.cardCount]. Otherwise, if the server passes
+/// [authoritativeDrawPile] (and optional discard args), missing cards are
+/// inferred as IDs from the 54-card manifest not currently in play (fixes
+/// empty-hand / count desync on the draw pile).
+///
+/// If the leaver had the turn, play advances via [nextPlayerIdExcluding] so
+/// skip math cannot name the removed seat. An unfinished wild Ace (face-up Ace, no [suitLock],
+/// exactly one card played this turn) defaults to the Ace's natural suit so the
+/// pile stays valid for the next player.
+({GameState state, List<CardModel> handForDrawPile})?
+removeDisconnectedStandardPlayer({
+  required GameState state,
+  required String removedPlayerId,
+  List<CardModel>? authoritativeDrawPile,
+  List<CardModel>? authoritativeDiscardUnderTop,
+  CardModel? authoritativeDiscardTop,
+}) {
+  final removed = state.playerById(removedPlayerId);
+  if (removed == null) return null;
+  if (state.players.length <= 2) return null;
+
+  final newPlayers =
+      state.players.where((p) => p.id != removedPlayerId).toList();
+  final lastCards = {...state.lastCardsDeclaredBy}..remove(removedPlayerId);
+
+  var stripped = state.copyWith(
+    players: newPlayers,
+    lastCardsDeclaredBy: lastCards,
+    pendingJokerResolution: state.currentPlayerId == removedPlayerId
+        ? false
+        : state.pendingJokerResolution,
+    activePenaltyCount: state.currentPlayerId == removedPlayerId
+        ? 0
+        : state.activePenaltyCount,
+    penaltyChainLive: state.currentPlayerId == removedPlayerId
+        ? false
+        : state.penaltyChainLive,
+  );
+
+  final handForDrawPile = leaverCardsToReturnToDrawPile(
+    removed: removed,
+    stateWithoutLeaver: stripped,
+    authoritativeDrawPile: authoritativeDrawPile,
+    authoritativeDiscardUnderTop: authoritativeDiscardUnderTop,
+    authoritativeDiscardTop:
+        authoritativeDiscardTop ?? state.discardTopCard,
+  );
+
+  final wasCurrent = state.currentPlayerId == removedPlayerId;
+  if (!wasCurrent) {
+    return (state: stripped, handForDrawPile: handForDrawPile);
+  }
+
+  if (stripped.discardTopCard?.effectiveRank == Rank.ace &&
+      stripped.suitLock == null &&
+      stripped.cardsPlayedThisTurn == 1) {
+    stripped =
+        stripped.copyWith(suitLock: stripped.discardTopCard!.suit);
+  }
+
+  final nextId = nextPlayerIdExcluding(
+    state: state,
+    excludePlayerId: removedPlayerId,
+  );
+  final advanced = advanceTurn(stripped, nextId: nextId);
+  return (state: advanced, handForDrawPile: handForDrawPile);
 }
 
 // ── Shared invalid-play penalty ───────────────────────────────────────────────

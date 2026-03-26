@@ -138,6 +138,10 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
   GameState? get gameState => state.gameState;
 
   void _applyStateSnapshot(StateSnapshotEvent e) {
+    if (state.gameState?.phase == GamePhase.ended &&
+        e.gameState.phase == GamePhase.playing) {
+      return;
+    }
     final suitChoiceResolved = state.pendingSuitChoice &&
         state.gameState != null &&
         e.gameState.currentPlayerId != state.gameState!.currentPlayerId;
@@ -165,6 +169,10 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     // or the UI would jump ahead while another animation is still running.
     if (_opponentFlightsInFlight > 0) return;
     if (_deferredSnapshots.isEmpty) return;
+    if (state.gameState?.phase == GamePhase.ended) {
+      _deferredSnapshots.clear();
+      return;
+    }
     // Coalesce to the latest authoritative state (FIFO would end on the same
     // final state but would repeat work).
     GameState? latest;
@@ -186,6 +194,10 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
       if (_opponentFlightsInFlight <= 0) return;
       _opponentFlightsInFlight = 0;
       if (_deferredSnapshots.isEmpty) return;
+      if (state.gameState?.phase == GamePhase.ended) {
+        _deferredSnapshots.clear();
+        return;
+      }
       GameState? latest;
       while (_deferredSnapshots.isNotEmpty) {
         latest = _deferredSnapshots.removeFirst();
@@ -198,11 +210,18 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     // ── state_snapshot ──────────────────────────────────────────────────────
     _subs.add(
       _eventHandler.stateSnapshots.listen((e) {
+        if (state.gameState?.phase == GamePhase.ended &&
+            e.gameState.phase == GamePhase.playing) {
+          return;
+        }
         final localId = e.gameState.localPlayer?.id;
         if (localId != null) {
           _onlineRejoin.setPlayerId(localId);
         }
         if (_opponentFlightsInFlight > 0) {
+          if (state.gameState?.phase == GamePhase.ended) {
+            return;
+          }
           _deferredSnapshots.addLast(e.gameState);
           _armOpponentFlightWatchdog();
           return;
@@ -337,6 +356,9 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
           .listen((e) {
         if (state.gameState == null) return;
         _drawSoundPlayedThisBatch = false;
+        _cancelOpponentFlightWatchdog();
+        _deferredSnapshots.clear();
+        _opponentFlightsInFlight = 0;
         state = state.copyWith(
           gameState: state.gameState!.copyWith(
             phase: GamePhase.ended,
@@ -348,7 +370,7 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
       }),
     );
 
-    // ── player_socket_lost / restored (standard disconnect grace) ───────────
+    // ── player_socket_lost / restored (legacy; server removes seat immediately)
     _subs.add(
       _eventHandler.events
           .where((e) => e is PlayerSocketLostEvent)

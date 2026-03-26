@@ -1682,4 +1682,307 @@ void main() {
       expect(afterPenalty.playerById('p2')!.hand.length, 2);
     });
   });
+
+  group('removeDisconnectedStandardPlayer', () {
+    test('returns null when only two players', () {
+      final state = buildState(
+        discardTop: c(Rank.two, Suit.spades),
+        p1Hand: [c(Rank.three, Suit.spades)],
+      );
+      expect(
+        removeDisconnectedStandardPlayer(
+          state: state,
+          removedPlayerId: 'p1',
+        ),
+        isNull,
+      );
+    });
+
+    test('removes non-current third player and keeps turn', () {
+      final p3Hand = [c(Rank.four, Suit.clubs)];
+      final state = GameState(
+        sessionId: 't',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: 'p1',
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: [c(Rank.three, Suit.spades)],
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: 'p2',
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: [c(Rank.five, Suit.hearts)],
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: 'p3',
+            displayName: 'P3',
+            tablePosition: TablePosition.left,
+            hand: p3Hand,
+            cardCount: 1,
+          ),
+        ],
+        currentPlayerId: 'p1',
+        direction: PlayDirection.clockwise,
+        discardTopCard: c(Rank.two, Suit.spades),
+        drawPileCount: 10,
+        preTurnCentreSuit: Suit.spades,
+      );
+      final out = removeDisconnectedStandardPlayer(
+        state: state,
+        removedPlayerId: 'p3',
+      );
+      expect(out, isNotNull);
+      expect(out!.handForDrawPile, p3Hand);
+      expect(out.state.players.map((p) => p.id).toList(), ['p1', 'p2']);
+      expect(out.state.currentPlayerId, 'p1');
+    });
+
+    test('current disconnect with full skip wrap does not set current to ghost id',
+        () {
+      final eight = c(Rank.eight, Suit.spades);
+      final state = GameState(
+        sessionId: 't',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: 'a',
+            displayName: 'A',
+            tablePosition: TablePosition.bottom,
+            hand: const [],
+            cardCount: 0,
+          ),
+          PlayerModel(
+            id: 'b',
+            displayName: 'B',
+            tablePosition: TablePosition.top,
+            hand: const [],
+            cardCount: 0,
+          ),
+          PlayerModel(
+            id: 'c',
+            displayName: 'C',
+            tablePosition: TablePosition.left,
+            hand: const [],
+            cardCount: 0,
+          ),
+        ],
+        currentPlayerId: 'a',
+        direction: PlayDirection.clockwise,
+        discardTopCard: c(Rank.five, Suit.hearts),
+        drawPileCount: 10,
+        activeSkipCount: 2,
+        lastPlayedThisTurn: eight,
+        cardsPlayedThisTurn: 1,
+        actionsThisTurn: 1,
+      );
+      expect(nextPlayerId(state: state), 'a');
+      expect(nextPlayerIdExcluding(state: state, excludePlayerId: 'a'), 'b');
+
+      final out = removeDisconnectedStandardPlayer(
+        state: state,
+        removedPlayerId: 'a',
+      );
+      expect(out, isNotNull);
+      expect(out!.state.currentPlayerId, 'b');
+      expect(out.state.players.map((p) => p.id).toList(), ['b', 'c']);
+    });
+
+    test('removes current player and advances turn', () {
+      final state = GameState(
+        sessionId: 't',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: 'p1',
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: [c(Rank.three, Suit.spades)],
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: 'p2',
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: [c(Rank.five, Suit.hearts)],
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: 'p3',
+            displayName: 'P3',
+            tablePosition: TablePosition.left,
+            hand: [c(Rank.four, Suit.clubs)],
+            cardCount: 1,
+          ),
+        ],
+        currentPlayerId: 'p2',
+        direction: PlayDirection.clockwise,
+        discardTopCard: c(Rank.two, Suit.spades),
+        drawPileCount: 10,
+        preTurnCentreSuit: Suit.spades,
+      );
+      final out = removeDisconnectedStandardPlayer(
+        state: state,
+        removedPlayerId: 'p2',
+      );
+      expect(out, isNotNull);
+      expect(out!.state.currentPlayerId, 'p3');
+      expect(out.state.actionsThisTurn, 0);
+    });
+
+    test('unfinished wild Ace gets natural suit before advancing', () {
+      final ace = c(Rank.ace, Suit.hearts);
+      final state = GameState(
+        sessionId: 't',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: 'p1',
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: [c(Rank.king, Suit.spades)],
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: 'p2',
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: [c(Rank.five, Suit.diamonds)],
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: 'p3',
+            displayName: 'P3',
+            tablePosition: TablePosition.left,
+            hand: [c(Rank.four, Suit.clubs)],
+            cardCount: 1,
+          ),
+        ],
+        currentPlayerId: 'p1',
+        direction: PlayDirection.clockwise,
+        discardTopCard: ace,
+        drawPileCount: 10,
+        cardsPlayedThisTurn: 1,
+        actionsThisTurn: 1,
+        lastPlayedThisTurn: ace,
+        preTurnCentreSuit: Suit.spades,
+      );
+      final out = removeDisconnectedStandardPlayer(
+        state: state,
+        removedPlayerId: 'p1',
+      );
+      expect(out, isNotNull);
+      expect(out!.state.suitLock, Suit.hearts);
+      expect(out.state.currentPlayerId, 'p2');
+    });
+
+    test('infers leaver cards when hand is empty but cardCount is not', () {
+      final full = standardFiftyFourDeckInCanonicalOrder();
+      final p1Hand = full.sublist(0, 7).toList();
+      final p2Hand = full.sublist(7, 14).toList();
+      final p3Cards = full.sublist(14, 21).toList();
+      final discardTop = full[21];
+      final drawPile = full.sublist(22).toList();
+
+      expect(
+        p1Hand.length + p2Hand.length + p3Cards.length + 1 + drawPile.length,
+        equals(54),
+      );
+
+      final state = GameState(
+        sessionId: 't',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: 'p1',
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: p1Hand,
+            cardCount: 7,
+          ),
+          PlayerModel(
+            id: 'p2',
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: p2Hand,
+            cardCount: 7,
+          ),
+          PlayerModel(
+            id: 'p3',
+            displayName: 'P3',
+            tablePosition: TablePosition.left,
+            hand: const [],
+            cardCount: 7,
+          ),
+        ],
+        currentPlayerId: 'p1',
+        direction: PlayDirection.clockwise,
+        discardTopCard: discardTop,
+        drawPileCount: drawPile.length,
+        preTurnCentreSuit: discardTop.effectiveSuit,
+      );
+
+      final out = removeDisconnectedStandardPlayer(
+        state: state,
+        removedPlayerId: 'p3',
+        authoritativeDrawPile: drawPile,
+        authoritativeDiscardUnderTop: const [],
+        authoritativeDiscardTop: discardTop,
+      );
+
+      expect(out, isNotNull);
+      final returned = out!.handForDrawPile.map((e) => e.id).toSet();
+      expect(returned.length, 7);
+      expect(returned, p3Cards.map((e) => e.id).toSet());
+    });
+
+    test('disconnecting current clears draw penalty before next turn', () {
+      final state = GameState(
+        sessionId: 't',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: 'p1',
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: [c(Rank.three, Suit.spades)],
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: 'p2',
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: [c(Rank.four, Suit.hearts)],
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: 'p3',
+            displayName: 'P3',
+            tablePosition: TablePosition.left,
+            hand: [c(Rank.five, Suit.clubs)],
+            cardCount: 1,
+          ),
+        ],
+        currentPlayerId: 'p2',
+        direction: PlayDirection.clockwise,
+        discardTopCard: c(Rank.two, Suit.spades),
+        drawPileCount: 10,
+        activePenaltyCount: 2,
+        penaltyChainLive: true,
+        preTurnCentreSuit: Suit.spades,
+      );
+      final out = removeDisconnectedStandardPlayer(
+        state: state,
+        removedPlayerId: 'p2',
+      );
+      expect(out, isNotNull);
+      expect(out!.state.activePenaltyCount, 0);
+      expect(out.state.penaltyChainLive, false);
+      expect(out.state.currentPlayerId, 'p3');
+    });
+  });
 }
