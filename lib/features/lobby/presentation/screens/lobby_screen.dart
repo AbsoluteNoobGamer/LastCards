@@ -12,6 +12,7 @@ import '../../../../core/models/game_state.dart';
 import '../../../../core/models/player_model.dart';
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/connection_provider.dart';
+import '../../../../core/network/websocket_client.dart';
 import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/providers/game_provider.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -46,6 +47,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   StreamSubscription<RoomCreatedEvent>? _roomCreatedSub;
   StreamSubscription<StateSnapshotEvent>? _stateSnapshotSub;
   StreamSubscription<GameEvent>? _lobbyEventsSub;
+
+  /// Cached for dispose — cannot use [ref] after the widget is disposed.
+  WebSocketClient? _wsClientToDisconnectOnDispose;
 
   @override
   void initState() {
@@ -124,12 +128,14 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     _codeController.dispose();
     // Leaving the lobby must drop the socket so the server removes this client
     // from the room; otherwise re-entry stacks duplicate "players".
-    unawaited(ref.read(wsClientProvider).disconnect());
+    _wsClientToDisconnectOnDispose?.disconnect();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    _wsClientToDisconnectOnDispose = ref.read(wsClientProvider);
+
     final theme = ref.watch(themeProvider).theme;
 
     return Scaffold(
