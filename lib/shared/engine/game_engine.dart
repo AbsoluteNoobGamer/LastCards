@@ -13,6 +13,14 @@ export '../models/game_state_model.dart';
 export '../models/player_model.dart';
 export '../rules/card_rules.dart' show JokerPlayContext, jokerPlayContextFromCardsPlayed;
 
+/// In a **2-player** game, a played [Rank.king] reverses direction onto the same
+/// seat. The next card is validated like a **new lead** against the discard top
+/// (the King), not as numerical-flow continuation off the King.
+bool _twoPlayerKingResetsNumericalFlow(GameState state) {
+  return state.players.length == 2 &&
+      state.lastPlayedThisTurn?.effectiveRank == Rank.king;
+}
+
 // ── Play validation ────────────────────────────────────────────────────────────
 
 /// Returns `null` if the play is legal, or an error string explaining why not.
@@ -26,6 +34,9 @@ export '../rules/card_rules.dart' show JokerPlayContext, jokerPlayContextFromCar
 ///   • If a card has already been played this turn (actionsThisTurn > 0),
 ///     a single-card follow-up must be rank-adjacent (±1) to the last played
 ///     card AND share the same suit (Numerical Flow continuation).
+///   • Exception: in a **2-player** game, after a played [Rank.king] (same seat
+///     again), the immediate next play matches the discard top with normal
+///     suit/rank rules — numerical flow does not step from the King.
 ///
 /// The leading card (lowest for ascending, highest for descending) must satisfy
 /// the normal suit/rank match against the discard top.
@@ -144,7 +155,8 @@ String? validatePlay({
   // not apply — that state has its own distinct validation rules.
   if (state.actionsThisTurn > 0 &&
       state.lastPlayedThisTurn != null &&
-      state.queenSuitLock == null) {
+      state.queenSuitLock == null &&
+      !_twoPlayerKingResetsNumericalFlow(state)) {
     final prev = state.lastPlayedThisTurn!;
     final next = cards.first;
     // Only enforce adjacency for non-special cards continuing a same-suit flow.
@@ -217,7 +229,8 @@ List<CardModel> getValidJokerOptions({
       context ?? jokerPlayContextFromCardsPlayed(state.cardsPlayedThisTurn);
   final anchorCard = contextTopCard ??
       (playContext == JokerPlayContext.midTurnContinuance &&
-              state.lastPlayedThisTurn != null
+              state.lastPlayedThisTurn != null &&
+              !_twoPlayerKingResetsNumericalFlow(state)
           ? state.lastPlayedThisTurn!
           : discardTop);
   final targetRank = anchorCard.effectiveRank;

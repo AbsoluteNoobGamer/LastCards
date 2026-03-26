@@ -849,6 +849,66 @@ void main() {
           'P1 again');
     });
 
+    test('twoPlayerKingNextPlayUsesDiscardMatchNotNumericalFlowStep', () {
+      var state = buildState(discardTop: c(Rank.five, Suit.spades));
+      final p2 = PlayerModel(
+        id: 'p2',
+        displayName: 'P2',
+        tablePosition: TablePosition.top,
+        hand: [],
+        cardCount: 0,
+      );
+      state = state.copyWith(players: [...state.players, p2]);
+
+      state = applyPlay(
+        state: state,
+        playerId: 'p1',
+        cards: [c(Rank.king, Suit.diamonds)],
+      );
+      // 4♦ matches K♦ by suit but is not rank-adjacent to King for numerical flow.
+      expect(
+        validatePlay(
+          cards: [c(Rank.four, Suit.diamonds)],
+          discardTop: state.discardTopCard!,
+          state: state,
+        ),
+        isNull,
+      );
+    });
+
+    test('threePlayerKingMidTurnStillRequiresNumericalFlow', () {
+      var state = buildState(discardTop: c(Rank.five, Suit.spades));
+      final p2 = PlayerModel(
+        id: 'p2',
+        displayName: 'P2',
+        tablePosition: TablePosition.top,
+        hand: [],
+        cardCount: 0,
+      );
+      final p3 = PlayerModel(
+        id: 'p3',
+        displayName: 'P3',
+        tablePosition: TablePosition.left,
+        hand: [],
+        cardCount: 0,
+      );
+      state = state.copyWith(players: [...state.players, p2, p3]);
+
+      state = applyPlay(
+        state: state,
+        playerId: 'p1',
+        cards: [c(Rank.king, Suit.diamonds)],
+      );
+      expect(
+        validatePlay(
+          cards: [c(Rank.four, Suit.diamonds)],
+          discardTop: state.discardTopCard!,
+          state: state,
+        ),
+        isNotNull,
+      );
+    });
+
     test('nextPlayerAfterTurnLabel reflects Eight skip and viewer', () {
       var state = buildState(discardTop: c(Rank.five, Suit.diamonds));
       final p2 = PlayerModel(
