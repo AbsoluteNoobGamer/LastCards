@@ -869,6 +869,59 @@ String nextPlayerId({
   return players[next].id;
 }
 
+/// Like [nextPlayerId], but never returns [excludePlayerId].
+///
+/// Used when [excludePlayerId] is being removed mid-session: skip math can
+/// otherwise wrap the turn marker back onto that seat while they still appear
+/// in the pre-removal [state.players] list.
+String nextPlayerIdExcluding({
+  required GameState state,
+  required String excludePlayerId,
+}) {
+  final players = state.players;
+  final n = players.length;
+  if (n == 0) return excludePlayerId;
+
+  final base = nextPlayerId(state: state);
+  if (base != excludePlayerId) return base;
+
+  final lastCard = state.lastPlayedThisTurn;
+  final isKingPlayed = lastCard != null && lastCard.effectiveRank == Rank.king;
+  if (n == 2 && isKingPlayed) {
+    return players.firstWhere((p) => p.id != excludePlayerId).id;
+  }
+
+  final currentIndex = players.indexWhere((p) => p.id == state.currentPlayerId);
+  if (currentIndex < 0) {
+    return players.firstWhere((p) => p.id != excludePlayerId).id;
+  }
+
+  final hasSkip = state.activeSkipCount > 0;
+  final kingPlayedThisTurn =
+      state.lastPlayedThisTurn?.effectiveRank == Rank.king;
+  final directionForAdvance = (hasSkip && kingPlayedThisTurn)
+      ? (state.direction == PlayDirection.clockwise
+          ? PlayDirection.counterClockwise
+          : PlayDirection.clockwise)
+      : state.direction;
+
+  final step = directionForAdvance == PlayDirection.clockwise ? 1 : -1;
+  var idx = currentIndex;
+  final advances = 1 + state.activeSkipCount;
+
+  for (int i = 0; i < advances; i++) {
+    idx = (idx + step) % n;
+    if (idx < 0) idx += n;
+  }
+
+  for (var guard = 0; guard < n && players[idx].id == excludePlayerId; guard++) {
+    idx = (idx + step) % n;
+    if (idx < 0) idx += n;
+  }
+
+  return players[idx].id;
+}
+
 /// Human-readable name for who goes after [state.currentPlayerId] ends this turn,
 /// reflecting Eights (skip), King (reverse), and 2-player King (same again).
 ///
@@ -1177,8 +1230,8 @@ GameState advanceTurn(GameState state, {String? nextId}) {
 /// inferred as IDs from the 54-card manifest not currently in play (fixes
 /// empty-hand / count desync on the draw pile).
 ///
-/// If the leaver had the turn, play advances using [nextPlayerId] on the
-/// **pre-removal** [state]. An unfinished wild Ace (face-up Ace, no [suitLock],
+/// If the leaver had the turn, play advances via [nextPlayerIdExcluding] so
+/// skip math cannot name the removed seat. An unfinished wild Ace (face-up Ace, no [suitLock],
 /// exactly one card played this turn) defaults to the Ace's natural suit so the
 /// pile stays valid for the next player.
 ({GameState state, List<CardModel> handForDrawPile})?
@@ -1232,7 +1285,10 @@ removeDisconnectedStandardPlayer({
         stripped.copyWith(suitLock: stripped.discardTopCard!.suit);
   }
 
-  final nextId = nextPlayerId(state: state);
+  final nextId = nextPlayerIdExcluding(
+    state: state,
+    excludePlayerId: removedPlayerId,
+  );
   final advanced = advanceTurn(stripped, nextId: nextId);
   return (state: advanced, handForDrawPile: handForDrawPile);
 }

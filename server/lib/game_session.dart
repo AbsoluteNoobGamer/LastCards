@@ -345,8 +345,8 @@ class GameSession {
         'currentPlayerId': _state.currentPlayerId,
         'direction': _state.direction.name,
       });
+      _startTurnTimer();
     }
-    _startTurnTimer();
   }
 
   /// Standard (non-Bust): end the session after a leave when fewer than two
