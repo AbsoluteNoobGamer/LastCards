@@ -117,7 +117,23 @@ class RoomManager {
     }
   }
 
+  /// Drops [ws] from whichever room it was in (if any). Used when creating /
+  /// joining / quickplaying so one socket cannot occupy two lobbies.
+  void _clearWsFromRoom(dynamic ws) {
+    final roomCode = _playerRooms.remove(ws);
+    final playerId = _playerIds.remove(ws);
+    if (roomCode == null || playerId == null) return;
+    final session = _rooms[roomCode];
+    session?.handleSocketDisconnected(playerId, ws);
+    if (session != null && session.isEmpty) {
+      _rooms.remove(roomCode);
+    }
+  }
+
   void _createRoom(dynamic ws, Map<String, dynamic> json) {
+    if (_playerRooms.containsKey(ws)) {
+      _clearWsFromRoom(ws);
+    }
     var roomCode = _uuid.v4().substring(0, 6).toUpperCase();
     while (_rooms.containsKey(roomCode)) {
       roomCode = _uuid.v4().substring(0, 6).toUpperCase();
@@ -157,6 +173,22 @@ class RoomManager {
         'message': 'Room $code does not exist.',
       }));
       return;
+    }
+
+    final alreadyRoom = _playerRooms[ws];
+    if (alreadyRoom == code) {
+      final existingId = _playerIds[ws];
+      if (existingId != null) {
+        ws.sink.add(jsonEncode({
+          'type': 'room_joined',
+          'roomCode': code,
+          'playerId': existingId,
+          'isPrivate': session.isPrivate,
+        }));
+        return;
+      }
+    } else if (alreadyRoom != null) {
+      _clearWsFromRoom(ws);
     }
 
     final firebaseUid = _playerUserIds[ws];
@@ -259,6 +291,10 @@ class RoomManager {
         'message': 'Sign in is required for ranked games.',
       }));
       return;
+    }
+
+    if (_playerRooms.containsKey(ws)) {
+      _clearWsFromRoom(ws);
     }
 
     // Each mode uses an isolated queue so ranked players only match each other.

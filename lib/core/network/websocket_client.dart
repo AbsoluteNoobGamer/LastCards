@@ -65,6 +65,14 @@ class WebSocketClient {
 
   Future<void> connect({Uri? uri}) async {
     if (uri != null) _uri = uri;
+    // Replacing an active socket must close the old one first — otherwise the
+    // server keeps the previous connection as a ghost player (see room/join flow).
+    final state = _stateNotifier.value;
+    if (state == WsConnectionState.connected ||
+        state == WsConnectionState.connecting ||
+        state == WsConnectionState.reconnecting) {
+      await disconnect();
+    }
     _manualDisconnect = false;
     _retryCount = 0;
     reconnectExhausted.value = false;

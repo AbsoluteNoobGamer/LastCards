@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/models/card_model.dart';
 import '../../../../core/models/game_event.dart';
 import '../../../../core/models/player_model.dart';
 import '../../../../core/models/table_position_layout.dart';
@@ -485,7 +486,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
 
 // ── Animated Waiting Indicator ────────────────────────────────────────────────
 
-class _AnimatedWaitingIndicator extends ConsumerWidget {
+class _AnimatedWaitingIndicator extends ConsumerStatefulWidget {
   const _AnimatedWaitingIndicator({
     required this.rotateController,
     required this.pulseController,
@@ -499,7 +500,49 @@ class _AnimatedWaitingIndicator extends ConsumerWidget {
   final int totalCount;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_AnimatedWaitingIndicator> createState() =>
+      _AnimatedWaitingIndicatorState();
+}
+
+class _AnimatedWaitingIndicatorState
+    extends ConsumerState<_AnimatedWaitingIndicator> {
+  static const _suits = [Suit.spades, Suit.hearts, Suit.diamonds, Suit.clubs];
+  final _random = math.Random();
+  late Suit _suit = _suits[_random.nextInt(_suits.length)];
+  Timer? _suitCycleTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleNextSuit();
+  }
+
+  Suit _pickDifferentSuit() {
+    Suit next;
+    do {
+      next = _suits[_random.nextInt(_suits.length)];
+    } while (next == _suit);
+    return next;
+  }
+
+  void _scheduleNextSuit() {
+    _suitCycleTimer?.cancel();
+    final ms = 850 + _random.nextInt(1500);
+    _suitCycleTimer = Timer(Duration(milliseconds: ms), () {
+      if (!mounted) return;
+      setState(() => _suit = _pickDifferentSuit());
+      _scheduleNextSuit();
+    });
+  }
+
+  @override
+  void dispose() {
+    _suitCycleTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = ref.watch(themeProvider).theme;
     final accent = theme.accentPrimary;
     final shortestSide = MediaQuery.sizeOf(context).shortestSide;
@@ -511,64 +554,110 @@ class _AnimatedWaitingIndicator extends ConsumerWidget {
       width: size,
       height: size,
       child: AnimatedBuilder(
-        animation: Listenable.merge([rotateController, pulseController]),
+        animation:
+            Listenable.merge([widget.rotateController, widget.pulseController]),
         builder: (context, child) {
-          final pulse = 0.97 + 0.03 * pulseController.value;
+          final pulse = 0.97 + 0.03 * widget.pulseController.value;
           final highlightLift = 0.65 +
               0.35 *
-                  (1 + math.sin(pulseController.value * math.pi)) /
+                  (1 + math.sin(widget.pulseController.value * math.pi)) /
                   2;
-          final denom = math.max(1, totalCount);
+          final denom = math.max(1, widget.totalCount);
 
           return CustomPaint(
             painter: _WaitingRingPainter(
-              highlightAngle: rotateController.value * 2 * math.pi,
+              highlightAngle: widget.rotateController.value * 2 * math.pi,
               accent: accent,
-              progress: joinedCount / denom,
+              progress: widget.joinedCount / denom,
               highlightIntensity: highlightLift,
             ),
             child: Center(
               child: Transform.scale(
                 scale: pulse,
-                child: Container(
+                child: SizedBox(
                   width: centerSize,
                   height: centerSize,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        Color.lerp(accent, Colors.white, 0.22)!,
-                        accent.withValues(alpha: 0.14),
-                        accent.withValues(alpha: 0.06),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: theme.surfaceDark.withValues(alpha: 0.45),
+                      border: Border.all(
+                        color: theme.accentDark.withValues(alpha: 0.35),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: accent.withValues(
+                            alpha: 0.08 +
+                                0.1 * widget.pulseController.value,
+                          ),
+                          blurRadius: 16,
+                          spreadRadius: 0,
+                        ),
                       ],
-                      stops: const [0.0, 0.55, 1.0],
-                      center: const Alignment(-0.4, -0.45),
-                      radius: 1.05,
                     ),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.20),
-                      width: 1,
+                    child: Center(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 420),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, animation) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: ScaleTransition(
+                              scale: Tween<double>(
+                                begin: 0.82,
+                                end: 1.0,
+                              ).animate(animation),
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: _SuitGlyph(
+                          key: ValueKey(_suit),
+                          suit: _suit,
+                          theme: theme,
+                        ),
+                      ),
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: accent.withValues(
-                            alpha: 0.12 + 0.16 * pulseController.value),
-                        blurRadius: 28,
-                        spreadRadius: 2,
-                      ),
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.35),
-                        blurRadius: 12,
-                        spreadRadius: -2,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
                   ),
                 ),
               ),
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _SuitGlyph extends StatelessWidget {
+  const _SuitGlyph({
+    super.key,
+    required this.suit,
+    required this.theme,
+  });
+
+  final Suit suit;
+  final AppThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = suit.isRed ? theme.suitRed : theme.suitBlack;
+    return Text(
+      suit.symbol,
+      textAlign: TextAlign.center,
+      style: GoogleFonts.playfairDisplay(
+        fontSize: 44,
+        height: 1.0,
+        fontWeight: FontWeight.w600,
+        color: color,
+        shadows: [
+          Shadow(
+            color: color.withValues(alpha: 0.35),
+            blurRadius: 12,
+          ),
+        ],
       ),
     );
   }
