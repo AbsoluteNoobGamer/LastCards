@@ -23,6 +23,14 @@ The WebSocket client defaults to a production-style URL; override at build time 
 
 The Dart server lives under `server/`. Deploy it so it matches the client’s shared engine after engine changes.
 
+### Firebase (Auth, Firestore, Storage)
+
+The app is wired to Firebase project **`lastcards-d4396`** (see `lib/firebase_options.dart`). For leaderboards, profiles, and ranked stats you must:
+
+1. In [Firebase Console](https://console.firebase.google.com/) for that project, enable **Authentication** (e.g. Google / anonymous) as needed.
+2. Create a **Cloud Firestore** database (Native mode). If Firestore is not created, the client logs `NOT_FOUND` (“database (default) does not exist”) and realtime features will not work.
+3. Enable **Firebase Storage** if you use avatar uploads from the profile screen.
+
 ### CI
 
 GitHub Actions runs `flutter analyze` and `flutter test` on pushes and pull requests to `main` or `master` (see `.github/workflows/flutter_ci.yml`).

@@ -137,171 +137,176 @@ class _AuthProfileSheetState extends ConsumerState<_AuthProfileSheet> {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 24),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade600,
-                    borderRadius: BorderRadius.circular(2),
+          padding: EdgeInsets.fromLTRB(24, 24, 24, 32).add(
+            EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 24),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade600,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
-              ),
-              Row(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: theme.accentPrimary, width: 2),
-                    ),
-                    child: avatarUrl != null
-                        ? CircleAvatar(
-                            radius: 40,
-                            backgroundImage: NetworkImage(avatarUrl),
-                            backgroundColor: theme.surfacePanel,
-                          )
-                        : CircleAvatar(
-                            radius: 40,
-                            backgroundColor: theme.surfacePanel,
-                            child: Icon(
-                              Icons.person_rounded,
-                              size: 48,
-                              color: theme.accentPrimary,
-                            ),
-                          ),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          displayName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              PlayerXpProgressBarThemed(theme: theme),
-              const SizedBox(height: 16),
-              FutureBuilder<RankedStatsSnapshot?>(
-                future: _rankedFuture,
-                builder: (context, snap) {
-                  final ranked = snap.data;
-                  if (ranked == null) return const SizedBox.shrink();
-                  final tier = rankTierForMmr(ranked.rating);
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
+                Row(
+                  children: [
+                    Container(
                       decoration: BoxDecoration(
-                        color: theme.surfaceDark.withValues(alpha: 0.65),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: theme.accentPrimary.withValues(alpha: 0.45),
-                          width: 1.2,
-                        ),
+                        shape: BoxShape.circle,
+                        border:
+                            Border.all(color: theme.accentPrimary, width: 2),
                       ),
+                      child: avatarUrl != null
+                          ? CircleAvatar(
+                              radius: 40,
+                              backgroundImage: NetworkImage(avatarUrl),
+                              backgroundColor: theme.surfacePanel,
+                            )
+                          : CircleAvatar(
+                              radius: 40,
+                              backgroundColor: theme.surfacePanel,
+                              child: Icon(
+                                Icons.person_rounded,
+                                size: 48,
+                                color: theme.accentPrimary,
+                              ),
+                            ),
+                    ),
+                    const SizedBox(width: 20),
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'RANKED',
-                            style: TextStyle(
-                              color: theme.textSecondary,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.1,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Text(
-                                tier.emoji,
-                                style: const TextStyle(fontSize: 18),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '${ranked.rating} MMR · ${tier.label}',
-                                  style: TextStyle(
-                                    color: theme.accentPrimary,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${ranked.wins}W / ${ranked.losses}L',
-                            style: TextStyle(
-                              color: theme.textSecondary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                            displayName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
                       ),
                     ),
-                  );
-                },
-              ),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      AppPageRoutes.fadeSlide((_) => const ProfileScreen()),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                PlayerXpProgressBarThemed(theme: theme),
+                const SizedBox(height: 16),
+                FutureBuilder<RankedStatsSnapshot?>(
+                  future: _rankedFuture,
+                  builder: (context, snap) {
+                    final ranked = snap.data;
+                    if (ranked == null) return const SizedBox.shrink();
+                    final tier = rankTierForMmr(ranked.rating);
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.surfaceDark.withValues(alpha: 0.65),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: theme.accentPrimary.withValues(alpha: 0.45),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'RANKED',
+                              style: TextStyle(
+                                color: theme.textSecondary,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.1,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Text(
+                                  tier.emoji,
+                                  style: const TextStyle(fontSize: 18),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '${ranked.rating} MMR · ${tier.label}',
+                                    style: TextStyle(
+                                      color: theme.accentPrimary,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${ranked.wins}W / ${ranked.losses}L',
+                              style: TextStyle(
+                                color: theme.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     );
                   },
-                  icon: const Icon(Icons.edit_rounded),
-                  label: const Text('Edit profile'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: theme.accentPrimary,
-                    side: BorderSide(color: theme.accentPrimary),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        AppPageRoutes.fadeSlide((_) => const ProfileScreen()),
+                      );
+                    },
+                    icon: const Icon(Icons.edit_rounded),
+                    label: const Text('Edit profile'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: theme.accentPrimary,
+                      side: BorderSide(color: theme.accentPrimary),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    await authService.signOut();
-                    if (context.mounted) Navigator.of(context).pop();
-                  },
-                  icon: const Icon(Icons.logout_rounded),
-                  label: const Text('Sign out'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: theme.accentPrimary,
-                    side: BorderSide(color: theme.accentPrimary),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      await authService.signOut();
+                      if (context.mounted) Navigator.of(context).pop();
+                    },
+                    icon: const Icon(Icons.logout_rounded),
+                    label: const Text('Sign out'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: theme.accentPrimary,
+                      side: BorderSide(color: theme.accentPrimary),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -779,9 +784,9 @@ class _IconRowItemState extends ConsumerState<_IconRowItem> {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() {
-            _isHovered = false;
-            _isPressed = false;
-          }),
+        _isHovered = false;
+        _isPressed = false;
+      }),
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTapDown: (_) => setState(() => _isPressed = true),

@@ -94,10 +94,13 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     });
 
     // Connect to the server and send a quickplay matchmaking request.
-    final isBust = ref.read(tournamentSessionProvider).subMode == GameSubMode.bust;
-    final isRanked = ref.read(onlineSessionProvider).mode == OnlineGameMode.ranked;
+    final isBust =
+        ref.read(tournamentSessionProvider).subMode == GameSubMode.bust;
+    final isRanked =
+        ref.read(onlineSessionProvider).mode == OnlineGameMode.ranked;
     final displayName = ref.read(displayNameForGameProvider);
-    _connectAndRequestMatch(playerCount, displayName: displayName, isBust: isBust, isRanked: isRanked);
+    _connectAndRequestMatch(playerCount,
+        displayName: displayName, isBust: isBust, isRanked: isRanked);
   }
 
   void _onQueueUpdate(QuickplayQueueUpdateEvent e) {
@@ -107,8 +110,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
       final you = e.yourIndex.clamp(0, playerCount - 1);
       _yourSlotIndex = you;
       for (var i = 0; i < playerCount; i++) {
-        _slotNames[i] =
-            i < e.displayNames.length ? e.displayNames[i] : null;
+        _slotNames[i] = i < e.displayNames.length ? e.displayNames[i] : null;
       }
     });
   }
@@ -269,104 +271,119 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
               child: SafeArea(
                 child: OrientationBuilder(
                   builder: (context, orientation) {
-                    final isLandscape =
-                        orientation == Orientation.landscape;
+                    final isLandscape = orientation == Orientation.landscape;
                     if (isLandscape) {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const SizedBox(height: 16),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.center,
-                                  children: [
-                                    ShaderMask(
-                                      shaderCallback: (bounds) =>
-                                          LinearGradient(
-                                        colors: [
-                                          theme.accentLight,
-                                          theme.accentPrimary,
-                                        ],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ).createShader(bounds),
-                                      child: Text(
-                                        'Last Cards',
-                                        style: GoogleFonts.cinzel(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.w800,
-                                          color: Colors.white,
-                                          letterSpacing: 3,
+                          Expanded(
+                            child: SingleChildScrollView(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.center,
+                                          children: [
+                                            ShaderMask(
+                                              shaderCallback: (bounds) =>
+                                                  LinearGradient(
+                                                colors: [
+                                                  theme.accentLight,
+                                                  theme.accentPrimary,
+                                                ],
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                              ).createShader(bounds),
+                                              child: Text(
+                                                'Last Cards',
+                                                style: GoogleFonts.cinzel(
+                                                  fontSize: 24,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: Colors.white,
+                                                  letterSpacing: 3,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              '$modeName · $playerCount Players',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 12,
+                                                color: theme.textSecondary,
+                                                letterSpacing: 0.5,
+                                              ),
+                                            ),
+                                            if (session.mode ==
+                                                OnlineGameMode.ranked)
+                                              _RankedMmrDisplay(theme: theme),
+                                            const SizedBox(height: 16),
+                                            _AnimatedWaitingIndicator(
+                                              rotateController:
+                                                  _rotateController,
+                                              pulseController: _pulseController,
+                                              joinedCount: joinedCount,
+                                              totalCount: playerCount,
+                                            ),
+                                            const SizedBox(height: 8),
+                                            AnimatedSwitcher(
+                                              duration: const Duration(
+                                                  milliseconds: 300),
+                                              child: Text(
+                                                'Finding players… ($joinedCount/$playerCount)',
+                                                key: ValueKey(joinedCount),
+                                                textAlign: TextAlign.center,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 13,
+                                                  color: theme.textSecondary,
+                                                  letterSpacing: 0.3,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '$modeName · $playerCount Players',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 12,
-                                        color: theme.textSecondary,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                    if (session.mode == OnlineGameMode.ranked)
-                                      _RankedMmrDisplay(theme: theme),
-                                    const SizedBox(height: 16),
-                                    _AnimatedWaitingIndicator(
-                                      rotateController: _rotateController,
-                                      pulseController: _pulseController,
-                                      joinedCount: joinedCount,
-                                      totalCount: playerCount,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    AnimatedSwitcher(
-                                      duration: const Duration(
-                                          milliseconds: 300),
-                                      child: Text(
-                                        'Finding players… ($joinedCount/$playerCount)',
-                                        key: ValueKey(joinedCount),
-                                        textAlign: TextAlign.center,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 13,
-                                          color: theme.textSecondary,
-                                          letterSpacing: 0.3,
+                                      Expanded(
+                                        child: Center(
+                                          child: Wrap(
+                                            alignment: WrapAlignment.center,
+                                            spacing: 16,
+                                            runSpacing: 12,
+                                            children:
+                                                List.generate(playerCount, (i) {
+                                              return Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 6),
+                                                child: _PlayerSlot(
+                                                  label: _slotNames[i] ?? '…',
+                                                  isFilled:
+                                                      _slotNames[i] != null,
+                                                  isLocalSlot:
+                                                      i == _yourSlotIndex,
+                                                ),
+                                              );
+                                            }),
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Expanded(
-                                child: Center(
-                                  child: Wrap(
-                                    alignment: WrapAlignment.center,
-                                    spacing: 16,
-                                    runSpacing: 12,
-                                    children:
-                                        List.generate(playerCount, (i) {
-                                      return Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 6),
-                                        child: _PlayerSlot(
-                                          label: _slotNames[i] ?? '…',
-                                          isFilled: _slotNames[i] != null,
-                                          isLocalSlot: i == _yourSlotIndex,
-                                        ),
-                                      );
-                                    }),
+                                    ],
                                   ),
-                                ),
+                                  const SizedBox(height: 24),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
-                          const Spacer(),
                           Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 40),
+                            padding: const EdgeInsets.symmetric(horizontal: 40),
                             child: _CancelButton(
                               onTap: () {
                                 ref
@@ -384,96 +401,104 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const SizedBox(height: 32),
-                        Center(
-                          child: ShaderMask(
-                            shaderCallback: (bounds) => LinearGradient(
-                              colors: [
-                                theme.accentLight,
-                                theme.accentPrimary,
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ).createShader(bounds),
-                            child: Text(
-                              'Last Cards',
-                              style: GoogleFonts.cinzel(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                letterSpacing: 4,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '$modeName · $playerCount Players',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            color: theme.textSecondary,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        if (session.mode == OnlineGameMode.ranked)
-                          Center(child: _RankedMmrDisplay(theme: theme)),
-                        const Spacer(flex: 1),
-                        Center(
-                          child: _AnimatedWaitingIndicator(
-                            rotateController: _rotateController,
-                            pulseController: _pulseController,
-                            joinedCount: joinedCount,
-                            totalCount: playerCount,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Center(
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            child: Text(
-                              'Finding players… ($joinedCount/$playerCount)',
-                              key: ValueKey(joinedCount),
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.inter(
-                                fontSize: 14,
-                                color: theme.textSecondary,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: Wrap(
-                            alignment: WrapAlignment.center,
-                            spacing: 12,
-                            runSpacing: 14,
-                            children: List.generate(playerCount, (i) {
-                              return Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 4),
-                                child: _PlayerSlot(
-                                  label: _slotNames[i] ?? '…',
-                                  isFilled: _slotNames[i] != null,
-                                  isLocalSlot: i == _yourSlotIndex,
+                        Expanded(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const SizedBox(height: 32),
+                                Center(
+                                  child: ShaderMask(
+                                    shaderCallback: (bounds) => LinearGradient(
+                                      colors: [
+                                        theme.accentLight,
+                                        theme.accentPrimary,
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ).createShader(bounds),
+                                    child: Text(
+                                      'Last Cards',
+                                      style: GoogleFonts.cinzel(
+                                        fontSize: 32,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.white,
+                                        letterSpacing: 4,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              );
-                            }),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '$modeName · $playerCount Players',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    color: theme.textSecondary,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                if (session.mode == OnlineGameMode.ranked)
+                                  Center(
+                                      child: _RankedMmrDisplay(theme: theme)),
+                                const SizedBox(height: 24),
+                                Center(
+                                  child: _AnimatedWaitingIndicator(
+                                    rotateController: _rotateController,
+                                    pulseController: _pulseController,
+                                    joinedCount: joinedCount,
+                                    totalCount: playerCount,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Center(
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 300),
+                                    child: Text(
+                                      'Finding players… ($joinedCount/$playerCount)',
+                                      key: ValueKey(joinedCount),
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        color: theme.textSecondary,
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 24),
+                                  child: Wrap(
+                                    alignment: WrapAlignment.center,
+                                    spacing: 12,
+                                    runSpacing: 14,
+                                    children: List.generate(playerCount, (i) {
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 4),
+                                        child: _PlayerSlot(
+                                          label: _slotNames[i] ?? '…',
+                                          isFilled: _slotNames[i] != null,
+                                          isLocalSlot: i == _yourSlotIndex,
+                                        ),
+                                      );
+                                    }),
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                              ],
+                            ),
                           ),
                         ),
-                        const Spacer(flex: 2),
                         Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 40),
+                          padding: const EdgeInsets.symmetric(horizontal: 40),
                           child: _CancelButton(
                             onTap: () {
-                              ref
-                                  .read(onlineSessionProvider.notifier)
-                                  .reset();
-                              Navigator.of(context)
-                                  .popUntil((r) => r.isFirst);
+                              ref.read(onlineSessionProvider.notifier).reset();
+                              Navigator.of(context).popUntil((r) => r.isFirst);
                             },
                           ),
                         ),
@@ -566,9 +591,7 @@ class _AnimatedWaitingIndicatorState
         builder: (context, child) {
           final pulse = 0.97 + 0.03 * widget.pulseController.value;
           final highlightLift = 0.65 +
-              0.35 *
-                  (1 + math.sin(widget.pulseController.value * math.pi)) /
-                  2;
+              0.35 * (1 + math.sin(widget.pulseController.value * math.pi)) / 2;
           final denom = math.max(1, widget.totalCount);
 
           return CustomPaint(
@@ -595,8 +618,7 @@ class _AnimatedWaitingIndicatorState
                       boxShadow: [
                         BoxShadow(
                           color: accent.withValues(
-                            alpha: 0.08 +
-                                0.1 * widget.pulseController.value,
+                            alpha: 0.08 + 0.1 * widget.pulseController.value,
                           ),
                           blurRadius: 16,
                           spreadRadius: 0,
@@ -624,8 +646,7 @@ class _AnimatedWaitingIndicatorState
                           key: ValueKey(_suit),
                           suit: _suit,
                           theme: theme,
-                          fontSize:
-                              (centerSize * 0.56).clamp(46.0, 62.0),
+                          fontSize: (centerSize * 0.56).clamp(46.0, 62.0),
                           glowPulse: widget.pulseController.value,
                         ),
                       ),
@@ -653,6 +674,7 @@ class _SuitGlyph extends StatelessWidget {
   final Suit suit;
   final AppThemeData theme;
   final double fontSize;
+
   /// 0–1 from pulse controller for glow breathing.
   final double glowPulse;
 
@@ -857,8 +879,8 @@ class _WaitingRingPainter extends CustomPainter {
           tipPos,
           4.2,
           Paint()
-            ..color = Color.lerp(accent, Colors.white, 0.55)!
-                .withValues(alpha: 0.95)
+            ..color =
+                Color.lerp(accent, Colors.white, 0.55)!.withValues(alpha: 0.95)
             ..style = PaintingStyle.fill,
         );
         canvas.drawCircle(
