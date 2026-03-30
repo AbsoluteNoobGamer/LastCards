@@ -100,3 +100,4 @@ go.sum
 
 # .packages (legacy)
 .packages
+node_modules
