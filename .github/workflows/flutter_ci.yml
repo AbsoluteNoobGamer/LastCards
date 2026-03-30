@@ -12,6 +12,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  firestore-rules:
+    name: Firestore rules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Firestore rules unit tests (emulator)
+        run: npm run test:firestore-rules
+
   analyze-and-test:
     runs-on: ubuntu-latest
     defaults:

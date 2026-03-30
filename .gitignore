@@ -1,3 +1,7 @@
+# Node (Firestore rules unit tests)
+node_modules/
+firestore-debug.log
+
 # Miscellaneous
 *.class
 *.log
