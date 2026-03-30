@@ -23,7 +23,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: npm
+          # Intentionally no `cache: npm` — setup-node requires package-lock.json at
+          # checkout to enable npm caching; branches without it fail before npm ci.
+          # Re-enable `cache: npm` once package-lock.json is on all target branches.
 
       - name: Install npm deps
         run: npm ci
