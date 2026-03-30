@@ -2,9 +2,12 @@
 node_modules/
 firestore-debug.log
 
-# Miscellaneous
-*.class
-*.log
+# Node (Firestore rules unit tests)
+node_modules/
+firestore-debug.log
+!/package.json
+!/package-lock.json
+
 *.pyc
 *.swp
 .DS_Store
