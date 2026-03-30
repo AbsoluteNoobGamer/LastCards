@@ -12,6 +12,9 @@
 .swiftpm/
 migrate_working_dir/
 
+# Node (Firestore rules unit tests)
+node_modules/
+
 # IntelliJ related
 *.iml
 *.ipr
@@ -88,6 +91,8 @@ go.sum
 # Test output & temp files (root-level only)
 /*.txt
 /*.json
+!/package.json
+!/package-lock.json
 
 # Root-level scripts / one-off generators
 /*.js
