@@ -6,6 +6,7 @@ import 'package:last_cards/app/router/app_routes.dart';
 import 'package:last_cards/app/splash_screen.dart';
 import 'package:last_cards/core/providers/auth_provider.dart';
 import 'package:last_cards/features/auth/presentation/widgets/auth_gate.dart';
+import 'package:last_cards/features/gameplay/presentation/screens/table_screen.dart';
 
 void main() {
   test('route map contains splash, start, and game', () {
@@ -32,6 +33,25 @@ void main() {
     // SplashScreen schedules navigation after 2.5s — flush so the test binding
     // does not report a pending timer.
     await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('game route builder returns TableScreen', (tester) async {
+    final builder = appRoutes[AppRoutes.game]!;
+    late Widget built;
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) {
+              built = builder(context);
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(built, isA<TableScreen>());
   });
 
   testWidgets('AuthGate is the widget used for /start route', (tester) async {

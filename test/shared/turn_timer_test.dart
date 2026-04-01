@@ -1,3 +1,4 @@
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:last_cards/shared/engine/game_turn_timer.dart';
@@ -40,6 +41,15 @@ void main() {
       
       final firstTime = await timer.timeRemainingStream.first;
       expect(firstTime, 60);
+    });
+
+    test('onExpire runs after full countdown (61s elapsed)', () {
+      fakeAsync((async) {
+        var expired = false;
+        timer.start(() => expired = true);
+        async.elapse(const Duration(seconds: 61));
+        expect(expired, isTrue);
+      });
     });
   });
 

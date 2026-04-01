@@ -11,6 +11,11 @@ import 'package:last_cards/core/providers/online_rejoin_provider.dart';
 import '../helpers/fake_websocket_client.dart';
 import '../helpers/mock_audio_platform.dart';
 
+class _SendFailingFake extends FakeWebSocketClient {
+  @override
+  bool send(String jsonPayload) => false;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -130,6 +135,86 @@ void main() {
     final decoded = jsonDecode(fakeWs.sentMessages.first) as Map<String, dynamic>;
     expect(decoded['type'], 'play_cards');
     expect(decoded['cardIds'], ['c1', 'c2']);
+  });
+
+  test('turn_changed updates currentPlayerId and resets per-turn counters', () async {
+    final gs = makeGameState();
+    fakeWs.injectServerMessage(jsonEncode({
+      'type': 'state_snapshot',
+      'payload': gs.toJson(),
+    }));
+    await flushEvents();
+    fakeWs.injectServerMessage(jsonEncode({
+      'type': 'turn_changed',
+      'currentPlayerId': 'p2',
+      'direction': 'counterClockwise',
+    }));
+    await flushEvents();
+    expect(notifier.state.gameState!.currentPlayerId, 'p2');
+    expect(notifier.state.gameState!.direction, PlayDirection.counterClockwise);
+    expect(notifier.state.gameState!.actionsThisTurn, 0);
+  });
+
+  test('penalty_applied updates activePenaltyCount', () async {
+    final gs = makeGameState();
+    fakeWs.injectServerMessage(jsonEncode({
+      'type': 'state_snapshot',
+      'payload': gs.toJson(),
+    }));
+    await flushEvents();
+    fakeWs.injectServerMessage(jsonEncode({
+      'type': 'penalty_applied',
+      'targetPlayerId': 'p1',
+      'cardsDrawn': 2,
+      'newPenaltyStack': 6,
+    }));
+    await flushEvents();
+    expect(notifier.state.gameState!.activePenaltyCount, 6);
+  });
+
+  test('drawCard sets lastError when WebSocket send fails', () async {
+    final failingWs = _SendFailingFake();
+    final h = GameEventHandler(failingWs);
+    final n = GameNotifier(h, OnlineRejoinNotifier());
+    addTearDown(() async {
+      n.dispose();
+      h.dispose();
+      await failingWs.dispose();
+    });
+    n.drawCard();
+    await flushEvents();
+    expect(n.state.lastError, isNotNull);
+  });
+
+  test('declareJoker sends payload and clears pending joker flag', () async {
+    final gs = makeGameState();
+    fakeWs.injectServerMessage(jsonEncode({
+      'type': 'state_snapshot',
+      'payload': gs.toJson(),
+    }));
+    await flushEvents();
+    fakeWs.injectServerMessage(jsonEncode({
+      'type': 'joker_choice_required',
+      'jokerCardId': 'joker1',
+    }));
+    await flushEvents();
+    expect(notifier.state.pendingJokerResolution, isTrue);
+
+    notifier.declareJoker(
+      jokerCardId: 'joker1',
+      suitName: 'hearts',
+      rankName: 'ace',
+    );
+    expect(notifier.state.pendingJokerResolution, isFalse);
+    final decoded = jsonDecode(fakeWs.sentMessages.first) as Map<String, dynamic>;
+    expect(decoded['type'], 'declare_joker');
+  });
+
+  test('endTurn sends end_turn through handler', () {
+    notifier.endTurn();
+    expect(fakeWs.sentMessages, hasLength(1));
+    final decoded = jsonDecode(fakeWs.sentMessages.first) as Map<String, dynamic>;
+    expect(decoded['type'], 'end_turn');
   });
 
   test('game_ended sets phase and winnerId', () async {

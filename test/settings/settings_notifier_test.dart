@@ -42,6 +42,18 @@ void main() {
     expect(prefs.getDouble('soundVolume'), 75.0);
   });
 
+  test('setReduceMotion false persists false to SharedPreferences', () async {
+    SharedPreferences.setMockInitialValues({'reduceMotion': true});
+    final notifier = SettingsNotifier();
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    notifier.setReduceMotion(false);
+    expect(notifier.state.reduceMotion, isFalse);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool('reduceMotion'), isFalse);
+  });
+
   test('restores saved values on init', () async {
     SharedPreferences.setMockInitialValues({
       'soundVolume': 42.0,
