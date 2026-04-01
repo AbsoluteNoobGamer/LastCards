@@ -6,8 +6,9 @@ import '../../../../services/game_log_formatter.dart';
 
 /// Displays the latest three move log entries (newest first).
 ///
-/// Player names are shortened to their first word so long names never crowd
-/// the move text. Each name is tinted with a deterministic accent colour.
+/// Player names use the first word only; if that word is longer than 17
+/// characters it is shortened to half its length plus an ellipsis. Each name is
+/// tinted with a deterministic accent colour.
 /// Move text uses hybrid formatting: compact icons for normal cards, full
 /// descriptive text for Joker / Ace / Eight-skip plays.
 class LastMovePanelWidget extends StatelessWidget {
@@ -68,11 +69,13 @@ class _MoveLabel extends ConsumerWidget {
     return _nameColors[hash % _nameColors.length];
   }
 
-  /// Shortens a display name to its first word, capped at 10 characters.
-  /// "Omar Al-Rashid" → "Omar", "Christopherr" → "Christoph…"
+  /// Shortens a display name to its first word. Up to 17 characters shown in
+  /// full; longer first words use the first half of the string plus an ellipsis.
   static String _shortName(String fullName) {
     final first = fullName.split(' ').first;
-    return first.length > 10 ? '${first.substring(0, 9)}…' : first;
+    if (first.length <= 17) return first;
+    final half = first.length ~/ 2;
+    return '${first.substring(0, half)}…';
   }
 
   @override
