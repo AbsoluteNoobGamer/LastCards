@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection' show Queue;
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -139,6 +140,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   late GameState _offlineState;
 
   bool _aiThinking = false;
+
+  /// When [_scheduleAiTurn] is re-entered while [_aiThinking] is still true,
+  /// the guard used to drop the follow-up entirely (stall). Queue one pending
+  /// turn and drain it when the in-flight turn clears the flag in [finally].
+  final Queue<({String id, bool simulate})> _pendingOfflineAiTurns =
+      Queue<({String id, bool simulate})>();
 
   /// Guards against concurrent local async actions (play/draw/penalty).
   /// Set true before any await in those methods, reset at every exit.
@@ -2392,6 +2399,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     return true;
   }
 
+  void _drainPendingOfflineAiTurns() {
+    if (!mounted || _aiThinking || _pendingOfflineAiTurns.isEmpty) return;
+    final item = _pendingOfflineAiTurns.removeFirst();
+    unawaited(_scheduleAiTurn(item.id, simulate: item.simulate));
+  }
+
   Future<void> _scheduleAiTurn(String aiId, {bool simulate = false}) async {
     if (widget.isTournamentMode &&
         _tournamentFinishedPlayerIds.contains(aiId)) {
@@ -2399,6 +2412,20 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         state: _offlineState,
         startAfterPlayerId: aiId,
       );
+      if (nextId != _offlineState.currentPlayerId && mounted) {
+        setState(() {
+          _offlineState = _offlineState.copyWith(
+            currentPlayerId: nextId,
+            actionsThisTurn: 0,
+            cardsPlayedThisTurn: 0,
+            lastPlayedThisTurn: null,
+            activeSkipCount: 0,
+            queenSuitLock: null,
+            preTurnCentreSuit: _offlineState.discardTopCard?.effectiveSuit,
+            drawPileCount: _drawPile.length,
+          );
+        });
+      }
       if (nextId != OfflineGameState.localId &&
           !_tournamentFinishedPlayerIds.contains(nextId)) {
         _scheduleAiTurn(nextId,
@@ -2415,7 +2442,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       }
       return;
     }
-    if (_aiThinking) return;
+    if (_aiThinking) {
+      _pendingOfflineAiTurns.addLast((id: aiId, simulate: simulate));
+      return;
+    }
     _offlineApplyLastCardsBluffPenaltyIfNeeded(aiId);
     setState(() => _aiThinking = true);
 
@@ -2647,6 +2677,20 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           if (skipToId != OfflineGameState.localId &&
               !_tournamentFinishedPlayerIds.contains(skipToId)) {
             scheduledNext = true;
+            if (mounted && skipToId != _offlineState.currentPlayerId) {
+              setState(() {
+                _offlineState = _offlineState.copyWith(
+                  currentPlayerId: skipToId,
+                  actionsThisTurn: 0,
+                  cardsPlayedThisTurn: 0,
+                  lastPlayedThisTurn: null,
+                  activeSkipCount: 0,
+                  queenSuitLock: null,
+                  preTurnCentreSuit: _offlineState.discardTopCard?.effectiveSuit,
+                  drawPileCount: _drawPile.length,
+                );
+              });
+            }
             _scheduleAiTurn(skipToId, simulate: true);
           } else {
             // All players finished — round should be complete.
@@ -2662,6 +2706,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (_aiThinking && mounted && !scheduledNext) {
         setState(() => _aiThinking = false);
       }
+      _drainPendingOfflineAiTurns();
     }
   }
 
@@ -2911,9 +2956,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         if (local != null) _syncHandOrder(local.hand);
       });
       _engineTimer.cancel();
-      // Defer so this does not run while [_scheduleAiTurn] still holds
-      // [_aiThinking]; nested calls return immediately at the guard and the
-      // game would stall with no follow-up turn.
+      // Defer so this does not run synchronously during the same stack as
+      // [_scheduleAiTurn] (microtask runs after [_aiThinking] clears).
       final followUpId = ns.currentPlayerId;
       final simRest = _tournamentSimulatingRest;
       Future.microtask(() {
