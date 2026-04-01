@@ -42,20 +42,88 @@ class LastCardsStartScreen extends ConsumerStatefulWidget {
 class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
     with TickerProviderStateMixin {
   late AnimationController _bgController;
+  late AnimationController _primaryEntranceController;
+  late AnimationController _titleShimmerController;
+  late AnimationController _dividerController;
 
   @override
   void initState() {
     super.initState();
-    _bgController =
-        AnimationController(vsync: this, duration: const Duration(seconds: 10))
-          ..repeat();
+    _bgController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    );
+    _primaryEntranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _titleShimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
+    _dividerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2500),
+    );
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final disable = MediaQuery.disableAnimationsOf(context);
+      if (!disable) {
+        _bgController.repeat();
+        _titleShimmerController.repeat();
+        _dividerController.repeat(reverse: true);
+        _primaryEntranceController.forward();
+      } else {
+        _bgController.value = 0;
+        _titleShimmerController.value = 0;
+        _dividerController.value = 1.0;
+        _primaryEntranceController.value = 1.0;
+      }
+    });
   }
 
   @override
   void dispose() {
     _bgController.dispose();
+    _primaryEntranceController.dispose();
+    _titleShimmerController.dispose();
+    _dividerController.dispose();
     super.dispose();
+  }
+
+  /// Staggered slide + fade for primary menu buttons (indices 0–2).
+  Widget _wrapPrimaryEntrance(int index, Widget child) {
+    final disable = MediaQuery.disableAnimationsOf(context);
+    if (disable) return child;
+
+    const intervals = <Interval>[
+      Interval(0.0, 0.6, curve: Curves.easeOutCubic),
+      Interval(0.15, 0.75, curve: Curves.easeOutCubic),
+      Interval(0.3, 0.9, curve: Curves.easeOutCubic),
+    ];
+    final interval = intervals[index];
+
+    return SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0, 0.15),
+        end: Offset.zero,
+      ).animate(
+        CurvedAnimation(
+          parent: _primaryEntranceController,
+          curve: interval,
+        ),
+      ),
+      child: FadeTransition(
+        opacity: Tween<double>(begin: 0, end: 1).animate(
+          CurvedAnimation(
+            parent: _primaryEntranceController,
+            curve: interval,
+          ),
+        ),
+        child: child,
+      ),
+    );
   }
 
   @override
@@ -73,6 +141,16 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                     image:
                         AssetImage('assets/images/StackandFlowBackground.png'),
                     fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: AnimatedBuilder(
+                  animation: _bgController,
+                  builder: (context, _) => CustomPaint(
+                    painter: ParticleStarfieldPainter(
+                      progress: _bgController.value,
+                    ),
                   ),
                 ),
               ),
@@ -96,6 +174,7 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final isMobile = min(constraints.maxWidth, constraints.maxHeight) < 600;
+                final disableAnim = MediaQuery.disableAnimationsOf(context);
                 return SingleChildScrollView(
                   child: ConstrainedBox(
                     constraints:
@@ -110,38 +189,80 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           child: Column(
                             children: [
-                              ShaderMask(
-                                shaderCallback: (Rect bounds) {
-                                  return const LinearGradient(
-                                    colors: [
-                                      Color(0xFFFFE566),
-                                      Color(0xFFC9A84C),
-                                      Color(0xFFFFE566),
-                                    ],
-                                  ).createShader(bounds);
-                                },
-                                child: Text(
-                                  "Last Cards",
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.cinzel(
-                                    fontSize: 42,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                    letterSpacing: 5.0,
-                                    shadows: const [
-                                      Shadow(
-                                        color: Color(0x60FFD700),
-                                        blurRadius: 24,
+                              disableAnim
+                                  ? ShaderMask(
+                                      shaderCallback: (Rect bounds) {
+                                        return const LinearGradient(
+                                          colors: [
+                                            Color(0xFFFFE566),
+                                            Color(0xFFC9A84C),
+                                            Color(0xFFFFE566),
+                                          ],
+                                        ).createShader(bounds);
+                                      },
+                                      child: Text(
+                                        "Last Cards",
+                                        textAlign: TextAlign.center,
+                                        style: GoogleFonts.cinzel(
+                                          fontSize: 42,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                          letterSpacing: 5.0,
+                                          shadows: const [
+                                            Shadow(
+                                              color: Color(0x60FFD700),
+                                              blurRadius: 24,
+                                            ),
+                                            Shadow(
+                                              color: Color(0x80000000),
+                                              blurRadius: 6,
+                                              offset: Offset(0, 3),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                      Shadow(
-                                        color: Color(0x80000000),
-                                        blurRadius: 6,
-                                        offset: Offset(0, 3),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
+                                    )
+                                  : AnimatedBuilder(
+                                      animation: _titleShimmerController,
+                                      builder: (context, _) {
+                                        final t = _titleShimmerController.value;
+                                        return ShaderMask(
+                                          shaderCallback: (Rect bounds) {
+                                            return LinearGradient(
+                                              begin: Alignment(-1.0 + 2.0 * t, 0),
+                                              end: Alignment(1.0 + 2.0 * t, 0),
+                                              colors: const [
+                                                Color(0xFFFFE566),
+                                                Color(0xFFC9A84C),
+                                                Color(0xFFFFE566),
+                                              ],
+                                              stops: const [0.0, 0.5, 1.0],
+                                            ).createShader(bounds);
+                                          },
+                                          child: Text(
+                                            "Last Cards",
+                                            textAlign: TextAlign.center,
+                                            style: GoogleFonts.cinzel(
+                                              fontSize: 42,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                              letterSpacing: 5.0,
+                                              shadows: const [
+                                                Shadow(
+                                                  color: Color(0x60FFD700),
+                                                  blurRadius: 24,
+                                                ),
+                                                Shadow(
+                                                  color: Color(0x80000000),
+                                                  blurRadius: 6,
+                                                  offset: Offset(0, 3),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
                               const SizedBox(height: 6),
                               Text(
                                 "Play it all. Leave nothing.",
@@ -162,11 +283,13 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                                   ? Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        _PlayAiButton(),
+                                        _wrapPrimaryEntrance(0, _PlayAiButton()),
                                         const SizedBox(height: 20),
-                                        _PlayOnlineButton(),
+                                        _wrapPrimaryEntrance(
+                                            1, _PlayOnlineButton()),
                                         const SizedBox(height: 20),
-                                        _TournamentButton(),
+                                        _wrapPrimaryEntrance(
+                                            2, _TournamentButton()),
                                       ],
                                     )
                                   : Column(
@@ -176,13 +299,16 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                                           mainAxisAlignment:
                                               MainAxisAlignment.center,
                                           children: [
-                                            _PlayAiButton(),
+                                            _wrapPrimaryEntrance(
+                                                0, _PlayAiButton()),
                                             const SizedBox(width: 24),
-                                            _PlayOnlineButton(),
+                                            _wrapPrimaryEntrance(
+                                                1, _PlayOnlineButton()),
                                           ],
                                         ),
                                         const SizedBox(height: 24),
-                                        _TournamentButton(),
+                                        _wrapPrimaryEntrance(
+                                            2, _TournamentButton()),
                                       ],
                                     ),
                             ],
@@ -191,28 +317,73 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                         SizedBox(height: isMobile ? 48 : 64),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 40),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Expanded(
-                                  child: Divider(color: Color(0x40C9A84C))),
-                              Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
-                                child: Text(
-                                  "LAST CARDS",
-                                  style: GoogleFonts.cinzel(
-                                    color: const Color(0xFFC9A84C),
-                                    fontSize: 13,
-                                    letterSpacing: 6.0,
-                                  ),
-                                  textAlign: TextAlign.center,
+                          child: disableAnim
+                              ? Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Expanded(
+                                        child:
+                                            Divider(color: Color(0x40C9A84C))),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16),
+                                      child: Text(
+                                        "LAST CARDS",
+                                        style: GoogleFonts.cinzel(
+                                          color: Color(0xFFC9A84C),
+                                          fontSize: 13,
+                                          letterSpacing: 6.0,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                    const Expanded(
+                                        child:
+                                            Divider(color: Color(0x40C9A84C))),
+                                  ],
+                                )
+                              : AnimatedBuilder(
+                                  animation: _dividerController,
+                                  builder: (context, _) {
+                                    final pulse =
+                                        0.55 + 0.45 * _dividerController.value;
+                                    return Opacity(
+                                      opacity: pulse,
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Expanded(
+                                            child: Divider(
+                                              color: const Color(0x40C9A84C)
+                                                  .withValues(alpha: pulse),
+                                            ),
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets
+                                                .symmetric(horizontal: 16),
+                                            child: Text(
+                                              "LAST CARDS",
+                                              style: GoogleFonts.cinzel(
+                                                color: const Color(0xFFC9A84C)
+                                                    .withValues(alpha: pulse),
+                                                fontSize: 13,
+                                                letterSpacing: 6.0,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Divider(
+                                              color: const Color(0x40C9A84C)
+                                                  .withValues(alpha: pulse),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
                                 ),
-                              ),
-                              const Expanded(
-                                  child: Divider(color: Color(0x40C9A84C))),
-                            ],
-                          ),
                         ),
                         const SizedBox(height: 20),
                         // ── Horizontal icon row ──────────────────────────────
