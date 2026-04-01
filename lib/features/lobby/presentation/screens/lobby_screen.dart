@@ -222,7 +222,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                         const SizedBox(height: AppDimensions.lg),
                       ],
 
-                      // Lobby player list (real from server or placeholder)
+                      // Lobby player list (server events; vacant rows before others join)
                       _LobbyPlayerList(
                         localPlayerId: _localPlayerId,
                         localIsReady: _isReady,
@@ -579,7 +579,7 @@ class _LobbyPlayerList extends StatelessWidget {
                 name: p.displayName,
                 isReady: ready,
                 theme: theme,
-                isPlaceholder: false,
+                isVacantSeat: false,
               );
             })
             .toList()
@@ -588,12 +588,12 @@ class _LobbyPlayerList extends StatelessWidget {
             _PlayerEntry(
                 name: 'Waiting...',
                 isReady: false,
-                isPlaceholder: true,
+                isVacantSeat: true,
                 theme: theme),
             _PlayerEntry(
                 name: 'Waiting...',
                 isReady: false,
-                isPlaceholder: true,
+                isVacantSeat: true,
                 theme: theme),
           ];
 
@@ -693,12 +693,12 @@ class _PlayerEntry extends StatelessWidget {
     required this.name,
     required this.isReady,
     required this.theme,
-    this.isPlaceholder = false,
+    this.isVacantSeat = false,
   });
 
   final String name;
   final bool isReady;
-  final bool isPlaceholder;
+  final bool isVacantSeat;
   final AppThemeData theme;
 
   // Semantic status green — not a brand colour, kept as constant.
@@ -706,7 +706,7 @@ class _PlayerEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dotColor = isPlaceholder
+    final dotColor = isVacantSeat
         ? theme.accentDark
         : isReady
             ? _readyGreen
@@ -716,7 +716,7 @@ class _PlayerEntry extends StatelessWidget {
       fontSize: 14,
       fontWeight: FontWeight.w500,
       letterSpacing: 0.3,
-      color: isPlaceholder ? theme.textSecondary : theme.textPrimary,
+      color: isVacantSeat ? theme.textSecondary : theme.textPrimary,
     );
 
     final statusStyle = GoogleFonts.inter(
@@ -741,7 +741,7 @@ class _PlayerEntry extends StatelessWidget {
           const SizedBox(width: AppDimensions.sm),
           Text(name, style: nameStyle),
           const Spacer(),
-          if (!isPlaceholder)
+          if (!isVacantSeat)
             Text(
               isReady ? 'READY' : 'NOT READY',
               style: statusStyle,

@@ -75,4 +75,35 @@ void main() {
     expect(handler, isNotNull);
     expect(handler, isA<GameEventHandler>());
   });
+
+  test('connectionStateProvider disposes cleanly after subscribe + connect',
+      () async {
+    final client = WebSocketClient(
+      uri: Uri.parse('ws://fake'),
+      channelFactory: (_) => MemoryWebSocketChannel(),
+    );
+    final container = ProviderContainer(
+      overrides: [wsClientProvider.overrideWithValue(client)],
+    );
+
+    final sub = container.listen(
+      connectionStateProvider,
+      (_, __) {},
+      fireImmediately: true,
+    );
+
+    await client.connect();
+    for (var i = 0; i < 30; i++) {
+      await Future<void>.delayed(Duration.zero);
+      final async = container.read(connectionStateProvider);
+      if (async.hasValue && async.requireValue == WsConnectionState.connected) {
+        break;
+      }
+    }
+
+    sub.close();
+    container.dispose();
+    await client.disconnect();
+    await client.dispose();
+  });
 }

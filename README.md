@@ -33,7 +33,11 @@ The app is wired to Firebase project **`lastcards-d4396`** (see `lib/firebase_op
 
 ### CI
 
-GitHub Actions runs `flutter analyze` and `flutter test` on pushes and pull requests to `main` or `master` (see `.github/workflows/flutter_ci.yml`).
+On pushes and pull requests to `main` or `master`, [`.github/workflows/flutter_ci.yml`](.github/workflows/flutter_ci.yml) runs:
+
+- Firestore rules unit tests (`npm ci`, `npm run test:firestore-rules`)
+- `flutter analyze` and `flutter test` for the app
+- `dart analyze` for the `server/` package
 
 ## Flutter resources
 
