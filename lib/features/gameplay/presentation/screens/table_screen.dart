@@ -194,6 +194,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   bool _showQuickChatPanel = false;
 
+  /// Incremented to retrigger full-screen edge feedback animations.
+  int _turnPulseTrigger = 0;
+  int _penaltyFlashTrigger = 0;
+
+  /// Tracks [GameState.currentPlayerId] for your-turn edge pulse (transition onto local).
+  String? _prevTurnPlayerIdForEdge;
+
   /// Seconds remaining until next quick chat can be sent (10s cooldown).
   int _quickChatCooldownRemaining = 0;
   Timer? _quickChatCooldownTimer;
@@ -753,6 +760,30 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
   }
 
+  void _maybePulseTurnEdge(GameState gameState) {
+    final cur = gameState.currentPlayerId;
+    if (gameState.phase != GamePhase.playing) {
+      _prevTurnPlayerIdForEdge = cur;
+      return;
+    }
+    final localId = gameState.players
+        .where((p) => p.tablePosition == TablePosition.bottom)
+        .firstOrNull
+        ?.id;
+    final shouldPulse = localId != null &&
+        _prevTurnPlayerIdForEdge != null &&
+        cur == localId &&
+        _prevTurnPlayerIdForEdge != localId;
+    _prevTurnPlayerIdForEdge = cur;
+    if (shouldPulse) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !MediaQuery.disableAnimationsOf(context)) {
+          setState(() => _turnPulseTrigger++);
+        }
+      });
+    }
+  }
+
   void _onBackPressed() {
     final isOfflineMode = ref.read(gameStateProvider) == null;
     if (isOfflineMode) {
@@ -1058,6 +1089,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         ? _offlineState.activePenaltyCount
         : ref.watch(penaltyCountProvider);
 
+    _maybePulseTurnEdge(gameState);
+
     final viewerPlayerId = gameState.players
         .where((p) => p.tablePosition == TablePosition.bottom)
         .firstOrNull
@@ -1335,6 +1368,29 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             children: [
               const _FeltTableBackground(),
 
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: _ScreenEdgePulse(
+                    trigger: _turnPulseTrigger,
+                    color: appTheme.accentPrimary,
+                    totalDuration: const Duration(milliseconds: 800),
+                    fadeInDuration: const Duration(milliseconds: 200),
+                    maxOpacity: 0.22,
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: _ScreenEdgePulse(
+                    trigger: _penaltyFlashTrigger,
+                    color: const Color(0xFFE53935),
+                    totalDuration: const Duration(milliseconds: 400),
+                    fadeInDuration: const Duration(milliseconds: 100),
+                    maxOpacity: 0.32,
+                  ),
+                ),
+              ),
+
               SafeArea(
                 child: Column(
                   children: [
@@ -1408,6 +1464,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         hasAlreadyDeclaredLastCards: alreadyDeclaredLastCards,
                         localHandSize: localHandSize,
                         onLastCardsTap: _onDeclareLastCards,
+                        onPenaltyIncreased: () {
+                          if (MediaQuery.disableAnimationsOf(context)) return;
+                          setState(() => _penaltyFlashTrigger++);
+                        },
                       ),
                     ),
                   ],
@@ -1660,6 +1720,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                 .firstOrNull
                                 ?.tablePosition
                             : null,
+                        onPenaltyIncreased: () {
+                          if (MediaQuery.disableAnimationsOf(context)) return;
+                          setState(() => _penaltyFlashTrigger++);
+                        },
                       ),
                     ),
                   ),

@@ -1,12 +1,16 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/theme/app_dimensions.dart';
 
 /// A chat bubble for quick chat messages.
 /// Shows only the message (player name is already visible below the avatar).
-/// Green background for local player, dark grey for opponents.
 /// Animates in (scale 0.8 → 1.0) and out (opacity 1.0 → 0.0) before removal.
-class QuickChatBubble extends StatefulWidget {
+class QuickChatBubble extends ConsumerStatefulWidget {
   const QuickChatBubble({
     required this.playerName,
     required this.message,
@@ -20,19 +24,26 @@ class QuickChatBubble extends StatefulWidget {
   final bool isLocal;
   final VoidCallback onDismiss;
 
-  static const _localColor = Color(0xFF2E7D32);
-  static const _opponentColor = Color(0xFF424242);
-
   @override
-  State<QuickChatBubble> createState() => _QuickChatBubbleState();
+  ConsumerState<QuickChatBubble> createState() => _QuickChatBubbleState();
 }
 
-class _QuickChatBubbleState extends State<QuickChatBubble>
+class _QuickChatBubbleState extends ConsumerState<QuickChatBubble>
     with TickerProviderStateMixin {
   late AnimationController _scaleController;
   late AnimationController _fadeController;
+  late AnimationController _wobbleController;
   late Animation<double> _scaleAnimation;
   Timer? _dismissTimer;
+
+  static bool _isExcitedMessage(String m) {
+    final t = m.trim();
+    if (t.isEmpty) return false;
+    if (t.contains('!')) return true;
+    final letters = RegExp(r'[A-Za-z]').allMatches(t).map((e) => e.group(0)!);
+    if (letters.isEmpty) return false;
+    return t == t.toUpperCase();
+  }
 
   @override
   void initState() {
@@ -45,10 +56,22 @@ class _QuickChatBubbleState extends State<QuickChatBubble>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
+    _wobbleController = AnimationController(
+      duration: const Duration(milliseconds: 320),
+      vsync: this,
+    );
     _scaleAnimation = Tween<double>(begin: 0.82, end: 1.0).animate(
       CurvedAnimation(parent: _scaleController, curve: Curves.easeOutBack),
     );
     _scaleController.forward();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_isExcitedMessage(widget.message) &&
+          !MediaQuery.disableAnimationsOf(context)) {
+        _wobbleController.forward(from: 0);
+      }
+    });
 
     _dismissTimer = Timer(const Duration(seconds: 3), () {
       if (!mounted) return;
@@ -63,14 +86,73 @@ class _QuickChatBubbleState extends State<QuickChatBubble>
     _dismissTimer?.cancel();
     _scaleController.dispose();
     _fadeController.dispose();
+    _wobbleController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = widget.isLocal
-        ? QuickChatBubble._localColor
-        : QuickChatBubble._opponentColor;
+    final theme = ref.watch(themeProvider).theme;
+    final base = widget.isLocal
+        ? theme.accentPrimary.withValues(alpha: 0.88)
+        : theme.surfacePanel.withValues(alpha: 0.95);
+    final top = Color.lerp(base, Colors.white, widget.isLocal ? 0.12 : 0.08)!;
+    final bottom = Color.lerp(base, Colors.black, 0.22)!;
+
+    final bubbleBody = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [top, bottom],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        widget.message,
+        style: TextStyle(
+          color: theme.textPrimary,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+
+    final withTail = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        bubbleBody,
+        Positioned(
+          bottom: -6,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: CustomPaint(
+              size: const Size(14, 8),
+              painter: _ChatBubbleTailPainter(faceColor: bottom),
+            ),
+          ),
+        ),
+      ],
+    );
+
+    final wobble = AnimatedBuilder(
+      animation: _wobbleController,
+      builder: (context, child) {
+        final t = _wobbleController.value;
+        final dx = math.sin(t * math.pi * 7) * 3.2 * (1.0 - t);
+        return Transform.translate(offset: Offset(dx, 0), child: child);
+      },
+      child: withTail,
+    );
 
     return AnimatedBuilder(
       animation: Listenable.merge([_scaleController, _fadeController]),
@@ -81,25 +163,37 @@ class _QuickChatBubbleState extends State<QuickChatBubble>
           opacity: outOpacity * (0.2 + 0.8 * inOpacity),
           child: Transform.scale(
             scale: _scaleAnimation.value,
-            child: child,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: AppDimensions.xs),
+              child: child,
+            ),
           ),
         );
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Text(
-          widget.message,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
+      child: wobble,
     );
   }
+}
+
+class _ChatBubbleTailPainter extends CustomPainter {
+  _ChatBubbleTailPainter({required this.faceColor});
+
+  final Color faceColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0)
+      ..close();
+    final paint = Paint()
+      ..color = faceColor
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ChatBubbleTailPainter oldDelegate) =>
+      oldDelegate.faceColor != faceColor;
 }

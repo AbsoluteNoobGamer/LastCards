@@ -11,8 +11,9 @@ class _FeltTableBackground extends ConsumerStatefulWidget {
 }
 
 class _FeltTableBackgroundState extends ConsumerState<_FeltTableBackground>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _breath;
+  late AnimationController _particles;
 
   @override
   void initState() {
@@ -21,10 +22,15 @@ class _FeltTableBackgroundState extends ConsumerState<_FeltTableBackground>
       vsync: this,
       duration: const Duration(seconds: 9),
     );
+    _particles = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 15),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (!MediaQuery.disableAnimationsOf(context)) {
         _breath.repeat(reverse: true);
+        _particles.repeat();
       }
     });
   }
@@ -32,6 +38,7 @@ class _FeltTableBackgroundState extends ConsumerState<_FeltTableBackground>
   @override
   void dispose() {
     _breath.dispose();
+    _particles.dispose();
     super.dispose();
   }
 
@@ -63,7 +70,7 @@ class _FeltTableBackgroundState extends ConsumerState<_FeltTableBackground>
                         center: const Alignment(0, -0.15),
                         radius: 0.85 + 0.04 * v,
                         colors: [
-                          theme.accentPrimary.withValues(alpha: 0.04 * v),
+                          theme.accentPrimary.withValues(alpha: 0.10 * v),
                           Colors.transparent,
                         ],
                         stops: const [0.0, 1.0],
@@ -73,11 +80,67 @@ class _FeltTableBackgroundState extends ConsumerState<_FeltTableBackground>
                 );
               },
             ),
+            if (!MediaQuery.disableAnimationsOf(context))
+              AnimatedBuilder(
+                animation: _particles,
+                builder: (_, __) {
+                  return CustomPaint(
+                    painter: _TableAmbientParticlesPainter(
+                      progress: _particles.value,
+                      accentColor: theme.accentPrimary,
+                    ),
+                  );
+                },
+              ),
           ],
         ),
       ),
     );
   }
+}
+
+/// Subtle drifting particles (~40) for ambient depth; max opacity capped at 0.15.
+class _TableAmbientParticlesPainter extends CustomPainter {
+  _TableAmbientParticlesPainter({
+    required this.progress,
+    required this.accentColor,
+  });
+
+  final double progress;
+  final Color accentColor;
+
+  static const int _count = 40;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    const phi = 0.6180339887;
+    const phi2 = 0.3819660113;
+    final paint = Paint()..style = PaintingStyle.fill;
+
+    for (int i = 0; i < _count; i++) {
+      final nx = ((i + 1) * phi) % 1.0;
+      final ny = ((i + 1) * phi2) % 1.0;
+      final baseX = nx * size.width;
+      final baseY = ny * size.height;
+      final driftY = progress * 0.22 * size.height;
+      final y = (baseY + driftY) % size.height;
+      final wobbleX =
+          math.sin(progress * math.pi * 2 + i * 0.41) * (3.0 + (i % 4));
+      final x = baseX + wobbleX;
+      final twinkle =
+          (0.5 + 0.5 * math.sin(progress * math.pi * 2 * 0.7 + i * 0.35))
+              .clamp(0.0, 1.0);
+      final alpha = (0.06 + 0.09 * twinkle).clamp(0.0, 0.15);
+      paint.color = accentColor.withValues(alpha: alpha);
+      final r = 1.2 + (i % 5) * 0.35;
+      canvas.drawCircle(Offset(x, y), r, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_TableAmbientParticlesPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.accentColor != accentColor;
 }
 
 // ── Painter ────────────────────────────────────────────────────────────────────

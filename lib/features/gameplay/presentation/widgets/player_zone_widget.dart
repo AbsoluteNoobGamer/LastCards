@@ -16,6 +16,16 @@ import 'quick_chat_bubble.dart';
 /// Data for a quick chat bubble shown above a player's avatar.
 typedef QuickChatBubbleData = ({String id, String playerName, String message, bool isLocal});
 
+/// Opponent circle avatar diameter (must match [SizedBox] in [_OpponentAvatarZone]).
+const double _kOpponentAvatarSize = 68;
+
+/// Gap between bubble bottom and avatar top when [QuickChatBubble] is overlaid.
+const double _kQuickChatBubbleGap = 6;
+
+/// Approximate [_PlayerLabel] row height for bubble anchoring (compact vs normal).
+double _localLabelBubbleBottomInset(bool compact) =>
+    (compact ? 28.0 : 34.0) + _kQuickChatBubbleGap;
+
 /// Wraps a player's card area with:
 /// - Accent glow ring when active turn
 /// - Opponent hands shown as a condensed face-down fan
@@ -145,24 +155,34 @@ class PlayerZoneWidget extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (chatBubble != null && onRemoveQuickChatBubble != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: QuickChatBubble(
-                  key: ValueKey(chatBubble!.id),
-                  playerName: chatBubble!.playerName,
-                  message: chatBubble!.message,
-                  isLocal: chatBubble!.isLocal,
-                  onDismiss: () => onRemoveQuickChatBubble!(chatBubble!.id),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                _PlayerLabel(
+                  player: playerWithReactiveCount,
+                  isActiveTurn: isActiveTurn,
+                  isLocalPlayer: isLocalPlayer,
+                  hasLastCardsDeclared: hasLastCardsDeclared,
+                  appTheme: appTheme,
+                  compact: compact,
                 ),
-              ),
-            _PlayerLabel(
-              player: playerWithReactiveCount,
-              isActiveTurn: isActiveTurn,
-              isLocalPlayer: isLocalPlayer,
-              hasLastCardsDeclared: hasLastCardsDeclared,
-              appTheme: appTheme,
-              compact: compact,
+                if (chatBubble != null && onRemoveQuickChatBubble != null)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: _localLabelBubbleBottomInset(compact),
+                    child: Center(
+                      child: QuickChatBubble(
+                        key: ValueKey(chatBubble!.id),
+                        playerName: chatBubble!.playerName,
+                        message: chatBubble!.message,
+                        isLocal: chatBubble!.isLocal,
+                        onDismiss: () =>
+                            onRemoveQuickChatBubble!(chatBubble!.id),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             SizedBox(height: compact ? 2 : AppDimensions.xs),
             child ?? const SizedBox.shrink(),
@@ -236,112 +256,120 @@ class _OpponentAvatarZone extends StatelessWidget {
               ]
             : null;
 
+    final avatarCircle = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(36),
+        onTap: () {},
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minWidth: AppDimensions.minTouchTarget,
+            minHeight: AppDimensions.minTouchTarget,
+          ),
+          child: SizedBox(
+            width: _kOpponentAvatarSize,
+            height: _kOpponentAvatarSize,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                AnimatedOpacity(
+                  opacity: hasTournamentStatus ? 0.50 : 1.0,
+                  duration: const Duration(milliseconds: 250),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isActive
+                          ? (appTheme.accentPrimary as Color)
+                              .withValues(alpha: 0.22)
+                          : avatarBaseColor.withValues(
+                              alpha: aiConfig != null ? 0.35 : 0.20),
+                      border: Border.all(color: ringColor, width: ringWidth),
+                      boxShadow: boxShadows,
+                    ),
+                    child: CircleAvatar(
+                      radius: 30,
+                      backgroundColor: Colors.transparent,
+                      child: Text(
+                        aiConfig?.initials ??
+                            initialsFromDisplayName(player.displayName),
+                        style: TextStyle(
+                          color: isActive
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.85),
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (isAiThinking)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 2,
+                    child: IgnorePointer(
+                      child: Center(child: _ThinkingEllipsis()),
+                    ),
+                  ),
+                Positioned(
+                  right: -2,
+                  bottom: -2,
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: appTheme.accentDark as Color,
+                      border: Border.all(
+                        color: appTheme.surfacePanel as Color,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Text(
+                      '${player.cardCount}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (chatBubble != null && onRemoveQuickChatBubble != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: QuickChatBubble(
-              key: ValueKey(chatBubble!.id),
-              playerName: chatBubble!.playerName,
-              message: chatBubble!.message,
-              isLocal: chatBubble!.isLocal,
-              onDismiss: () => onRemoveQuickChatBubble!(chatBubble!.id),
-            ),
-          ),
-        // ── Avatar circle ──────────────────────────────────────────────────
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(36),
-            onTap: () {},
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                minWidth: AppDimensions.minTouchTarget,
-                minHeight: AppDimensions.minTouchTarget,
-              ),
-              child: SizedBox(
-                width: 68,
-                height: 68,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    AnimatedOpacity(
-                      opacity: hasTournamentStatus ? 0.50 : 1.0,
-                      duration: const Duration(milliseconds: 250),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 220),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isActive
-                              ? (appTheme.accentPrimary as Color)
-                                  .withValues(alpha: 0.22)
-                              : avatarBaseColor.withValues(
-                                  alpha: aiConfig != null ? 0.35 : 0.20),
-                          border:
-                              Border.all(color: ringColor, width: ringWidth),
-                          boxShadow: boxShadows,
-                        ),
-                        child: CircleAvatar(
-                          radius: 30,
-                          backgroundColor: Colors.transparent,
-                          child: Text(
-                              aiConfig?.initials ??
-                                  initialsFromDisplayName(player.displayName),
-                              style: TextStyle(
-                                color: isActive
-                                    ? Colors.white
-                                    : Colors.white
-                                        .withValues(alpha: 0.85),
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                        ),
-                      ),
-                    ),
-                    if (isAiThinking)
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 2,
-                        child: IgnorePointer(
-                          child: Center(child: _ThinkingEllipsis()),
-                        ),
-                      ),
-                    // Card count badge
-                    Positioned(
-                      right: -2,
-                      bottom: -2,
-                      child: Container(
-                        width: 22,
-                        height: 22,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: appTheme.accentDark as Color,
-                          border: Border.all(
-                            color: appTheme.surfacePanel as Color,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Text(
-                          '${player.cardCount}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            avatarCircle,
+            if (chatBubble != null && onRemoveQuickChatBubble != null)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: _kOpponentAvatarSize + _kQuickChatBubbleGap,
+                child: Center(
+                  child: QuickChatBubble(
+                    key: ValueKey(chatBubble!.id),
+                    playerName: chatBubble!.playerName,
+                    message: chatBubble!.message,
+                    isLocal: chatBubble!.isLocal,
+                    onDismiss: () =>
+                        onRemoveQuickChatBubble!(chatBubble!.id),
+                  ),
                 ),
               ),
-            ),
-          ),
+          ],
         ),
 
         const SizedBox(height: 8),
