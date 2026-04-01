@@ -201,6 +201,7 @@ class _AuthProfileSheetState extends ConsumerState<_AuthProfileSheet> {
                   showXpProgress: false,
                   statsHeaderTopSpacing: 0,
                 ),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(

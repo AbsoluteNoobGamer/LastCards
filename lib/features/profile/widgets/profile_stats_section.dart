@@ -180,7 +180,10 @@ class _ProfileStatsSectionState extends ConsumerState<ProfileStatsSection> {
                           theme.surfaceDark.withValues(alpha: 0.85),
                       textSecondary: theme.textSecondary,
                     ),
-                  if (hasXp && hasRanked) ...[\n                    const SizedBox(height: 16),\n                    Divider(color: dividerColor, height: 1),\n                    const SizedBox(height: 12),\n                  ],
+                  if (hasXp && hasRanked) ...[
+                    const SizedBox(height: 16),
+                    Divider(color: dividerColor, height: 1),
+                  ],
                   if (hasRanked)
                     _RankedStatsBlock(
                       stats: ranked,
