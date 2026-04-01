@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../../lobby/presentation/screens/lobby_screen.dart';
+import '../../../tournament/widgets/tournament_type_sheet.dart';
 
 class OnlineModeSelectorModal extends ConsumerWidget {
   const OnlineModeSelectorModal({
@@ -67,14 +68,14 @@ class OnlineModeSelectorModal extends ConsumerWidget {
                   theme: theme,
                   title: 'Tournament mode',
                   subtitle:
-                      'Use elimination bracket with online multiplayer flow (Coming soon)',
+                      'Knockout or Bust online — same flow as the Tournament button',
                   onTap: () {
-                    final messenger = ScaffoldMessenger.of(context);
                     Navigator.pop(context);
-                    messenger.showSnackBar(
-                      const SnackBar(
-                        content: Text('Online tournaments are coming soon!'),
-                      ),
+                    showModalBottomSheet<void>(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => const TournamentTypeSheet(),
                     );
                   },
                 ),

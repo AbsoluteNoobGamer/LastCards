@@ -60,13 +60,8 @@ class BustGameScreen extends ConsumerStatefulWidget {
   /// Ignored when [isOnline] is true.
   final AiDifficulty aiDifficulty;
 
-  /// Whether this is an online Bust session (real players via server)
-  /// or an offline session (vs AI).
-  ///
-  /// **Currently unused** — online Bust is gated behind "Coming Soon" in
-  /// [TournamentSubModeSheet] and this flag is only scaffolding for future
-  /// online support. When online Bust is implemented, [_initGame] should
-  /// branch on this flag to use real player slots instead of AI configs.
+  /// Online Bust uses [TableScreen] (server); this screen is offline-only (vs AI).
+  /// Kept for API compatibility — always `false` in current navigation.
   final bool isOnline;
 
   /// If non-null, resumes a game already in progress (subsequent rounds).

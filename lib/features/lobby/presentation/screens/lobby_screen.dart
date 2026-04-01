@@ -370,26 +370,14 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   }
 
   Future<void> _enterSelectedMode() async {
-    if (widget.onlineMode == OnlineMode.tournament) {
-      if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Coming soon'),
-          content: const Text('Online tournaments are coming soon!'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-
+    if (!mounted) return;
     Navigator.of(context).push(
-      AppPageRoutes.fadeSlide((_) => const TableScreen(totalPlayers: 4)),
+      AppPageRoutes.fadeSlide(
+        (_) => TableScreen(
+          totalPlayers: 4,
+          isTournamentMode: widget.onlineMode == OnlineMode.tournament,
+        ),
+      ),
     );
   }
 }
