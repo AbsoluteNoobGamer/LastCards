@@ -11,14 +11,14 @@ abstract final class PlayerStyles {
         return AppColors.blueAccent; // Local / P1
       case TablePosition.left:
       case TablePosition.farLeft:
-        return AppColors.redSoft; // Round-robin P2
+        return AppColors.redSoft; // P2
       case TablePosition.top:
       case TablePosition.topLeft:
       case TablePosition.topRight:
-        return const Color(0xFF4AE280); // Round-robin P3
+        return const Color(0xFF4AE280); // P3
       case TablePosition.right:
       case TablePosition.farRight:
-        return const Color(0xFFB04AE2); // Round-robin P4
+        return const Color(0xFFB04AE2); // P4
       case TablePosition.bottomLeft:
       case TablePosition.bottomRight:
         return const Color(0xFFE29C4A); // Extended positions

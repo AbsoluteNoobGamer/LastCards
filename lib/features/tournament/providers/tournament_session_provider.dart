@@ -2,54 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../single_player/providers/single_player_session_provider.dart';
 
+/// Knockout elimination is the only supported tournament format.
 enum TournamentFormat {
-  knockout,
-  roundRobin,
-  bestOfThree;
+  knockout;
 
-  String get displayName {
-    switch (this) {
-      case TournamentFormat.knockout:
-        return 'Knockout';
-      case TournamentFormat.roundRobin:
-        return 'Round Robin';
-      case TournamentFormat.bestOfThree:
-        return 'Best of 3';
-    }
-  }
+  String get displayName => 'Knockout';
 
-  String get description {
-    switch (this) {
-      case TournamentFormat.knockout:
-        return 'Eliminated player leaves each round';
-      case TournamentFormat.roundRobin:
-        return 'Everyone plays everyone, most wins advances';
-      case TournamentFormat.bestOfThree:
-        return 'First to win 2 rounds wins the tournament';
-    }
-  }
+  String get description => 'Eliminated player leaves each round';
 
-  String get emoji {
-    switch (this) {
-      case TournamentFormat.knockout:
-        return '🏆';
-      case TournamentFormat.roundRobin:
-        return '🔄';
-      case TournamentFormat.bestOfThree:
-        return '⚔️';
-    }
-  }
-
-  bool get isComingSoon {
-    switch (this) {
-      case TournamentFormat.knockout:
-        return false;
-      case TournamentFormat.roundRobin:
-        return true;
-      case TournamentFormat.bestOfThree:
-        return true;
-    }
-  }
+  String get emoji => '🏆';
 }
 
 enum TournamentType {

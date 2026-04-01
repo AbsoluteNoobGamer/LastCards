@@ -8,8 +8,7 @@ import 'tournament_sub_mode_sheet.dart';
 
 /// Bottom Sheet 1 — Tournament Type Selection
 ///
-/// Shows two large tappable option cards: vs AI, Local Multiplayer.
-/// On selection, dismisses and opens Bottom Sheet 2a or 2b.
+/// Single Player (vs AI) or Online — then [TournamentSubModeSheet] (Knockout / Bust).
 class TournamentTypeSheet extends ConsumerWidget {
   const TournamentTypeSheet({super.key});
 
@@ -84,22 +83,6 @@ class TournamentTypeSheet extends ConsumerWidget {
 
   void _onTypeSelected(
       BuildContext context, WidgetRef ref, TournamentType type) {
-    if (type == TournamentType.online) {
-      showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Coming soon'),
-          content: const Text('Online tournaments are coming soon!'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
     ref.read(tournamentSessionProvider.notifier).setType(type);
     Navigator.of(context).pop();
 
@@ -214,18 +197,6 @@ class _TournamentTypeCardState extends ConsumerState<_TournamentTypeCard> {
                           letterSpacing: 0.2,
                         ),
                       ),
-                      if (widget.type == TournamentType.online) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          'Coming soon',
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: theme.accentPrimary,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),

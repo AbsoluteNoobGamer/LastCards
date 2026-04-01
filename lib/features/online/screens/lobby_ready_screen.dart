@@ -114,23 +114,18 @@ class _LobbyReadyScreenState extends ConsumerState<LobbyReadyScreen>
 
     ref.read(onlineSessionProvider.notifier).reset();
 
-    // Online Bust uses TableScreen (server-driven). Server runs the game;
-    // BustGameScreen is for offline only (local engine + AI).
+    // Online Bust: standard table rules on server ([TableScreen], no knockout UI).
+    // Online Knockout tournament: same server session with tournament finish-order
+    // UX (qualify / eliminate sounds, [onPlayerFinished]) — one match per queue;
+    // multi-round brackets remain offline via [TournamentCoordinator].
     final Widget destination;
     if (isBust) {
       destination = TableScreen(totalPlayers: playerCount);
     } else if (isTournament) {
-      // Online tournaments are not server-backed; avoid fake AI bracket coordinator.
-      ref.read(tournamentSessionProvider.notifier).reset();
-      final messenger = ScaffoldMessenger.of(context);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Online tournaments are coming soon!'),
-          ),
-        );
-      });
-      destination = TableScreen(totalPlayers: playerCount);
+      destination = TableScreen(
+        totalPlayers: playerCount,
+        isTournamentMode: true,
+      );
     } else {
       destination = TableScreen(totalPlayers: playerCount);
     }
