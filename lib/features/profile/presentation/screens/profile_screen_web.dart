@@ -236,6 +236,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
             ),
+            const ProfileStatsSection(
+              statsHeaderTopSpacing: 24,
+            ),
             const SizedBox(height: 32),
             GestureDetector(
               onTap: !canEdit && nextEditDate != null
@@ -316,7 +319,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
             ),
-            const ProfileStatsSection(),
           ],
         ),
       ),
