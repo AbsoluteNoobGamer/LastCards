@@ -53,6 +53,7 @@ void main() {
         c('D2', Rank.four, Suit.clubs),
       ];
 
+      final playedThisTurn = c('played', Rank.six, Suit.spades);
       final initialState = GameState(
         sessionId: 'offline-smoke',
         phase: GamePhase.playing,
@@ -76,6 +77,9 @@ void main() {
         direction: PlayDirection.clockwise,
         discardTopCard: c('disc', Rank.six, Suit.spades),
         drawPileCount: drawPile.length,
+        actionsThisTurn: 1,
+        cardsPlayedThisTurn: 1,
+        lastPlayedThisTurn: playedThisTurn,
       );
 
       await tester.pumpWidget(
@@ -105,6 +109,7 @@ void main() {
       );
       expect(find.byType(DrawPileWidget), findsOneWidget);
       expect(find.byType(DiscardPileWidget), findsOneWidget);
+      expect(find.text('End Turn'), findsOneWidget);
     },
   );
 }
