@@ -147,12 +147,14 @@ class _ProfileStatsSectionState extends State<ProfileStatsSection> {
                       textSecondary: AppColors.textSecondary,
                     ),
                   if (ranked != null) ...[
-                    SizedBox(height: showXp ? 16 : 12),
-                    Divider(
-                      color: AppColors.goldDark.withValues(alpha: 0.3),
-                      height: 1,
-                    ),
-                    const SizedBox(height: 12),
+                    if (showXp) ...[                    
+                      const SizedBox(height: 16),
+                      Divider(
+                        color: AppColors.goldDark.withValues(alpha: 0.3),
+                        height: 1,
+                      ),
+                    ],
+                    SizedBox(height: showXp ? 12 : 0),
                     _RankedStatsBlock(stats: ranked),
                   ],
                   SizedBox(height: (showXp || ranked != null) ? 16 : 0),
