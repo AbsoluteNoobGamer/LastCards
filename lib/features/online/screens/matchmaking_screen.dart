@@ -26,7 +26,7 @@ import 'lobby_ready_screen.dart';
 
 /// Full-screen matchmaking screen (all online quickplay entry points use this).
 ///
-/// Shows a progress ring and player slots that fill from
+/// Shows a circular roster-fill indicator and player slots that fill from
 /// [QuickplayQueueUpdateEvent] while waiting, then advances when the roster is
 /// complete. The only exit is the Cancel button which pops to root.
 class MatchmakingScreen extends ConsumerStatefulWidget {
