@@ -29,3 +29,27 @@ void mergeOrPrependPlayLog(
     entries.removeRange(maxEntries, entries.length);
   }
 }
+
+/// Merges [drawEntry] into the top line when it is another draw by the same
+/// player (e.g. multiple [card_drawn] messages for one penalty draw online).
+void mergeOrPrependDrawLog(
+  List<MoveLogEntry> entries,
+  MoveLogEntry drawEntry, {
+  int maxEntries = 3,
+}) {
+  assert(drawEntry.type == MoveLogEntryType.draw);
+  if (entries.isNotEmpty) {
+    final top = entries.first;
+    if (top.type == MoveLogEntryType.draw &&
+        top.playerId == drawEntry.playerId) {
+      entries[0] = top.copyWith(
+        drawCount: top.drawCount + drawEntry.drawCount,
+      );
+      return;
+    }
+  }
+  entries.insert(0, drawEntry);
+  if (entries.length > maxEntries) {
+    entries.removeRange(maxEntries, entries.length);
+  }
+}
