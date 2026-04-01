@@ -75,4 +75,77 @@ void main() {
       expect(entries.first.playerId, 'p2');
     });
   });
+
+  group('mergeOrPrependDrawLog', () {
+    test('prepends first draw', () {
+      final entries = <MoveLogEntry>[];
+      mergeOrPrependDrawLog(
+        entries,
+        MoveLogEntry.draw(
+          playerId: 'p1',
+          playerName: 'A',
+          drawCount: 1,
+        ),
+      );
+      expect(entries.length, 1);
+      expect(entries.first.drawCount, 1);
+    });
+
+    test('merges consecutive draws for same player', () {
+      final entries = <MoveLogEntry>[
+        MoveLogEntry.draw(
+          playerId: 'p1',
+          playerName: 'A',
+          drawCount: 1,
+        ),
+      ];
+      mergeOrPrependDrawLog(
+        entries,
+        MoveLogEntry.draw(
+          playerId: 'p1',
+          playerName: 'A',
+          drawCount: 1,
+        ),
+      );
+      expect(entries.length, 1);
+      expect(entries.first.drawCount, 2);
+    });
+
+    test('merges five card_drawn-equivalent events into one line', () {
+      final entries = <MoveLogEntry>[];
+      for (var i = 0; i < 5; i++) {
+        mergeOrPrependDrawLog(
+          entries,
+          MoveLogEntry.draw(
+            playerId: 'p1',
+            playerName: 'A',
+            drawCount: 1,
+          ),
+        );
+      }
+      expect(entries.length, 1);
+      expect(entries.first.drawCount, 5);
+    });
+
+    test('does not merge draw for different player', () {
+      final entries = <MoveLogEntry>[
+        MoveLogEntry.draw(
+          playerId: 'p1',
+          playerName: 'A',
+          drawCount: 2,
+        ),
+      ];
+      mergeOrPrependDrawLog(
+        entries,
+        MoveLogEntry.draw(
+          playerId: 'p2',
+          playerName: 'B',
+          drawCount: 1,
+        ),
+      );
+      expect(entries.length, 2);
+      expect(entries.first.playerId, 'p2');
+      expect(entries.first.drawCount, 1);
+    });
+  });
 }

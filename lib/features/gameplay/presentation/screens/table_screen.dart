@@ -323,11 +323,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       }
       final name = state.playerById(e.playerId)?.displayName ?? e.playerId;
       setState(() {
-        _pushMoveLog(MoveLogEntry.draw(
-          playerId: e.playerId,
-          playerName: name,
-          drawCount: 1,
-        ));
+        mergeOrPrependDrawLog(
+          _moveLogEntries,
+          MoveLogEntry.draw(
+            playerId: e.playerId,
+            playerName: name,
+            drawCount: 1,
+          ),
+        );
       });
     });
 
