@@ -430,6 +430,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   void _initNewGame() {
+    _pendingOfflineAiTurns.clear();
     final liveState = ref.read(gameStateProvider);
     _bustLeaderboardRecorded = false;
     _tournamentSimulatingRest = false;
@@ -2401,6 +2402,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   void _drainPendingOfflineAiTurns() {
     if (!mounted || _aiThinking || _pendingOfflineAiTurns.isEmpty) return;
+    if (!_isOfflineSession || _tournamentRoundComplete) {
+      _pendingOfflineAiTurns.clear();
+      return;
+    }
     final item = _pendingOfflineAiTurns.removeFirst();
     unawaited(_scheduleAiTurn(item.id, simulate: item.simulate));
   }
@@ -2450,6 +2455,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     setState(() => _aiThinking = true);
 
     var scheduledNext = false;
+    var drainPendingAfterTurn = true;
     try {
       bool offlineTournamentInstantPacing() =>
           _isOfflineSession &&
@@ -2602,6 +2608,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         result.state,
         onNestedAiScheduled: () => scheduledNext = true,
       )) {
+        drainPendingAfterTurn = false;
+        _pendingOfflineAiTurns.clear();
         return;
       }
 
@@ -2706,7 +2714,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (_aiThinking && mounted && !scheduledNext) {
         setState(() => _aiThinking = false);
       }
-      _drainPendingOfflineAiTurns();
+      if (drainPendingAfterTurn) {
+        _drainPendingOfflineAiTurns();
+      }
     }
   }
 

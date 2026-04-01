@@ -135,6 +135,7 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
           builder: (context, constraints) {
             return Center(
               child: SingleChildScrollView(
+                clipBehavior: Clip.none,
                 controller: _scrollController,
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -154,6 +155,7 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
     return SizedBox(
       height: railHeight,
       child: ListView.builder(
+        clipBehavior: Clip.none,
         controller: _scrollController,
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: AppDimensions.sm),
