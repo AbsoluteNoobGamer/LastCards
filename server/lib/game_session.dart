@@ -1025,19 +1025,116 @@ class GameSession {
   }
 
   /// When [nextPlayerId] resolves to the same seat as [playerId] (e.g. Skip/8 or
-  /// King in 2-player), the offline client auto-advances: resets per-turn fields
-  /// so the next card is validated as the first card of a fresh turn. Mirror that
-  /// here so online matches offline.
+  /// King in 2-player), the offline client resets per-turn fields so the next card
+  /// is validated as the first card of a fresh turn, **without** removing that
+  /// player from [GameState.lastCardsDeclaredBy]. Do not use [advanceTurn] here:
+  /// when outgoing and incoming are the same seat, [advanceTurn] incorrectly drops
+  /// the player from [lastCardsDeclaredBy].
   ///
-  /// Returns true if `turn_changed` and snapshots were already sent via
-  /// [_advanceTurn].
+  /// Returns true if `turn_changed` and snapshots were broadcast (and the turn
+  /// timer restarted), or if Bust mode ended the round early from this path.
   bool _maybeAutoAdvanceSamePlayerAfterPlay(String playerId) {
     if (_gameOver) return false;
     if (_state.currentPlayerId != playerId) return false;
     if (_state.queenSuitLock != null) return false;
     if (nextPlayerId(state: _state) != playerId) return false;
-    _advanceTurn();
+    _sameSeatFreshTurnAfterSkipOrKing(playerId);
     return true;
+  }
+
+  /// Same-seat “new turn” after skip/King wrap: mirrors offline
+  /// `table_screen` copyWith (preserves [lastCardsDeclaredBy]), not [advanceTurn].
+  void _sameSeatFreshTurnAfterSkipOrKing(String playerId) {
+    final completedPlayerId = _state.currentPlayerId;
+    final oldSkipCount = _state.activeSkipCount;
+    final playersOrder = _state.players;
+    final directionForWalk = _state.direction;
+
+    if (!isBustMode) {
+      final nextId = nextPlayerId(state: _state);
+      if (_lastCardsBluffedBy.contains(nextId)) {
+        _applyLastCardsBluffPenalty(nextId);
+      }
+      _lastCardsBluffedBy.remove(completedPlayerId);
+    }
+
+    final lastCard = _state.lastPlayedThisTurn;
+    final lastWasPenalty = lastCard != null &&
+        (lastCard.effectiveRank == Rank.two ||
+            lastCard.effectiveRank == Rank.jack);
+
+    final base = _state.copyWith(
+      currentPlayerId: playerId,
+      actionsThisTurn: 0,
+      cardsPlayedThisTurn: 0,
+      lastPlayedThisTurn: null,
+      activeSkipCount: 0,
+      preTurnCentreSuit: _state.discardTopCard?.effectiveSuit,
+      queenSuitLock: null,
+      penaltyChainLive: lastWasPenalty ? _state.penaltyChainLive : false,
+    );
+
+    final updatedPlayers = base.players.map((p) {
+      if (p.id != playerId) {
+        return p.copyWith(lastCardsHandWasClearableAtTurnStart: false);
+      }
+      final clearable = canClearHandInOneTurn(
+        state: base,
+        playerId: playerId,
+      );
+      return p.copyWith(lastCardsHandWasClearableAtTurnStart: clearable);
+    }).toList();
+
+    _state = base.copyWith(players: updatedPlayers);
+
+    if (isBustMode) {
+      _bustTurnsThisRound[completedPlayerId] =
+          (_bustTurnsThisRound[completedPlayerId] ?? 0) + 1;
+
+      if (oldSkipCount > 0) {
+        final currentIdx =
+            playersOrder.indexWhere((p) => p.id == completedPlayerId);
+        if (currentIdx >= 0) {
+          final step =
+              directionForWalk == PlayDirection.clockwise ? 1 : -1;
+          var idx = currentIdx;
+          for (var safety = playersOrder.length; safety > 0; safety--) {
+            idx = (idx + step) % playersOrder.length;
+            if (idx < 0) idx += playersOrder.length;
+            final pid = playersOrder[idx].id;
+            if (pid == playerId) break;
+            _bustTurnsThisRound[pid] = (_bustTurnsThisRound[pid] ?? 0) + 1;
+          }
+        }
+      }
+
+      if (_isBustRoundComplete()) {
+        _finalizeBustRound();
+        return;
+      }
+
+      if (_bustSurvivorIds.length == 2) {
+        for (final id in _bustSurvivorIds) {
+          if (canConfirmPlayerWin(
+            state: _state,
+            playerId: id,
+            skipLastCardsCheck: true,
+          )) {
+            _completeBustFinalShowdown(id);
+            return;
+          }
+        }
+      }
+    }
+
+    _broadcast({
+      'type': 'turn_changed',
+      'currentPlayerId': _state.currentPlayerId,
+      'direction': _state.direction.name,
+    });
+
+    _broadcastStateSnapshots();
+    _startTurnTimer();
   }
 
   // ── Turn advancement (shared by end_turn and timeout) ─────────────────────

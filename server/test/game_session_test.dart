@@ -416,6 +416,66 @@ void main() {
       expect(snap['activeSkipCount'], equals(0));
     });
 
+    test(
+        '2-player Skip (8): same-seat reset keeps lastCardsDeclaredBy for the '
+        'actor (does not use advanceTurn)', () {
+      final (:session, :sockets, :ids) = _makeSession(2);
+      final p1ws = sockets[0];
+      final p1Id = ids[0];
+      final p2Id = ids[1];
+
+      final eightH = _card(Rank.eight, Suit.hearts);
+      final threeH = _card(Rank.three, Suit.hearts);
+      final p1Hand = [eightH, threeH];
+      final p2Hand = [
+        _card(Rank.four, Suit.spades),
+        _card(Rank.five, Suit.spades),
+      ];
+      final discardTop = _card(Rank.seven, Suit.hearts);
+      final drawPile = List.generate(
+          10, (i) => CardModel(id: 'filler_$i', rank: Rank.four, suit: Suit.clubs));
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: p1Id,
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: p1Hand,
+            cardCount: p1Hand.length,
+          ),
+          PlayerModel(
+            id: p2Id,
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: p2Hand,
+            cardCount: p2Hand.length,
+          ),
+        ],
+        currentPlayerId: p1Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: discardTop,
+        drawPileCount: drawPile.length,
+        preTurnCentreSuit: Suit.hearts,
+        lastCardsDeclaredBy: {p1Id},
+      );
+
+      session.seedStateForTesting(state: state, drawPile: drawPile);
+
+      p1ws.clear();
+      session.handleAction(p1Id, {
+        'type': 'play_cards',
+        'cardIds': [eightH.id],
+      });
+
+      final snap = _latestSnapshot(p1ws);
+      final declared =
+          (snap['lastCardsDeclaredBy'] as List).cast<String>().toSet();
+      expect(declared, contains(p1Id));
+    });
+
     test('not_your_turn error sent to wrong player', () {
       final (:session, :p1ws, :p2ws, :p1Id, :p2Id) = _makeKnownGame();
       p2ws.clear();
