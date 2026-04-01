@@ -684,7 +684,9 @@ class GameSession {
     );
 
     _checkWin();
-    _broadcastStateSnapshots();
+    if (!_maybeAutoAdvanceSamePlayerAfterPlay(playerId)) {
+      _broadcastStateSnapshots();
+    }
   }
 
   // ── suit_choice ───────────────────────────────────────────────────────────
@@ -866,7 +868,9 @@ class GameSession {
     );
 
     _checkWin();
-    _broadcastStateSnapshots();
+    if (!_maybeAutoAdvanceSamePlayerAfterPlay(playerId)) {
+      _broadcastStateSnapshots();
+    }
   }
 
   // ── end_turn ──────────────────────────────────────────────────────────────
@@ -1018,6 +1022,22 @@ class GameSession {
 
     _broadcastStateSnapshots();
     _advanceTurn();
+  }
+
+  /// When [nextPlayerId] resolves to the same seat as [playerId] (e.g. Skip/8 or
+  /// King in 2-player), the offline client auto-advances: resets per-turn fields
+  /// so the next card is validated as the first card of a fresh turn. Mirror that
+  /// here so online matches offline.
+  ///
+  /// Returns true if `turn_changed` and snapshots were already sent via
+  /// [_advanceTurn].
+  bool _maybeAutoAdvanceSamePlayerAfterPlay(String playerId) {
+    if (_gameOver) return false;
+    if (_state.currentPlayerId != playerId) return false;
+    if (_state.queenSuitLock != null) return false;
+    if (nextPlayerId(state: _state) != playerId) return false;
+    _advanceTurn();
+    return true;
   }
 
   // ── Turn advancement (shared by end_turn and timeout) ─────────────────────
