@@ -95,17 +95,17 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
     super.dispose();
   }
 
-  /// Extra height when chat bubbles are visible to prevent overflow.
+  /// Extra height when any slot shows a quick chat bubble (bubble overflows above avatar).
   static const double _chatBubbleExtraHeight = 40;
 
   @override
   Widget build(BuildContext context) {
     final baseHeight = widget.height ?? 96;
     final hasChatBubbles = widget.players.any(
-        (p) => widget.quickChatBubblesByPlayer.containsKey(p.id));
-    final railHeight = hasChatBubbles
-        ? baseHeight + _chatBubbleExtraHeight
-        : baseHeight;
+      (p) => widget.quickChatBubblesByPlayer.containsKey(p.id),
+    );
+    final railHeight =
+        hasChatBubbles ? baseHeight + _chatBubbleExtraHeight : baseHeight;
     final slotPadding = AppDimensions.xs;
 
     Widget buildSlot(BustPlayerViewModel player) {
@@ -135,6 +135,7 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
           builder: (context, constraints) {
             return Center(
               child: SingleChildScrollView(
+                clipBehavior: Clip.none,
                 controller: _scrollController,
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -154,6 +155,7 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
     return SizedBox(
       height: railHeight,
       child: ListView.builder(
+        clipBehavior: Clip.none,
         controller: _scrollController,
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: AppDimensions.sm),

@@ -48,7 +48,11 @@ class _TableLayout extends StatelessWidget {
     this.hasAlreadyDeclaredLastCards = false,
     this.localHandSize = 0,
     this.onLastCardsTap,
+    this.onPenaltyIncreased,
   });
+
+  /// Called when the pickup penalty count increases (visual feedback).
+  final VoidCallback? onPenaltyIncreased;
 
   /// Online: hide opponent seats while server grace reports socket loss.
   final Set<String> socketDisconnectedPlayerIds;
@@ -196,6 +200,7 @@ class _TableLayout extends StatelessWidget {
             hasAlreadyDeclaredLastCards: hasAlreadyDeclaredLastCards,
             localHandSize: localHandSize,
             onLastCardsTap: onLastCardsTap,
+            onPenaltyIncreased: onPenaltyIncreased,
           );
         }
 
@@ -551,7 +556,10 @@ class _LandscapeTableLayout extends StatelessWidget {
     this.hasAlreadyDeclaredLastCards = false,
     this.localHandSize = 0,
     this.onLastCardsTap,
+    this.onPenaltyIncreased,
   });
+
+  final VoidCallback? onPenaltyIncreased;
 
   final String? nextTurnLabel;
 
@@ -772,6 +780,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                           ?.tablePosition
                       : null,
                   compact: true,
+                  onPenaltyIncreased: onPenaltyIncreased,
                 ),
               ],
             ),

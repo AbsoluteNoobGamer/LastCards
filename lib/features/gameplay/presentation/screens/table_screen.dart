@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection' show Queue;
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -140,6 +141,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   bool _aiThinking = false;
 
+  /// When [_scheduleAiTurn] is re-entered while [_aiThinking] is still true,
+  /// the guard used to drop the follow-up entirely (stall). Queue one pending
+  /// turn and drain it when the in-flight turn clears the flag in [finally].
+  final Queue<({String id, bool simulate})> _pendingOfflineAiTurns =
+      Queue<({String id, bool simulate})>();
+
   /// Guards against concurrent local async actions (play/draw/penalty).
   /// Set true before any await in those methods, reset at every exit.
   bool _localActionInProgress = false;
@@ -193,6 +200,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   bool _timerWarningPlayed = false;
 
   bool _showQuickChatPanel = false;
+
+  /// Incremented to retrigger full-screen edge feedback animations.
+  int _turnPulseTrigger = 0;
+  int _penaltyFlashTrigger = 0;
+
+  /// Tracks [GameState.currentPlayerId] for your-turn edge pulse (transition onto local).
+  String? _prevTurnPlayerIdForEdge;
 
   /// Seconds remaining until next quick chat can be sent (10s cooldown).
   int _quickChatCooldownRemaining = 0;
@@ -416,6 +430,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   void _initNewGame() {
+    _pendingOfflineAiTurns.clear();
     final liveState = ref.read(gameStateProvider);
     _bustLeaderboardRecorded = false;
     _tournamentSimulatingRest = false;
@@ -753,6 +768,30 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
   }
 
+  void _maybePulseTurnEdge(GameState gameState) {
+    final cur = gameState.currentPlayerId;
+    if (gameState.phase != GamePhase.playing) {
+      _prevTurnPlayerIdForEdge = cur;
+      return;
+    }
+    final localId = gameState.players
+        .where((p) => p.tablePosition == TablePosition.bottom)
+        .firstOrNull
+        ?.id;
+    final shouldPulse = localId != null &&
+        _prevTurnPlayerIdForEdge != null &&
+        cur == localId &&
+        _prevTurnPlayerIdForEdge != localId;
+    _prevTurnPlayerIdForEdge = cur;
+    if (shouldPulse) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !MediaQuery.disableAnimationsOf(context)) {
+          setState(() => _turnPulseTrigger++);
+        }
+      });
+    }
+  }
+
   void _onBackPressed() {
     final isOfflineMode = ref.read(gameStateProvider) == null;
     if (isOfflineMode) {
@@ -1058,6 +1097,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         ? _offlineState.activePenaltyCount
         : ref.watch(penaltyCountProvider);
 
+    _maybePulseTurnEdge(gameState);
+
     final viewerPlayerId = gameState.players
         .where((p) => p.tablePosition == TablePosition.bottom)
         .firstOrNull
@@ -1335,6 +1376,29 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             children: [
               const _FeltTableBackground(),
 
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: _ScreenEdgePulse(
+                    trigger: _turnPulseTrigger,
+                    color: appTheme.accentPrimary,
+                    totalDuration: const Duration(milliseconds: 800),
+                    fadeInDuration: const Duration(milliseconds: 200),
+                    maxOpacity: 0.22,
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: _ScreenEdgePulse(
+                    trigger: _penaltyFlashTrigger,
+                    color: const Color(0xFFE53935),
+                    totalDuration: const Duration(milliseconds: 400),
+                    fadeInDuration: const Duration(milliseconds: 100),
+                    maxOpacity: 0.32,
+                  ),
+                ),
+              ),
+
               SafeArea(
                 child: Column(
                   children: [
@@ -1408,6 +1472,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         hasAlreadyDeclaredLastCards: alreadyDeclaredLastCards,
                         localHandSize: localHandSize,
                         onLastCardsTap: _onDeclareLastCards,
+                        onPenaltyIncreased: () {
+                          if (MediaQuery.disableAnimationsOf(context)) return;
+                          setState(() => _penaltyFlashTrigger++);
+                        },
                       ),
                     ),
                   ],
@@ -1660,6 +1728,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                 .firstOrNull
                                 ?.tablePosition
                             : null,
+                        onPenaltyIncreased: () {
+                          if (MediaQuery.disableAnimationsOf(context)) return;
+                          setState(() => _penaltyFlashTrigger++);
+                        },
                       ),
                     ),
                   ),
@@ -2328,6 +2400,16 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     return true;
   }
 
+  void _drainPendingOfflineAiTurns() {
+    if (!mounted || _aiThinking || _pendingOfflineAiTurns.isEmpty) return;
+    if (!_isOfflineSession || _tournamentRoundComplete) {
+      _pendingOfflineAiTurns.clear();
+      return;
+    }
+    final item = _pendingOfflineAiTurns.removeFirst();
+    unawaited(_scheduleAiTurn(item.id, simulate: item.simulate));
+  }
+
   Future<void> _scheduleAiTurn(String aiId, {bool simulate = false}) async {
     if (widget.isTournamentMode &&
         _tournamentFinishedPlayerIds.contains(aiId)) {
@@ -2335,6 +2417,20 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         state: _offlineState,
         startAfterPlayerId: aiId,
       );
+      if (nextId != _offlineState.currentPlayerId && mounted) {
+        setState(() {
+          _offlineState = _offlineState.copyWith(
+            currentPlayerId: nextId,
+            actionsThisTurn: 0,
+            cardsPlayedThisTurn: 0,
+            lastPlayedThisTurn: null,
+            activeSkipCount: 0,
+            queenSuitLock: null,
+            preTurnCentreSuit: _offlineState.discardTopCard?.effectiveSuit,
+            drawPileCount: _drawPile.length,
+          );
+        });
+      }
       if (nextId != OfflineGameState.localId &&
           !_tournamentFinishedPlayerIds.contains(nextId)) {
         _scheduleAiTurn(nextId,
@@ -2351,11 +2447,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       }
       return;
     }
-    if (_aiThinking) return;
+    if (_aiThinking) {
+      _pendingOfflineAiTurns.addLast((id: aiId, simulate: simulate));
+      return;
+    }
     _offlineApplyLastCardsBluffPenaltyIfNeeded(aiId);
     setState(() => _aiThinking = true);
 
     var scheduledNext = false;
+    var drainPendingAfterTurn = true;
     try {
       bool offlineTournamentInstantPacing() =>
           _isOfflineSession &&
@@ -2508,6 +2608,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         result.state,
         onNestedAiScheduled: () => scheduledNext = true,
       )) {
+        drainPendingAfterTurn = false;
+        _pendingOfflineAiTurns.clear();
         return;
       }
 
@@ -2583,6 +2685,20 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           if (skipToId != OfflineGameState.localId &&
               !_tournamentFinishedPlayerIds.contains(skipToId)) {
             scheduledNext = true;
+            if (mounted && skipToId != _offlineState.currentPlayerId) {
+              setState(() {
+                _offlineState = _offlineState.copyWith(
+                  currentPlayerId: skipToId,
+                  actionsThisTurn: 0,
+                  cardsPlayedThisTurn: 0,
+                  lastPlayedThisTurn: null,
+                  activeSkipCount: 0,
+                  queenSuitLock: null,
+                  preTurnCentreSuit: _offlineState.discardTopCard?.effectiveSuit,
+                  drawPileCount: _drawPile.length,
+                );
+              });
+            }
             _scheduleAiTurn(skipToId, simulate: true);
           } else {
             // All players finished — round should be complete.
@@ -2597,6 +2713,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     } finally {
       if (_aiThinking && mounted && !scheduledNext) {
         setState(() => _aiThinking = false);
+      }
+      if (drainPendingAfterTurn) {
+        _drainPendingOfflineAiTurns();
       }
     }
   }
@@ -2847,9 +2966,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         if (local != null) _syncHandOrder(local.hand);
       });
       _engineTimer.cancel();
-      // Defer so this does not run while [_scheduleAiTurn] still holds
-      // [_aiThinking]; nested calls return immediately at the guard and the
-      // game would stall with no follow-up turn.
+      // Defer so this does not run synchronously during the same stack as
+      // [_scheduleAiTurn] (microtask runs after [_aiThinking] clears).
       final followUpId = ns.currentPlayerId;
       final simRest = _tournamentSimulatingRest;
       Future.microtask(() {

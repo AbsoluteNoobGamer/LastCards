@@ -25,6 +25,7 @@ class HudOverlayWidget extends ConsumerWidget {
     this.penaltyCount = 0,
     this.penaltyTargetPosition,
     this.compact = false,
+    this.onPenaltyIncreased,
   });
 
   /// Active suit declared by Ace or Joker (null = no override).
@@ -43,6 +44,9 @@ class HudOverlayWidget extends ConsumerWidget {
   /// When true, uses smaller badges for landscape layout.
   final bool compact;
 
+  /// Fires when [penaltyCount] increases (e.g. screen-edge flash on table).
+  final VoidCallback? onPenaltyIncreased;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(themeProvider).theme;
@@ -57,6 +61,7 @@ class HudOverlayWidget extends ConsumerWidget {
             count: penaltyCount,
             targetPosition: penaltyTargetPosition,
             compact: compact,
+            onPenaltyIncreased: onPenaltyIncreased,
           ),
           SizedBox(width: gap),
         ],
@@ -110,24 +115,57 @@ double _rotationForTarget(TablePosition? position) {
 }
 
 class _PenaltyBadge extends StatefulWidget {
-  const _PenaltyBadge({required this.count, this.targetPosition, this.compact = false});
+  const _PenaltyBadge({
+    required this.count,
+    this.targetPosition,
+    this.compact = false,
+    this.onPenaltyIncreased,
+  });
 
   final int count;
   final TablePosition? targetPosition;
   final bool compact;
+  final VoidCallback? onPenaltyIncreased;
 
   @override
   State<_PenaltyBadge> createState() => _PenaltyBadgeState();
 }
 
-class _PenaltyBadgeState extends State<_PenaltyBadge> {
+class _PenaltyBadgeState extends State<_PenaltyBadge>
+    with SingleTickerProviderStateMixin {
   int _bumpKey = 0;
+  late final AnimationController _shakeController;
+
+  @override
+  void initState() {
+    super.initState();
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+  }
+
+  @override
+  void dispose() {
+    _shakeController.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(_PenaltyBadge oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.count > oldWidget.count) {
       _bumpKey++;
+      final cb = widget.onPenaltyIncreased;
+      if (cb != null) {
+        // Defer: parent [setState] must not run during this build phase.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) cb();
+        });
+      }
+      if (!MediaQuery.disableAnimationsOf(context)) {
+        _shakeController.forward(from: 0);
+      }
     }
   }
 
@@ -178,13 +216,21 @@ class _PenaltyBadgeState extends State<_PenaltyBadge> {
     );
 
     final startScale = _bumpKey > 0 ? 1.22 : 1.0;
-    return TweenAnimationBuilder<double>(
+    final scaled = TweenAnimationBuilder<double>(
       key: ValueKey('p$_bumpKey-${widget.count}'),
       tween: Tween(begin: startScale, end: 1.0),
       duration: Duration(milliseconds: _bumpKey > 0 ? 420 : 1),
       curve: Curves.elasticOut,
       builder: (context, scale, c) => Transform.scale(scale: scale, child: c),
       child: child,
+    );
+    return AnimatedBuilder(
+      animation: _shakeController,
+      builder: (context, _) {
+        final t = _shakeController.value;
+        final dx = math.sin(t * math.pi * 8) * 4.5 * (1.0 - t);
+        return Transform.translate(offset: Offset(dx, 0), child: scaled);
+      },
     );
   }
 }

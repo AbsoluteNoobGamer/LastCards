@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/card.dart';
 import '../../../../services/audio_service.dart' as game_audio;
@@ -8,16 +9,16 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/shadow_blur.dart';
+import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/services/card_back_service.dart';
 import 'card_back_widget.dart';
 import 'joker_card_widget.dart';
 
 /// Renders a single playing card (face-up or face-down).
 ///
-/// Pass [isSelected] to show the lifted + gold-shimmer selection state.
+/// Pass [isSelected] to show the lifted + theme-accent selection state.
 /// Pass [onTap] to make the card interactive.
-/// Pass [onTap] to make the card interactive.
-class CardWidget extends StatelessWidget {
+class CardWidget extends ConsumerWidget {
   const CardWidget({
     super.key,
     required this.card,
@@ -34,7 +35,7 @@ class CardWidget extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (!faceUp) return CardBackWidget(width: width);
     if (card.isJoker) {
       return JokerCardWidget(
@@ -46,6 +47,7 @@ class CardWidget extends StatelessWidget {
 
     final height = AppDimensions.cardHeight(width);
     final suitColor = card.suit.isRed ? AppColors.suitRed : AppColors.suitBlack;
+    final theme = ref.watch(themeProvider).theme;
 
     // Use implicit Tweens to drive lift and shimmer over a fast 150ms bounce
     return TweenAnimationBuilder<double>(
@@ -98,15 +100,14 @@ class CardWidget extends StatelessWidget {
                       ),
                       if (v > 0)
                         BoxShadow(
-                          color: AppColors.goldPrimary
-                              .withValues(alpha: v * 0.85),
+                          color: theme.accentPrimary.withValues(alpha: v * 0.85),
                           blurRadius: nonNegativeShadowBlur(16 * v),
                           spreadRadius: 3 * v,
                         ),
                     ],
                     border: Border.all(
                       color: isSelected
-                          ? AppColors.goldLight.withValues(alpha: v)
+                          ? theme.accentLight.withValues(alpha: v)
                           : Colors.black.withValues(alpha: 0.08),
                       width: isSelected ? 2.0 : 0.5,
                     ),

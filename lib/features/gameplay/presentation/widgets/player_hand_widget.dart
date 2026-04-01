@@ -129,9 +129,11 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget> {
         final maxW = widget.cardWidth;
         final targetWidth =
             (maxWidth * (isCompact ? 0.14 : 0.11)).clamp(minW, maxW);
-        final cardH = AppDimensions.cardHeight(targetWidth) + 14;
-
         final n = cards.length;
+        const arcFactor = 0.03;
+        const liftAmount = 8.0;
+        final arcPad = n >= 3 ? 14.0 : 0.0;
+        final cardH = AppDimensions.cardHeight(targetWidth) + 14 + arcPad;
 
         // ── Spread calculation ─────────────────────────────────────────
         final double spread;
@@ -193,44 +195,49 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget> {
                       targetWidth: targetWidth,
                       n: n,
                     ),
-                    bottom: 0,
-                    child: Hero(
-                      tag: 'card-${cards[i].id}',
-                      flightShuttleBuilder: (flightContext, animation,
-                          flightDirection, fromHeroContext, toHeroContext) {
-                        final bounce = TweenSequence([
-                          TweenSequenceItem(
-                              tween: Tween(begin: 1.0, end: 1.1)
-                                  .chain(CurveTween(curve: Curves.easeOut)),
-                              weight: 50),
-                          TweenSequenceItem(
-                              tween: Tween(begin: 1.1, end: 1.0)
-                                  .chain(CurveTween(curve: Curves.easeIn)),
-                              weight: 50),
-                        ]).animate(animation);
-                        return ScaleTransition(
-                          scale: bounce,
-                          child: toHeroContext.widget,
-                        );
-                      },
-                      child: TweenAnimationBuilder<double>(
-                        key: ValueKey('entry-${cards[i].id}'),
-                        tween: Tween(begin: 0.0, end: 1.0),
-                        duration: const Duration(milliseconds: 400),
-                        curve: Curves.easeOutBack,
-                        builder: (context, value, child) {
-                          return Opacity(
-                            opacity: value.clamp(0.0, 1.0),
-                            child: Transform.translate(
-                              offset: Offset(0, 20 * (1 - value)),
-                              child: Transform.scale(
-                                scale: 0.8 + (0.2 * value),
-                                child: child,
-                              ),
-                            ),
+                    bottom: n >= 3
+                        ? math.cos((i - (n - 1) / 2) * arcFactor) * liftAmount
+                        : 0.0,
+                    child: Transform.rotate(
+                      angle: n >= 3 ? (i - (n - 1) / 2) * arcFactor : 0.0,
+                      alignment: Alignment.bottomCenter,
+                      child: Hero(
+                        tag: 'card-${cards[i].id}',
+                        flightShuttleBuilder: (flightContext, animation,
+                            flightDirection, fromHeroContext, toHeroContext) {
+                          final bounce = TweenSequence([
+                            TweenSequenceItem(
+                                tween: Tween(begin: 1.0, end: 1.1)
+                                    .chain(CurveTween(curve: Curves.easeOut)),
+                                weight: 50),
+                            TweenSequenceItem(
+                                tween: Tween(begin: 1.1, end: 1.0)
+                                    .chain(CurveTween(curve: Curves.easeIn)),
+                                weight: 50),
+                          ]).animate(animation);
+                          return ScaleTransition(
+                            scale: bounce,
+                            child: toHeroContext.widget,
                           );
                         },
-                        child: LongPressDraggable<int>(
+                        child: TweenAnimationBuilder<double>(
+                          key: ValueKey('entry-${cards[i].id}'),
+                          tween: Tween(begin: 0.0, end: 1.0),
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.easeOutBack,
+                          builder: (context, value, child) {
+                            return Opacity(
+                              opacity: value.clamp(0.0, 1.0),
+                              child: Transform.translate(
+                                offset: Offset(0, 20 * (1 - value)),
+                                child: Transform.scale(
+                                  scale: 0.8 + (0.2 * value),
+                                  child: child,
+                                ),
+                              ),
+                            );
+                          },
+                          child: LongPressDraggable<int>(
                           data: i,
                           delay: const Duration(milliseconds: 300),
                           onDragStarted: () {
@@ -268,14 +275,15 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget> {
                               faceUp: true,
                             ),
                           ),
-                          child: CardWidget(
-                            card: cards[i],
-                            width: targetWidth,
-                            faceUp: true,
-                            isSelected: widget.selectedCardId == cards[i].id,
-                            onTap: widget.enabled
-                                ? () => widget.onCardTap?.call(cards[i].id)
-                                : null,
+                            child: CardWidget(
+                              card: cards[i],
+                              width: targetWidth,
+                              faceUp: true,
+                              isSelected: widget.selectedCardId == cards[i].id,
+                              onTap: widget.enabled
+                                  ? () => widget.onCardTap?.call(cards[i].id)
+                                  : null,
+                            ),
                           ),
                         ),
                       ),

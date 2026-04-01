@@ -52,6 +52,15 @@ int _stackLayers(int count) {
   return 5;
 }
 
+/// Warm red for hearts/diamonds, cool blue-white for spades/clubs; Jokers use gold.
+Color _discardHoverGlow(CardModel? top) {
+  if (top == null) return AppColors.goldPrimary;
+  if (top.isJoker) return AppColors.goldPrimary;
+  return top.suit.isRed
+      ? const Color(0xFFE53935)
+      : const Color(0xFF90CAF9);
+}
+
 class _DiscardPileWidgetState extends State<DiscardPileWidget> {
   bool _isHovering = false;
 
@@ -136,6 +145,7 @@ class _DiscardPileWidgetState extends State<DiscardPileWidget> {
                       cardWidth: widget.cardWidth,
                       isHovering: _isHovering,
                       isJokerDisguised: isJokerDisguised,
+                      hoverGlow: _discardHoverGlow(topCard),
                       child: CardWidget(
                         card: displayCard!,
                         width: widget.cardWidth,
@@ -179,12 +189,14 @@ class _ClippedCardWithRing extends StatefulWidget {
     required this.cardWidth,
     required this.isHovering,
     required this.isJokerDisguised,
+    required this.hoverGlow,
     required this.child,
   });
 
   final double cardWidth;
   final bool isHovering;
   final bool isJokerDisguised;
+  final Color hoverGlow;
   final Widget child;
 
   @override
@@ -264,7 +276,7 @@ class _ClippedCardWithRingState extends State<_ClippedCardWithRing>
               ),
               if (widget.isHovering && !widget.isJokerDisguised)
                 BoxShadow(
-                  color: AppColors.goldPrimary.withValues(alpha: 0.5),
+                  color: widget.hoverGlow.withValues(alpha: 0.5),
                   blurRadius: 25,
                   spreadRadius: 2,
                 ),
@@ -292,7 +304,7 @@ class _ClippedCardWithRingState extends State<_ClippedCardWithRing>
                           color: widget.isJokerDisguised
                               ? AppColors.goldPrimary.withValues(alpha: jokerBorderAlpha)
                               : (widget.isHovering
-                                  ? AppColors.goldPrimary
+                                  ? widget.hoverGlow
                                   : AppColors.goldDark),
                           width: widget.isJokerDisguised ? 3.5 : 3,
                         ),

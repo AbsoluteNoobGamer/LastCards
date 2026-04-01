@@ -116,7 +116,21 @@ class _WinDialogState extends ConsumerState<_WinDialog>
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(emoji, style: const TextStyle(fontSize: 48)),
+                            reduce
+                                ? Text(emoji,
+                                    style: const TextStyle(fontSize: 48))
+                                : TweenAnimationBuilder<double>(
+                                    tween: Tween(begin: 0.0, end: 1.0),
+                                    duration: const Duration(milliseconds: 700),
+                                    curve: Curves.elasticOut,
+                                    builder: (context, scale, child) =>
+                                        Transform.scale(
+                                      scale: scale.clamp(0.0, 1.0),
+                                      child: child,
+                                    ),
+                                    child: Text(emoji,
+                                        style: const TextStyle(fontSize: 48)),
+                                  ),
                             const SizedBox(height: AppDimensions.md),
                             Text(
                               headline,
@@ -257,6 +271,114 @@ class _WinDialogState extends ConsumerState<_WinDialog>
       ),
     );
   }
+}
+
+/// Full-screen radial edge vignette: fades in then out when [trigger] increments.
+class _ScreenEdgePulse extends StatefulWidget {
+  const _ScreenEdgePulse({
+    required this.trigger,
+    required this.color,
+    required this.totalDuration,
+    required this.fadeInDuration,
+    this.maxOpacity = 0.22,
+  });
+
+  final int trigger;
+  final Color color;
+  final Duration totalDuration;
+  final Duration fadeInDuration;
+  final double maxOpacity;
+
+  @override
+  State<_ScreenEdgePulse> createState() => _ScreenEdgePulseState();
+}
+
+class _ScreenEdgePulseState extends State<_ScreenEdgePulse>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(vsync: this, duration: widget.totalDuration);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ScreenEdgePulse oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.trigger != oldWidget.trigger) {
+      if (!MediaQuery.disableAnimationsOf(context)) {
+        _c.forward(from: 0);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  double _strength(double t) {
+    final fi = widget.fadeInDuration.inMilliseconds /
+        widget.totalDuration.inMilliseconds;
+    if (t <= fi) return (t / fi).clamp(0.0, 1.0);
+    final u = (t - fi) / (1.0 - fi);
+    return (1.0 - u).clamp(0.0, 1.0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return const SizedBox.shrink();
+    }
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final s = _strength(_c.value);
+        if (s <= 0.001) return const SizedBox.shrink();
+        return CustomPaint(
+          painter: _EdgeVignettePulsePainter(
+            color: widget.color,
+            opacity: s * widget.maxOpacity,
+          ),
+          size: Size.infinite,
+        );
+      },
+    );
+  }
+}
+
+class _EdgeVignettePulsePainter extends CustomPainter {
+  _EdgeVignettePulsePainter({
+    required this.color,
+    required this.opacity,
+  });
+
+  final Color color;
+  final double opacity;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty || opacity <= 0) return;
+    final rect = Offset.zero & size;
+    final paint = Paint()
+      ..shader = RadialGradient(
+        center: Alignment.center,
+        radius: 1.0,
+        colors: [
+          Colors.transparent,
+          color.withValues(alpha: 0),
+          color.withValues(alpha: opacity),
+        ],
+        stops: const [0.0, 0.68, 1.0],
+      ).createShader(rect);
+    canvas.drawRect(rect, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _EdgeVignettePulsePainter oldDelegate) =>
+      oldDelegate.opacity != opacity || oldDelegate.color != color;
 }
 
 /// Ranked results section with MMR delta, and fetched stats (MMR, W/L, tier).

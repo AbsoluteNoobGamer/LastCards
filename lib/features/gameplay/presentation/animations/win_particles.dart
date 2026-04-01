@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme_data.dart';
 
-/// Restrained gold dust + soft vertical shimmer behind the win dialog (~3s).
+/// Gold / accent / white particles, radial flash, and vertical shimmer behind the win dialog (~5s).
 class WinCelebrationOverlay extends StatefulWidget {
   const WinCelebrationOverlay({
     super.key,
@@ -28,19 +28,21 @@ class _WinCelebrationOverlayState extends State<WinCelebrationOverlay>
   @override
   void initState() {
     super.initState();
-    _particles = List.generate(42, (i) {
+    _particles = List.generate(90, (i) {
+      final shapeRoll = _rand.nextInt(3);
       return _Particle(
         x: _rand.nextDouble(),
         yStart: -0.2 - _rand.nextDouble() * 0.5,
         sway: (_rand.nextDouble() - 0.5) * 0.04,
         size: 1.2 + _rand.nextDouble() * 2.8,
         phase: _rand.nextDouble() * math.pi * 2,
-        square: _rand.nextBool(),
+        shape: _ParticleShape.values[shapeRoll],
+        colorIndex: _rand.nextInt(3),
       );
     });
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3000),
+      duration: const Duration(milliseconds: 5000),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -83,6 +85,8 @@ class _WinCelebrationOverlayState extends State<WinCelebrationOverlay>
   }
 }
 
+enum _ParticleShape { circle, square, diamond }
+
 class _WinCelebrationPainter extends CustomPainter {
   _WinCelebrationPainter({
     required this.progress,
@@ -94,9 +98,73 @@ class _WinCelebrationPainter extends CustomPainter {
   final AppThemeData theme;
   final List<_Particle> particles;
 
+  static const double _flashPhase = 300 / 5000;
+
+  Color _particleColor(int colorIndex) {
+    switch (colorIndex) {
+      case 0:
+        return Color.lerp(theme.accentPrimary, theme.accentLight, 0.35)!;
+      case 1:
+        return theme.accentPrimary;
+      default:
+        return Colors.white;
+    }
+  }
+
+  void _paintRadialFlash(Canvas canvas, Size size) {
+    if (progress > _flashPhase) return;
+    final t = progress / _flashPhase;
+    final opacity = (1.0 - t) * 0.5;
+    final center = Offset(size.width / 2, size.height / 2);
+    final r = t * size.longestSide * 0.55;
+    final p = Paint()
+      ..color = Colors.white.withValues(alpha: opacity.clamp(0.0, 1.0))
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, r, p);
+  }
+
+  void _drawParticleShape(
+    Canvas canvas,
+    Offset center,
+    double r,
+    _ParticleShape shape,
+    Paint paint,
+  ) {
+    switch (shape) {
+      case _ParticleShape.circle:
+        canvas.drawCircle(center, r * 0.55, paint);
+      case _ParticleShape.square:
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(center: center, width: r, height: r),
+            const Radius.circular(1),
+          ),
+          paint,
+        );
+      case _ParticleShape.diamond:
+        canvas.save();
+        canvas.translate(center.dx, center.dy);
+        canvas.rotate(math.pi / 4);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(
+              center: Offset.zero,
+              width: r * 1.15,
+              height: r * 1.15,
+            ),
+            const Radius.circular(1),
+          ),
+          paint,
+        );
+        canvas.restore();
+    }
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     if (size.isEmpty) return;
+
+    _paintRadialFlash(canvas, size);
 
     final shimmerPaint = Paint()..style = PaintingStyle.fill;
     for (var b = 0; b < 5; b++) {
@@ -126,23 +194,13 @@ class _WinCelebrationPainter extends CustomPainter {
       final a = (fadeIn * fadeOut).clamp(0.0, 1.0);
       if (a <= 0.01) continue;
 
-      final gold = Color.lerp(theme.accentPrimary, theme.accentLight, 0.35)!;
+      final base = _particleColor(p.colorIndex);
       final paint = Paint()
-        ..color = gold.withValues(alpha: 0.15 + 0.45 * a)
+        ..color = base.withValues(alpha: 0.12 + 0.48 * a)
         ..style = PaintingStyle.fill;
 
       final r = p.size * (0.85 + 0.15 * math.sin(p.phase + progress * 6));
-      if (p.square) {
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            Rect.fromCenter(center: Offset(px, py), width: r, height: r),
-            const Radius.circular(1),
-          ),
-          paint,
-        );
-      } else {
-        canvas.drawCircle(Offset(px, py), r * 0.55, paint);
-      }
+      _drawParticleShape(canvas, Offset(px, py), r, p.shape, paint);
     }
   }
 
@@ -159,7 +217,8 @@ class _Particle {
     required this.sway,
     required this.size,
     required this.phase,
-    required this.square,
+    required this.shape,
+    required this.colorIndex,
   });
 
   final double x;
@@ -167,5 +226,6 @@ class _Particle {
   final double sway;
   final double size;
   final double phase;
-  final bool square;
+  final _ParticleShape shape;
+  final int colorIndex;
 }
