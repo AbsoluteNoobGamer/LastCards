@@ -81,12 +81,17 @@ class LocalLeaderboardStore {
     return entries;
   }
 
+  /// Returns null if there is no entry, or if stored JSON is corrupt / legacy.
   Future<LocalLeaderboardEntry?> loadEntryForUser(
     String collectionName,
     String uid,
   ) async {
-    final map = await _loadMap(collectionName);
-    return map[uid];
+    try {
+      final map = await _loadMap(collectionName);
+      return map[uid];
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Increments local leaderboard stats for a single player.
