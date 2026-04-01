@@ -6,26 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../data/leaderboard_collections.dart';
 import '../../data/local_leaderboard_store.dart';
 
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/widgets/themed_shimmer.dart';
 import '../../../../core/theme/app_theme_data.dart';
-
-/// Game mode categories for the leaderboard, aligned with main menu entry points.
-enum LeaderboardMode {
-  ranked('Ranked', Icons.emoji_events),
-  singlePlayer('Single Player', Icons.smart_toy),
-  online('Online (Quick Match)', Icons.people),
-  tournamentVsAi('Tournament (vs AI)', Icons.shield),
-  tournamentOnline('Tournament (Online)', Icons.public),
-  bustOffline('Bust (Offline)', Icons.auto_awesome_rounded),
-  bustOnline('Bust (Online)', Icons.language_rounded);
-
-  const LeaderboardMode(this.label, this.icon);
-  final String label;
-  final IconData icon;
-}
 
 // ── Data model ────────────────────────────────────────────────────────────────
 
@@ -170,27 +156,8 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     return idx == -1 ? -1 : idx + 1;
   }
 
-  String _collectionForMode(LeaderboardMode mode) {
-    switch (mode) {
-      case LeaderboardMode.singlePlayer:
-        return 'leaderboard_single_player';
-      case LeaderboardMode.online:
-        return 'leaderboard_online';
-      case LeaderboardMode.tournamentVsAi:
-        return 'leaderboard_tournament_ai';
-      case LeaderboardMode.tournamentOnline:
-        return 'leaderboard_tournament_online';
-      case LeaderboardMode.ranked:
-        return 'ranked_stats';
-      case LeaderboardMode.bustOffline:
-        return 'leaderboard_bust_offline';
-      case LeaderboardMode.bustOnline:
-        return 'leaderboard_bust_online';
-    }
-  }
-
   Future<List<_ModeEntry>> _fetchMode(LeaderboardMode mode) async {
-    final collectionName = _collectionForMode(mode);
+    final collectionName = collectionForMode(mode);
     final n = _playerCountFilter;
 
     // When a bracket filter is active, order by the bracket-specific wins

@@ -81,6 +81,14 @@ class LocalLeaderboardStore {
     return entries;
   }
 
+  Future<LocalLeaderboardEntry?> loadEntryForUser(
+    String collectionName,
+    String uid,
+  ) async {
+    final map = await _loadMap(collectionName);
+    return map[uid];
+  }
+
   /// Increments local leaderboard stats for a single player.
   Future<void> incrementEntry({
     required String collectionName,

@@ -23,9 +23,8 @@ import '../../../../core/providers/online_player_count_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../features/profile/presentation/screens/profile_screen.dart';
+import '../../../../features/profile/widgets/profile_stats_section.dart';
 import '../../../../features/tournament/widgets/tournament_type_sheet.dart';
-import '../../../../core/utils/ranked_stats_reader.dart';
-import '../../../../core/utils/ranked_tier_utils.dart';
 import '../../../../core/widgets/player_progress_widgets.dart';
 
 part 'start_screen_background.dart';

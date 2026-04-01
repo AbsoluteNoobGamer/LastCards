@@ -352,6 +352,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 _showImageSourceSheet();
               },
             ),
+            const ProfileStatsSection(
+              statsHeaderTopSpacing: 24,
+            ),
             const SizedBox(height: 32),
             _NameField(
               controller: _nameController,
@@ -377,7 +380,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 },
               ),
             ),
-            const ProfileStatsSection(),
           ],
         ),
       ),
