@@ -806,35 +806,49 @@ class _IconRowItemState extends ConsumerState<_IconRowItem> {
           ),
           transformAlignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ShaderMask(
-                shaderCallback: (bounds) => LinearGradient(
-                  colors: [accentLight, accent],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ).createShader(bounds),
-                child: Icon(
-                  widget.icon,
-                  color: Colors.white, // overridden by ShaderMask
-                  size: 26,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: accent.withValues(alpha: _isHovered ? 0.12 : 0.0),
+              boxShadow: _isHovered
+                  ? [
+                      BoxShadow(
+                        color: accent.withValues(alpha: 0.2),
+                        blurRadius: 12,
+                      ),
+                    ]
+                  : [],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ShaderMask(
+                  shaderCallback: (bounds) => LinearGradient(
+                    colors: [accentLight, accent],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ).createShader(bounds),
+                  child: Icon(
+                    widget.icon,
+                    color: Colors.white, // overridden by ShaderMask
+                    size: 26,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                widget.label,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: accent,
-                  letterSpacing: 0.8,
+                const SizedBox(height: 6),
+                Text(
+                  widget.label,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: accent,
+                    letterSpacing: 0.8,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
