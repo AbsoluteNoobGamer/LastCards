@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_dimensions.dart';
+import '../../../core/theme/app_theme_data.dart';
 import '../../../core/utils/ranked_stats_reader.dart';
 import '../../../core/utils/ranked_tier_utils.dart';
 import '../../../core/widgets/player_progress_widgets.dart';
@@ -13,10 +15,28 @@ import '../../leaderboard/data/local_leaderboard_store.dart';
 
 typedef _ModeStatsTuple = ({int wins, int losses, int gamesPlayed});
 
+/// Collections written only by the game server in Firestore (read Firestore).
+const _firestoreOnlyCollections = {
+  'leaderboard_online',
+  'leaderboard_tournament_online',
+  'leaderboard_bust_online',
+  'ranked_stats',
+};
+
+/// Client writes to both [LocalLeaderboardStore] and Firestore; prefer local when
+/// present (matches leaderboard merge / lag), otherwise read Firestore (new device).
+const _clientDualWriteCollections = {
+  'leaderboard_single_player',
+  'leaderboard_tournament_ai',
+  'leaderboard_bust_offline',
+};
+
+int _statsToInt(Object? v) => v is num ? v.toInt() : 0;
+
 /// Read-only local XP + optional ranked stats (when signed in).
 ///
 /// [showXpProgress] — set false when embedding above an existing XP bar (e.g. account sheet).
-class ProfileStatsSection extends StatefulWidget {
+class ProfileStatsSection extends ConsumerStatefulWidget {
   const ProfileStatsSection({
     super.key,
     this.showXpProgress = true,
@@ -29,10 +49,11 @@ class ProfileStatsSection extends StatefulWidget {
   final double statsHeaderTopSpacing;
 
   @override
-  State<ProfileStatsSection> createState() => _ProfileStatsSectionState();
+  ConsumerState<ProfileStatsSection> createState() =>
+      _ProfileStatsSectionState();
 }
 
-class _ProfileStatsSectionState extends State<ProfileStatsSection> {
+class _ProfileStatsSectionState extends ConsumerState<ProfileStatsSection> {
   late final Future<
       ({
         RankedStatsSnapshot? ranked,
@@ -54,13 +75,6 @@ class _ProfileStatsSectionState extends State<ProfileStatsSection> {
       return {for (final m in LeaderboardMode.values) m: zero};
     }
 
-    const firestoreCollections = {
-      'leaderboard_online',
-      'leaderboard_tournament_online',
-      'leaderboard_bust_online',
-      'ranked_stats',
-    };
-
     final results = <LeaderboardMode, _ModeStatsTuple>{
       for (final m in LeaderboardMode.values) m: zero,
     };
@@ -68,7 +82,7 @@ class _ProfileStatsSectionState extends State<ProfileStatsSection> {
     for (final mode in LeaderboardMode.values) {
       final collection = collectionForMode(mode);
 
-      if (firestoreCollections.contains(collection)) {
+      if (_firestoreOnlyCollections.contains(collection)) {
         try {
           final doc = await FirebaseFirestore.instance
               .collection(collection)
@@ -76,23 +90,37 @@ class _ProfileStatsSectionState extends State<ProfileStatsSection> {
               .get();
           if (doc.exists) {
             final d = doc.data() ?? {};
-            int toInt(Object? v) => v is num ? v.toInt() : 0;
             results[mode] = (
-              wins: toInt(d['wins']),
-              losses: toInt(d['losses']),
-              gamesPlayed: toInt(d['gamesPlayed']),
+              wins: _statsToInt(d['wins']),
+              losses: _statsToInt(d['losses']),
+              gamesPlayed: _statsToInt(d['gamesPlayed']),
             );
           }
         } catch (_) {}
-      } else {
-        final entry = await LocalLeaderboardStore.instance
+      } else if (_clientDualWriteCollections.contains(collection)) {
+        final local = await LocalLeaderboardStore.instance
             .loadEntryForUser(collection, uid);
-        if (entry != null) {
+        if (local != null) {
           results[mode] = (
-            wins: entry.wins,
-            losses: entry.losses,
-            gamesPlayed: entry.gamesPlayed,
+            wins: local.wins,
+            losses: local.losses,
+            gamesPlayed: local.gamesPlayed,
           );
+        } else {
+          try {
+            final doc = await FirebaseFirestore.instance
+                .collection(collection)
+                .doc(uid)
+                .get();
+            if (doc.exists) {
+              final d = doc.data() ?? {};
+              results[mode] = (
+                wins: _statsToInt(d['wins']),
+                losses: _statsToInt(d['losses']),
+                gamesPlayed: _statsToInt(d['gamesPlayed']),
+              );
+            }
+          } catch (_) {}
         }
       }
     }
@@ -101,6 +129,8 @@ class _ProfileStatsSectionState extends State<ProfileStatsSection> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = ref.watch(themeProvider).theme;
+
     return FutureBuilder<
         ({
           RankedStatsSnapshot? ranked,
@@ -112,15 +142,20 @@ class _ProfileStatsSectionState extends State<ProfileStatsSection> {
         final modeMap = snap.data?.modes ?? {};
         final showXp = widget.showXpProgress;
         final headerTop = widget.statsHeaderTopSpacing;
+        final hasXp = showXp;
+        final hasRanked = ranked != null;
+        final hasUpperBlock = hasXp || hasRanked;
+        final dividerColor = theme.accentDark.withValues(alpha: 0.35);
+        final borderColor = theme.accentPrimary.withValues(alpha: 0.45);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SizedBox(height: headerTop),
-            const Text(
+            Text(
               'STATS',
               style: TextStyle(
-                color: AppColors.textSecondary,
+                color: theme.textSecondary,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.4,
@@ -130,44 +165,39 @@ class _ProfileStatsSectionState extends State<ProfileStatsSection> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.surfacePanel,
+                color: theme.surfacePanel,
                 borderRadius:
                     BorderRadius.circular(AppDimensions.radiusButton),
-                border: Border.all(
-                  color: AppColors.goldDark.withValues(alpha: 0.5),
-                ),
+                border: Border.all(color: borderColor),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (showXp)
+                  if (hasXp)
                     PlayerXpProgressBar(
-                      accentColor: AppColors.goldPrimary,
-                      surfaceColor: AppColors.surfaceDark,
-                      textSecondary: AppColors.textSecondary,
+                      accentColor: theme.accentPrimary,
+                      surfaceColor:
+                          theme.surfaceDark.withValues(alpha: 0.85),
+                      textSecondary: theme.textSecondary,
                     ),
-                  if (ranked != null) ...[
-                    if (showXp) ...[                    
-                      const SizedBox(height: 16),
-                      Divider(
-                        color: AppColors.goldDark.withValues(alpha: 0.3),
-                        height: 1,
-                      ),
-                    ],
-                    SizedBox(height: showXp ? 12 : 0),
-                    _RankedStatsBlock(stats: ranked),
+                  if (hasXp && hasRanked) ...[
+                    const SizedBox(height: 16),
+                    Divider(color: dividerColor, height: 1),
                   ],
-                  SizedBox(height: (showXp || ranked != null) ? 16 : 0),
-                  if (showXp || ranked != null)
-                    Divider(
-                      color: AppColors.goldDark.withValues(alpha: 0.3),
-                      height: 1,
+                  if (hasRanked)
+                    _RankedStatsBlock(
+                      stats: ranked,
+                      theme: theme,
                     ),
+                  if (hasUpperBlock) ...[
+                    const SizedBox(height: 16),
+                    Divider(color: dividerColor, height: 1),
+                  ],
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'BY MODE',
                     style: TextStyle(
-                      color: AppColors.textSecondary,
+                      color: theme.textSecondary,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1.2,
@@ -177,12 +207,17 @@ class _ProfileStatsSectionState extends State<ProfileStatsSection> {
                   ...LeaderboardMode.values.asMap().entries.map(
                     (e) {
                       final mode = e.value;
-                      final isLast = e.key == LeaderboardMode.values.length - 1;
+                      final isLast =
+                          e.key == LeaderboardMode.values.length - 1;
                       final s = modeMap[mode] ??
                           (wins: 0, losses: 0, gamesPlayed: 0);
                       return Padding(
                         padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
-                        child: _ModeStatsRow(mode: mode, stats: s),
+                        child: _ModeStatsRow(
+                          mode: mode,
+                          stats: s,
+                          theme: theme,
+                        ),
                       );
                     },
                   ),
@@ -197,9 +232,13 @@ class _ProfileStatsSectionState extends State<ProfileStatsSection> {
 }
 
 class _RankedStatsBlock extends StatelessWidget {
-  const _RankedStatsBlock({required this.stats});
+  const _RankedStatsBlock({
+    required this.stats,
+    required this.theme,
+  });
 
   final RankedStatsSnapshot stats;
+  final AppThemeData theme;
 
   @override
   Widget build(BuildContext context) {
@@ -207,10 +246,10 @@ class _RankedStatsBlock extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'RANKED',
           style: TextStyle(
-            color: AppColors.textSecondary,
+            color: theme.textSecondary,
             fontSize: 11,
             fontWeight: FontWeight.w700,
             letterSpacing: 1.2,
@@ -226,7 +265,7 @@ class _RankedStatsBlock extends StatelessWidget {
                 '${stats.rating} MMR · ${tier.label}',
                 style: GoogleFonts.inter(
                   fontSize: 14,
-                  color: AppColors.goldPrimary,
+                  color: theme.accentPrimary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -238,7 +277,7 @@ class _RankedStatsBlock extends StatelessWidget {
           '${stats.wins}W / ${stats.losses}L',
           style: GoogleFonts.inter(
             fontSize: 13,
-            color: AppColors.textSecondary,
+            color: theme.textSecondary,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -251,10 +290,12 @@ class _ModeStatsRow extends StatelessWidget {
   const _ModeStatsRow({
     required this.mode,
     required this.stats,
+    required this.theme,
   });
 
   final LeaderboardMode mode;
   final _ModeStatsTuple stats;
+  final AppThemeData theme;
 
   @override
   Widget build(BuildContext context) {
@@ -268,7 +309,7 @@ class _ModeStatsRow extends StatelessWidget {
         Icon(
           mode.icon,
           size: 20,
-          color: AppColors.goldPrimary,
+          color: theme.accentPrimary,
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -279,7 +320,7 @@ class _ModeStatsRow extends StatelessWidget {
                 mode.label,
                 style: GoogleFonts.inter(
                   fontSize: 14,
-                  color: AppColors.goldPrimary,
+                  color: theme.accentPrimary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -288,7 +329,7 @@ class _ModeStatsRow extends StatelessWidget {
                 '${stats.gamesPlayed} games · ${stats.wins}W / ${stats.losses}L · $pctLabel',
                 style: GoogleFonts.inter(
                   fontSize: 13,
-                  color: AppColors.textSecondary,
+                  color: theme.textSecondary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
