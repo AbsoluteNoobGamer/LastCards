@@ -149,6 +149,12 @@ class _FirestoreClient {
   bool get _configured =>
       _projectId != null && _clientEmail != null && _privateKeyPem != null;
 
+  /// Whether [GOOGLE_CREDENTIALS_JSON] was parsed successfully.
+  bool get isFirestoreConfigured => _configured;
+
+  /// Firebase/GCP project id from credentials, or null if not configured.
+  String? get firestoreProjectId => _projectId;
+
   /// Returns a valid OAuth2 access token, refreshing if needed.
   Future<String?> _getAccessToken() async {
     if (!_configured) return null;
@@ -215,7 +221,9 @@ class _FirestoreClient {
   /// This avoids the race condition of multiple parallel calls each trying to
   /// create the same document, and avoids double-counting because default
   /// values do NOT include the deltas.
-  Future<void> atomicUpdate({
+  /// Returns `true` if the commit succeeded, `false` if skipped (no credentials),
+  /// auth failed, or Firestore returned an error.
+  Future<bool> atomicUpdate({
     required String collection,
     required String docId,
     required Map<String, int> increments,
@@ -223,7 +231,7 @@ class _FirestoreClient {
     Map<String, String> stringFields = const {},
   }) async {
     final token = await _getAccessToken();
-    if (token == null) return;
+    if (token == null) return false;
 
     final url = Uri.parse(
         'https://firestore.googleapis.com/v1/projects/$_projectId'
@@ -296,29 +304,29 @@ class _FirestoreClient {
         },
         body: body,
       );
-      if (response.statusCode != 200) {
-        // 400 with ALREADY_EXISTS means the conditional create was skipped
-        // (doc exists). Re-send with only the transforms + string overwrites.
-        if (response.statusCode == 400 &&
-            response.body.contains('ALREADY_EXISTS')) {
-          await _updateExisting(
-            token: token,
-            docPath: docPath,
-            transforms: transforms,
-            stringFields: stringFields,
-          );
-          return;
-        }
-        _log.error(
-            'Firestore atomicUpdate failed (${response.statusCode}): ${response.body}');
+      if (response.statusCode == 200) return true;
+      // 400 with ALREADY_EXISTS means the conditional create was skipped
+      // (doc exists). Re-send with only the transforms + string overwrites.
+      if (response.statusCode == 400 &&
+          response.body.contains('ALREADY_EXISTS')) {
+        return _updateExisting(
+          token: token,
+          docPath: docPath,
+          transforms: transforms,
+          stringFields: stringFields,
+        );
       }
+      _log.error(
+          'Firestore atomicUpdate failed (${response.statusCode}): ${response.body}');
+      return false;
     } catch (e) {
       _log.error('Firestore atomicUpdate error: $e');
+      return false;
     }
   }
 
   /// Applies increments and string overwrites to an already-existing document.
-  Future<void> _updateExisting({
+  Future<bool> _updateExisting({
     required String token,
     required String docPath,
     required List<Map<String, dynamic>> transforms,
@@ -361,12 +369,13 @@ class _FirestoreClient {
         },
         body: body,
       );
-      if (response.statusCode != 200) {
-        _log.error(
-            'Firestore _updateExisting failed (${response.statusCode}): ${response.body}');
-      }
+      if (response.statusCode == 200) return true;
+      _log.error(
+          'Firestore _updateExisting failed (${response.statusCode}): ${response.body}');
+      return false;
     } catch (e) {
       _log.error('Firestore _updateExisting error: $e');
+      return false;
     }
   }
 
@@ -487,7 +496,7 @@ class TrophyRecorder {
         'winner: $winnerUid, '
         'players: ${allPlayerUids.map((e) => e.uid).join(', ')}');
 
-    final futures = <Future<void>>[];
+    final futures = <Future<bool>>[];
     for (final entry in allPlayerUids) {
       final uid = entry.uid;
       final isWinner = uid == winnerUid;
@@ -512,8 +521,22 @@ class TrophyRecorder {
       );
     }
 
-    await Future.wait(futures);
-    _log.info('Ranked result persisted.');
+    final results = await Future.wait(futures);
+    final failed = results.where((r) => !r).length;
+    if (failed == 0) {
+      _log.info('Ranked result persisted.');
+    } else if (!_firestoreClient.isFirestoreConfigured) {
+      _log.warning(
+        'Ranked result not persisted: Firestore credentials missing '
+        '(GOOGLE_CREDENTIALS_JSON). In-game MMR deltas are still sent; '
+        'profile and leaderboard read from Firestore and will not change until '
+        'the server is configured with a service account for the app Firebase project.',
+      );
+    } else {
+      _log.error(
+        'Ranked Firestore write failed for $failed of ${results.length} players.',
+      );
+    }
   }
 
   /// Records a leave penalty for a player who disconnected during a ranked game.
@@ -576,7 +599,7 @@ class TrophyRecorder {
         'Recording $collection (${n}p) — winner player: $winnerPlayerId, '
         'participants: ${players.map((p) => p.playerId).join(', ')}');
 
-    final futures = <Future<void>>[];
+    final futures = <Future<bool>>[];
     for (final p in players) {
       if (!modeLeaderboardUidEligible(p.firebaseUid)) continue;
       final uid = p.firebaseUid!;
@@ -595,15 +618,28 @@ class TrophyRecorder {
       );
     }
 
-    await Future.wait(futures);
-    _log.info('$collection (${n}p) result persisted.');
+    if (futures.isEmpty) return;
+
+    final results = await Future.wait(futures);
+    final failed = results.where((r) => !r).length;
+    if (failed == 0) {
+      _log.info('$collection (${n}p) result persisted.');
+    } else if (!_firestoreClient.isFirestoreConfigured) {
+      _log.warning(
+        '$collection not persisted: GOOGLE_CREDENTIALS_JSON unset (same as ranked_stats).',
+      );
+    } else {
+      _log.error(
+        '$collection Firestore write failed for $failed of ${results.length} players.',
+      );
+    }
   }
 
   Future<void> _persistLeavePenalty(String uid,
       {required String displayName}) async {
     _log.info('Recording leave penalty for $uid');
     final maps = rankedLeavePenaltyStatMaps();
-    await _firestoreClient.atomicUpdate(
+    final ok = await _firestoreClient.atomicUpdate(
       collection: _collection,
       docId: uid,
       increments: maps.increments,
@@ -612,6 +648,9 @@ class TrophyRecorder {
         'displayName': displayName,
       },
     );
+    if (!ok && !_firestoreClient.isFirestoreConfigured) {
+      _log.warning('Leave penalty not persisted: Firestore credentials missing.');
+    }
   }
 
   /// Legacy no-op — superseded by [recordRankedResult].
@@ -647,6 +686,28 @@ Future<void> syncOnlineServerPresenceReset({int value = 0}) async {
     docId: 'online_count',
     fields: {'count': value},
   );
+}
+
+/// Logs whether Firestore persistence is configured. Call once from [main].
+///
+/// Without `GOOGLE_CREDENTIALS_JSON`, the server still sends in-game MMR deltas
+/// but [ranked_stats] and leaderboards never update in Firestore.
+void logGameServerFirestoreStartupStatus() {
+  final log = Logger('GameServer');
+  _FirestoreClient.instance.init();
+  final client = _FirestoreClient.instance;
+  if (client.isFirestoreConfigured) {
+    log.info(
+      'Firestore writes enabled (project "${client.firestoreProjectId}"). '
+      'Ranked MMR and leaderboards persist to this project.',
+    );
+  } else {
+    log.warning(
+      'GOOGLE_CREDENTIALS_JSON is not set: ranked_stats, mode leaderboards, '
+      'and online presence will NOT persist. Use a service account key from the '
+      'same Firebase project as the app (see lib/firebase_options.dart → projectId).',
+    );
+  }
 }
 
 /// Test double — counts mode-leaderboard calls without touching Firestore.

@@ -23,6 +23,8 @@ The WebSocket client defaults to a production-style URL; override at build time 
 
 The Dart server lives under `server/`. Deploy it so it matches the client’s shared engine after engine changes.
 
+**Ranked MMR and Firestore leaderboards:** the game server persists to Firestore (`ranked_stats`, mode leaderboards, online presence). Set the environment variable **`GOOGLE_CREDENTIALS_JSON`** to the **full JSON** of a Firebase [service account key](https://console.firebase.google.com/project/_/settings/serviceaccounts/adminsdk) from the **same** project as the app (`projectId` in `lib/firebase_options.dart`, currently `lastcards-d4396`). If this variable is missing, players still see MMR **deltas** at the end of a match (computed in memory), but **profile and leaderboard** will not update because nothing is written to Firestore. On startup, the server logs whether Firestore persistence is enabled.
+
 ### Firebase (Auth, Firestore, Storage)
 
 The app is wired to Firebase project **`lastcards-d4396`** (see `lib/firebase_options.dart`). For leaderboards, profiles, and ranked stats you must:
