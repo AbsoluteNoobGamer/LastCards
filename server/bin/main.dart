@@ -11,6 +11,7 @@ import 'package:last_cards_server/trophy_recorder.dart';
 void main() async {
   FirebaseAuthVerifier.setApiKey(Platform.environment['FIREBASE_API_KEY']);
   await syncOnlineServerPresenceReset();
+  logGameServerFirestoreStartupStatus();
   final port = int.parse(Platform.environment['PORT'] ?? '8080');
   final roomManager = RoomManager();
 

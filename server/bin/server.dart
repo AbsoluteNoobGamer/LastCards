@@ -5,6 +5,7 @@ import 'package:last_cards_server/trophy_recorder.dart';
 
 void main() async {
   await syncOnlineServerPresenceReset();
+  logGameServerFirestoreStartupStatus();
   final roomManager = RoomManager();
 
   final handler = webSocketHandler((webSocket, protocol) {
