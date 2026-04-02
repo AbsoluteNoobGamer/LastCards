@@ -107,6 +107,15 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     LeaderboardMode.bustOnline,
   };
 
+  /// Offline / local-only modes stay in [LeaderboardMode] for profile; this screen
+  /// only lists online (server-backed) leaderboards.
+  static const List<LeaderboardMode> _screenModes = [
+    LeaderboardMode.ranked,
+    LeaderboardMode.online,
+    LeaderboardMode.tournamentOnline,
+    LeaderboardMode.bustOnline,
+  ];
+
   // ── Ranked Firestore data ─────────────────────────────────────────────────
 
   Future<List<_RankedEntry>> _fetchRanked() async {
@@ -266,6 +275,15 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = ref.watch(themeProvider).theme;
+    if (!_screenModes.contains(_selectedMode)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _selectedMode = LeaderboardMode.ranked;
+          _playerCountFilter = null;
+        });
+      });
+    }
     return Scaffold(
       backgroundColor: theme.backgroundDeep,
       appBar: AppBar(
@@ -289,7 +307,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
-              children: LeaderboardMode.values.map((mode) {
+              children: _screenModes.map((mode) {
                 final isSelected = _selectedMode == mode;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
