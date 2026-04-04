@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:last_cards/core/models/offline_game_engine.dart';
+import 'package:last_cards/shared/rules/move_log_support.dart';
 
 
 void main() {
@@ -624,6 +625,12 @@ void main() {
       state = applyPlay(
           state: state, playerId: 'p1', cards: [c(Rank.eight, Suit.diamonds)]);
       expect(state.activeSkipCount, 1);
+      expect(
+        skippedPlayerIdsForSkipState(state),
+        ['p2'],
+        reason: 'UI skip overlay targets the skipped seat id',
+      );
+      expect(skippedPlayerDisplayNamesForSkipState(state), ['P2']);
       final next = nextPlayerId(state: state);
       expect(next, equals('p3')); // Skip p2
     });

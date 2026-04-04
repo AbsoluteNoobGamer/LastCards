@@ -186,7 +186,7 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget> {
               children: [
                 for (int i = 0; i < n; i++)
                   AnimatedPositioned(
-                    duration: const Duration(milliseconds: 300),
+                    duration: const Duration(milliseconds: 200),
                     curve: Curves.easeOutCubic,
                     left: _leftFor(
                       visibleIndex: i,

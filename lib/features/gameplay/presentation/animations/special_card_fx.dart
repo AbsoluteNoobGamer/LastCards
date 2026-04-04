@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/theme/app_theme_data.dart';
 
 /// Special card visual effects — each one is a composable AnimatedWidget
 /// that wraps whatever content is passed and applies its effect.
@@ -61,32 +63,36 @@ class _SlamEffectState extends State<SlamEffect>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, child) => Stack(
-        alignment: Alignment.center,
-        children: [
-          // Ripple ring
-          if (_rippleAnim.value < 0.9)
-            Opacity(
-              opacity: (1 - _rippleAnim.value).clamp(0.0, 1.0),
-              child: Container(
-                width: 120 * _rippleAnim.value + 60,
-                height: 120 * _rippleAnim.value + 60,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.goldDark
-                        .withValues(alpha: 0.6 * (1 - _rippleAnim.value)),
-                    width: 2,
+    return Consumer(
+      builder: (context, ref, _) {
+        final theme = ref.watch(themeProvider).theme;
+        return AnimatedBuilder(
+          animation: _ctrl,
+          builder: (_, child) => Stack(
+            alignment: Alignment.center,
+            children: [
+              if (_rippleAnim.value < 0.9)
+                Opacity(
+                  opacity: (1 - _rippleAnim.value).clamp(0.0, 1.0),
+                  child: Container(
+                    width: 120 * _rippleAnim.value + 60,
+                    height: 120 * _rippleAnim.value + 60,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: theme.accentDark
+                            .withValues(alpha: 0.6 * (1 - _rippleAnim.value)),
+                        width: 2,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-          Transform.scale(scale: _scaleAnim.value, child: child),
-        ],
-      ),
-      child: widget.child,
+              Transform.scale(scale: _scaleAnim.value, child: child),
+            ],
+          ),
+          child: widget.child,
+        );
+      },
     );
   }
 }
@@ -132,35 +138,39 @@ class _RedJackPulseEffectState extends State<RedJackPulseEffect>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, child) {
-        final v = _ctrl.value;
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            // Radial pulse
-            Opacity(
-              opacity: ((1 - v) * 0.7).clamp(0.0, 1.0),
-              child: Container(
-                width: 80 + 140 * v,
-                height: 80 + 140 * v,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.redAccent.withValues(alpha: 0.6 * (1 - v)),
-                      Colors.transparent,
-                    ],
+    return Consumer(
+      builder: (context, ref, _) {
+        final theme = ref.watch(themeProvider).theme;
+        return AnimatedBuilder(
+          animation: _ctrl,
+          builder: (_, child) {
+            final v = _ctrl.value;
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                Opacity(
+                  opacity: ((1 - v) * 0.7).clamp(0.0, 1.0),
+                  child: Container(
+                    width: 80 + 140 * v,
+                    height: 80 + 140 * v,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          theme.secondaryAccent.withValues(alpha: 0.6 * (1 - v)),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            child!,
-          ],
+                child!,
+              ],
+            );
+          },
+          child: widget.child,
         );
       },
-      child: widget.child,
     );
   }
 }
@@ -228,16 +238,21 @@ class _KingReverseArrowState extends State<KingReverseArrow>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _rotAnim,
-      builder: (_, __) => Transform.rotate(
-        angle: widget.clockwise ? _rotAnim.value : -_rotAnim.value,
-        child: Icon(
-          Icons.rotate_right_rounded,
-          color: AppColors.goldPrimary,
-          size: 24,
-        ),
-      ),
+    return Consumer(
+      builder: (context, ref, _) {
+        final theme = ref.watch(themeProvider).theme;
+        return AnimatedBuilder(
+          animation: _rotAnim,
+          builder: (_, __) => Transform.rotate(
+            angle: widget.clockwise ? _rotAnim.value : -_rotAnim.value,
+            child: Icon(
+              Icons.rotate_right_rounded,
+              color: theme.accentPrimary,
+              size: 24,
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -298,44 +313,52 @@ class _JokerSpotlightEffectState extends State<JokerSpotlightEffect>
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        // Spotlight glow
-        AnimatedBuilder(
-          animation: _spotCtrl,
-          builder: (_, __) {
-            final v = _spotCtrl.value;
-            return Container(
-              width: 160 * (1 - v * 0.5),
-              height: 200 * (1 - v * 0.3),
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment.topCenter,
-                  colors: [
-                    AppColors.goldLight.withValues(alpha: 0.3 * v),
-                    Colors.transparent,
-                  ],
-                ),
+    return Consumer(
+      builder: (context, ref, _) {
+        final theme = ref.watch(themeProvider).theme;
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            AnimatedBuilder(
+              animation: _spotCtrl,
+              builder: (_, __) {
+                final v = _spotCtrl.value;
+                return Container(
+                  width: 160 * (1 - v * 0.5),
+                  height: 200 * (1 - v * 0.3),
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: Alignment.topCenter,
+                      colors: [
+                        theme.accentLight.withValues(alpha: 0.3 * v),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+            widget.child,
+            FadeTransition(
+              opacity: _uiCtrl,
+              child: _JokerDeclarationPanel(
+                theme: theme,
+                onDeclare: widget.onDeclare,
               ),
-            );
-          },
-        ),
-
-        widget.child,
-
-        // Declaration UI fade-in
-        FadeTransition(
-          opacity: _uiCtrl,
-          child: _JokerDeclarationPanel(onDeclare: widget.onDeclare),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 }
 
 class _JokerDeclarationPanel extends StatelessWidget {
-  const _JokerDeclarationPanel({required this.onDeclare});
+  const _JokerDeclarationPanel({
+    required this.theme,
+    required this.onDeclare,
+  });
+  final AppThemeData theme;
   final void Function(String suit, String rank) onDeclare;
 
   @override
@@ -343,21 +366,26 @@ class _JokerDeclarationPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surfacePanel.withValues(alpha: 0.95),
+        color: theme.surfacePanel.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.goldPrimary, width: 1),
+        border: Border.all(color: theme.accentPrimary, width: 1),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Declare Suit',
-              style: Theme.of(context).textTheme.headlineMedium),
+          Text(
+            'Declare Suit',
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: theme.textPrimary,
+                ),
+          ),
           const SizedBox(height: 12),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               for (final suit in ['spades', 'clubs', 'hearts', 'diamonds'])
                 _SuitButton(
+                  theme: theme,
                   suit: suit,
                   onTap: () => onDeclare(suit, 'joker'),
                 ),
@@ -370,7 +398,12 @@ class _JokerDeclarationPanel extends StatelessWidget {
 }
 
 class _SuitButton extends StatelessWidget {
-  const _SuitButton({required this.suit, required this.onTap});
+  const _SuitButton({
+    required this.theme,
+    required this.suit,
+    required this.onTap,
+  });
+  final AppThemeData theme;
   final String suit;
   final VoidCallback onTap;
 
@@ -392,15 +425,15 @@ class _SuitButton extends StatelessWidget {
         height: 44,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: AppColors.feltMid,
-          border: Border.all(color: AppColors.goldDark),
+          color: theme.backgroundMid,
+          border: Border.all(color: theme.accentDark),
         ),
         child: Center(
           child: Text(
             _labels[suit] ?? suit,
             style: TextStyle(
               fontSize: 22,
-              color: isRed ? AppColors.suitRed : AppColors.suitBlack,
+              color: isRed ? theme.suitRed : theme.suitBlack,
             ),
           ),
         ),

@@ -5,7 +5,8 @@ import 'package:last_cards/core/theme/app_dimensions.dart';
 import 'package:last_cards/core/theme/app_typography.dart';
 import 'package:last_cards/core/utils/display_name_utils.dart';
 import 'package:last_cards/widgets/marquee_name.dart';
-import 'package:last_cards/features/gameplay/presentation/widgets/player_zone_widget.dart';
+import 'package:last_cards/features/gameplay/presentation/widgets/player_zone_widget.dart'
+    show QuickChatBubbleData, SkipSeatHighlightOverlay;
 import 'package:last_cards/features/gameplay/presentation/widgets/quick_chat_bubble.dart';
 import '../models/bust_player_view_model.dart';
 
@@ -17,6 +18,7 @@ class BustPlayerSlot extends ConsumerWidget {
     this.showThinking = false,
     this.chatBubble,
     this.onRemoveQuickChatBubble,
+    this.skipSeatHighlight = false,
   });
 
   final BustPlayerViewModel player;
@@ -30,6 +32,7 @@ class BustPlayerSlot extends ConsumerWidget {
 
   /// Callback to remove a bubble by id.
   final void Function(String id)? onRemoveQuickChatBubble;
+  final bool skipSeatHighlight;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -225,6 +228,14 @@ class BustPlayerSlot extends ConsumerWidget {
       slot = Opacity(opacity: 0.40, child: slot);
     } else if (player.isTournamentFinished) {
       slot = Opacity(opacity: 0.50, child: slot);
+    }
+
+    if (skipSeatHighlight) {
+      slot = SkipSeatHighlightOverlay(
+        active: true,
+        theme: theme,
+        child: slot,
+      );
     }
 
     return slot;

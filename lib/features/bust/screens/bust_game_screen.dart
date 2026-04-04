@@ -16,7 +16,6 @@ import 'package:last_cards/core/providers/theme_provider.dart';
 import 'package:last_cards/core/providers/user_profile_provider.dart';
 import 'package:last_cards/core/theme/app_colors.dart';
 import 'package:last_cards/core/theme/app_dimensions.dart';
-import 'package:last_cards/core/theme/app_typography.dart';
 import 'package:flutter/services.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/card_flight_overlay.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/dealing_animation_overlay.dart';
@@ -25,11 +24,13 @@ import 'package:last_cards/features/gameplay/presentation/widgets/draw_pile_widg
 import 'package:last_cards/features/gameplay/presentation/widgets/floating_action_bar_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/hud_overlay_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/game_move_log_overlay.dart';
+import 'package:last_cards/features/gameplay/presentation/widgets/ace_suit_picker_sheet.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/player_hand_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/player_zone_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/quick_chat_panel.dart' show kQuickMessages, QuickChatPanel;
 import 'package:last_cards/features/gameplay/presentation/widgets/turn_indicator_overlay.dart';
 import 'package:last_cards/features/single_player/providers/single_player_session_provider.dart';
+import 'package:last_cards/shared/rules/move_log_support.dart';
 
 import '../bust_engine.dart';
 import '../bust_round_manager.dart';
@@ -143,6 +144,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   final GlobalKey<CardFlightOverlayState> _playFlightKey =
       GlobalKey<CardFlightOverlayState>();
   String? _flyingCardId;
+  final Set<String> _skipHighlightPlayerIds = <String>{};
 
   int get _clampedPlayers => widget.totalPlayers.clamp(2, 10);
 
@@ -625,7 +627,12 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       });
 
       _checkPlacementPileRule();
-      _maybeFinalizeBustFinalShowdown();
+        _maybeFinalizeBustFinalShowdown();
+
+      if (newState.activeSkipCount > beforeState.activeSkipCount) {
+        game_audio.AudioService.instance.playSound(GameSound.skipApplied);
+        _flashSkipHighlight(skippedPlayerIdsForSkipState(newState));
+      }
     } finally {
       _localActionInProgress = false;
       if (mounted && _flyingCardId != null) setState(() => _flyingCardId = null);
@@ -791,7 +798,11 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       chosenAceSuit = await showModalBottomSheet<Suit>(
         context: context,
         backgroundColor: Colors.transparent,
-        builder: (_) => const _BustAceSuitPickerSheet(),
+        builder: (_) => const AceSuitPickerSheet(
+          presentation: AceSuitPickerPresentation.bottomSheet,
+          title: 'Choose a suit',
+          subtitle: '',
+        ),
       );
       if (!mounted) return;
       if (chosenAceSuit == null) return;
@@ -916,6 +927,13 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
         ));
       }
     });
+
+    if (result.preTurnAdvanceState.activeSkipCount > preTurn.activeSkipCount) {
+      game_audio.AudioService.instance.playSound(GameSound.skipApplied);
+      _flashSkipHighlight(
+        skippedPlayerIdsForSkipState(result.preTurnAdvanceState),
+      );
+    }
 
     // Record any players that were skipped by an Eight effect this turn.
     _recordSkippedTurns(result.preTurnAdvanceState, nextId);
@@ -1046,6 +1064,20 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     setState(() => _quickChatBubbles.removeWhere((b) => b.id == bubbleId));
   }
 
+  void _flashSkipHighlight(Iterable<String> playerIds) {
+    final set = playerIds.toSet();
+    if (set.isEmpty) return;
+    setState(() {
+      _skipHighlightPlayerIds
+        ..clear()
+        ..addAll(set);
+    });
+    Future<void>.delayed(const Duration(milliseconds: 720), () {
+      if (!mounted) return;
+      setState(_skipHighlightPlayerIds.clear);
+    });
+  }
+
   void _sendQuickChat(int messageIndex) {
     if (_quickChatCooldownRemaining > 0) return;
 
@@ -1133,6 +1165,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                     BustPlayerRail(
                       players: opponents,
                       slotKeyBuilder: (p) => _playerZoneKeys[p.id],
+                      skipHighlightPlayerIds: _skipHighlightPlayerIds,
                       quickChatBubblesByPlayer: {
                         for (final b in _quickChatBubbles)
                           b.playerId: (id: b.id, playerName: b.playerName, message: b.message, isLocal: b.isLocal),
@@ -1240,6 +1273,8 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                                   ),
                               isLocalPlayer: true,
                               isActiveTurn: isMyTurn,
+                              skipSeatHighlight: _skipHighlightPlayerIds
+                                  .contains(OfflineGameState.localId),
                               chatBubble: () {
                                 final b = _quickChatBubbles
                                     .where((b) => b.playerId == OfflineGameState.localId)
@@ -1472,139 +1507,3 @@ class _RoundIndicator extends ConsumerWidget {
     );
   }
 }
-
-// ── Ace suit picker ────────────────────────────────────────────────────────────
-
-class _BustAceSuitPickerSheet extends ConsumerWidget {
-  const _BustAceSuitPickerSheet();
-
-  static const _suits = [Suit.spades, Suit.clubs, Suit.hearts, Suit.diamonds];
-  static const _symbols = ['♠', '♣', '♥', '♦'];
-  static const _names = ['Spades', 'Clubs', 'Hearts', 'Diamonds'];
-  static const _isRed = [false, false, true, true];
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = ref.watch(themeProvider).theme;
-
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        AppDimensions.md,
-        AppDimensions.md,
-        AppDimensions.md,
-        AppDimensions.md + MediaQuery.of(context).padding.bottom,
-      ),
-      decoration: BoxDecoration(
-        color: theme.surfacePanel,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(AppDimensions.radiusModal),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('Choose a suit', style: AppTypography.heading2),
-          const SizedBox(height: AppDimensions.md),
-          Row(
-            children: List.generate(4, (i) {
-              final suitColor =
-                  _isRed[i] ? const Color(0xFFE53935) : Colors.white;
-              return Expanded(
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 4),
-                  child: _SuitPickButton(
-                    symbol: _symbols[i],
-                    label: _names[i],
-                    suit: _suits[i],
-                    suitColor: suitColor,
-                    theme: theme,
-                    onTap: () => Navigator.of(context).pop(_suits[i]),
-                  ),
-                ),
-              );
-            }),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SuitPickButton extends StatefulWidget {
-  const _SuitPickButton({
-    required this.symbol,
-    required this.label,
-    required this.suit,
-    required this.suitColor,
-    required this.theme,
-    required this.onTap,
-  });
-
-  final String symbol;
-  final String label;
-  final Suit suit;
-  final Color suitColor;
-  final dynamic theme;
-  final VoidCallback onTap;
-
-  @override
-  State<_SuitPickButton> createState() => _SuitPickButtonState();
-}
-
-class _SuitPickButtonState extends State<_SuitPickButton> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: _pressed
-              ? widget.suitColor.withValues(alpha: 0.20)
-              : widget.theme.backgroundMid,
-          borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
-          border: Border.all(
-            color: _pressed
-                ? widget.suitColor
-                : widget.suitColor.withValues(alpha: 0.40),
-            width: _pressed ? 2 : 1.5,
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              widget.symbol,
-              style: TextStyle(
-                color: widget.suitColor,
-                fontSize: 26,
-                fontWeight: FontWeight.w900,
-                height: 1.1,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              widget.label,
-              style: TextStyle(
-                color: widget.suitColor.withValues(alpha: 0.75),
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
