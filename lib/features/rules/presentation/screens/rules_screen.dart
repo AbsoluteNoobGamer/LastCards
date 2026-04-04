@@ -58,9 +58,11 @@ class RulesScreen extends StatelessWidget {
                 _BodyText('On your turn, play a card if it matches:'),
                 _BulletPoint('The suit of the top discard card, or'),
                 _BulletPoint('The rank of the top discard card, or'),
-                _BulletPoint('A valid special override (Ace, Joker)'),
+                _BulletPoint('A valid special override (Ace, Joker, etc.)'),
                 _BodyText(
                     'If you cannot play: draw 1 card and your turn ends immediately. The drawn card cannot be played on that same turn.'),
+                _BodyText(
+                    'Offline / local table: the action bar can show Next: … (who acts after you), accounting for skip, reverse, and 2-player King. Online standard table omits it; Bust uses its own order display.'),
                 _BodyText(
                     'A 60 second turn timer is active at all times. If no card is played or drawn within 60 seconds, the turn ends automatically and you must draw 1 card as a penalty.'),
                 _SectionDivider(),
@@ -89,9 +91,13 @@ class RulesScreen extends StatelessWidget {
                   description:
                       'Cancels any active draw penalty (resets draw stack to 0). The pick-up chain stays live for matching so you can still play any 2 or Jack on the Red Jack without suit/rank matching until someone draws or a non-penalty card ends the chain.',
                 ),
+                _BodyText(
+                    'Pick-up matching: While the penalty chain is live, 2s and Jacks may chain without suit/rank. The chain stays live after a Red Jack zeros the draw count; it ends when someone draws, a non-penalty play clears it, or the turn advances after a non-penalty card.',
+                ),
                 _SpecialCardRow(
                   cardName: 'King',
-                  description: 'Reverses direction of play',
+                  description:
+                      'Reverses direction. With 2 players the turn returns to you; your next card matches the King with normal suit/rank rules (not forced numerical flow). Ace on that follow-up is not a free suit change—it must match like other cards. With 3+ players, mid-turn flow works as after any non-special card.',
                 ),
                 _SpecialCardRow(
                   cardName: 'Ace',
@@ -128,28 +134,80 @@ class RulesScreen extends StatelessWidget {
                     'Playing a Queen as your last card does not win immediately — you must cover the Queen or draw first; if you cannot cover, you draw and do not win'),
                 _SectionDivider(),
                 sectionSpacing,
+                _SectionHeader('LAST CARDS (NOT IN BUST)'),
+                _ImportantCallout(
+                  'When the rules require you to declare, tapping Last Cards is not optional. '
+                  'If your hand could be emptied in one legal turn at the start of your turn and you did not press Last Cards before that turn, playing your last card does not win—you draw 1 and your turn ends. '
+                  'False declarations are penalized.',
+                ),
+                _BulletPoint(
+                    'Press Last Cards before your turn when you intend to shed your whole hand in one turn.',
+                ),
+                _BulletPoint(
+                    'The game records at turn start whether your hand was clearable in one turn; you must declare only when that snapshot requires it (you can still win without declaring if you drew into a winning hand).',
+                ),
+                _BulletPoint(
+                    'If you must declare and complete the turn without having declared, you draw 1 instead of winning.',
+                ),
+                _BulletPoint(
+                    'A bluff (hand not actually clearable in one turn): draw 2 penalty cards when your turn starts; declaration clears.',
+                ),
+                _BulletPoint(
+                    'Clearability is from your hand only, independent of the discard top. Must-declare and AI checks use the same rule; Jokers get no AI-only pass.',
+                ),
+                _BulletPoint(
+                    'If you press Last Cards and hold any Joker, you are not flagged as bluffing from the clearability check alone.',
+                ),
+                _BulletPoint('Declaring is public: everyone sees who declared.'),
+                _SectionDivider(),
+                sectionSpacing,
                 _SectionHeader('GAME MODES'),
                 _BodyText(
-                    'Play with AI — Offline game against AI opponents using all core rules'),
+                    'Play with AI — Offline vs AI; all core rules above.',
+                ),
                 _BodyText(
-                    'Play Online — Multiplayer using all core rules via lobby/room flow'),
+                    'Practice — Same as AI; no leaderboard impact.',
+                ),
+                _BodyText(
+                    'Play Online — Lobby/room flow; same core rules.',
+                ),
+                _BulletPoint(
+                    'Disconnect: player is removed (no rejoin). With two or more others left, their hand shuffles into the draw pile; if only one player remains, the session ends.',
+                ),
+                _BulletPoint(
+                    'Casual wins can count toward online leaderboards when the match is trophy-eligible (not private); Bust finals similarly for bust leaderboards.',
+                ),
                 _BodyText('Tournament Mode'),
                 _BulletPoint('All core rules apply within each round'),
                 _BulletPoint('Players finish in order by emptying their hand'),
                 _BulletPoint(
-                    'The last player to empty their hand each round is eliminated'),
+                    'The last finisher in the round is eliminated'),
                 _BulletPoint('Remaining players advance to the next round'),
                 _BulletPoint(
-                    'Rounds continue until one player remains (Tournament Winner)'),
+                    'Continues until one player remains (tournament winner)'),
+                _BulletPoint(
+                    'Offline: after you qualify (empty hand), Skip to result fast-forwards the rest of the round.',
+                ),
                 _BodyText('Bust Mode'),
                 _BulletPoint('52-card deck (no Jokers); 2–10 players'),
                 _BulletPoint(
-                    'Variable hand size per player count (e.g. 5–10 cards each)'),
-                _BulletPoint('2 turns per player per round; round ends when all have played twice'),
+                    'Hand size depends on player count (adaptive deal).',
+                ),
                 _BulletPoint(
-                    'Cards left in hand = penalty points; bottom 2 eliminated each round'),
+                    'With 3+ players: each takes 2 turns per round; round ends when everyone has played twice.',
+                ),
                 _BulletPoint(
-                    'Placement pile rule: when discard reaches 5 cards, bottom 4 shuffle back into draw pile'),
+                    'Final round (2 players left): race to empty hand—no turn cap; play until someone legally sheds their last card.',
+                ),
+                _BulletPoint(
+                    'Round-end card totals add to cumulative penalty; bottom two by cumulative score are eliminated each round. In the 2-player finale, empty hand wins (not penalty tie-break).',
+                ),
+                _BulletPoint(
+                    'Placement pile: when the discard shows 5 cards, bottom 4 shuffle into the draw pile.',
+                ),
+                _BulletPoint(
+                    'Online: with more than two survivors a disconnect removes that player; if two or fewer survivors would remain, the session ends.',
+                ),
                 _BulletPoint('Last player standing wins'),
                 SizedBox(height: 16),
               ],
@@ -263,6 +321,38 @@ class _SpecialCardRow extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.normal),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ImportantCallout extends StatelessWidget {
+  final String text;
+  const _ImportantCallout(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10.0, top: 2.0),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: Color(0x22FFD700),
+          border: Border(
+            left: BorderSide(color: RulesScreen._gold, width: 4),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: RulesScreen._bodyWhite,
+              fontSize: 13,
+              height: 1.55,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
       ),
     );
