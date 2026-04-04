@@ -53,7 +53,8 @@ class GlassFrostedPanel extends StatelessWidget {
                 Color.lerp(Colors.white, const Color(0xFFE8F4FF), 0.35)!
                     .withValues(alpha: 0.11),
                 Colors.white.withValues(alpha: 0.04),
-                accent.withValues(alpha: 0.055),
+                Color.lerp(accent, accentLight, 0.45)!
+                    .withValues(alpha: 0.06),
               ],
               stops: const [0.0, 0.48, 1.0],
             ),
@@ -152,7 +153,7 @@ class GlassFrostedPanel extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.vertical(
-                  bottom: Radius.circular(borderRadius - 1),
+                  bottom: Radius.circular(innerR),
                 ),
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
