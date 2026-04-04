@@ -17,6 +17,7 @@ import '../../../../features/online/widgets/mode_selection_sheet.dart';
 import '../widgets/card_back_selection_menu.dart';
 import '../../../../core/theme/theme_selector_modal.dart';
 import '../../../../core/navigation/app_page_routes.dart';
+import '../../../../core/widgets/glass_frosted_panel.dart';
 import '../../../../core/widgets/themed_shimmer.dart';
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/online_player_count_provider.dart';

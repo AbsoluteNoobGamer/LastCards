@@ -489,9 +489,6 @@ class _PrimaryButtonBaseState extends ConsumerState<_PrimaryButtonBase>
     final theme = ref.watch(themeProvider).theme;
     final accent = theme.accentPrimary;
     final accentLight = theme.accentLight;
-    final accentDark = theme.accentDark;
-    final bg = theme.backgroundDeep;
-    final bgMid = theme.backgroundMid;
 
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
@@ -523,162 +520,138 @@ class _PrimaryButtonBaseState extends ConsumerState<_PrimaryButtonBase>
         height: buttonHeight,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
-          gradient: LinearGradient(
-            colors: [accentLight, accentDark],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
           boxShadow: [
             BoxShadow(
-              color: accent.withValues(alpha: 0.30),
-              blurRadius: 20,
-              spreadRadius: 2,
+              color: Colors.black.withValues(alpha: 0.38),
+              blurRadius: 22,
+              offset: const Offset(6, 10),
             ),
             BoxShadow(
-              color: accent.withValues(alpha: 0.14),
-              blurRadius: 40,
-              spreadRadius: 4,
-            ),
-            const BoxShadow(
-              color: Color(0x80000000),
-              blurRadius: 8,
-              offset: Offset(0, 4),
+              color: accent.withValues(alpha: 0.22),
+              blurRadius: 26,
+              spreadRadius: -2,
             ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(2.0),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16.0),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        bg.withValues(alpha: 0.95),
-                        bgMid.withValues(alpha: 0.98),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                ),
-                if (!disableAnim)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: ClipRect(
-                        child: AnimatedBuilder(
-                          animation: _shimmer,
-                          builder: (context, _) {
-                            final t = _shimmer.value;
-                            return LayoutBuilder(
-                              builder: (context, constraints) {
-                                final w = constraints.maxWidth;
-                                final bandW = w * 0.42;
-                                final travel = w + bandW * 2;
-                                final left = -bandW + t * travel;
-                                return Stack(
-                                  clipBehavior: Clip.hardEdge,
-                                  children: [
-                                    Positioned(
-                                      left: left,
-                                      top: 0,
-                                      bottom: 0,
-                                      width: bandW,
-                                      child: DecoratedBox(
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            begin: Alignment.centerLeft,
-                                            end: Alignment.centerRight,
-                                            colors: [
-                                              Colors.transparent,
-                                              accentLight.withValues(
-                                                  alpha: 0.12),
-                                              accentLight.withValues(
-                                                  alpha: 0.22),
-                                              accentLight.withValues(
-                                                  alpha: 0.12),
-                                              Colors.transparent,
-                                            ],
-                                            stops: const [
-                                              0.0,
-                                              0.35,
-                                              0.5,
-                                              0.65,
-                                              1.0,
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+        child: GlassFrostedPanel(
+          borderRadius: 18,
+          accent: accent,
+          accentLight: accentLight,
+          shimmerAnimation: disableAnim ? null : _shimmer,
+          shimmerBandBuilder: disableAnim
+              ? null
+              : (context, t) {
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final w = constraints.maxWidth;
+                      final bandW = w * 0.42;
+                      final travel = w + bandW * 2;
+                      final left = -bandW + t * travel;
+                      return Stack(
+                        clipBehavior: Clip.hardEdge,
+                        children: [
+                          Positioned(
+                            left: left,
+                            top: 0,
+                            bottom: 0,
+                            width: bandW,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  colors: [
+                                    Colors.transparent,
+                                    accentLight.withValues(alpha: 0.07),
+                                    accentLight.withValues(alpha: 0.14),
+                                    accentLight.withValues(alpha: 0.07),
+                                    Colors.transparent,
                                   ],
-                                );
-                              },
-                            );
-                          },
+                                  stops: const [
+                                    0.0,
+                                    0.35,
+                                    0.5,
+                                    0.65,
+                                    1.0,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(18),
+              splashColor: Colors.white.withValues(alpha: 0.22),
+              highlightColor: Colors.transparent,
+              onTapDown: widget.onTapDown,
+              onTapCancel: widget.onTapCancel,
+              onTap: () {
+                widget.onTap();
+                Future.delayed(const Duration(milliseconds: 150), () {
+                  if (context.mounted) widget.onTapCancel();
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      iconData,
+                      color: Colors.white.withValues(alpha: 0.95),
+                      size: 28,
+                      shadows: const [
+                        Shadow(
+                          color: Color(0x66000000),
+                          blurRadius: 6,
                         ),
+                      ],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.label,
+                            style: GoogleFonts.outfit(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white.withValues(alpha: 0.96),
+                              letterSpacing: 2.0,
+                              shadows: const [
+                                Shadow(
+                                  color: Color(0x88000000),
+                                  blurRadius: 10,
+                                  offset: Offset(0, 1),
+                                ),
+                                Shadow(
+                                  color: Color(0x44000000),
+                                  blurRadius: 2,
+                                ),
+                              ],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (widget.subtitle != null) ...[
+                            const SizedBox(height: 2),
+                            widget.subtitle!,
+                          ]
+                        ],
                       ),
                     ),
-                  ),
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    height: 1,
-                    color: Colors.white.withValues(alpha: 0.05),
-                  ),
+                  ],
                 ),
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16.0),
-                    splashColor: accent.withValues(alpha: 0.25),
-                    highlightColor: Colors.transparent,
-                    onTapDown: widget.onTapDown,
-                    onTapCancel: widget.onTapCancel,
-                    onTap: () {
-                      widget.onTap();
-                      Future.delayed(const Duration(milliseconds: 150), () {
-                        if (context.mounted) widget.onTapCancel();
-                      });
-                    },
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(iconData, color: accent, size: 28),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                widget.label,
-                                style: GoogleFonts.outfit(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: theme.textPrimary,
-                                  letterSpacing: 2.0,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (widget.subtitle != null) ...[
-                                const SizedBox(height: 2),
-                                widget.subtitle!,
-                              ]
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
