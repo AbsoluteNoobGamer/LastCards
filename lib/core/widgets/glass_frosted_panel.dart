@@ -33,6 +33,11 @@ class GlassFrostedPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final innerR = borderRadius > 2 ? borderRadius - 1 : borderRadius;
+    // Themed highlights (not plain white) so the panel ties to [accent] / [accentLight].
+    final specularTop =
+        Color.lerp(Colors.white, accentLight, 0.22)!.withValues(alpha: 0.38);
+    final glintCenter =
+        Color.lerp(Colors.white, accentLight, 0.28)!.withValues(alpha: 0.52);
 
     Widget glassStack = Stack(
       fit: StackFit.expand,
@@ -113,7 +118,7 @@ class GlassFrostedPanel extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.white.withValues(alpha: 0.38),
+                    specularTop,
                     Colors.white.withValues(alpha: 0.0),
                   ],
                 ),
@@ -133,7 +138,7 @@ class GlassFrostedPanel extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: RadialGradient(
                     colors: [
-                      Colors.white.withValues(alpha: 0.55),
+                      glintCenter,
                       Colors.transparent,
                     ],
                     stops: const [0.0, 0.68],
