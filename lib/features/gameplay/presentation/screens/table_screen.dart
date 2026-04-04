@@ -680,6 +680,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _engineTimer.dispose();
     _reshuffleNotifier.dispose();
     clearSuitInference(_offlineState.sessionId);
+    unawaited(game_audio.AudioService.instance.stopAll());
     super.dispose();
   }
 
@@ -807,10 +808,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   void _onBackPressed() {
     final isOfflineMode = ref.read(gameStateProvider) == null;
-    if (isOfflineMode) {
-      Navigator.of(context).pop();
-      return;
-    }
     final isRanked = ref.read(isRankedGameProvider);
     showDialog<void>(
       context: context,
@@ -819,9 +816,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         backgroundColor: Colors.grey.shade900,
         title: const Text('Leave game?', style: TextStyle(color: Colors.white)),
         content: Text(
-          'You will be disconnected and the game will continue without you.'
-          '${isRanked ? '\n\nIn ranked mode, leaving counts as a loss and you will lose MMR (-20).' : ''}'
-          '\n\nAre you sure you want to leave?',
+          isOfflineMode
+              ? 'You will return to the menu and this match will end.\n\n'
+                  'Are you sure you want to leave?'
+              : 'You will be disconnected and the game will continue without you.'
+                  '${isRanked ? '\n\nIn ranked mode, leaving counts as a loss and you will lose MMR (-20).' : ''}'
+                  '\n\nAre you sure you want to leave?',
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -831,8 +831,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           ),
           TextButton(
             onPressed: () {
-              ref.read(gameNotifierProvider.notifier).clearOnlineState();
-              ref.read(wsClientProvider).disconnect();
+              unawaited(game_audio.AudioService.instance.stopAll());
+              if (!isOfflineMode) {
+                ref.read(gameNotifierProvider.notifier).clearOnlineState();
+                ref.read(wsClientProvider).disconnect();
+              }
               Navigator.of(context).pop(); // dismiss dialog
               Navigator.of(context).pop(); // leave table
             },
@@ -1815,7 +1818,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 ),
             ],
           );
-          if (isOfflineMode) return stack;
           return PopScope(
             canPop: false,
             onPopInvokedWithResult: (didPop, result) {
@@ -2519,6 +2521,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               playedByAi.first.isJoker)) {
         await Future.delayed(
             Duration(milliseconds: _randomAiDelayMs(1500, 3000)));
+        if (!mounted) return;
       }
 
       if (!hasPlayable) {
