@@ -12,13 +12,14 @@ import '../../../../core/utils/shadow_blur.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/services/card_back_service.dart';
 import 'card_back_widget.dart';
+import 'card_flip_widget.dart';
 import 'joker_card_widget.dart';
 
 /// Renders a single playing card (face-up or face-down).
 ///
 /// Pass [isSelected] to show the lifted + theme-accent selection state.
 /// Pass [onTap] to make the card interactive.
-class CardWidget extends ConsumerWidget {
+class CardWidget extends ConsumerStatefulWidget {
   const CardWidget({
     super.key,
     required this.card,
@@ -26,6 +27,7 @@ class CardWidget extends ConsumerWidget {
     this.faceUp = true,
     this.isSelected = false,
     this.onTap,
+    this.animateFlip = true,
   });
 
   final CardModel card;
@@ -33,25 +35,53 @@ class CardWidget extends ConsumerWidget {
   final bool faceUp;
   final bool isSelected;
   final VoidCallback? onTap;
+  final bool animateFlip;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (!faceUp) return CardBackWidget(width: width);
+  ConsumerState<CardWidget> createState() => _CardWidgetState();
+}
+
+class _CardWidgetState extends ConsumerState<CardWidget> {
+  @override
+  Widget build(BuildContext context) {
+    final card = widget.card;
+    final width = widget.width;
+    final faceUp = widget.faceUp;
+
     if (card.isJoker) {
+      if (!faceUp) return CardBackWidget(width: width);
       return JokerCardWidget(
         width: width,
         isRedJoker: card.suit.isRed,
-        onTap: onTap,
+        onTap: widget.onTap,
       );
     }
 
+    final back = CardBackWidget(width: width);
+    final face = _buildPlayingFace();
+
+    if (!widget.animateFlip) {
+      return faceUp ? face : back;
+    }
+
+    return CardFlipWidget(
+      showFace: faceUp,
+      front: face,
+      back: back,
+    );
+  }
+
+  Widget _buildPlayingFace() {
+    final card = widget.card;
+    final width = widget.width;
     final height = AppDimensions.cardHeight(width);
     final suitColor = card.suit.isRed ? AppColors.suitRed : AppColors.suitBlack;
     final theme = ref.watch(themeProvider).theme;
 
     // Use implicit Tweens to drive lift and shimmer over a fast 150ms bounce
     return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0.0, end: isSelected ? 1.0 : 0.0),
+      tween:
+          Tween<double>(begin: 0.0, end: widget.isSelected ? 1.0 : 0.0),
       duration: const Duration(milliseconds: 150),
       curve: Curves.easeOutCubic,
       builder: (context, val, innerChild) {
@@ -62,18 +92,18 @@ class CardWidget extends ConsumerWidget {
         final scale = 1.0 + (0.10 * v); // Scale 1.0 -> 1.1
 
         return MouseRegion(
-          cursor: onTap != null
+          cursor: widget.onTap != null
               ? SystemMouseCursors.click
               : SystemMouseCursors.basic,
           child: GestureDetector(
             onTap: () {
-              if (onTap != null) {
+              if (widget.onTap != null) {
                 HapticFeedback.selectionClick();
                 game_audio.AudioService.instance.playSound(GameSound.cardSelect);
-                onTap!();
+                widget.onTap!();
               }
             },
-            onPanStart: onTap != null
+            onPanStart: widget.onTap != null
                 ? (_) {
                     game_audio.AudioService.instance.playSound(GameSound.cardDraw);
                   }
@@ -106,10 +136,10 @@ class CardWidget extends ConsumerWidget {
                         ),
                     ],
                     border: Border.all(
-                      color: isSelected
+                      color: widget.isSelected
                           ? theme.accentLight.withValues(alpha: v)
                           : Colors.black.withValues(alpha: 0.08),
-                      width: isSelected ? 2.0 : 0.5,
+                      width: widget.isSelected ? 2.0 : 0.5,
                     ),
                   ),
                   child: innerChild,
@@ -157,6 +187,7 @@ class CardWidget extends ConsumerWidget {
     );
   }
 }
+
 
 // ── Card face content ─────────────────────────────────────────────────────────
 

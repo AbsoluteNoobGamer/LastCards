@@ -16,6 +16,7 @@ class BustPlayerRail extends StatefulWidget {
     this.quickChatBubblesByPlayer = const {},
     this.onRemoveQuickChatBubble,
     this.thinkingPlayerId,
+    this.skipHighlightPlayerIds = const <String>{},
   });
 
   final List<BustPlayerViewModel> players;
@@ -40,6 +41,9 @@ class BustPlayerRail extends StatefulWidget {
 
   /// Callback to remove a bubble by id.
   final void Function(String id)? onRemoveQuickChatBubble;
+
+  /// Player IDs to show brief skip (Eight) dim/pause on the rail slot.
+  final Set<String> skipHighlightPlayerIds;
 
   @override
   State<BustPlayerRail> createState() => _BustPlayerRailState();
@@ -117,6 +121,7 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
         showThinking: widget.thinkingPlayerId == player.id,
         chatBubble: chatBubble,
         onRemoveQuickChatBubble: widget.onRemoveQuickChatBubble,
+        skipSeatHighlight: widget.skipHighlightPlayerIds.contains(player.id),
       );
       if (slotKey != null) {
         slot = KeyedSubtree(key: slotKey, child: slot);

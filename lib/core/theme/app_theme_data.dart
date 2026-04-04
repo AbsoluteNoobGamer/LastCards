@@ -115,6 +115,33 @@ TextStyle _heading(
   );
 }
 
+/// Splash / game title typography — same family as [_heading] (Playfair vs Cinzel).
+TextStyle gameTitleTextStyle(
+  AppThemeData t, {
+  required double fontSize,
+  FontWeight fontWeight = FontWeight.w600,
+  double letterSpacing = 0.8,
+  required Color color,
+  List<Shadow>? shadows,
+}) {
+  if (t.headingFontFamily == 'cinzel') {
+    return GoogleFonts.cinzel(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      letterSpacing: letterSpacing,
+      color: color,
+      shadows: shadows,
+    );
+  }
+  return GoogleFonts.playfairDisplay(
+    fontSize: fontSize,
+    fontWeight: fontWeight,
+    letterSpacing: letterSpacing,
+    color: color,
+    shadows: shadows,
+  );
+}
+
 /// Converts an [AppThemeData] preset into a Flutter [ThemeData].
 ThemeData buildThemeData(AppThemeData t) {
   final base = ThemeData.dark();

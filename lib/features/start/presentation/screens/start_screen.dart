@@ -21,6 +21,7 @@ import '../../../../core/widgets/themed_shimmer.dart';
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/online_player_count_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../features/profile/presentation/screens/profile_screen.dart';
 import '../../../../features/profile/widgets/profile_stats_section.dart';
@@ -174,6 +175,7 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
               builder: (context, constraints) {
                 final isMobile = min(constraints.maxWidth, constraints.maxHeight) < 600;
                 final disableAnim = MediaQuery.disableAnimationsOf(context);
+                final splashTheme = ref.watch(themeProvider).theme;
                 return SingleChildScrollView(
                   child: ConstrainedBox(
                     constraints:
@@ -202,17 +204,19 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                                       child: Text(
                                         "Last Cards",
                                         textAlign: TextAlign.center,
-                                        style: GoogleFonts.cinzel(
+                                        style: gameTitleTextStyle(
+                                          splashTheme,
                                           fontSize: 42,
                                           fontWeight: FontWeight.bold,
-                                          color: Colors.white,
                                           letterSpacing: 5.0,
-                                          shadows: const [
+                                          color: Colors.white,
+                                          shadows: [
                                             Shadow(
-                                              color: Color(0x60FFD700),
+                                              color: splashTheme.accentPrimary
+                                                  .withValues(alpha: 0.38),
                                               blurRadius: 24,
                                             ),
-                                            Shadow(
+                                            const Shadow(
                                               color: Color(0x80000000),
                                               blurRadius: 6,
                                               offset: Offset(0, 3),
@@ -241,17 +245,20 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                                           child: Text(
                                             "Last Cards",
                                             textAlign: TextAlign.center,
-                                            style: GoogleFonts.cinzel(
+                                            style: gameTitleTextStyle(
+                                              splashTheme,
                                               fontSize: 42,
                                               fontWeight: FontWeight.bold,
-                                              color: Colors.white,
                                               letterSpacing: 5.0,
-                                              shadows: const [
+                                              color: Colors.white,
+                                              shadows: [
                                                 Shadow(
-                                                  color: Color(0x60FFD700),
+                                                  color: splashTheme
+                                                      .accentPrimary
+                                                      .withValues(alpha: 0.38),
                                                   blurRadius: 24,
                                                 ),
-                                                Shadow(
+                                                const Shadow(
                                                   color: Color(0x80000000),
                                                   blurRadius: 6,
                                                   offset: Offset(0, 3),
@@ -266,15 +273,13 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                               Text(
                                 "Play it all. Leave nothing.",
                                 textAlign: TextAlign.center,
-                                style: GoogleFonts.cinzel(
+                                style: gameTitleTextStyle(
+                                  splashTheme,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w400,
-                                  color: ref
-                                      .watch(themeProvider)
-                                      .theme
-                                      .accentPrimary
-                                      .withValues(alpha: 0.55),
                                   letterSpacing: 3.0,
+                                  color: splashTheme.accentPrimary
+                                      .withValues(alpha: 0.55),
                                 ),
                               ),
                               SizedBox(height: isMobile ? 40 : 56),

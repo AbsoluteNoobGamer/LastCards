@@ -2,8 +2,9 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/utils/shadow_blur.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../domain/entities/card.dart';
@@ -12,14 +13,14 @@ import 'card_widget.dart';
 
 /// Full-screen overlay that animates a card along a quadratic Bézier arc
 /// between two widgets identified by [GlobalKey]s (hand → discard or similar).
-class CardFlightOverlay extends StatefulWidget {
+class CardFlightOverlay extends ConsumerStatefulWidget {
   const CardFlightOverlay({super.key});
 
   @override
   CardFlightOverlayState createState() => CardFlightOverlayState();
 }
 
-class CardFlightOverlayState extends State<CardFlightOverlay>
+class CardFlightOverlayState extends ConsumerState<CardFlightOverlay>
     with TickerProviderStateMixin {
   final List<_Flight> _flights = [];
 
@@ -118,6 +119,7 @@ class CardFlightOverlayState extends State<CardFlightOverlay>
   Widget build(BuildContext context) {
     if (_flights.isEmpty) return const SizedBox.shrink();
 
+    final theme = ref.watch(themeProvider).theme;
     const w = AppDimensions.cardWidthMedium;
     const h = AppDimensions.cardWidthMedium * 1.4;
 
@@ -146,7 +148,12 @@ class CardFlightOverlayState extends State<CardFlightOverlay>
                   : baseScale;
 
               Widget child = f.faceUp
-                  ? CardWidget(card: f.card, width: w, faceUp: true)
+                  ? CardWidget(
+                      card: f.card,
+                      width: w,
+                      faceUp: true,
+                      animateFlip: false,
+                    )
                   : CardBackWidget(width: w);
 
               if (f.lastCardFromHand) {
@@ -160,13 +167,13 @@ class CardFlightOverlayState extends State<CardFlightOverlay>
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.goldPrimary
+                          color: theme.accentPrimary
                               .withValues(alpha: glowAlpha),
                           blurRadius: nonNegativeShadowBlur(32 + 28 * t),
                           spreadRadius: 2 + 8 * pulse,
                         ),
                         BoxShadow(
-                          color: AppColors.goldLight
+                          color: theme.accentLight
                               .withValues(alpha: 0.15 + 0.35 * pulse),
                           blurRadius: nonNegativeShadowBlur(
                             48 + 24 * math.sin(t * math.pi),

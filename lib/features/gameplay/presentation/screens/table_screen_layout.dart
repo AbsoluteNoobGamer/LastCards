@@ -49,10 +49,14 @@ class _TableLayout extends StatelessWidget {
     this.localHandSize = 0,
     this.onLastCardsTap,
     this.onPenaltyIncreased,
+    this.skipHighlightPlayerIds = const <String>{},
   });
 
   /// Called when the pickup penalty count increases (visual feedback).
   final VoidCallback? onPenaltyIncreased;
+
+  /// Seats showing brief Eight-skip dim/pause.
+  final Set<String> skipHighlightPlayerIds;
 
   /// Online: hide opponent seats while server grace reports socket loss.
   final Set<String> socketDisconnectedPlayerIds;
@@ -201,6 +205,7 @@ class _TableLayout extends StatelessWidget {
             localHandSize: localHandSize,
             onLastCardsTap: onLastCardsTap,
             onPenaltyIncreased: onPenaltyIncreased,
+            skipHighlightPlayerIds: skipHighlightPlayerIds,
           );
         }
 
@@ -236,6 +241,7 @@ class _TableLayout extends StatelessWidget {
                         thinkingPlayerId: thinkingOpponentId,
                         quickChatBubblesByPlayer: quickChatBubblesByPlayer,
                         onRemoveQuickChatBubble: onRemoveQuickChatBubble,
+                        skipHighlightPlayerIds: skipHighlightPlayerIds,
                       )
                     : Row(
                         children: [
@@ -260,6 +266,7 @@ class _TableLayout extends StatelessWidget {
                                     aiConfig: aiConfigs[leftOpp.id],
                                     chatBubble: quickChatBubblesByPlayer[leftOpp.id],
                                     onRemoveQuickChatBubble: onRemoveQuickChatBubble,
+                                    skipSeatHighlight: skipHighlightPlayerIds.contains(leftOpp.id),
                                   )
                                 : const SizedBox(height: 96),
                           )),
@@ -284,6 +291,7 @@ class _TableLayout extends StatelessWidget {
                                       aiConfig: aiConfigs[topOpp.id],
                                       chatBubble: quickChatBubblesByPlayer[topOpp.id],
                                       onRemoveQuickChatBubble: onRemoveQuickChatBubble,
+                                      skipSeatHighlight: skipHighlightPlayerIds.contains(topOpp.id),
                                     )
                                   : const _EmptyOpponentZone(),
                             ),
@@ -309,6 +317,7 @@ class _TableLayout extends StatelessWidget {
                                       aiConfig: aiConfigs[rightOpp.id],
                                       chatBubble: quickChatBubblesByPlayer[rightOpp.id],
                                       onRemoveQuickChatBubble: onRemoveQuickChatBubble,
+                                      skipSeatHighlight: skipHighlightPlayerIds.contains(rightOpp.id),
                                     )
                                   : const SizedBox(height: 96),
                             ),
@@ -349,16 +358,38 @@ class _TableLayout extends StatelessWidget {
                               color: AppColors.goldDark.withValues(alpha: 0.5),
                             ),
                           ),
-                          child: Text(
-                            isDealing ? 'DEALING...' : 'DEALER',
-                            key: const ValueKey('dealer-status'),
-                            style: TextStyle(
-                              color: AppColors.goldPrimary,
-                              fontSize: isMobile ? 8 : 9,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
+                          child: isDealing
+                              ? Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const ThemedShimmer(
+                                      width: 36,
+                                      height: 12,
+                                      borderRadius: 4,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'DEALING...',
+                                      key: ValueKey('dealer-status'),
+                                      style: TextStyle(
+                                        color: AppColors.goldPrimary,
+                                        fontSize: isMobile ? 8 : 9,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 1.5,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Text(
+                                  'DEALER',
+                                  key: ValueKey('dealer-status'),
+                                  style: TextStyle(
+                                    color: AppColors.goldPrimary,
+                                    fontSize: isMobile ? 8 : 9,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.5,
+                                  ),
+                                ),
                         ),
                       ),
                       const SizedBox(height: AppDimensions.sm),
@@ -460,6 +491,7 @@ class _TableLayout extends StatelessWidget {
                     gameState.lastCardsDeclaredBy.contains(localPlayer.id),
                 chatBubble: quickChatBubblesByPlayer[localPlayer.id],
                 onRemoveQuickChatBubble: onRemoveQuickChatBubble,
+                skipSeatHighlight: skipHighlightPlayerIds.contains(localPlayer.id),
                 child: finishedPlayerIds.contains(localPlayer.id)
                         ? _TournamentLocalStatusBanner(
                             isEliminated: _isEliminatedBadge(
@@ -557,9 +589,12 @@ class _LandscapeTableLayout extends StatelessWidget {
     this.localHandSize = 0,
     this.onLastCardsTap,
     this.onPenaltyIncreased,
+    this.skipHighlightPlayerIds = const <String>{},
   });
 
   final VoidCallback? onPenaltyIncreased;
+
+  final Set<String> skipHighlightPlayerIds;
 
   final String? nextTurnLabel;
 
@@ -635,6 +670,7 @@ class _LandscapeTableLayout extends StatelessWidget {
               thinkingPlayerId: thinkingOpponentId,
               quickChatBubblesByPlayer: quickChatBubblesByPlayer,
               onRemoveQuickChatBubble: onRemoveQuickChatBubble,
+              skipHighlightPlayerIds: skipHighlightPlayerIds,
             )
           else
             SizedBox(
@@ -662,6 +698,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                               chatBubble: quickChatBubblesByPlayer[leftOpp!.id],
                               onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                               compact: true,
+                              skipSeatHighlight: skipHighlightPlayerIds.contains(leftOpp!.id),
                             )
                           : const SizedBox.shrink(),
                     ),
@@ -687,6 +724,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                               chatBubble: quickChatBubblesByPlayer[topOpp!.id],
                               onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                               compact: true,
+                              skipSeatHighlight: skipHighlightPlayerIds.contains(topOpp!.id),
                             )
                           : const _EmptyOpponentZone(),
                     ),
@@ -712,6 +750,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                               chatBubble: quickChatBubblesByPlayer[rightOpp!.id],
                               onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                               compact: true,
+                              skipSeatHighlight: skipHighlightPlayerIds.contains(rightOpp!.id),
                             )
                           : const SizedBox.shrink(),
                     ),
@@ -823,6 +862,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                 chatBubble: quickChatBubblesByPlayer[localPlayer.id],
                 onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                 compact: true,
+                skipSeatHighlight: skipHighlightPlayerIds.contains(localPlayer.id),
                 child: finishedPlayerIds.contains(localPlayer.id)
                     ? _TournamentLocalStatusBanner(
                         isEliminated: _isEliminatedBadge(

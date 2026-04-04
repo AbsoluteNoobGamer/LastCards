@@ -11,6 +11,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/player_styles.dart';
 import '../../../../core/utils/shadow_blur.dart';
 import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/theme/app_theme_data.dart';
 import 'quick_chat_bubble.dart';
 
 /// Data for a quick chat bubble shown above a player's avatar.
@@ -46,6 +47,7 @@ class PlayerZoneWidget extends ConsumerWidget {
     this.chatBubble,
     this.onRemoveQuickChatBubble,
     this.isAiThinking = false,
+    this.skipSeatHighlight = false,
   });
 
   final PlayerModel player;
@@ -55,6 +57,8 @@ class PlayerZoneWidget extends ConsumerWidget {
   final bool isActiveTurn;
   /// Opponent seat: show "thinking" affordance while AI chooses a move.
   final bool isAiThinking;
+  /// Brief dim + pause icon when this seat is skipped by an Eight.
+  final bool skipSeatHighlight;
   final bool isTournamentFinished;
   final bool isTournamentEliminated;
 
@@ -91,17 +95,21 @@ class PlayerZoneWidget extends ConsumerWidget {
         player.copyWith(cardCount: reactiveCardCount);
 
     if (!isLocalPlayer && child == null) {
-        return _OpponentAvatarZone(
-        player: playerWithReactiveCount,
-        isActiveTurn: isActiveTurn,
-        isAiThinking: isAiThinking,
-        isTournamentFinished: isTournamentFinished,
-        isTournamentEliminated: isTournamentEliminated,
-        hasLastCardsDeclared: hasLastCardsDeclared,
-        appTheme: appTheme,
-        aiConfig: aiConfig,
-        chatBubble: chatBubble,
-        onRemoveQuickChatBubble: onRemoveQuickChatBubble,
+        return SkipSeatHighlightOverlay(
+        active: skipSeatHighlight,
+        theme: appTheme,
+        child: _OpponentAvatarZone(
+          player: playerWithReactiveCount,
+          isActiveTurn: isActiveTurn,
+          isAiThinking: isAiThinking,
+          isTournamentFinished: isTournamentFinished,
+          isTournamentEliminated: isTournamentEliminated,
+          hasLastCardsDeclared: hasLastCardsDeclared,
+          appTheme: appTheme,
+          aiConfig: aiConfig,
+          chatBubble: chatBubble,
+          onRemoveQuickChatBubble: onRemoveQuickChatBubble,
+        ),
       );
     }
 
@@ -109,7 +117,7 @@ class PlayerZoneWidget extends ConsumerWidget {
 
     final double baseOpacity = isActive ? 1.0 : 0.50;
 
-    return AnimatedOpacity(
+    final zoneBody = AnimatedOpacity(
       opacity: baseOpacity,
       duration: const Duration(milliseconds: 300),
       child: TweenAnimationBuilder<double>(
@@ -146,8 +154,6 @@ class PlayerZoneWidget extends ConsumerWidget {
               alignment: Alignment.center,
               children: [
                 childWrapper!,
-
-                // Skip indicator overlay
               ],
             ),
           );
@@ -189,6 +195,51 @@ class PlayerZoneWidget extends ConsumerWidget {
           ],
         ),
       ),
+    );
+
+    return SkipSeatHighlightOverlay(
+      active: skipSeatHighlight,
+      theme: appTheme,
+      child: zoneBody,
+    );
+  }
+}
+
+/// Dims the whole player zone and shows a pause icon (Eight skip feedback).
+class SkipSeatHighlightOverlay extends StatelessWidget {
+  const SkipSeatHighlightOverlay({
+    super.key,
+    required this.active,
+    required this.theme,
+    required this.child,
+  });
+
+  final bool active;
+  final AppThemeData theme;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!active) return child;
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        Opacity(opacity: 0.42, child: child),
+        IgnorePointer(
+          child: Icon(
+            Icons.pause_circle_outline_rounded,
+            size: 36,
+            color: theme.accentPrimary.withValues(alpha: 0.92),
+            shadows: [
+              Shadow(
+                color: Colors.black.withValues(alpha: 0.45),
+                blurRadius: 8,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

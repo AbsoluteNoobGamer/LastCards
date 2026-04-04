@@ -37,6 +37,7 @@ import '../widgets/discard_pile_widget.dart';
 import '../widgets/draw_pile_widget.dart';
 import '../widgets/hud_overlay_widget.dart';
 import '../widgets/player_hand_widget.dart';
+import '../widgets/ace_suit_picker_sheet.dart';
 import '../widgets/player_zone_widget.dart';
 import '../widgets/card_widget.dart';
 import '../widgets/floating_action_bar_widget.dart';
@@ -52,6 +53,7 @@ import '../../../../features/bust/models/bust_player_view_model.dart';
 import '../../../../features/bust/widgets/bust_player_rail.dart';
 import '../../../../features/leaderboard/data/leaderboard_stats_writer.dart';
 import '../../../../features/tournament/providers/tournament_session_provider.dart';
+import '../../../../core/widgets/themed_shimmer.dart';
 
 part 'table_screen_background.dart';
 part 'table_screen_layout.dart';
@@ -135,6 +137,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   final GlobalKey _drawPileKey = GlobalKey();
   final GlobalKey _discardPileKey = GlobalKey();
   final Map<String, GlobalKey> _playerZoneKeys = {};
+  final Set<String> _skipHighlightPlayerIds = <String>{};
+  Timer? _skipHighlightClearTimer;
 
   /// Mutable offline state — set by initState via buildWithDeck().
   late GameState _offlineState;
@@ -289,6 +293,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           ),
         );
       });
+      if (e.skippedPlayers.isNotEmpty) {
+        _flashSkipHighlight(
+          _playerIdsForSkippedNames(state, e.skippedPlayers),
+        );
+      }
     });
 
     _onlineInvalidPlayPenaltySub = handler.invalidPlayPenalties.listen((e) {
@@ -667,6 +676,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _onlineTurnChangedSub?.cancel();
     _lastCardsBluffSub?.cancel();
     _quickChatCooldownTimer?.cancel();
+    _skipHighlightClearTimer?.cancel();
     _engineTimer.dispose();
     _reshuffleNotifier.dispose();
     clearSuitInference(_offlineState.sessionId);
@@ -976,7 +986,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       chosenAceSuit = await showModalBottomSheet<Suit>(
         context: context,
         backgroundColor: Colors.transparent,
-        builder: (_) => const _AceSuitPickerSheet(),
+        builder: (_) => const AceSuitPickerSheet(),
       );
       if (!mounted) return;
 
@@ -1035,7 +1045,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final chosenAceSuit = await showModalBottomSheet<Suit>(
         context: context,
         backgroundColor: Colors.transparent,
-        builder: (_) => const _AceSuitPickerSheet(),
+        builder: (_) => const AceSuitPickerSheet(),
       );
       if (!mounted) return;
       if (chosenAceSuit == null) return;
@@ -1479,6 +1489,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                           if (MediaQuery.disableAnimationsOf(context)) return;
                           setState(() => _penaltyFlashTrigger++);
                         },
+                        skipHighlightPlayerIds: _skipHighlightPlayerIds,
                       ),
                     ),
                   ],
@@ -2020,9 +2031,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         await _animateLocalCardToDiscard(assignedJoker,
             lastCardFromHand: lastFromHand);
         if (!mounted) return;
-        if (lastFromHand) {
-          HapticFeedback.lightImpact();
-        } else {
+        if (!lastFromHand) {
           HapticFeedback.mediumImpact();
         }
 
@@ -2085,9 +2094,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       await _animateLocalCardToDiscard(played.first,
           lastCardFromHand: lastFromHand);
       if (!mounted) return;
-      if (lastFromHand) {
-        HapticFeedback.lightImpact();
-      } else {
+      if (!lastFromHand) {
         HapticFeedback.mediumImpact();
       }
 
@@ -2116,6 +2123,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       // Skip accumulated by Eight
       if (newState.activeSkipCount > previousState.activeSkipCount) {
         game_audio.AudioService.instance.playSound(GameSound.skipApplied);
+        _flashSkipHighlight(skippedPlayerIdsForSkipState(newState));
       }
 
       _discardPile.addAll(played);
@@ -2565,6 +2573,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             }
             if (working.activeSkipCount != skipBefore) {
               game_audio.AudioService.instance.playSound(GameSound.skipApplied);
+              _flashSkipHighlight(skippedPlayerIdsForSkipState(working));
             }
           }
           if (mounted) HapticFeedback.mediumImpact();
@@ -2591,6 +2600,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           if (result.preTurnAdvanceState.activeSkipCount >
               stateBeforeAiTurn.activeSkipCount) {
             game_audio.AudioService.instance.playSound(GameSound.skipApplied);
+            _flashSkipHighlight(
+              skippedPlayerIdsForSkipState(result.preTurnAdvanceState),
+            );
           }
         }
       } else if (!offlineTournamentInstantPacing()) {
@@ -3294,6 +3306,35 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   List<String> _skippedPlayersForCurrentTurn(GameState state) {
     return skippedPlayerDisplayNamesForSkipState(state);
+  }
+
+  void _flashSkipHighlight(Iterable<String> playerIds) {
+    final set = playerIds.toSet();
+    if (set.isEmpty) return;
+    _skipHighlightClearTimer?.cancel();
+    setState(() {
+      _skipHighlightPlayerIds
+        ..clear()
+        ..addAll(set);
+    });
+    _skipHighlightClearTimer = Timer(const Duration(milliseconds: 720), () {
+      _skipHighlightClearTimer = null;
+      if (!mounted) return;
+      setState(_skipHighlightPlayerIds.clear);
+    });
+  }
+
+  /// Resolves server [CardPlayedEvent.skippedPlayers] names to session IDs.
+  Set<String> _playerIdsForSkippedNames(
+    GameState? state,
+    List<String> skippedNames,
+  ) {
+    if (state == null || skippedNames.isEmpty) return {};
+    final out = <String>{};
+    for (final p in state.players) {
+      if (skippedNames.contains(p.displayName)) out.add(p.id);
+    }
+    return out;
   }
 
   void _pushMoveLog(MoveLogEntry entry) {
