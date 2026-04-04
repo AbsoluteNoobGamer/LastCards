@@ -106,7 +106,7 @@ class GlassFrostedPanel extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(borderRadius - 1),
+                  top: Radius.circular(innerR),
                 ),
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
