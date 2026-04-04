@@ -138,6 +138,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   final GlobalKey _discardPileKey = GlobalKey();
   final Map<String, GlobalKey> _playerZoneKeys = {};
   final Set<String> _skipHighlightPlayerIds = <String>{};
+  Timer? _skipHighlightClearTimer;
 
   /// Mutable offline state — set by initState via buildWithDeck().
   late GameState _offlineState;
@@ -675,6 +676,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _onlineTurnChangedSub?.cancel();
     _lastCardsBluffSub?.cancel();
     _quickChatCooldownTimer?.cancel();
+    _skipHighlightClearTimer?.cancel();
     _engineTimer.dispose();
     _reshuffleNotifier.dispose();
     clearSuitInference(_offlineState.sessionId);
@@ -3309,12 +3311,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   void _flashSkipHighlight(Iterable<String> playerIds) {
     final set = playerIds.toSet();
     if (set.isEmpty) return;
+    _skipHighlightClearTimer?.cancel();
     setState(() {
       _skipHighlightPlayerIds
         ..clear()
         ..addAll(set);
     });
-    Future<void>.delayed(const Duration(milliseconds: 720), () {
+    _skipHighlightClearTimer = Timer(const Duration(milliseconds: 720), () {
+      _skipHighlightClearTimer = null;
       if (!mounted) return;
       setState(_skipHighlightPlayerIds.clear);
     });

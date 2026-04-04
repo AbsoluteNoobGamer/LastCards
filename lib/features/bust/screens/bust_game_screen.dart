@@ -145,6 +145,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       GlobalKey<CardFlightOverlayState>();
   String? _flyingCardId;
   final Set<String> _skipHighlightPlayerIds = <String>{};
+  Timer? _skipHighlightClearTimer;
 
   int get _clampedPlayers => widget.totalPlayers.clamp(2, 10);
 
@@ -165,6 +166,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     clearSuitInference(_gameState.sessionId);
     _reshuffleNotifier.dispose();
     _quickChatCooldownTimer?.cancel();
+    _skipHighlightClearTimer?.cancel();
     super.dispose();
   }
 
@@ -1067,12 +1069,14 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   void _flashSkipHighlight(Iterable<String> playerIds) {
     final set = playerIds.toSet();
     if (set.isEmpty) return;
+    _skipHighlightClearTimer?.cancel();
     setState(() {
       _skipHighlightPlayerIds
         ..clear()
         ..addAll(set);
     });
-    Future<void>.delayed(const Duration(milliseconds: 720), () {
+    _skipHighlightClearTimer = Timer(const Duration(milliseconds: 720), () {
+      _skipHighlightClearTimer = null;
       if (!mounted) return;
       setState(_skipHighlightPlayerIds.clear);
     });
