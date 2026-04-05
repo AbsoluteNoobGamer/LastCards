@@ -1,0 +1,11 @@
+services:
+  game-server:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      # Optional — uncomment and set for Firebase / Firestore features:
+      # FIREBASE_API_KEY: ""
+      # GOOGLE_CREDENTIALS_JSON: ""
+    restart: unless-stopped
