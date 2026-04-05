@@ -32,7 +32,7 @@ final serverLiveConnectionsProvider = StreamProvider<int?>((ref) {
         controller.add(null);
       }
     } catch (_) {
-      controller.add(null);
+      if (!controller.isClosed) controller.add(null);
     }
   }
 
