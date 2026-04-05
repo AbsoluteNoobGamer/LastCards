@@ -67,9 +67,8 @@ class StartScreenBgm {
       if (kDebugMode) {
         debugPrint('StartScreenBgm._startImpl failed: $e\n$st');
       }
-      await _player?.dispose();
-      _player = null;
-      _started = false;
+      await player.dispose();
+      if (_player == player) _player = null;
     } finally {
       _starting = false;
     }
