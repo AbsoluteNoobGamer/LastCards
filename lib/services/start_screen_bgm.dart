@@ -52,13 +52,14 @@ class StartScreenBgm {
   Future<void> _startImpl() async {
     if (_started || _starting) return;
     _starting = true;
+    AudioPlayer? localPlayer;
     try {
-      final player = AudioPlayer();
-      await player.setAsset(_assetPath);
-      await player.setLoopMode(LoopMode.one);
-      await player.setVolume(_musicVolume);
-      _player = player;
-      await player.play();
+      localPlayer = AudioPlayer();
+      await localPlayer.setAsset(_assetPath);
+      await localPlayer.setLoopMode(LoopMode.one);
+      await localPlayer.setVolume(_musicVolume);
+      _player = localPlayer;
+      await localPlayer.play();
       _started = true;
       if (kDebugMode) {
         debugPrint('StartScreenBgm: playing $_assetPath at volume $_musicVolume');
@@ -67,8 +68,13 @@ class StartScreenBgm {
       if (kDebugMode) {
         debugPrint('StartScreenBgm._startImpl failed: $e\n$st');
       }
-      await player.dispose();
-      if (_player == player) _player = null;
+      _started = false;
+      if (_player == localPlayer) {
+        _player = null;
+      }
+      try {
+        await localPlayer?.dispose();
+      } catch (_) {}
     } finally {
       _starting = false;
     }
