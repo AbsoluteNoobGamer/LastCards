@@ -38,6 +38,68 @@ class _FakeSink {
       messages.add(jsonDecode(json) as Map<String, dynamic>);
 }
 
+/// In-memory [TrophyPersistence] for tests (no Firestore).
+class _CapturingTrophyPersistence implements TrophyPersistence {
+  int leaderboardOnlineCasualCalls = 0;
+  int leaderboardBustOnlineCalls = 0;
+  String? lastCasualWinnerPlayerId;
+  List<({String playerId, String? firebaseUid, String displayName})>?
+      lastCasualPlayers;
+  int? lastCasualPlayerCount;
+  String? lastBustWinnerPlayerId;
+  List<({String playerId, String? firebaseUid, String displayName})>?
+      lastBustPlayers;
+  int? lastBustPlayerCount;
+
+  int rankedResultCalls = 0;
+  String? lastRankedWinnerUid;
+  List<({String playerId, String uid, String displayName})>?
+      lastRankedAllPlayerUids;
+  int? lastRankedPlayerCount;
+
+  @override
+  void recordRankedResult({
+    required String winnerUid,
+    required List<({String playerId, String uid, String displayName})>
+        allPlayerUids,
+    int playerCount = 0,
+  }) {
+    rankedResultCalls++;
+    lastRankedWinnerUid = winnerUid;
+    lastRankedAllPlayerUids = allPlayerUids;
+    lastRankedPlayerCount = playerCount;
+  }
+
+  @override
+  void recordLeavePenalty(String uid, {required String displayName}) {}
+
+  @override
+  void recordLeaderboardOnlineCasual({
+    required String winnerPlayerId,
+    required List<({String playerId, String? firebaseUid, String displayName})>
+        players,
+    required int playerCount,
+  }) {
+    leaderboardOnlineCasualCalls++;
+    lastCasualWinnerPlayerId = winnerPlayerId;
+    lastCasualPlayers = players;
+    lastCasualPlayerCount = playerCount;
+  }
+
+  @override
+  void recordLeaderboardBustOnline({
+    required String winnerPlayerId,
+    required List<({String playerId, String? firebaseUid, String displayName})>
+        players,
+    required int playerCount,
+  }) {
+    leaderboardBustOnlineCalls++;
+    lastBustWinnerPlayerId = winnerPlayerId;
+    lastBustPlayers = players;
+    lastBustPlayerCount = playerCount;
+  }
+}
+
 // ── Card builders ─────────────────────────────────────────────────────────────
 
 CardModel _card(Rank rank, Suit suit) =>
@@ -1265,12 +1327,12 @@ void main() {
     test(
         'quickplay casual game calls recordLeaderboardOnlineCasual with Firebase uids',
         () {
-      final fake = FakeTrophyRecorder();
+      final recorder = _CapturingTrophyPersistence();
       final session = GameSession(
         'TEST',
         isPrivate: false,
         isRanked: false,
-        trophyRecorder: fake,
+        trophyRecorder: recorder,
       );
       final p1ws = _FakeWs();
       final p2ws = _FakeWs();
@@ -1319,22 +1381,98 @@ void main() {
         'cardIds': ['five_spades'],
       });
 
-      expect(fake.leaderboardOnlineCasualCalls, 1);
-      expect(fake.lastCasualWinnerPlayerId, p1Id);
-      expect(fake.lastCasualPlayers, isNotNull);
-      expect(fake.lastCasualPlayers!.length, 2);
-      expect(fake.lastCasualPlayers!.first.firebaseUid, 'firebase-p1');
+      expect(recorder.leaderboardOnlineCasualCalls, 1);
+      expect(recorder.lastCasualWinnerPlayerId, p1Id);
+      expect(recorder.lastCasualPlayers, isNotNull);
+      expect(recorder.lastCasualPlayers!.length, 2);
+      expect(recorder.lastCasualPlayers!.first.firebaseUid, 'firebase-p1');
+    });
+
+    test(
+        'public ranked game broadcasts game_ended with ratingChanges and records ranked',
+        () {
+      final recorder = _CapturingTrophyPersistence();
+      final session = GameSession(
+        'TEST',
+        isPrivate: false,
+        isRanked: true,
+        trophyRecorder: recorder,
+      );
+      final p1ws = _FakeWs();
+      final p2ws = _FakeWs();
+      final p1Id = session.addPlayer(p1ws, 'P1', firebaseUid: 'firebase-p1');
+      final p2Id = session.addPlayer(p2ws, 'P2', firebaseUid: 'firebase-p2');
+
+      final winCard = _card(Rank.five, Suit.spades);
+      final discardTop = _card(Rank.five, Suit.hearts);
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: p1Id,
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: [winCard],
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: p2Id,
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: [_card(Rank.three, Suit.hearts)],
+            cardCount: 1,
+          ),
+        ],
+        currentPlayerId: p1Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: discardTop,
+        drawPileCount: 5,
+        preTurnCentreSuit: Suit.hearts,
+      );
+
+      session.seedStateForTesting(
+        state: state,
+        drawPile: List.generate(
+            5,
+            (i) =>
+                CardModel(id: 'filler_$i', rank: Rank.seven, suit: Suit.clubs)),
+      );
+
+      p1ws.clear();
+      p2ws.clear();
+      session.handleAction(p1Id, {
+        'type': 'play_cards',
+        'cardIds': ['five_spades'],
+      });
+
+      final ended = p1ws.lastOfType('game_ended');
+      expect(ended, isNotNull);
+      expect(ended!['winnerId'], equals(p1Id));
+      expect(ended['trophyEligible'], isTrue);
+      final changes = ended['ratingChanges'] as Map<String, dynamic>?;
+      expect(changes, isNotNull);
+      expect(changes![p1Id], 25);
+      expect(changes[p2Id], -15);
+
+      expect(recorder.rankedResultCalls, 1);
+      expect(recorder.lastRankedWinnerUid, 'firebase-p1');
+      expect(recorder.lastRankedPlayerCount, 2);
+      expect(recorder.lastRankedAllPlayerUids, isNotNull);
+      expect(recorder.lastRankedAllPlayerUids!.length, 2);
+      expect(recorder.leaderboardOnlineCasualCalls, 0);
     });
 
     test(
         'private lobby does not record leaderboard_online on win (not trophy eligible)',
         () {
-      final fake = FakeTrophyRecorder();
+      final recorder = _CapturingTrophyPersistence();
       final session = GameSession(
         'TEST',
         isPrivate: true,
         isRanked: false,
-        trophyRecorder: fake,
+        trophyRecorder: recorder,
       );
       final p1ws = _FakeWs();
       final p2ws = _FakeWs();
@@ -1383,7 +1521,7 @@ void main() {
         'cardIds': ['five_spades'],
       });
 
-      expect(fake.leaderboardOnlineCasualCalls, 0);
+      expect(recorder.leaderboardOnlineCasualCalls, 0);
     });
 
     test('game_ended not sent while penalty chain is active', () {
@@ -1744,12 +1882,12 @@ void main() {
     });
 
     test('Bust finals call recordLeaderboardBustOnline when trophy eligible', () {
-      final fake = FakeTrophyRecorder();
+      final recorder = _CapturingTrophyPersistence();
       final session = GameSession(
         'TEST',
         isPrivate: false,
         isBustMode: true,
-        trophyRecorder: fake,
+        trophyRecorder: recorder,
       );
       final p1ws = _FakeWs();
       final p2ws = _FakeWs();
@@ -1803,11 +1941,11 @@ void main() {
         'cardIds': [winningCard.id],
       });
 
-      expect(fake.leaderboardBustOnlineCalls, 1);
-      expect(fake.lastBustWinnerPlayerId, p1Id);
-      expect(fake.lastBustPlayers, isNotNull);
-      expect(fake.lastBustPlayers!.length, 2);
-      expect(fake.lastBustPlayers!.every((p) => p.firebaseUid != null), isTrue);
+      expect(recorder.leaderboardBustOnlineCalls, 1);
+      expect(recorder.lastBustWinnerPlayerId, p1Id);
+      expect(recorder.lastBustPlayers, isNotNull);
+      expect(recorder.lastBustPlayers!.length, 2);
+      expect(recorder.lastBustPlayers!.every((p) => p.firebaseUid != null), isTrue);
     });
 
     test('Bust next round: bust_round_start broadcast with incremented round number', () {
