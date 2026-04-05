@@ -40,6 +40,33 @@ class RulesScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _SectionHeader('LAST CARDS (NOT IN BUST)'),
+                _ImportantCallout(
+                  'When the rules require you to declare, tapping Last Cards is not optional. '
+                  'If your hand could be emptied in one legal turn at the start of your turn and you did not press Last Cards before that turn, playing your last card does not win—you draw 1 and your turn ends. '
+                  'False declarations are penalized.',
+                ),
+                _BulletPoint(
+                    'Press Last Cards before your turn when you intend to shed your whole hand in one turn.',
+                ),
+                _BulletPoint(
+                    'The game records at turn start whether your hand was clearable in one turn; you must declare only when that snapshot requires it (you can still win without declaring if you drew into a winning hand).',
+                ),
+                _BulletPoint(
+                    'If you must declare and complete the turn without having declared, you draw 1 instead of winning.',
+                ),
+                _BulletPoint(
+                    'A bluff (hand not actually clearable in one turn): draw 2 penalty cards when your turn starts; declaration clears.',
+                ),
+                _BulletPoint(
+                    'Clearability is from your hand only, independent of the discard top. Must-declare and AI checks use the same rule; Jokers get no AI-only pass.',
+                ),
+                _BulletPoint(
+                    'If you press Last Cards and hold any Joker, you are not flagged as bluffing from the clearability check alone.',
+                ),
+                _BulletPoint('Declaring is public: everyone sees who declared.'),
+                _SectionDivider(),
+                sectionSpacing,
                 _SectionHeader('OBJECTIVE'),
                 _BodyText('Be the first player to play all cards in your hand.'),
                 _SectionDivider(),
@@ -132,33 +159,6 @@ class RulesScreen extends StatelessWidget {
                     'A player cannot win on a forced penalty draw unless a rule explicitly allows it'),
                 _BulletPoint(
                     'Playing a Queen as your last card does not win immediately — you must cover the Queen or draw first; if you cannot cover, you draw and do not win'),
-                _SectionDivider(),
-                sectionSpacing,
-                _SectionHeader('LAST CARDS (NOT IN BUST)'),
-                _ImportantCallout(
-                  'When the rules require you to declare, tapping Last Cards is not optional. '
-                  'If your hand could be emptied in one legal turn at the start of your turn and you did not press Last Cards before that turn, playing your last card does not win—you draw 1 and your turn ends. '
-                  'False declarations are penalized.',
-                ),
-                _BulletPoint(
-                    'Press Last Cards before your turn when you intend to shed your whole hand in one turn.',
-                ),
-                _BulletPoint(
-                    'The game records at turn start whether your hand was clearable in one turn; you must declare only when that snapshot requires it (you can still win without declaring if you drew into a winning hand).',
-                ),
-                _BulletPoint(
-                    'If you must declare and complete the turn without having declared, you draw 1 instead of winning.',
-                ),
-                _BulletPoint(
-                    'A bluff (hand not actually clearable in one turn): draw 2 penalty cards when your turn starts; declaration clears.',
-                ),
-                _BulletPoint(
-                    'Clearability is from your hand only, independent of the discard top. Must-declare and AI checks use the same rule; Jokers get no AI-only pass.',
-                ),
-                _BulletPoint(
-                    'If you press Last Cards and hold any Joker, you are not flagged as bluffing from the clearability check alone.',
-                ),
-                _BulletPoint('Declaring is public: everyone sees who declared.'),
                 _SectionDivider(),
                 sectionSpacing,
                 _SectionHeader('GAME MODES'),
