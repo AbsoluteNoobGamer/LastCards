@@ -69,6 +69,7 @@ flutter:
 
   assets:
     - assets/audio/
+    - assets/audio/bgm/
     - assets/audio/sfx/
     - assets/animated_cards/
     - assets/images/
