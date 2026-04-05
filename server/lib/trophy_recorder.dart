@@ -431,6 +431,37 @@ class _FirestoreClient {
   }
 }
 
+// ── Trophy persistence (implemented by [TrophyRecorder]) ─────────────────────
+
+/// Hooks for ranked MMR and mode leaderboards used by [GameSession].
+///
+/// Production code uses [TrophyRecorder.instance]; tests may supply a
+/// lightweight implementation that records call counts without Firestore.
+abstract class TrophyPersistence {
+  void recordRankedResult({
+    required String winnerUid,
+    required List<({String playerId, String uid, String displayName})>
+        allPlayerUids,
+    int playerCount = 0,
+  });
+
+  void recordLeavePenalty(String uid, {required String displayName});
+
+  void recordLeaderboardOnlineCasual({
+    required String winnerPlayerId,
+    required List<({String playerId, String? firebaseUid, String displayName})>
+        players,
+    required int playerCount,
+  });
+
+  void recordLeaderboardBustOnline({
+    required String winnerPlayerId,
+    required List<({String playerId, String? firebaseUid, String displayName})>
+        players,
+    required int playerCount,
+  });
+}
+
 // ── TrophyRecorder ────────────────────────────────────────────────────────────
 
 /// Server-side ranked stat recorder.
@@ -452,7 +483,7 @@ class _FirestoreClient {
 /// Set `GOOGLE_CREDENTIALS_JSON` to the JSON content of a Firebase service
 /// account key. Download it from Firebase Console → Project Settings →
 /// Service Accounts → Generate New Private Key.
-class TrophyRecorder {
+class TrophyRecorder implements TrophyPersistence {
   TrophyRecorder._() {
     _firestoreClient.init();
   }
@@ -707,47 +738,5 @@ void logGameServerFirestoreStartupStatus() {
       'and online presence will NOT persist. Use a service account key from the '
       'same Firebase project as the app (see lib/firebase_options.dart → projectId).',
     );
-  }
-}
-
-/// Test double — counts mode-leaderboard calls without touching Firestore.
-class FakeTrophyRecorder extends TrophyRecorder {
-  FakeTrophyRecorder() : super._();
-
-  int leaderboardOnlineCasualCalls = 0;
-  int leaderboardBustOnlineCalls = 0;
-  String? lastCasualWinnerPlayerId;
-  List<({String playerId, String? firebaseUid, String displayName})>?
-      lastCasualPlayers;
-  int? lastCasualPlayerCount;
-  String? lastBustWinnerPlayerId;
-  List<({String playerId, String? firebaseUid, String displayName})>?
-      lastBustPlayers;
-  int? lastBustPlayerCount;
-
-  @override
-  void recordLeaderboardOnlineCasual({
-    required String winnerPlayerId,
-    required List<({String playerId, String? firebaseUid, String displayName})>
-        players,
-    required int playerCount,
-  }) {
-    leaderboardOnlineCasualCalls++;
-    lastCasualWinnerPlayerId = winnerPlayerId;
-    lastCasualPlayers = players;
-    lastCasualPlayerCount = playerCount;
-  }
-
-  @override
-  void recordLeaderboardBustOnline({
-    required String winnerPlayerId,
-    required List<({String playerId, String? firebaseUid, String displayName})>
-        players,
-    required int playerCount,
-  }) {
-    leaderboardBustOnlineCalls++;
-    lastBustWinnerPlayerId = winnerPlayerId;
-    lastBustPlayers = players;
-    lastBustPlayerCount = playerCount;
   }
 }

@@ -64,7 +64,7 @@ class GameSession {
     this.maxPlayerCount,
     this.isBustMode = false,
     this.isRanked = false,
-    TrophyRecorder? trophyRecorder,
+    TrophyPersistence? trophyRecorder,
     this.onBecameEmpty,
   }) : _trophyRecorder = trophyRecorder ?? TrophyRecorder.instance;
 
@@ -80,10 +80,10 @@ class GameSession {
   /// True for Bust mode: 10 players, 52-card deck, multi-round with elimination.
   final bool isBustMode;
 
-  /// True for ranked matchmaking: enables MMR recording via [TrophyRecorder].
+  /// True for ranked matchmaking: enables MMR recording via [TrophyPersistence].
   final bool isRanked;
 
-  final TrophyRecorder _trophyRecorder;
+  final TrophyPersistence _trophyRecorder;
 
   /// Called after [removePlayer] when no players remain. [RoomManager] uses
   /// this to drop the room from memory.
