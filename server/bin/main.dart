@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:shelf/shelf.dart' as shelf;
@@ -23,6 +24,15 @@ void main() async {
   final handler = const shelf.Pipeline()
       .addMiddleware(shelf.logRequests())
       .addHandler((shelf.Request request) {
+    if (request.url.path == 'stats') {
+      return shelf.Response.ok(
+        jsonEncode({'websocketConnections': roomManager.openWebSocketCount}),
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      );
+    }
     if (request.url.path == 'game') {
       return wsHandler(request);
     }

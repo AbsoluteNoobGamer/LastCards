@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'app_route_observer.dart';
 import '../core/theme/app_theme_data.dart';
 import '../core/providers/online_rejoin_listener_provider.dart';
 import '../core/providers/theme_provider.dart';
@@ -35,6 +36,7 @@ class _StackAndFlowAppState extends ConsumerState<StackAndFlowApp> {
       theme: buildThemeData(themeState.theme),
       initialRoute: AppRoutes.splash,
       routes: appRoutes,
+      navigatorObservers: [appRouteObserver],
       builder: (context, child) {
         final mq = MediaQuery.of(context);
         return MediaQuery(

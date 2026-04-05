@@ -326,11 +326,16 @@ class _PlayOnlineButtonState extends ConsumerState<_PlayOnlineButton>
     final theme = ref.watch(themeProvider).theme;
     final scaleAnim =
         Tween<double>(begin: 1.0, end: 1.05).animate(_pulseController);
-    final countAsync = ref.watch(onlinePlayerCountProvider);
+    final countAsync = ref.watch(serverLiveConnectionsProvider);
+    // Live count from game server GET /stats (same host as WS_URL).
     final onlineLabel = countAsync.when(
-      data: (c) => c != null ? '$c online' : '-- online',
-      loading: () => '-- online',
-      error: (_, __) => '-- online',
+      data: (c) {
+        if (c == null) return 'Find a match';
+        if (c <= 0) return 'Find a match';
+        return '$c online';
+      },
+      loading: () => '…',
+      error: (_, __) => 'Find a match',
     );
 
     return _PrimaryButtonBase(

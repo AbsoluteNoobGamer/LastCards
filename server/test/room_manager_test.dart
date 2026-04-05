@@ -349,5 +349,22 @@ void main() {
 
       expect(b.messages.any((m) => m['type'] == 'player_joined'), isFalse);
     });
+
+    test('openWebSocketCount tracks connect and disconnect', () async {
+      final rm = RoomManager();
+      expect(rm.openWebSocketCount, 0);
+      final a = FakeWs();
+      final b = FakeWs();
+      rm.handleConnection(a);
+      expect(rm.openWebSocketCount, 1);
+      rm.handleConnection(b);
+      expect(rm.openWebSocketCount, 2);
+      await a.close();
+      await _flushAsync();
+      expect(rm.openWebSocketCount, 1);
+      await b.close();
+      await _flushAsync();
+      expect(rm.openWebSocketCount, 0);
+    });
   });
 }

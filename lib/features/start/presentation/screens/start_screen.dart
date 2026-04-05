@@ -20,7 +20,7 @@ import '../../../../core/navigation/app_page_routes.dart';
 import '../../../../core/widgets/glass_frosted_panel.dart';
 import '../../../../core/widgets/themed_shimmer.dart';
 import '../../../../core/providers/auth_provider.dart';
-import '../../../../core/providers/online_player_count_provider.dart';
+import '../../../../core/providers/server_live_connections_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/providers/user_profile_provider.dart';
@@ -28,6 +28,8 @@ import '../../../../features/profile/presentation/screens/profile_screen.dart';
 import '../../../../features/profile/widgets/profile_stats_section.dart';
 import '../../../../features/tournament/widgets/tournament_type_sheet.dart';
 import '../../../../core/widgets/player_progress_widgets.dart';
+import '../../../../app/app_route_observer.dart';
+import '../../../../services/start_screen_bgm.dart';
 
 part 'start_screen_background.dart';
 part 'start_screen_buttons.dart';
@@ -41,7 +43,7 @@ class LastCardsStartScreen extends ConsumerStatefulWidget {
 }
 
 class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, RouteAware {
   late AnimationController _bgController;
   late AnimationController _primaryEntranceController;
   late AnimationController _titleShimmerController;
@@ -69,6 +71,7 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      unawaited(StartScreenBgm.instance.start());
       final disable = MediaQuery.disableAnimationsOf(context);
       if (!disable) {
         _bgController.repeat();
@@ -85,7 +88,29 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    // MaterialPageRoute is PageRoute<dynamic>, not PageRoute<void> — subscribe correctly.
+    if (route is PageRoute<dynamic>) {
+      appRouteObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void didPushNext() {
+    unawaited(StartScreenBgm.instance.onRouteCovered());
+  }
+
+  @override
+  void didPopNext() {
+    unawaited(StartScreenBgm.instance.onRouteVisible());
+  }
+
+  @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
+    unawaited(StartScreenBgm.instance.stop());
     _bgController.dispose();
     _primaryEntranceController.dispose();
     _titleShimmerController.dispose();
@@ -130,9 +155,12 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
+      body: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) => StartScreenBgm.instance.notifyUserGesture(),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
           Stack(
             fit: StackFit.expand,
             children: [
@@ -450,7 +478,8 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
               ),
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -43,7 +43,14 @@ class RoomManager {
   /// Per-socket futures used to serialize async message handling.
   final _messageChains = <dynamic, Future<void>>{};
 
+  /// Open WebSocket connections (same basis as [syncOnlineServerPresenceDelta]).
+  int _openWebSockets = 0;
+
+  /// Live count for [GET /stats] — concurrent sockets on this server process.
+  int get openWebSocketCount => _openWebSockets;
+
   void handleConnection(dynamic webSocket) {
+    _openWebSockets++;
     syncOnlineServerPresenceDelta(1);
     _messageChains[webSocket] = Future.value();
     webSocket.stream.listen(
@@ -373,6 +380,7 @@ class RoomManager {
   }
 
   void _onDisconnect(dynamic ws) {
+    if (_openWebSockets > 0) _openWebSockets--;
     syncOnlineServerPresenceDelta(-1);
     _playerUserIds.remove(ws);
     // Remove from any quickplay queue.
