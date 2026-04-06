@@ -22,6 +22,9 @@ class StartScreenBgm {
   bool _starting = false;
   bool _pausedByRoute = false;
 
+  /// Incremented in [stop] so in-flight [_startImpl] can detect cancellation after `await`.
+  int _epoch = 0;
+
   /// 0.0–1.0; driven by Settings → Music Volume.
   double _musicVolume = 0.55;
 
@@ -49,17 +52,38 @@ class StartScreenBgm {
     unawaited(_startImpl());
   }
 
+  /// After [stop], returns true; [localPlayer] is cleared/disposed as needed.
+  Future<bool> _abortIfStale(int myEpoch, AudioPlayer? localPlayer) async {
+    if (_epoch == myEpoch) return false;
+    if (_player == localPlayer) {
+      _player = null;
+    }
+    try {
+      await localPlayer?.dispose();
+    } catch (_) {}
+    return true;
+  }
+
   Future<void> _startImpl() async {
     if (_started || _starting) return;
     _starting = true;
+    final myEpoch = _epoch;
     AudioPlayer? localPlayer;
     try {
       localPlayer = AudioPlayer();
       await localPlayer.setAsset(_assetPath);
+      if (await _abortIfStale(myEpoch, localPlayer)) return;
+
       await localPlayer.setLoopMode(LoopMode.one);
+      if (await _abortIfStale(myEpoch, localPlayer)) return;
+
       await localPlayer.setVolume(_musicVolume);
+      if (await _abortIfStale(myEpoch, localPlayer)) return;
+
       _player = localPlayer;
       await localPlayer.play();
+      if (await _abortIfStale(myEpoch, localPlayer)) return;
+
       _started = true;
       if (kDebugMode) {
         debugPrint('StartScreenBgm: playing $_assetPath at volume $_musicVolume');
@@ -101,9 +125,9 @@ class StartScreenBgm {
   }
 
   Future<void> stop() async {
+    _epoch++;
     _started = false;
     _pausedByRoute = false;
-    _starting = false;
     final p = _player;
     _player = null;
     if (p != null) {
