@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/services/card_back_service.dart';
 import '../../../gameplay/presentation/controllers/audio_service.dart';
 import '../../../../services/audio_service.dart' as game_audio;
+import '../../../../services/start_screen_bgm.dart';
 
 // Create a simple provider to manage SharedPreferences settings globally
 final settingsProvider =
@@ -16,13 +17,24 @@ final settingsProvider =
 
 class SettingsState {
   final double soundVolume;
+  /// 0–100; applied to start-screen background music only.
+  final double musicVolume;
   final bool reduceMotion;
 
-  SettingsState({this.soundVolume = 100.0, this.reduceMotion = false});
+  SettingsState({
+    this.soundVolume = 100.0,
+    this.musicVolume = 55.0,
+    this.reduceMotion = false,
+  });
 
-  SettingsState copyWith({double? soundVolume, bool? reduceMotion}) {
+  SettingsState copyWith({
+    double? soundVolume,
+    double? musicVolume,
+    bool? reduceMotion,
+  }) {
     return SettingsState(
       soundVolume: soundVolume ?? this.soundVolume,
+      musicVolume: musicVolume ?? this.musicVolume,
       reduceMotion: reduceMotion ?? this.reduceMotion,
     );
   }
@@ -39,8 +51,11 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     _prefs = await SharedPreferences.getInstance();
     state = SettingsState(
       soundVolume: _prefs?.getDouble('soundVolume') ?? 100.0,
+      musicVolume: _prefs?.getDouble('musicVolume') ?? 55.0,
       reduceMotion: _prefs?.getBool('reduceMotion') ?? false,
     );
+    StartScreenBgm.instance
+        .setMusicVolume(state.musicVolume / 100.0);
   }
 
   void setReduceMotion(bool value) {
@@ -54,6 +69,12 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     // Propagate to the low-level audio singleton immediately so sounds
     // reflect the new volume without requiring an app restart.
     game_audio.AudioService.instance.setVolume(val / 100.0);
+  }
+
+  void updateMusic(double val) {
+    state = state.copyWith(musicVolume: val);
+    _prefs?.setDouble('musicVolume', val);
+    StartScreenBgm.instance.setMusicVolume(val / 100.0);
   }
 }
 
@@ -136,6 +157,13 @@ class SettingsModal extends ConsumerWidget {
                           min: 0,
                           max: 100,
                           onChanged: notifier.updateSound,
+                        ),
+                        _SliderRow(
+                          label: 'Music Volume',
+                          value: settings.musicVolume,
+                          min: 0,
+                          max: 100,
+                          onChanged: notifier.updateMusic,
                         ),
                         const Divider(height: 40, color: Colors.grey),
                         SwitchListTile(
