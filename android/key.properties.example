@@ -1,7 +1,18 @@
-# Copy to key.properties (gitignored) and fill in for Play Store release signing.
-# Generate a keystore: https://docs.flutter.dev/deployment/android#sign-the-app
+# Copy this file to key.properties (same folder as this example) and fill in
+# your release keystore. key.properties is gitignored.
 #
-# storePassword=...
-# keyPassword=...
-# keyAlias=upload
-# storeFile=../upload-keystore.jks
+# Generate a keystore (one-time), then:
+#   storePassword=<keystore password>
+#   keyPassword=<key password>
+#   keyAlias=<your key alias>
+#   storeFile=<path to .jks or .keystore, use forward slashes>
+#
+# Example (Windows):
+#   storeFile=C:/Users/you/keys/lastcards-release.jks
+#
+# See: https://docs.flutter.dev/deployment/android#signing-the-app
+
+storePassword=
+keyPassword=
+keyAlias=
+storeFile=

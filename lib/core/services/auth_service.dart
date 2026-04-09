@@ -1,6 +1,11 @@
+import 'dart:convert';
+import 'dart:math';
+
+import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 /// Result of a Google sign-in attempt.
 sealed class GoogleSignInResult {
@@ -26,6 +31,46 @@ class GoogleSignInFailure extends GoogleSignInResult {
   const GoogleSignInFailure(this.message);
 }
 
+/// Result of a Sign in with Apple attempt (iOS / macOS).
+sealed class AppleSignInResult {
+  const AppleSignInResult();
+  const factory AppleSignInResult.success(UserCredential credential) =
+      AppleSignInSuccess;
+  const factory AppleSignInResult.cancelled() = AppleSignInCancelled;
+  const factory AppleSignInResult.failure(String message) =
+      AppleSignInFailure;
+}
+
+class AppleSignInSuccess extends AppleSignInResult {
+  final UserCredential credential;
+  const AppleSignInSuccess(this.credential);
+}
+
+class AppleSignInCancelled extends AppleSignInResult {
+  const AppleSignInCancelled();
+}
+
+class AppleSignInFailure extends AppleSignInResult {
+  final String message;
+  const AppleSignInFailure(this.message);
+}
+
+String _generateNonce([int length = 32]) {
+  const charset =
+      '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+  final random = Random.secure();
+  return List.generate(
+    length,
+    (_) => charset[random.nextInt(charset.length)],
+  ).join();
+}
+
+String _sha256ofString(String input) {
+  final bytes = utf8.encode(input);
+  final digest = sha256.convert(bytes);
+  return digest.toString();
+}
+
 /// Service wrapping Firebase Auth for persistent user identity.
 ///
 /// Supports Google sign-in and anonymous sign-in. Both give a persistent
@@ -34,9 +79,15 @@ class GoogleSignInFailure extends GoogleSignInResult {
 /// All accessors are resilient: if Firebase is not initialised (e.g. missing
 /// google-services.json), every method degrades gracefully instead of throwing.
 class AuthService {
+  /// Production uses the default constructor; tests may pass [firebaseAuth].
+  AuthService({FirebaseAuth? firebaseAuth}) : _firebaseAuth = firebaseAuth;
+
+  final FirebaseAuth? _firebaseAuth;
+
   /// Lazily resolve [FirebaseAuth.instance] so that constructing an
   /// [AuthService] never throws, even when no Firebase app exists.
   FirebaseAuth? get _auth {
+    if (_firebaseAuth != null) return _firebaseAuth;
     try {
       return FirebaseAuth.instance;
     } catch (_) {
@@ -109,6 +160,61 @@ class AuthService {
         debugPrint('StackTrace: $st');
       }
       return GoogleSignInResult.failure(e.toString());
+    }
+  }
+
+  /// Sign in with Apple (required on iOS App Store when Google sign-in exists).
+  ///
+  /// Returns [AppleSignInResult.failure] on unsupported platforms (e.g. web,
+  /// Android) or when Sign in with Apple is unavailable.
+  Future<AppleSignInResult> signInWithApple() async {
+    final auth = _auth;
+    if (auth == null) {
+      return AppleSignInResult.failure('Firebase is not initialized');
+    }
+    if (kIsWeb) {
+      return AppleSignInResult.failure(
+        'Sign in with Apple is not available on web. Use Google or guest.',
+      );
+    }
+    try {
+      final available = await SignInWithApple.isAvailable();
+      if (!available) {
+        return AppleSignInResult.failure(
+          'Sign in with Apple is not available on this device.',
+        );
+      }
+      final rawNonce = _generateNonce();
+      final nonce = _sha256ofString(rawNonce);
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: nonce,
+      );
+      final idToken = appleCredential.identityToken;
+      if (idToken == null) {
+        return AppleSignInResult.failure(
+          'Could not get Apple identity token.',
+        );
+      }
+      final oauthCredential = OAuthProvider('apple.com').credential(
+        idToken: idToken,
+        rawNonce: rawNonce,
+      );
+      final userCredential = await auth.signInWithCredential(oauthCredential);
+      return AppleSignInResult.success(userCredential);
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('Apple sign-in failed: $e');
+        debugPrint('StackTrace: $st');
+      }
+      final message = e.toString();
+      if (message.contains('canceled') || message.contains('cancelled')) {
+        return const AppleSignInResult.cancelled();
+      }
+      return AppleSignInResult.failure(message);
     }
   }
 
