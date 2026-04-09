@@ -1,4 +1,4 @@
-package com.example.stack_and_flow
+package com.lastcards.app
 
 import io.flutter.embedding.android.FlutterActivity
 
