@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Last Cards needs photo library access so you can choose a profile picture.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Last Cards needs camera access so you can take a photo for your profile picture.</string>
 </dict>
 </plist>
