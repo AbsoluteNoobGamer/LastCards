@@ -2078,6 +2078,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
         // Win / tournament round-end may pop this route — run before any setState
         // so we never call setState after dispose (_dependents.isEmpty).
+        _trackMatchPlay(playerId, [assignedJoker]);
         if (_checkWin(playerId, newState)) return;
 
         setState(() {
@@ -2148,6 +2149,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (localInNew != null) _syncHandOrder(localInNew.hand);
 
       // Win / tournament round-end may pop this route — run before setState.
+      _trackMatchPlay(playerId, played);
       if (_checkWin(playerId, newState)) return;
 
       setState(() {
@@ -2630,6 +2632,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       // Do not setState here when _checkWin returns true: tournament round-end
       // pops this route from _handleTournamentPlayerFinished; partial finishes
       // already clear _aiThinking inside _handleTournamentPlayerFinished.
+      if (playedByAi.isNotEmpty) _trackMatchPlay(aiId, playedByAi);
       if (_checkWin(
         aiId,
         result.state,
@@ -3305,7 +3308,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     required GameState afterState,
     bool? turnContinuesOverride,
   }) {
-    _trackMatchPlay(playerId, playedCards);
     final actions = <MoveCardAction>[];
     for (var i = 0; i < playedCards.length; i++) {
       final card = playedCards[i];
