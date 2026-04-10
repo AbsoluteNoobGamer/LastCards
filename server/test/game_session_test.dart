@@ -57,6 +57,8 @@ class _CapturingTrophyPersistence implements TrophyPersistence {
       lastRankedAllPlayerUids;
   int? lastRankedPlayerCount;
 
+  int leavePenaltyCalls = 0;
+
   @override
   void recordRankedResult({
     required String winnerUid,
@@ -71,7 +73,9 @@ class _CapturingTrophyPersistence implements TrophyPersistence {
   }
 
   @override
-  void recordLeavePenalty(String uid, {required String displayName}) {}
+  void recordLeavePenalty(String uid, {required String displayName}) {
+    leavePenaltyCalls++;
+  }
 
   @override
   void recordLeaderboardOnlineCasual({
@@ -2491,6 +2495,76 @@ void main() {
       expect(emptyCalled, isFalse);
       session.handleSocketDisconnected(id2, w2);
       expect(emptyCalled, isTrue);
+    });
+
+    test(
+        'ranked 1v1: opponent disconnect records ranked win for remaining player',
+        () {
+      final recorder = _CapturingTrophyPersistence();
+      final session = GameSession(
+        'TEST',
+        isPrivate: false,
+        maxPlayerCount: 2,
+        isRanked: true,
+        trophyRecorder: recorder,
+      );
+      final p1ws = _FakeWs();
+      final p2ws = _FakeWs();
+      final p1Id = session.addPlayer(p1ws, 'P1', firebaseUid: 'firebase-p1');
+      final p2Id = session.addPlayer(p2ws, 'P2', firebaseUid: 'firebase-p2');
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: p1Id,
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: [_card(Rank.three, Suit.spades)],
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: p2Id,
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: [_card(Rank.five, Suit.hearts)],
+            cardCount: 1,
+          ),
+        ],
+        currentPlayerId: p1Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: _card(Rank.two, Suit.spades),
+        drawPileCount: 5,
+        preTurnCentreSuit: Suit.spades,
+      );
+      // markReady triggers _startGame, which sets _wasFullRoster = true and
+      // _startingPlayerCount = 2.  seedStateForTesting then overwrites the
+      // dealt hands with our deterministic state.
+      session.markReady(p1Id);
+      session.markReady(p2Id);
+
+      session.seedStateForTesting(
+        state: state,
+        drawPile: List.generate(
+            5, (i) => CardModel(id: 'f$i', rank: Rank.seven, suit: Suit.clubs)),
+      );
+
+      // P1 disconnects — P2 should be recorded as the winner.
+      session.handleSocketDisconnected(p1Id, p1ws);
+
+      // Leave penalty recorded for the leaver.
+      expect(recorder.leavePenaltyCalls, 1);
+
+      // Ranked win recorded for the remaining player (P2).
+      expect(recorder.rankedResultCalls, 1,
+          reason: 'disconnect win must be persisted to ranked_stats');
+      expect(recorder.lastRankedWinnerUid, 'firebase-p2');
+      expect(recorder.lastRankedAllPlayerUids, isNotNull);
+      expect(recorder.lastRankedAllPlayerUids!.length, 1);
+      expect(recorder.lastRankedAllPlayerUids!.first.uid, 'firebase-p2');
+      expect(recorder.lastRankedPlayerCount, 2,
+          reason: 'bracket key must reflect starting player count (2p)');
     });
 
     test('declare_last_cards works on current player turn', () {

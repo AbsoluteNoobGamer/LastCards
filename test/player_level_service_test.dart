@@ -38,8 +38,21 @@ void main() {
       expect(PlayerLevelService.levelFromTotalXP(4500), 10);
     });
 
-    test('caps level at 10', () {
-      expect(PlayerLevelService.levelFromTotalXP(999999), 10);
+    test('caps level at 20', () {
+      expect(PlayerLevelService.levelFromTotalXP(999999), 20);
+    });
+
+    test('levels 11-20 map correctly', () {
+      expect(PlayerLevelService.levelFromTotalXP(5600), 11);
+      expect(PlayerLevelService.levelFromTotalXP(6900), 12);
+      expect(PlayerLevelService.levelFromTotalXP(8400), 13);
+      expect(PlayerLevelService.levelFromTotalXP(10100), 14);
+      expect(PlayerLevelService.levelFromTotalXP(12000), 15);
+      expect(PlayerLevelService.levelFromTotalXP(14100), 16);
+      expect(PlayerLevelService.levelFromTotalXP(16400), 17);
+      expect(PlayerLevelService.levelFromTotalXP(19000), 18);
+      expect(PlayerLevelService.levelFromTotalXP(21900), 19);
+      expect(PlayerLevelService.levelFromTotalXP(25000), 20);
     });
   });
 
@@ -63,16 +76,24 @@ void main() {
       expect(p.progressFraction, closeTo(50 / 300, 1e-9));
     });
 
-    test('max level has full bar and no next band', () {
-      final p = PlayerLevelService.progressForTotalXp(4500);
-      expect(p.level, 10);
-      expect(p.bandStartXp, 4500);
+    test('max level (20) has full bar and no next band', () {
+      final p = PlayerLevelService.progressForTotalXp(25000);
+      expect(p.level, 20);
+      expect(p.bandStartXp, 25000);
       expect(p.nextBandStartXp, isNull);
       expect(p.progressFraction, 1.0);
 
       final over = PlayerLevelService.progressForTotalXp(999999);
+      expect(over.level, 20);
       expect(over.nextBandStartXp, isNull);
       expect(over.progressFraction, 1.0);
+    });
+
+    test('level 10 is now mid-progression not max', () {
+      final p = PlayerLevelService.progressForTotalXp(4500);
+      expect(p.level, 10);
+      expect(p.bandStartXp, 4500);
+      expect(p.nextBandStartXp, 5600);
     });
   });
 }

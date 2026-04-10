@@ -4,6 +4,42 @@ import 'package:flutter/material.dart';
 
 enum AiPersonality { aggressive, safe, tricky }
 
+/// How difficult the AI opponents play.
+///
+/// [delayMultiplier] scales the AI think-time (cosmetic only).
+/// Actual strategic behaviour is gated separately in the scoring function.
+enum AiDifficulty {
+  easy,
+  medium,
+  hard;
+
+  String get displayName => switch (this) {
+        AiDifficulty.easy => 'Easy',
+        AiDifficulty.medium => 'Medium',
+        AiDifficulty.hard => 'Hard',
+      };
+
+  String get description => switch (this) {
+        AiDifficulty.easy => 'Relaxed pace, AI plays without targeting you',
+        AiDifficulty.medium => 'Balanced challenge, AI plays smart',
+        AiDifficulty.hard => 'No mercy — AI tracks your hand and hunts leaders',
+      };
+
+  String get emoji => switch (this) {
+        AiDifficulty.easy => '🟢',
+        AiDifficulty.medium => '🟠',
+        AiDifficulty.hard => '🔴',
+      };
+
+  /// Multiplier applied to the AI base think-time delay.
+  /// Easy = slower (friendlier pacing), Hard = faster (snappier aggression).
+  double get delayMultiplier => switch (this) {
+        AiDifficulty.easy => 1.8,
+        AiDifficulty.medium => 1.0,
+        AiDifficulty.hard => 0.55,
+      };
+}
+
 extension AiPersonalityX on AiPersonality {
   String get label => switch (this) {
         AiPersonality.aggressive => 'AGG',

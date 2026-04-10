@@ -314,7 +314,7 @@ class RoomManager {
       queueKey = playerCount;
     }
     _log.info(
-        'Player "$displayName" queued for $playerCount-player '
+        'Player "$displayName" uid=${firebaseUid ?? "none"} queued for $playerCount-player '
         '${isBust ? "Bust" : isRanked ? "Ranked" : ""} match');
 
     final queue = _quickplayQueues.putIfAbsent(queueKey, () => []);
@@ -358,7 +358,7 @@ class RoomManager {
         _playerRooms[qp.ws] = roomCode;
         _playerIds[qp.ws] = playerId;
         _log.info(
-            'Added "${qp.displayName}" ($playerId) to room $roomCode');
+            'Added "${qp.displayName}" ($playerId) uid=${qp.firebaseUid ?? "none"} to room $roomCode');
       }
 
       // Send catch-up roster so every client knows about all players.

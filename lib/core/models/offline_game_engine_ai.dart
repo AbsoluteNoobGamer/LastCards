@@ -98,6 +98,7 @@ bool aiHasPlayableTurn({
   required String aiPlayerId,
   required List<CardModel> Function(int n) cardFactory,
   AiPersonality? personality,
+  AiDifficulty? difficulty,
 }) {
   var s = _maybeAiDeclareLastCards(state: state, aiPlayerId: aiPlayerId);
   final ai = s.players.firstWhere((p) => p.id == aiPlayerId);
@@ -133,12 +134,16 @@ bool aiHasPlayableTurn({
     ai: ai,
     aiPlayerId: aiPlayerId,
     personality: personality,
+    difficulty: difficulty,
   );
 
   if (choices.isEmpty) {
     final drawCount =
         s.activePenaltyCount > 0 ? s.activePenaltyCount : 1;
-    recordDrawSuitInference(state: s, drawingPlayerId: aiPlayerId);
+    // Easy AI doesn't build suit inference from draws (less strategic awareness).
+    if (difficulty != AiDifficulty.easy) {
+      recordDrawSuitInference(state: s, drawingPlayerId: aiPlayerId);
+    }
     final afterDraw = applyDraw(
       state: s,
       playerId: aiPlayerId,
@@ -213,7 +218,9 @@ bool aiHasPlayableTurn({
       continue;
     }
     queenCoverDrawCount = 1;
-    recordDrawSuitInference(state: afterPlay, drawingPlayerId: aiPlayerId);
+    if (difficulty != AiDifficulty.easy) {
+      recordDrawSuitInference(state: afterPlay, drawingPlayerId: aiPlayerId);
+    }
     afterPlay = applyDraw(
       state: afterPlay,
       playerId: aiPlayerId,
@@ -278,6 +285,7 @@ List<_AiPlayChoice> _generateAiChoices({
   required PlayerModel ai,
   required String aiPlayerId,
   AiPersonality? personality,
+  AiDifficulty? difficulty,
 }) {
   final discardTop = state.discardTopCard!;
   final choices = <_AiPlayChoice>[];
@@ -299,6 +307,7 @@ List<_AiPlayChoice> _generateAiChoices({
       ai: ai,
       choice: choice,
       personality: personality,
+      difficulty: difficulty,
     ));
   }
 
@@ -318,6 +327,7 @@ List<_AiPlayChoice> _generateAiChoices({
           ai: ai,
           choice: _AiPlayChoice(cards: cards, declaredSuit: null, score: 0),
           personality: personality,
+          difficulty: difficulty,
         ),
       );
     }
@@ -353,6 +363,7 @@ List<_AiPlayChoice> _generateAiChoices({
                   score: 0,
                 ),
                 personality: personality,
+                difficulty: difficulty,
               ),
             );
           }
@@ -410,6 +421,7 @@ _AiPlayChoice _scoreChoice({
   required PlayerModel ai,
   required _AiPlayChoice choice,
   AiPersonality? personality,
+  AiDifficulty? difficulty,
 }) {
   int score = 0;
   final handSize = ai.hand.length;
@@ -417,6 +429,12 @@ _AiPlayChoice _scoreChoice({
   final lead = choice.cards.first;
   final containsBlackJack = choice.cards.any((c) => c.isBlackJack);
   final containsTwo = choice.cards.any((c) => c.effectiveRank == Rank.two);
+
+  // Difficulty-gated helpers: easy AI ignores opponent state entirely.
+  final bool ignoreOpponents = difficulty == AiDifficulty.easy;
+  final int nextOppCards = ignoreOpponents
+      ? 99
+      : _nextOpponentCardCount(state: state, aiPlayerId: aiPlayerId);
 
   // Priority 1: winning now.
   if (remainingCount == 0) {
@@ -465,14 +483,15 @@ _AiPlayChoice _scoreChoice({
       score += 60000 + (inSuit * 4000);
       break;
     case Rank.eight:
-      score += _nextOpponentCardCount(state: state, aiPlayerId: aiPlayerId) <= 2
+      // Easy AI never targets opponents; hard AI gets a bigger targeting window.
+      score += nextOppCards <= 2
           ? 90000
-          : -20000;
+          : (nextOppCards <= 4 && difficulty == AiDifficulty.hard ? 40000 : -20000);
       break;
     case Rank.king:
-      score += _nextOpponentCardCount(state: state, aiPlayerId: aiPlayerId) <= 2
+      score += nextOppCards <= 2
           ? 90000
-          : 10000;
+          : (nextOppCards <= 4 && difficulty == AiDifficulty.hard ? 35000 : 10000);
       break;
     case Rank.ace:
       final suit = choice.declaredSuit;
@@ -482,7 +501,8 @@ _AiPlayChoice _scoreChoice({
               .where((c) =>
                   c.id != lead.id && !c.isJoker && c.effectiveSuit == suit)
               .length;
-      final oppPressure = suit == null
+      // Easy AI doesn't use inference pressure; medium/hard do.
+      final oppPressure = (suit == null || ignoreOpponents)
           ? 0
           : _opponentAceSuitPressure(
               state: state, aiPlayerId: aiPlayerId, suit: suit);
@@ -497,6 +517,21 @@ _AiPlayChoice _scoreChoice({
 
   // Priority 5: regular cards reduce hand weight by shedding higher ranks.
   score += lead.effectiveRank.numericValue * 100;
+
+  // Hard AI: bonus for hunting the leader (lowest-card opponent overall).
+  if (difficulty == AiDifficulty.hard) {
+    final minOppCards = state.players
+        .where((p) => p.id != aiPlayerId)
+        .map((p) => p.cardCount)
+        .fold(99, (a, b) => a < b ? a : b);
+    if (minOppCards <= 2) {
+      // Apply extra pressure when an opponent is about to win.
+      if (containsBlackJack) score += 40000;
+      if (containsTwo) score += 35000;
+      if (lead.effectiveRank == Rank.eight) score += 30000;
+      if (lead.effectiveRank == Rank.king) score += 25000;
+    }
+  }
 
   // Personality modifier — subtle nudge, never overrides critical plays.
   if (personality != null) {

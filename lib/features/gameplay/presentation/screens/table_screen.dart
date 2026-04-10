@@ -48,7 +48,6 @@ import '../widgets/quick_chat_panel.dart';
 import '../../../../widgets/turn_timer_bar.dart';
 import '../../../../services/audio_service.dart' as game_audio;
 import '../../../../services/game_sound.dart';
-import '../../../../features/single_player/providers/single_player_session_provider.dart';
 import '../../../../features/bust/models/bust_player_view_model.dart';
 import '../../../../features/bust/widgets/bust_player_rail.dart';
 import '../../../../features/leaderboard/data/leaderboard_stats_writer.dart';
@@ -243,6 +242,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   List<AiPlayerConfig> _aiPlayerConfigs = [];
 
   final math.Random _chatRng = math.Random();
+
+  // ── Post-game stat tracking (offline only, reset each round) ─────────────
+  final Map<String, int> _matchCardsPlayed = {};
+  final Map<String, int> _matchDrawsTaken = {};
+  final Map<String, int> _matchSpecialsPlayed = {};
   @override
   void initState() {
     super.initState();
@@ -443,6 +447,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   void _initNewGame() {
     _pendingOfflineAiTurns.clear();
+    _matchCardsPlayed.clear();
+    _matchDrawsTaken.clear();
+    _matchSpecialsPlayed.clear();
     final liveState = ref.read(gameStateProvider);
     _bustLeaderboardRecorded = false;
     _tournamentSimulatingRest = false;
@@ -2071,6 +2078,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
         // Win / tournament round-end may pop this route — run before any setState
         // so we never call setState after dispose (_dependents.isEmpty).
+        _trackMatchPlay(playerId, [assignedJoker]);
         if (_checkWin(playerId, newState)) return;
 
         setState(() {
@@ -2141,6 +2149,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (localInNew != null) _syncHandOrder(localInNew.hand);
 
       // Win / tournament round-end may pop this route — run before setState.
+      _trackMatchPlay(playerId, played);
       if (_checkWin(playerId, newState)) return;
 
       setState(() {
@@ -2344,6 +2353,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }) {
     final afterDraw = newState.copyWith(drawPileCount: _drawPile.length);
 
+    _trackMatchDraw(playerId, drawCount);
     setState(() {
       _offlineState = afterDraw;
       _selectedCardId = null;
@@ -2500,6 +2510,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         aiPlayerId: aiId,
         cardFactory: _makeCards,
         personality: aiConfig?.personality,
+        difficulty: widget.aiDifficulty,
       );
       if (mounted) {
         _reshuffleCentrePileIntoDrawPile(silent: _tournamentSimulatingRest);
@@ -2621,6 +2632,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       // Do not setState here when _checkWin returns true: tournament round-end
       // pops this route from _handleTournamentPlayerFinished; partial finishes
       // already clear _aiThinking inside _handleTournamentPlayerFinished.
+      if (playedByAi.isNotEmpty) _trackMatchPlay(aiId, playedByAi);
       if (_checkWin(
         aiId,
         result.state,
@@ -2666,6 +2678,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           );
           // Queen cover draw: AI played a Queen but couldn't cover, had to draw.
           if (result.queenCoverDrawCount > 0) {
+            _trackMatchDraw(aiId, result.queenCoverDrawCount);
             _pushMoveLog(MoveLogEntry.draw(
               playerId: aiId,
               playerName: aiPlayerName,
@@ -2673,12 +2686,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             ));
           }
         } else {
+          final aiDrawCount = stateBeforeAiTurn.activePenaltyCount > 0
+              ? stateBeforeAiTurn.activePenaltyCount
+              : 1;
+          _trackMatchDraw(aiId, aiDrawCount);
           _pushMoveLog(MoveLogEntry.draw(
             playerId: aiId,
             playerName: aiPlayerName,
-            drawCount: stateBeforeAiTurn.activePenaltyCount > 0
-                ? stateBeforeAiTurn.activePenaltyCount
-                : 1,
+            drawCount: aiDrawCount,
           ));
         }
       });
@@ -3138,6 +3153,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             });
           },
           xpAwarded: winner.id == OfflineGameState.localId ? 50 : 10,
+          matchStats: _buildMatchStats(),
         ),
       );
     });
@@ -3246,6 +3262,42 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       currentOrder.insert(newIndex, id);
       _handOrder = currentOrder;
     });
+  }
+
+  static bool _isSpecialCardStat(CardModel c) {
+    const specialRanks = {
+      Rank.two, Rank.jack, Rank.queen, Rank.king, Rank.ace, Rank.eight,
+    };
+    return specialRanks.contains(c.effectiveRank) || c.isJoker;
+  }
+
+  void _trackMatchPlay(String playerId, List<CardModel> cards) {
+    if (!_isOfflineSession) return;
+    _matchCardsPlayed[playerId] = (_matchCardsPlayed[playerId] ?? 0) + cards.length;
+    final specials = cards.where(_isSpecialCardStat).length;
+    if (specials > 0) {
+      _matchSpecialsPlayed[playerId] = (_matchSpecialsPlayed[playerId] ?? 0) + specials;
+    }
+  }
+
+  void _trackMatchDraw(String playerId, int count) {
+    if (!_isOfflineSession) return;
+    _matchDrawsTaken[playerId] = (_matchDrawsTaken[playerId] ?? 0) + count;
+  }
+
+  List<MatchPlayerStat> _buildMatchStats() {
+    final stats = <MatchPlayerStat>[];
+    for (final p in _offlineState.players) {
+      stats.add(MatchPlayerStat(
+        displayName: p.displayName,
+        isLocal: p.id == OfflineGameState.localId,
+        cardsPlayed: _matchCardsPlayed[p.id] ?? 0,
+        drawsTaken: _matchDrawsTaken[p.id] ?? 0,
+        specialsPlayed: _matchSpecialsPlayed[p.id] ?? 0,
+      ));
+    }
+    stats.sort((a, b) => a.isLocal ? -1 : (b.isLocal ? 1 : 0));
+    return stats;
   }
 
   void _recordPlayMove({

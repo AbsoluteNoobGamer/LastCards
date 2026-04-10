@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/providers/theme_provider.dart';
+import '../../../core/services/player_level_service.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../../../core/theme/app_theme_data.dart';
 import '../../../core/utils/ranked_stats_reader.dart';
@@ -180,6 +181,10 @@ class _ProfileStatsSectionState extends ConsumerState<ProfileStatsSection> {
                           theme.surfaceDark.withValues(alpha: 0.85),
                       textSecondary: theme.textSecondary,
                     ),
+                  if (hasXp) ...[
+                    const SizedBox(height: 12),
+                    _StreakRow(theme: theme),
+                  ],
                   if (hasXp && hasRanked) ...[
                     const SizedBox(height: 16),
                     Divider(color: dividerColor, height: 1),
@@ -282,6 +287,104 @@ class _RankedStatsBlock extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _StreakRow extends StatelessWidget {
+  const _StreakRow({required this.theme});
+
+  final AppThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        PlayerLevelService.instance.currentStreak,
+        PlayerLevelService.instance.bestStreak,
+      ]),
+      builder: (context, _) {
+        final current = PlayerLevelService.instance.currentStreak.value;
+        final best = PlayerLevelService.instance.bestStreak.value;
+        return Row(
+          children: [
+            _StreakChip(
+              label: 'Streak',
+              value: current,
+              icon: '🔥',
+              theme: theme,
+            ),
+            const SizedBox(width: 10),
+            _StreakChip(
+              label: 'Best',
+              value: best,
+              icon: '⭐',
+              theme: theme,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _StreakChip extends StatelessWidget {
+  const _StreakChip({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.theme,
+  });
+
+  final String label;
+  final int value;
+  final String icon;
+  final AppThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: theme.surfaceDark.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: theme.accentPrimary.withValues(alpha: 0.25),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(icon, style: const TextStyle(fontSize: 14)),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: theme.textSecondary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  Text(
+                    '$value',
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      color: theme.accentPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
