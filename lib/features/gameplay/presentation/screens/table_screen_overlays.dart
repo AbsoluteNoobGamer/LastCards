@@ -1,5 +1,23 @@
 part of 'table_screen.dart';
 
+// ── Post-game stat model ──────────────────────────────────────────────────────
+
+class MatchPlayerStat {
+  const MatchPlayerStat({
+    required this.displayName,
+    required this.isLocal,
+    required this.cardsPlayed,
+    required this.drawsTaken,
+    required this.specialsPlayed,
+  });
+
+  final String displayName;
+  final bool isLocal;
+  final int cardsPlayed;
+  final int drawsTaken;
+  final int specialsPlayed;
+}
+
 // ── Win dialog ────────────────────────────────────────────────────────────────
 
 class _WinDialog extends ConsumerStatefulWidget {
@@ -10,6 +28,7 @@ class _WinDialog extends ConsumerStatefulWidget {
     this.isOnlineMode = false,
     this.ratingDelta,
     this.xpAwarded,
+    this.matchStats,
   });
 
   final String winnerName;
@@ -22,6 +41,9 @@ class _WinDialog extends ConsumerStatefulWidget {
 
   /// Local XP gained this game (offline only), or null to hide.
   final int? xpAwarded;
+
+  /// Per-player stats for the completed offline match, or null.
+  final List<MatchPlayerStat>? matchStats;
 
   @override
   ConsumerState<_WinDialog> createState() => _WinDialogState();
@@ -171,6 +193,14 @@ class _WinDialogState extends ConsumerState<_WinDialog>
                               const SizedBox(height: AppDimensions.md),
                               _RankedResultsSection(
                                 ratingDelta: widget.ratingDelta!,
+                                theme: theme,
+                              ),
+                            ],
+                            if (widget.matchStats != null &&
+                                widget.matchStats!.isNotEmpty) ...[
+                              const SizedBox(height: AppDimensions.md),
+                              _MatchStatsSection(
+                                stats: widget.matchStats!,
                                 theme: theme,
                               ),
                             ],
@@ -381,6 +411,144 @@ class _EdgeVignettePulsePainter extends CustomPainter {
       oldDelegate.opacity != opacity || oldDelegate.color != color;
 }
 
+// ── Match stats section ───────────────────────────────────────────────────────
+
+class _MatchStatsSection extends StatelessWidget {
+  const _MatchStatsSection({
+    required this.stats,
+    required this.theme,
+  });
+
+  final List<MatchPlayerStat> stats;
+  final AppThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.surfaceDark.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.accentPrimary.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'MATCH SUMMARY',
+            style: TextStyle(
+              color: theme.textSecondary,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.4,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          // Header row
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Player',
+                  style: TextStyle(
+                    color: theme.textSecondary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              _StatHeader('Played', theme),
+              _StatHeader('Drew', theme),
+              _StatHeader('Specials', theme),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ...stats.map(
+            (s) => Padding(
+              padding: const EdgeInsets.only(bottom: 5),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      s.isLocal ? 'You' : s.displayName.split(' ').first,
+                      style: TextStyle(
+                        color: s.isLocal
+                            ? theme.accentPrimary
+                            : theme.textSecondary,
+                        fontSize: 12,
+                        fontWeight: s.isLocal
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  _StatCell('${s.cardsPlayed}', theme, highlight: s.isLocal),
+                  _StatCell('${s.drawsTaken}', theme, highlight: s.isLocal),
+                  _StatCell('${s.specialsPlayed}', theme, highlight: s.isLocal),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatHeader extends StatelessWidget {
+  const _StatHeader(this.label, this.theme);
+  final String label;
+  final AppThemeData theme;
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      flex: 2,
+      child: Text(
+        label,
+        style: TextStyle(
+          color: theme.textSecondary,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.4,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+}
+
+class _StatCell extends StatelessWidget {
+  const _StatCell(this.value, this.theme, {this.highlight = false});
+  final String value;
+  final AppThemeData theme;
+  final bool highlight;
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      flex: 2,
+      child: Text(
+        value,
+        style: TextStyle(
+          color: highlight ? theme.accentPrimary : theme.textSecondary,
+          fontSize: 13,
+          fontWeight: highlight ? FontWeight.w700 : FontWeight.w500,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+}
+
+// ── Ranked results section ────────────────────────────────────────────────────
+
 /// Ranked results section with MMR delta, and fetched stats (MMR, W/L, tier).
 class _RankedResultsSection extends StatefulWidget {
   const _RankedResultsSection({
@@ -402,24 +570,58 @@ class _RankedResultsSectionState extends State<_RankedResultsSection> {
   Future<({int rating, int wins, int losses})?> _fetchRankedStats() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return null;
-    try {
-      // Brief delay so server has time to write trophy update
-      await Future.delayed(const Duration(milliseconds: 300));
-      final doc = await FirebaseFirestore.instance
-          .collection('ranked_stats')
-          .doc(uid)
-          .get();
-      if (!doc.exists) return null;
-      final d = doc.data() ?? <String, dynamic>{};
-      int toInt(Object? v, int def) => v is num ? v.toInt() : def;
-      return (
-        rating: toInt(d['rating'], 1000),
-        wins: toInt(d['wins'], 0),
-        losses: toInt(d['losses'], 0),
-      );
-    } catch (_) {
-      return null;
+
+    // The server writes ranked_stats asynchronously (fire-and-forget):
+    //  1. Acquire OAuth2 token   (~500 ms on first call, cached after)
+    //  2. POST to Firestore REST (~300–800 ms)
+    // Total pipeline: often 1–2 s.  Poll up to 3 times (budget ~8 s) so the
+    // stats shown include the game just finished rather than pre-game data.
+    ({int rating, int wins, int losses})? previous;
+
+    for (int attempt = 0; attempt < 3; attempt++) {
+      // Delays: 2 s → 3 s → 3 s  (cumulative max: ~8 s)
+      await Future.delayed(Duration(milliseconds: attempt == 0 ? 2000 : 3000));
+      if (!mounted) return previous;
+
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('ranked_stats')
+            .doc(uid)
+            // Always read from the server — bypass the local Firestore cache so
+            // we see the write the server just committed.
+            .get(const GetOptions(source: Source.server));
+        if (!doc.exists) continue;
+
+        final d = doc.data() ?? <String, dynamic>{};
+        int toInt(Object? v, int def) => v is num ? v.toInt() : def;
+        final snapshot = (
+          rating: toInt(d['rating'], 1000),
+          wins: toInt(d['wins'], 0),
+          losses: toInt(d['losses'], 0),
+        );
+
+        // If nothing was stored yet, store and check again next loop.
+        if (previous == null) {
+          previous = snapshot;
+          continue;
+        }
+
+        // If the rating (or win/loss counts) changed between reads, the server
+        // write has landed — return the fresh snapshot immediately.
+        if (snapshot.rating != previous.rating ||
+            snapshot.wins != previous.wins ||
+            snapshot.losses != previous.losses) {
+          return snapshot;
+        }
+
+        // No change detected yet; update previous and keep polling.
+        previous = snapshot;
+      } catch (_) {}
     }
+
+    // Timed out — return whatever we last read (may still be pre-game data
+    // if the server write was exceptionally slow, but this is a rare edge case).
+    return previous;
   }
 
   @override
@@ -487,7 +689,19 @@ class _RankedResultsSectionState extends State<_RankedResultsSection> {
                   ],
                 ),
               ),
-              if (stats != null) ...[
+              if (snap.connectionState == ConnectionState.waiting) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 14,
+                  width: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      theme.textSecondary.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ),
+              ] else if (stats != null) ...[
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,

@@ -14,6 +14,7 @@ import 'package:last_cards/shared/rules/win_condition_rules.dart'
         needsUndeclaredLastCardsDraw,
         wouldConfirmWin;
 
+import 'logger.dart';
 import 'trophy_recorder.dart';
 
 // Bust mode: 52-card deck; 3+ survivors = 2 turns each per round, eliminate bottom 2;
@@ -84,6 +85,7 @@ class GameSession {
   final bool isRanked;
 
   final TrophyPersistence _trophyRecorder;
+  final _log = Logger('GameSession');
 
   /// Called after [removePlayer] when no players remain. [RoomManager] uses
   /// this to drop the room from memory.
@@ -119,6 +121,10 @@ class GameSession {
 
   /// Set in _startGame. True if the game started with maxPlayerCount (or N/A).
   bool _wasFullRoster = false;
+
+  /// Number of players at game start — used for bracket keys when recording
+  /// disconnect wins (where _players has already shed the leaver).
+  int _startingPlayerCount = 0;
 
   /// Per-turn countdown timer.
   Timer? _turnTimer;
@@ -368,6 +374,29 @@ class GameSession {
     if (trophyPenaltyForLeaver && isRanked) {
       final uid = firebaseUid ?? disconnectedPlayerId;
       _trophyRecorder.recordLeavePenalty(uid, displayName: displayName);
+
+      // Also record ranked wins for every player who is still connected.
+      // The leaver's penalty is already handled by recordLeavePenalty above;
+      // without this call the remaining players' wins were silently dropped.
+      final remainingUids = _players.entries
+          .map((e) => (
+                playerId: e.key,
+                uid: e.value.firebaseUid ?? e.key,
+                displayName: e.value.displayName,
+              ))
+          .toList();
+      if (remainingUids.isNotEmpty) {
+        // All remaining players are treated as winners.  For a 1v1 game there
+        // is exactly one; for sessions that somehow reach this path with more
+        // survivors the first connected player is the canonical winner so the
+        // bracket stats stay balanced.
+        final winnerUid = remainingUids.first.uid;
+        _trophyRecorder.recordRankedResult(
+          winnerUid: winnerUid,
+          allPlayerUids: remainingUids,
+          playerCount: _startingPlayerCount,
+        );
+      }
     }
 
     Map<String, int>? ratingChanges;
@@ -481,6 +510,7 @@ class GameSession {
     _gameOver = false;
     _wasFullRoster =
         maxPlayerCount == null || _players.length >= maxPlayerCount!;
+    _startingPlayerCount = _players.length;
 
     final entries = _players.entries.toList();
     final totalPlayers = entries.length;
@@ -1674,6 +1704,11 @@ class GameSession {
                 displayName: e.value.displayName,
               ))
           .toList();
+      _log.info(
+        '[RANKED WIN] room=$roomCode winner: id=$winnerId '
+        'uid=$winnerUid name=${_players[winnerId]?.displayName} | '
+        'all: ${allPlayerUids.map((e) => '${e.playerId}(${e.displayName})=${e.uid}').join(', ')}',
+      );
       _trophyRecorder.recordRankedResult(
         winnerUid: winnerUid,
         allPlayerUids: allPlayerUids,
