@@ -352,6 +352,23 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
               ),
             ),
           ),
+
+          // Above scroll content so it stays tappable
+          Positioned(
+            top: 0,
+            left: 0,
+            child: SafeArea(
+              child: IconButton(
+                tooltip: 'Back',
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: Icon(
+                  Icons.arrow_back_rounded,
+                  color: theme.accentPrimary,
+                  size: 26,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
