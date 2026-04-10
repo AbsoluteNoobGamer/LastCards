@@ -176,9 +176,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                           color: theme.accentPrimary,
                           shadows: [
                             Shadow(
-                              color: Colors.black.withValues(alpha: 0.35),
+                              color: theme.surfaceDark.withValues(alpha: 0.85),
                               offset: const Offset(0, 2),
-                              blurRadius: 6,
+                              blurRadius: 8,
                             ),
                           ],
                         ),
@@ -523,7 +523,7 @@ class _LobbySectionCard extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.28),
+            color: theme.surfaceDark.withValues(alpha: 0.72),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),
@@ -717,10 +717,10 @@ class _LobbyPlayerList extends StatelessWidget {
         vertical: AppDimensions.xs,
       ),
       decoration: BoxDecoration(
-        color: theme.backgroundDeep.withValues(alpha: 0.65),
+        color: Color.lerp(theme.surfacePanel, theme.backgroundDeep, 0.38)!,
         borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
         border: Border.all(
-          color: theme.accentDark.withValues(alpha: 0.35),
+          color: theme.accentDark.withValues(alpha: 0.4),
         ),
       ),
       child: Column(
@@ -764,50 +764,68 @@ class _FeltBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _LobbyFeltPainter(
-        backgroundDeep: theme.backgroundDeep,
-        backgroundMid: theme.backgroundMid,
-      ),
-    );
+    return CustomPaint(painter: _LobbyFeltPainter(theme: theme));
   }
 }
 
+/// Full-screen lobby backdrop driven by [AppThemeData] — gradients and texture
+/// use each preset's surfaces and accents (not only the default green felt).
 class _LobbyFeltPainter extends CustomPainter {
-  const _LobbyFeltPainter({
-    required this.backgroundDeep,
-    required this.backgroundMid,
-  });
+  const _LobbyFeltPainter({required this.theme});
 
-  final Color backgroundDeep;
-  final Color backgroundMid;
+  final AppThemeData theme;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final baseRect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+
+    // Base diagonal depth: backgroundDeep → surfacePanel → dark/mid blend
+    final baseGradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        theme.backgroundDeep,
+        Color.lerp(theme.backgroundDeep, theme.surfacePanel, 0.42)!,
+        Color.lerp(theme.surfaceDark, theme.backgroundMid, 0.38)!,
+      ],
+      stops: const [0.0, 0.52, 1.0],
+    );
+    canvas.drawRect(rect, Paint()..shader = baseGradient.createShader(rect));
+
+    // Soft upper accent bloom (gold / silver / sapphire per theme)
     canvas.drawRect(
-      baseRect,
-      Paint()..color = backgroundDeep,
+      rect,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(0, -0.52),
+          radius: 1.08,
+          colors: [
+            theme.accentPrimary.withValues(alpha: 0.088),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.58],
+        ).createShader(rect),
     );
 
-    // Soft top wash (depth without changing theme tokens globally)
+    // Vertical wash using theme mid-tone
     canvas.drawRect(
-      baseRect,
+      rect,
       Paint()
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            backgroundMid.withValues(alpha: 0.12),
+            theme.backgroundMid.withValues(alpha: 0.15),
             Colors.transparent,
           ],
-          stops: const [0.0, 0.42],
-        ).createShader(baseRect),
+          stops: const [0.0, 0.48],
+        ).createShader(rect),
     );
 
-    // Subtle dot-grid micro-texture
+    // Dot texture: blend accentDark with felt mid so hue tracks the preset
+    final dotBase = Color.lerp(theme.accentDark, theme.backgroundMid, 0.52)!;
     final dotPaint = Paint()
-      ..color = backgroundMid.withValues(alpha: 0.07)
+      ..color = dotBase.withValues(alpha: 0.088)
       ..style = PaintingStyle.fill;
     for (double x = 0; x < size.width; x += 4) {
       for (double y = 0; y < size.height; y += 4) {
@@ -817,25 +835,26 @@ class _LobbyFeltPainter extends CustomPainter {
       }
     }
 
-    // Vignette
+    // Vignette: darken toward theme-hued edge (avoids flat neutral black)
+    final vignetteEdge =
+        Color.lerp(theme.backgroundDeep, Colors.black, 0.44)!;
     canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
+      rect,
       Paint()
         ..shader = RadialGradient(
           center: Alignment.center,
           radius: 1.0,
-          colors: [Colors.transparent, Colors.black.withValues(alpha: 0.5)],
-          stops: const [0.4, 1.0],
-        ).createShader(
-          Rect.fromLTWH(0, 0, size.width, size.height),
-        ),
+          colors: [
+            Colors.transparent,
+            vignetteEdge.withValues(alpha: 0.58),
+          ],
+          stops: const [0.38, 1.0],
+        ).createShader(rect),
     );
   }
 
   @override
-  bool shouldRepaint(_LobbyFeltPainter old) =>
-      old.backgroundDeep != backgroundDeep ||
-      old.backgroundMid != backgroundMid;
+  bool shouldRepaint(covariant _LobbyFeltPainter old) => old.theme.id != theme.id;
 }
 
 class _PlayerEntry extends StatelessWidget {
@@ -851,15 +870,19 @@ class _PlayerEntry extends StatelessWidget {
   final bool isVacantSeat;
   final AppThemeData theme;
 
-  // Semantic status green — not a brand colour, kept as constant.
-  static const Color _readyGreen = Color(0xFF27AE60);
+  /// Ready/readability green, lightly mixed with the theme accent highlight.
+  Color get _readyTint => Color.lerp(
+        const Color(0xFF27AE60),
+        theme.accentLight,
+        0.14,
+      )!;
 
   @override
   Widget build(BuildContext context) {
     final dotColor = isVacantSeat
         ? theme.accentDark
         : isReady
-            ? _readyGreen
+            ? _readyTint
             : theme.accentPrimary;
 
     final nameStyle = GoogleFonts.inter(
@@ -873,7 +896,7 @@ class _PlayerEntry extends StatelessWidget {
       fontSize: 12,
       fontWeight: FontWeight.w400,
       letterSpacing: 0.2,
-      color: isReady ? _readyGreen : theme.suitRed,
+      color: isReady ? _readyTint : theme.suitRed,
     );
 
     return Padding(
