@@ -33,12 +33,14 @@ class OfflineGameEngine {
   }) runAiTurn({
     required String aiPlayerId,
     AiPersonality? personality,
+    AiDifficulty? difficulty,
   }) {
     final result = aiTakeTurn(
       state: state,
       aiPlayerId: aiPlayerId,
       cardFactory: _cardFactory,
       personality: personality,
+      difficulty: difficulty,
     );
     state = result.state;
     return result;

@@ -58,8 +58,8 @@ class CardBackService {
   static const List<CardBackDesign> designs = [
     CardBackDesign(id: 'classic', label: 'Classic', unlockLevel: 1),
     CardBackDesign(id: 'obsidian', label: 'Obsidian', unlockLevel: 3),
-    CardBackDesign(id: 'ruby', label: 'Ruby', unlockLevel: 5),
-    CardBackDesign(id: 'royal', label: 'Royal', unlockLevel: 8),
+    CardBackDesign(id: 'ruby', label: 'Ruby', unlockLevel: 7),
+    CardBackDesign(id: 'royal', label: 'Royal', unlockLevel: 12),
   ];
 
   final ValueNotifier<String> selectedDesignId =
@@ -267,11 +267,22 @@ class CardBackService {
           .map((path) => CardBackDesign(
                 id: path,
                 label: _labelFromFilename(path.split('/').last),
+                unlockLevel: _unlockLevelForAnimatedGif(path.split('/').last),
               ))
           .toList();
     } catch (_) {
       return [];
     }
+  }
+
+  static int _unlockLevelForAnimatedGif(String filename) {
+    return switch (filename.toLowerCase()) {
+      'classic.gif' => 1,
+      'obsidian.gif' => 5,
+      'ruby.gif' => 10,
+      'royal.gif' => 16,
+      _ => 8,
+    };
   }
 
   bool isUnlocked(String designId) => _unlocked.contains(designId);
@@ -294,11 +305,21 @@ class CardBackService {
     if (designId == 'uploaded' && uploadedAnimatedAssetPath.value == null) {
       return false;
     }
-    if (designId != 'uploaded' &&
-        !_isDesignUnlocked(designId) &&
-        !cardBackCoverDesigns.value.any((d) => d.id == designId) &&
-        !animatedGifDesigns.value.any((d) => d.id == designId)) {
-      return false;
+    if (designId != 'uploaded') {
+      // Static cover images are freely accessible (file-based, no level gate).
+      final isCover = cardBackCoverDesigns.value.any((d) => d.id == designId);
+      if (!isCover) {
+        // Check animated GIFs with level gating.
+        final gif = animatedGifDesigns.value
+            .where((d) => d.id == designId)
+            .firstOrNull;
+        if (gif != null) {
+          final currentLevel = PlayerLevelService.instance.currentLevel.value;
+          if (currentLevel < gif.unlockLevel) return false;
+        } else if (!_isDesignUnlocked(designId)) {
+          return false;
+        }
+      }
     }
     if (selectedDesignId.value == designId) return true;
     selectedDesignId.value = designId;

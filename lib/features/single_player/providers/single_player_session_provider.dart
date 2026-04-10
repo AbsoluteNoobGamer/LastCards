@@ -1,58 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// ── AI Difficulty Enum ────────────────────────────────────────────────────────
+import '../../../core/models/ai_player_config.dart';
 
-enum AiDifficulty {
-  easy,
-  medium,
-  hard;
-
-  String get displayName {
-    switch (this) {
-      case AiDifficulty.easy:
-        return 'Easy';
-      case AiDifficulty.medium:
-        return 'Medium';
-      case AiDifficulty.hard:
-        return 'Hard';
-    }
-  }
-
-  String get description {
-    switch (this) {
-      case AiDifficulty.easy:
-        return 'Relaxed pace, AI plays it safe';
-      case AiDifficulty.medium:
-        return 'Balanced challenge, AI plays smart';
-      case AiDifficulty.hard:
-        return 'No mercy, AI plays to win';
-    }
-  }
-
-  String get emoji {
-    switch (this) {
-      case AiDifficulty.easy:
-        return '🟢';
-      case AiDifficulty.medium:
-        return '🟠';
-      case AiDifficulty.hard:
-        return '🔴';
-    }
-  }
-
-  /// Multiplier applied to the AI base think-time delay.
-  /// Easy = slower (friendlier), Hard = faster (aggressive).
-  double get delayMultiplier {
-    switch (this) {
-      case AiDifficulty.easy:
-        return 1.8;
-      case AiDifficulty.medium:
-        return 1.0;
-      case AiDifficulty.hard:
-        return 0.55;
-    }
-  }
-}
+// AiDifficulty is defined in ai_player_config.dart and re-exported for callers
+// that import this provider file.
+export '../../../core/models/ai_player_config.dart' show AiDifficulty;
 
 // ── State ─────────────────────────────────────────────────────────────────────
 

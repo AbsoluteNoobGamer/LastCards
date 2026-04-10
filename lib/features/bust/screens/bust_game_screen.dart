@@ -29,7 +29,6 @@ import 'package:last_cards/features/gameplay/presentation/widgets/player_hand_wi
 import 'package:last_cards/features/gameplay/presentation/widgets/player_zone_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/quick_chat_panel.dart' show kQuickMessages, QuickChatPanel;
 import 'package:last_cards/features/gameplay/presentation/widgets/turn_indicator_overlay.dart';
-import 'package:last_cards/features/single_player/providers/single_player_session_provider.dart';
 import 'package:last_cards/shared/rules/move_log_support.dart';
 
 import '../bust_engine.dart';
