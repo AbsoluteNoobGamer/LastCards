@@ -20,6 +20,7 @@ void main() {
     Suit? suitLock,
     Suit? queenSuitLock,
     Suit? preTurnCentreSuit,
+    bool isHardcore = false,
   }) {
     return GameState(
       sessionId: 'test',
@@ -33,6 +34,7 @@ void main() {
       suitLock: suitLock,
       queenSuitLock: queenSuitLock,
       preTurnCentreSuit: preTurnCentreSuit,
+      isHardcore: isHardcore,
       players: [
         PlayerModel(
           id: 'p1',
@@ -44,6 +46,38 @@ void main() {
       ],
     );
   }
+
+  group('Hardcore validatePlay', () {
+    test('blocks finishing on Ace', () {
+      final ace = c(Rank.ace, Suit.hearts);
+      final state = buildState(
+        discardTop: c(Rank.six, Suit.hearts),
+        p1Hand: [ace],
+        isHardcore: true,
+      );
+      final err = validatePlay(
+        cards: [ace],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, contains('Ace'));
+    });
+
+    test('blocks finishing on Joker', () {
+      final j = joker(Suit.spades, id: 'j1');
+      final state = buildState(
+        discardTop: c(Rank.six, Suit.spades),
+        p1Hand: [j],
+        isHardcore: true,
+      );
+      final err = validatePlay(
+        cards: [j],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, contains('Joker'));
+    });
+  });
 
   group('1. Basic Play Validation', () {
     test('basicSuitMatch', () {

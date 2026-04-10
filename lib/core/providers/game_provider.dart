@@ -28,6 +28,7 @@ class GameNotifierState {
     this.lastError,
     this.rankedRatingChanges,
     this.isRanked = false,
+    this.isHardcoreSession = false,
     this.socketDisconnectedPlayerIds = const <String>{},
   });
 
@@ -65,6 +66,9 @@ class GameNotifierState {
   /// True when the current session is a ranked match (from session_config).
   final bool isRanked;
 
+  /// Hardcore session (from session_config); mirrors [GameState.isHardcore] once snapshots arrive.
+  final bool isHardcoreSession;
+
   GameNotifierState copyWith({
     GameState? gameState,
     bool? pendingSuitChoice,
@@ -74,6 +78,7 @@ class GameNotifierState {
     String? lastError,
     Map<String, int>? rankedRatingChanges,
     bool? isRanked,
+    bool? isHardcoreSession,
     Set<String>? socketDisconnectedPlayerIds,
     bool clearError = false,
     bool clearSuitChoice = false,
@@ -96,6 +101,7 @@ class GameNotifierState {
       lastError: clearError ? null : (lastError ?? this.lastError),
       rankedRatingChanges: rankedRatingChanges ?? this.rankedRatingChanges,
       isRanked: isRanked ?? this.isRanked,
+      isHardcoreSession: isHardcoreSession ?? this.isHardcoreSession,
       socketDisconnectedPlayerIds: clearSocketDisconnected
           ? const <String>{}
           : (socketDisconnectedPlayerIds ?? this.socketDisconnectedPlayerIds),
@@ -476,7 +482,10 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
         if (rc != null) {
           _onlineRejoin.setRoomCode(rc);
         }
-        state = state.copyWith(isRanked: e.isRanked);
+        state = state.copyWith(
+          isRanked: e.isRanked,
+          isHardcoreSession: e.isHardcore,
+        );
       }),
     );
 

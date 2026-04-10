@@ -438,14 +438,17 @@ class _FirestoreClient {
 /// Production code uses [TrophyRecorder.instance]; tests may supply a
 /// lightweight implementation that records call counts without Firestore.
 abstract class TrophyPersistence {
+  /// [rankedHardcore] uses Firestore `ranked_hardcore_stats` instead of `ranked_stats`.
   void recordRankedResult({
     required String winnerUid,
     required List<({String playerId, String uid, String displayName})>
         allPlayerUids,
     int playerCount = 0,
+    bool rankedHardcore = false,
   });
 
-  void recordLeavePenalty(String uid, {required String displayName});
+  void recordLeavePenalty(String uid,
+      {required String displayName, bool rankedHardcore = false});
 
   void recordLeaderboardOnlineCasual({
     required String winnerPlayerId,
@@ -493,6 +496,7 @@ class TrophyRecorder implements TrophyPersistence {
   final _firestoreClient = _FirestoreClient.instance;
 
   static const _collection = 'ranked_stats';
+  static const _collectionHardcore = 'ranked_hardcore_stats';
 
   /// Records the result of a completed ranked game for every participant.
   ///
@@ -507,12 +511,14 @@ class TrophyRecorder implements TrophyPersistence {
     required List<({String playerId, String uid, String displayName})>
         allPlayerUids,
     int playerCount = 0,
+    bool rankedHardcore = false,
   }) {
     // Fire-and-forget — game flow does not wait for persistence.
     unawaited(_persistResult(
         winnerUid: winnerUid,
         allPlayerUids: allPlayerUids,
-        playerCount: playerCount));
+        playerCount: playerCount,
+        collection: rankedHardcore ? _collectionHardcore : _collection));
   }
 
   Future<void> _persistResult({
@@ -520,6 +526,7 @@ class TrophyRecorder implements TrophyPersistence {
     required List<({String playerId, String uid, String displayName})>
         allPlayerUids,
     int playerCount = 0,
+    required String collection,
   }) async {
     final n = playerCount.clamp(2, 7);
     final hasBracket = playerCount >= 2;
@@ -541,7 +548,7 @@ class TrophyRecorder implements TrophyPersistence {
       // race between parallel calls for the same document.
       futures.add(
         _firestoreClient.atomicUpdate(
-          collection: _collection,
+          collection: collection,
           docId: uid,
           increments: maps.increments,
           defaultFields: maps.defaultFields,
@@ -571,8 +578,11 @@ class TrophyRecorder implements TrophyPersistence {
   }
 
   /// Records a leave penalty for a player who disconnected during a ranked game.
-  void recordLeavePenalty(String uid, {required String displayName}) {
-    unawaited(_persistLeavePenalty(uid, displayName: displayName));
+  void recordLeavePenalty(String uid,
+      {required String displayName, bool rankedHardcore = false}) {
+    unawaited(_persistLeavePenalty(uid,
+        displayName: displayName,
+        collection: rankedHardcore ? _collectionHardcore : _collection));
   }
 
   static const _leaderboardOnline = 'leaderboard_online';
@@ -667,11 +677,11 @@ class TrophyRecorder implements TrophyPersistence {
   }
 
   Future<void> _persistLeavePenalty(String uid,
-      {required String displayName}) async {
+      {required String displayName, required String collection}) async {
     _log.info('Recording leave penalty for $uid');
     final maps = rankedLeavePenaltyStatMaps();
     final ok = await _firestoreClient.atomicUpdate(
-      collection: _collection,
+      collection: collection,
       docId: uid,
       increments: maps.increments,
       defaultFields: maps.defaultFields,

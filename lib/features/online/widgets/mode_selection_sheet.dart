@@ -89,8 +89,8 @@ class ModeSelectionSheet extends ConsumerWidget {
 
   void _onModeSelected(
       BuildContext context, WidgetRef ref, OnlineGameMode mode) {
-    // Ranked requires a signed-in Firebase user (anonymous auth counts).
-    if (mode == OnlineGameMode.ranked) {
+    // Ranked / ranked hardcore require a signed-in Firebase user (anonymous auth counts).
+    if (mode == OnlineGameMode.ranked || mode == OnlineGameMode.rankedHardcore) {
       final user = ref.read(authStateProvider).value;
       if (user == null) {
         ScaffoldMessenger.of(context).showSnackBar(

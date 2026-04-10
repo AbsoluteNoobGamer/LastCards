@@ -91,7 +91,22 @@ class RulesScreen extends StatelessWidget {
                 _BodyText(
                     'Offline / local table: the action bar can show Next: … (who acts after you), accounting for skip, reverse, and 2-player King. Online standard table omits it; Bust uses its own order display.'),
                 _BodyText(
-                    'A 60 second turn timer is active at all times. If no card is played or drawn within 60 seconds, the turn ends automatically and you must draw 1 card as a penalty.'),
+                    'Turn timer: in standard games you have 60 seconds per turn. In online Ranked (Hardcore), turns are 30 seconds. If time runs out before you play or draw, the turn ends automatically—you draw (1 card, or the full active penalty count if a draw penalty is stacked).'),
+                _SectionDivider(),
+                sectionSpacing,
+                _SectionHeader('HARDCORE MODE (ONLINE)'),
+                _BodyText(
+                    'Choose Ranked (Hardcore) in online matchmaking. Same core rules as normal games, plus the restrictions below and a 30 second turn timer. Uses a separate MMR and leaderboard from standard Ranked.',
+                ),
+                _BulletPoint(
+                    'You cannot win on an Ace: your winning play cannot end with an Ace as the last card (including a Joker declared as Ace).',
+                ),
+                _BulletPoint(
+                    'You cannot play a Joker as your last card: if a Joker is the only card left in your hand, you cannot declare it to go out—you must finish with a non-Joker card.',
+                ),
+                _BulletPoint(
+                    '30 second turn timer on the server for each turn (your client shows the same countdown).',
+                ),
                 _SectionDivider(),
                 sectionSpacing,
                 _SectionHeader('MULTI-CARD & SEQUENCE PLAY'),
@@ -170,6 +185,12 @@ class RulesScreen extends StatelessWidget {
                 ),
                 _BodyText(
                     'Play Online — Lobby/room flow; same core rules.',
+                ),
+                _BodyText(
+                    'Ranked — Signed-in quick match; MMR and the Ranked leaderboard (standard rules, 60s turns).',
+                ),
+                _BodyText(
+                    'Ranked (Hardcore) — Signed-in quick match in a separate queue; stricter finish rules, 30s turns, separate MMR and leaderboard. See Hardcore Mode (Online) above.',
                 ),
                 _BulletPoint(
                     'Disconnect: player is removed (no rejoin). With two or more others left, their hand shuffles into the draw pile; if only one player remains, the session ends.',

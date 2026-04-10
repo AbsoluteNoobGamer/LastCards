@@ -37,6 +37,7 @@ class _TableLayout extends StatelessWidget {
     this.discardPileCount = 0,
     this.reshuffleNotifier,
     this.timeRemainingStream,
+    this.turnTimerTotalSeconds = GameTurnTimer.defaultDurationSeconds,
     this.tournamentStatusBadges = const <String, String>{},
     this.finishedPlayerIds = const <String>{},
     this.aiConfigs = const <String, AiPlayerConfig>{},
@@ -106,6 +107,8 @@ class _TableLayout extends StatelessWidget {
 
   /// The stream to consume for turn timers.
   final Stream<int>? timeRemainingStream;
+  /// Denominator for the timer bar (30s hardcore vs 60s default).
+  final int turnTimerTotalSeconds;
   final Map<String, String> tournamentStatusBadges;
   final Set<String> finishedPlayerIds;
 
@@ -195,6 +198,7 @@ class _TableLayout extends StatelessWidget {
             discardPileCount: discardPileCount,
             reshuffleNotifier: reshuffleNotifier,
             timeRemainingStream: timeRemainingStream,
+            turnTimerTotalSeconds: turnTimerTotalSeconds,
             tournamentStatusBadges: tournamentStatusBadges,
             finishedPlayerIds: finishedPlayerIds,
             aiConfigs: aiConfigs,
@@ -454,6 +458,7 @@ class _TableLayout extends StatelessWidget {
                   children: [
                     TurnTimerBar(
                       timeRemainingStream: timeRemainingStream,
+                      totalDurationSeconds: turnTimerTotalSeconds,
                       isVisible: true,
                     ),
                     const SizedBox(height: 8),
@@ -578,6 +583,7 @@ class _LandscapeTableLayout extends StatelessWidget {
     required this.discardPileCount,
     required this.reshuffleNotifier,
     required this.timeRemainingStream,
+    required this.turnTimerTotalSeconds,
     required this.tournamentStatusBadges,
     required this.finishedPlayerIds,
     required this.aiConfigs,
@@ -633,6 +639,7 @@ class _LandscapeTableLayout extends StatelessWidget {
   final int discardPileCount;
   final ValueNotifier<bool>? reshuffleNotifier;
   final Stream<int>? timeRemainingStream;
+  final int turnTimerTotalSeconds;
   final Map<String, String> tournamentStatusBadges;
   final Set<String> finishedPlayerIds;
   final Map<String, AiPlayerConfig> aiConfigs;
@@ -828,6 +835,7 @@ class _LandscapeTableLayout extends StatelessWidget {
           // Turn timer + action bar (compact for landscape)
           TurnTimerBar(
             timeRemainingStream: timeRemainingStream,
+            totalDurationSeconds: turnTimerTotalSeconds,
             isVisible: true,
             compact: true,
           ),

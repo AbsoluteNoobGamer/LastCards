@@ -37,7 +37,8 @@ class RoomManager {
   final _uuid = const Uuid();
 
   /// Quickplay matchmaking queues. Key: playerCount (int) for standard,
-  /// 'bust' (String) for Bust mode (10 players), or 'ranked-N' for ranked.
+  /// 'bust' (String) for Bust mode (10 players), 'ranked-N' for ranked, or
+  /// 'ranked-hardcore-N' for ranked hardcore.
   final _quickplayQueues = <Object, List<_QueuedPlayer>>{};
 
   /// Per-socket futures used to serialize async message handling.
@@ -258,6 +259,9 @@ class RoomManager {
   int _targetPlayerCountForQueueKey(Object queueKey) {
     if (queueKey is int) return queueKey;
     if (queueKey == 'bust') return 10;
+    if (queueKey is String && queueKey.startsWith('ranked-hardcore-')) {
+      return int.tryParse(queueKey.substring('ranked-hardcore-'.length)) ?? 4;
+    }
     if (queueKey is String && queueKey.startsWith('ranked-')) {
       return int.tryParse(queueKey.substring('ranked-'.length)) ?? 4;
     }
@@ -284,7 +288,8 @@ class RoomManager {
   void _handleQuickplay(dynamic ws, Map<String, dynamic> json) {
     final gameMode = json['gameMode'] as String?;
     final isBust = gameMode == 'bust';
-    final isRanked = gameMode == 'ranked';
+    final isRankedHardcore = gameMode == 'ranked_hardcore';
+    final isRanked = gameMode == 'ranked' || isRankedHardcore;
     final playerCount = isBust ? 10 : (json['playerCount'] as int? ?? 4);
     final displayName =
         sanitizeDisplayName(json['displayName'] as String? ?? 'Player');
@@ -308,6 +313,8 @@ class RoomManager {
     final Object queueKey;
     if (isBust) {
       queueKey = 'bust';
+    } else if (isRankedHardcore) {
+      queueKey = 'ranked-hardcore-$playerCount';
     } else if (isRanked) {
       queueKey = 'ranked-$playerCount';
     } else {
@@ -315,7 +322,7 @@ class RoomManager {
     }
     _log.info(
         'Player "$displayName" uid=${firebaseUid ?? "none"} queued for $playerCount-player '
-        '${isBust ? "Bust" : isRanked ? "Ranked" : ""} match');
+        '${isBust ? "Bust" : isRankedHardcore ? "Ranked Hardcore" : isRanked ? "Ranked" : ""} match');
 
     final queue = _quickplayQueues.putIfAbsent(queueKey, () => []);
 
@@ -344,6 +351,7 @@ class RoomManager {
         maxPlayerCount: playerCount,
         isBustMode: isBust,
         isRanked: isRanked,
+        isHardcore: isRankedHardcore,
         onBecameEmpty: (_) => _rooms.remove(roomCode),
       );
       _rooms[roomCode] = session;

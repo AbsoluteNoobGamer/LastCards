@@ -313,11 +313,14 @@ final class SessionConfigEvent extends GameEvent {
   final String? roomCode;
   final bool isPrivate;
   final bool isRanked;
+  /// Hardcore rules + 30s turn timer (see [GameState.isHardcore]).
+  final bool isHardcore;
   final bool trophyEligible;
   const SessionConfigEvent({
     this.roomCode,
     this.isPrivate = false,
     this.isRanked = false,
+    this.isHardcore = false,
     this.trophyEligible = false,
   });
 
@@ -593,6 +596,7 @@ GameEvent parseServerEvent(String raw) {
           roomCode: json['roomCode'] as String?,
           isPrivate: json['isPrivate'] as bool? ?? false,
           isRanked: json['isRanked'] as bool? ?? false,
+          isHardcore: json['isHardcore'] as bool? ?? false,
           trophyEligible: json['trophyEligible'] as bool? ?? false,
         ),
       'quick_chat' => QuickChatEvent(

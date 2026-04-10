@@ -83,6 +83,9 @@ mixin _$GameState {
   @JsonKey(fromJson: _stringSetFromJson, toJson: _stringSetToJson)
   Set<String> get lastCardsDeclaredBy => throw _privateConstructorUsedError;
 
+  /// Hardcore rules: cannot win on an Ace or on a Joker; 30s turn timer (online).
+  bool get isHardcore => throw _privateConstructorUsedError;
+
   /// Serializes this GameState to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
 
@@ -119,7 +122,8 @@ abstract class $GameStateCopyWith<$Res> {
       CardModel? lastPlayedThisTurn,
       bool pendingJokerResolution,
       @JsonKey(fromJson: _stringSetFromJson, toJson: _stringSetToJson)
-      Set<String> lastCardsDeclaredBy});
+      Set<String> lastCardsDeclaredBy,
+      bool isHardcore});
 
   $CardModelCopyWith<$Res>? get discardTopCard;
   $CardModelCopyWith<$Res>? get lastPlayedThisTurn;
@@ -160,6 +164,7 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
     Object? lastPlayedThisTurn = freezed,
     Object? pendingJokerResolution = null,
     Object? lastCardsDeclaredBy = null,
+    Object? isHardcore = null,
   }) {
     return _then(_value.copyWith(
       sessionId: null == sessionId
@@ -242,6 +247,10 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
           ? _value.lastCardsDeclaredBy
           : lastCardsDeclaredBy // ignore: cast_nullable_to_non_nullable
               as Set<String>,
+      isHardcore: null == isHardcore
+          ? _value.isHardcore
+          : isHardcore // ignore: cast_nullable_to_non_nullable
+              as bool,
     ) as $Val);
   }
 
@@ -303,7 +312,8 @@ abstract class _$$GameStateImplCopyWith<$Res>
       CardModel? lastPlayedThisTurn,
       bool pendingJokerResolution,
       @JsonKey(fromJson: _stringSetFromJson, toJson: _stringSetToJson)
-      Set<String> lastCardsDeclaredBy});
+      Set<String> lastCardsDeclaredBy,
+      bool isHardcore});
 
   @override
   $CardModelCopyWith<$Res>? get discardTopCard;
@@ -344,6 +354,7 @@ class __$$GameStateImplCopyWithImpl<$Res>
     Object? lastPlayedThisTurn = freezed,
     Object? pendingJokerResolution = null,
     Object? lastCardsDeclaredBy = null,
+    Object? isHardcore = null,
   }) {
     return _then(_$GameStateImpl(
       sessionId: null == sessionId
@@ -426,6 +437,10 @@ class __$$GameStateImplCopyWithImpl<$Res>
           ? _value._lastCardsDeclaredBy
           : lastCardsDeclaredBy // ignore: cast_nullable_to_non_nullable
               as Set<String>,
+      isHardcore: null == isHardcore
+          ? _value.isHardcore
+          : isHardcore // ignore: cast_nullable_to_non_nullable
+              as bool,
     ));
   }
 }
@@ -454,7 +469,8 @@ class _$GameStateImpl implements _GameState {
       this.lastPlayedThisTurn,
       this.pendingJokerResolution = false,
       @JsonKey(fromJson: _stringSetFromJson, toJson: _stringSetToJson)
-      final Set<String> lastCardsDeclaredBy = const {}})
+      final Set<String> lastCardsDeclaredBy = const {},
+      this.isHardcore = false})
       : _players = players,
         _discardPileHistory = discardPileHistory,
         _lastCardsDeclaredBy = lastCardsDeclaredBy;
@@ -575,9 +591,14 @@ class _$GameStateImpl implements _GameState {
     return EqualUnmodifiableSetView(_lastCardsDeclaredBy);
   }
 
+  /// Hardcore rules: cannot win on an Ace or on a Joker; 30s turn timer (online).
+  @override
+  @JsonKey()
+  final bool isHardcore;
+
   @override
   String toString() {
-    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardPileHistory: $discardPileHistory, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, penaltyChainLive: $penaltyChainLive, activeSkipCount: $activeSkipCount, suitLock: $suitLock, preTurnCentreSuit: $preTurnCentreSuit, queenSuitLock: $queenSuitLock, winnerId: $winnerId, actionsThisTurn: $actionsThisTurn, cardsPlayedThisTurn: $cardsPlayedThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn, pendingJokerResolution: $pendingJokerResolution, lastCardsDeclaredBy: $lastCardsDeclaredBy)';
+    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardPileHistory: $discardPileHistory, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, penaltyChainLive: $penaltyChainLive, activeSkipCount: $activeSkipCount, suitLock: $suitLock, preTurnCentreSuit: $preTurnCentreSuit, queenSuitLock: $queenSuitLock, winnerId: $winnerId, actionsThisTurn: $actionsThisTurn, cardsPlayedThisTurn: $cardsPlayedThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn, pendingJokerResolution: $pendingJokerResolution, lastCardsDeclaredBy: $lastCardsDeclaredBy, isHardcore: $isHardcore)';
   }
 
   @override
@@ -622,7 +643,9 @@ class _$GameStateImpl implements _GameState {
             (identical(other.pendingJokerResolution, pendingJokerResolution) ||
                 other.pendingJokerResolution == pendingJokerResolution) &&
             const DeepCollectionEquality()
-                .equals(other._lastCardsDeclaredBy, _lastCardsDeclaredBy));
+                .equals(other._lastCardsDeclaredBy, _lastCardsDeclaredBy) &&
+            (identical(other.isHardcore, isHardcore) ||
+                other.isHardcore == isHardcore));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -648,7 +671,8 @@ class _$GameStateImpl implements _GameState {
         cardsPlayedThisTurn,
         lastPlayedThisTurn,
         pendingJokerResolution,
-        const DeepCollectionEquality().hash(_lastCardsDeclaredBy)
+        const DeepCollectionEquality().hash(_lastCardsDeclaredBy),
+        isHardcore
       ]);
 
   /// Create a copy of GameState
@@ -689,7 +713,8 @@ abstract class _GameState implements GameState {
       final CardModel? lastPlayedThisTurn,
       final bool pendingJokerResolution,
       @JsonKey(fromJson: _stringSetFromJson, toJson: _stringSetToJson)
-      final Set<String> lastCardsDeclaredBy}) = _$GameStateImpl;
+      final Set<String> lastCardsDeclaredBy,
+      final bool isHardcore}) = _$GameStateImpl;
 
   factory _GameState.fromJson(Map<String, dynamic> json) =
       _$GameStateImpl.fromJson;
@@ -776,6 +801,10 @@ abstract class _GameState implements GameState {
   @override
   @JsonKey(fromJson: _stringSetFromJson, toJson: _stringSetToJson)
   Set<String> get lastCardsDeclaredBy;
+
+  /// Hardcore rules: cannot win on an Ace or on a Joker; 30s turn timer (online).
+  @override
+  bool get isHardcore;
 
   /// Create a copy of GameState
   /// with the given fields replaced by the non-null parameter values.

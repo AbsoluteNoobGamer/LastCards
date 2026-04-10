@@ -241,6 +241,34 @@ void main() {
       );
     });
 
+    test('quickplay ranked_hardcore with uid can queue', () async {
+      final rm = RoomManager(
+        verifyIdToken: (_) async => 'firebase-u1',
+      );
+      final a = FakeWs();
+      final b = FakeWs();
+      rm.handleConnection(a);
+      rm.handleConnection(b);
+
+      final qp = {
+        'type': 'quickplay',
+        'gameMode': 'ranked_hardcore',
+        'playerCount': 2,
+        'displayName': 'H',
+        'idToken': 't',
+      };
+      a.addIncoming(jsonEncode(qp));
+      b.addIncoming(jsonEncode(qp));
+      await _flushAsync();
+
+      expect(a.messages.any((m) => m['type'] == 'error'), isFalse);
+      final cfgs = a.messages.where((m) => m['type'] == 'session_config').toList();
+      expect(cfgs, isNotEmpty);
+      final cfg = cfgs.last;
+      expect(cfg['isHardcore'], isTrue);
+      expect(cfg['isRanked'], isTrue);
+    });
+
     test('rejoin_session unknown room returns room_not_found', () async {
       final rm = RoomManager();
       final ws = FakeWs();

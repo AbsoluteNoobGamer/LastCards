@@ -95,6 +95,18 @@ String? validatePlay({
 }) {
   if (cards.isEmpty) return 'No cards selected.';
 
+  if (state.isHardcore) {
+    final p = state.playerById(state.currentPlayerId);
+    if (p != null && p.hand.length == cards.length) {
+      if (cards.last.isJoker) {
+        return 'Hardcore: cannot play a Joker as your last card.';
+      }
+      if (cards.last.effectiveRank == Rank.ace) {
+        return 'Hardcore: cannot win on an Ace.';
+      }
+    }
+  }
+
   // All jokers → wild, always legal.
   if (cards.every((c) => c.isJoker)) return null;
 

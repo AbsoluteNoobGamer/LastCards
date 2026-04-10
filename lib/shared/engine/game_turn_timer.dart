@@ -6,7 +6,11 @@ class GameTurnTimer {
   Timer? _timer;
   final _timeRemainingController = StreamController<int>.broadcast();
   
+  int _durationSeconds = defaultDurationSeconds;
   int _currentSeconds = defaultDurationSeconds;
+
+  /// Last started turn length (for UI progress bars).
+  int get lastDurationSeconds => _durationSeconds;
 
   // Returns a multicast-safe stream: each subscriber gets the current value
   // immediately, then receives all subsequent controller emissions.
@@ -22,9 +26,10 @@ class GameTurnTimer {
     controller.onCancel = sub.cancel;
   });
   
-  void start(void Function() onExpire) {
+  void start(void Function() onExpire, {int durationSeconds = defaultDurationSeconds}) {
     cancel();
-    _currentSeconds = defaultDurationSeconds;
+    _durationSeconds = durationSeconds;
+    _currentSeconds = durationSeconds;
     _timeRemainingController.add(_currentSeconds);
     
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -43,9 +48,10 @@ class GameTurnTimer {
     _timer = null;
   }
 
-  void reset() {
+  void reset({int durationSeconds = defaultDurationSeconds}) {
     cancel();
-    _currentSeconds = defaultDurationSeconds;
+    _durationSeconds = durationSeconds;
+    _currentSeconds = durationSeconds;
     _timeRemainingController.add(_currentSeconds);
   }
 
