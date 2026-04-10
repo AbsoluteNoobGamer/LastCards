@@ -103,6 +103,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   /// Which modes support the player-count filter (server-written, multi-bracket).
   static const _filterableModes = {
     LeaderboardMode.ranked,
+    LeaderboardMode.rankedHardcore,
     LeaderboardMode.online,
     LeaderboardMode.bustOnline,
   };
@@ -111,6 +112,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   /// only lists online (server-backed) leaderboards.
   static const List<LeaderboardMode> _screenModes = [
     LeaderboardMode.ranked,
+    LeaderboardMode.rankedHardcore,
     LeaderboardMode.online,
     LeaderboardMode.tournamentOnline,
     LeaderboardMode.bustOnline,
@@ -118,10 +120,10 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
 
   // ── Ranked Firestore data ─────────────────────────────────────────────────
 
-  Future<List<_RankedEntry>> _fetchRanked() async {
+  Future<List<_RankedEntry>> _fetchRankedFrom(String collection) async {
     final n = _playerCountFilter;
     final snap = await FirebaseFirestore.instance
-        .collection('ranked_stats')
+        .collection(collection)
         .orderBy('rating', descending: true)
         .limit(50)
         .get();
@@ -377,9 +379,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
 
           // ── Body ─────────────────────────────────────────────────────────
           Expanded(
-            child: _selectedMode == LeaderboardMode.ranked
+            child: (_selectedMode == LeaderboardMode.ranked ||
+                    _selectedMode == LeaderboardMode.rankedHardcore)
                 ? _RankedLeaderboard(
-                    fetchRanked: _fetchRanked,
+                    fetchRanked: () =>
+                        _fetchRankedFrom(collectionForMode(_selectedMode)),
                     findLocalEntry: _findLocalEntry,
                     localRank: _localRank,
                     theme: theme,

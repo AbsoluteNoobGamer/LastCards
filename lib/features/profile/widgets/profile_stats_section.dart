@@ -22,6 +22,7 @@ const _firestoreOnlyCollections = {
   'leaderboard_tournament_online',
   'leaderboard_bust_online',
   'ranked_stats',
+  'ranked_hardcore_stats',
 };
 
 /// Client writes to both [LocalLeaderboardStore] and Firestore; prefer local when

@@ -116,11 +116,15 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     // Connect to the server and send a quickplay matchmaking request.
     final isBust =
         ref.read(tournamentSessionProvider).subMode == GameSubMode.bust;
-    final isRanked =
-        ref.read(onlineSessionProvider).mode == OnlineGameMode.ranked;
+    final onlineMode = ref.read(onlineSessionProvider).mode;
+    final isRankedHardcore = onlineMode == OnlineGameMode.rankedHardcore;
+    final isRanked = onlineMode == OnlineGameMode.ranked || isRankedHardcore;
     final displayName = ref.read(displayNameForGameProvider);
     _connectAndRequestMatch(playerCount,
-        displayName: displayName, isBust: isBust, isRanked: isRanked);
+        displayName: displayName,
+        isBust: isBust,
+        isRanked: isRanked,
+        isRankedHardcore: isRankedHardcore);
   }
 
   void _onQueueUpdate(QuickplayQueueUpdateEvent e) {
@@ -189,6 +193,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     required String displayName,
     bool isBust = false,
     bool isRanked = false,
+    bool isRankedHardcore = false,
   }) async {
     final wsClient = ref.read(wsClientProvider);
     final authService = ref.read(authServiceProvider);
@@ -210,6 +215,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     String? gameMode;
     if (isBust) {
       gameMode = 'bust';
+    } else if (isRankedHardcore) {
+      gameMode = 'ranked_hardcore';
     } else if (isRanked) {
       gameMode = 'ranked';
     }
@@ -354,8 +361,18 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                                               ),
                                             ),
                                             if (session.mode ==
-                                                OnlineGameMode.ranked)
-                                              _RankedMmrDisplay(theme: theme),
+                                                    OnlineGameMode.ranked ||
+                                                session.mode ==
+                                                    OnlineGameMode.rankedHardcore)
+                                              _RankedMmrDisplay(
+                                                theme: theme,
+                                                statsCollection:
+                                                    session.mode ==
+                                                            OnlineGameMode
+                                                                .rankedHardcore
+                                                        ? 'ranked_hardcore_stats'
+                                                        : 'ranked_stats',
+                                              ),
                                             const SizedBox(height: 16),
                                             _AnimatedWaitingIndicator(
                                               rotateController:
@@ -469,9 +486,17 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                                     letterSpacing: 0.5,
                                   ),
                                 ),
-                                if (session.mode == OnlineGameMode.ranked)
+                                if (session.mode == OnlineGameMode.ranked ||
+                                    session.mode ==
+                                        OnlineGameMode.rankedHardcore)
                                   Center(
-                                      child: _RankedMmrDisplay(theme: theme)),
+                                      child: _RankedMmrDisplay(
+                                    theme: theme,
+                                    statsCollection: session.mode ==
+                                            OnlineGameMode.rankedHardcore
+                                        ? 'ranked_hardcore_stats'
+                                        : 'ranked_stats',
+                                  )),
                                 const SizedBox(height: 24),
                                 Center(
                                   child: _AnimatedWaitingIndicator(
@@ -1111,12 +1136,16 @@ class _DotGridPainter extends CustomPainter {
 
 // ── Ranked MMR display ────────────────────────────────────────────────────────
 
-/// Shows current MMR when in ranked mode. Fetches from ranked_stats Firestore.
+/// Shows current MMR when in ranked mode. Fetches from [statsCollection] Firestore.
 /// Defaults to 1000 MMR if no doc exists (trophy_recorder._kInitialRating).
 class _RankedMmrDisplay extends StatefulWidget {
-  const _RankedMmrDisplay({required this.theme});
+  const _RankedMmrDisplay({
+    required this.theme,
+    this.statsCollection = 'ranked_stats',
+  });
 
   final AppThemeData theme;
+  final String statsCollection;
 
   @override
   State<_RankedMmrDisplay> createState() => _RankedMmrDisplayState();
@@ -1132,7 +1161,7 @@ class _RankedMmrDisplayState extends State<_RankedMmrDisplay> {
     if (uid == null) return _defaultMmr;
     try {
       final doc = await FirebaseFirestore.instance
-          .collection('ranked_stats')
+          .collection(widget.statsCollection)
           .doc(uid)
           .get();
       if (!doc.exists) return _defaultMmr;

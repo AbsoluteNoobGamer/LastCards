@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 /// Game mode categories for the leaderboard, aligned with main menu entry points.
 enum LeaderboardMode {
   ranked('Ranked', Icons.emoji_events),
+  rankedHardcore('Ranked (Hardcore)', Icons.whatshot),
   singlePlayer('Single Player', Icons.smart_toy),
   online('Online (Quick Match)', Icons.people),
   tournamentVsAi('Tournament (vs AI)', Icons.shield),
@@ -27,6 +28,8 @@ String collectionForMode(LeaderboardMode mode) {
       return 'leaderboard_tournament_online';
     case LeaderboardMode.ranked:
       return 'ranked_stats';
+    case LeaderboardMode.rankedHardcore:
+      return 'ranked_hardcore_stats';
     case LeaderboardMode.bustOffline:
       return 'leaderboard_bust_offline';
     case LeaderboardMode.bustOnline:

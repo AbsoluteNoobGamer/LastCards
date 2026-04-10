@@ -10,12 +10,16 @@ class TurnTimerBar extends StatefulWidget {
   final Stream<int>? timeRemainingStream;
   final bool isVisible;
 
+  /// Denominator for progress (30 hardcore / 60 default).
+  final int totalDurationSeconds;
+
   /// When true, uses shorter bar height for landscape layout.
   final bool compact;
 
   const TurnTimerBar({
     super.key,
     required this.timeRemainingStream,
+    this.totalDurationSeconds = GameTurnTimer.defaultDurationSeconds,
     this.isVisible = false,
     this.compact = false,
   });
@@ -51,11 +55,15 @@ class _TurnTimerBarState extends State<TurnTimerBar>
 
     return StreamBuilder<int>(
       stream: widget.timeRemainingStream,
-      initialData: GameTurnTimer.defaultDurationSeconds,
+      initialData: widget.totalDurationSeconds > 0
+          ? widget.totalDurationSeconds
+          : GameTurnTimer.defaultDurationSeconds,
       builder: (context, snapshot) {
-        final seconds = snapshot.data ?? GameTurnTimer.defaultDurationSeconds;
-        final progress = (seconds / GameTurnTimer.defaultDurationSeconds)
-            .clamp(0.0, 1.0);
+        final total = widget.totalDurationSeconds > 0
+            ? widget.totalDurationSeconds
+            : GameTurnTimer.defaultDurationSeconds;
+        final seconds = snapshot.data ?? total;
+        final progress = (seconds / total).clamp(0.0, 1.0);
 
         if (seconds <= 10) {
           if (!_urgentCtrl.isAnimating) _urgentCtrl.repeat(reverse: true);

@@ -58,6 +58,7 @@ class _CapturingTrophyPersistence implements TrophyPersistence {
   int? lastRankedPlayerCount;
 
   int leavePenaltyCalls = 0;
+  bool lastRankedHardcore = false;
 
   @override
   void recordRankedResult({
@@ -65,16 +66,20 @@ class _CapturingTrophyPersistence implements TrophyPersistence {
     required List<({String playerId, String uid, String displayName})>
         allPlayerUids,
     int playerCount = 0,
+    bool rankedHardcore = false,
   }) {
     rankedResultCalls++;
+    lastRankedHardcore = rankedHardcore;
     lastRankedWinnerUid = winnerUid;
     lastRankedAllPlayerUids = allPlayerUids;
     lastRankedPlayerCount = playerCount;
   }
 
   @override
-  void recordLeavePenalty(String uid, {required String displayName}) {
+  void recordLeavePenalty(String uid,
+      {required String displayName, bool rankedHardcore = false}) {
     leavePenaltyCalls++;
+    lastRankedHardcore = rankedHardcore;
   }
 
   @override

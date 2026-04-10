@@ -20,10 +20,6 @@ import 'trophy_recorder.dart';
 // Bust mode: 52-card deck; 3+ survivors = 2 turns each per round, eliminate bottom 2;
 // 2 survivors = race to empty hand (no turn-cap round end).
 
-// ── Turn timer duration ───────────────────────────────────────────────────────
-
-const _turnDuration = Duration(seconds: 60);
-
 // ── Connected player ──────────────────────────────────────────────────────────
 
 class _ConnectedPlayer {
@@ -65,6 +61,7 @@ class GameSession {
     this.maxPlayerCount,
     this.isBustMode = false,
     this.isRanked = false,
+    this.isHardcore = false,
     TrophyPersistence? trophyRecorder,
     this.onBecameEmpty,
   }) : _trophyRecorder = trophyRecorder ?? TrophyRecorder.instance;
@@ -83,6 +80,10 @@ class GameSession {
 
   /// True for ranked matchmaking: enables MMR recording via [TrophyPersistence].
   final bool isRanked;
+
+  /// Hardcore rules (stricter plays, 30s turn timer). Used with ranked for
+  /// `ranked_hardcore_stats` and queue `ranked-hardcore-N`.
+  final bool isHardcore;
 
   final TrophyPersistence _trophyRecorder;
   final _log = Logger('GameSession');
@@ -131,6 +132,12 @@ class GameSession {
 
   bool get _trophyEligible =>
       !isPrivate && (maxPlayerCount == null || _wasFullRoster);
+
+  /// Persist to `ranked_hardcore_stats` instead of `ranked_stats`.
+  bool get _rankedHardcoreRecords => isRanked && isHardcore;
+
+  Duration get _turnDuration =>
+      Duration(seconds: isHardcore ? 30 : 60);
 
   // ── Test helpers ───────────────────────────────────────────────────────────
 
@@ -339,7 +346,8 @@ class GameSession {
 
     if (_trophyEligible && isRanked) {
       final uid = firebaseUid ?? playerId;
-      _trophyRecorder.recordLeavePenalty(uid, displayName: displayName);
+      _trophyRecorder.recordLeavePenalty(uid,
+          displayName: displayName, rankedHardcore: _rankedHardcoreRecords);
     }
 
     _drawPile.addAll(continueGame.handForDrawPile);
@@ -373,7 +381,8 @@ class GameSession {
     final trophyPenaltyForLeaver = _trophyEligible;
     if (trophyPenaltyForLeaver && isRanked) {
       final uid = firebaseUid ?? disconnectedPlayerId;
-      _trophyRecorder.recordLeavePenalty(uid, displayName: displayName);
+      _trophyRecorder.recordLeavePenalty(uid,
+          displayName: displayName, rankedHardcore: _rankedHardcoreRecords);
 
       // Also record ranked wins for every player who is still connected.
       // The leaver's penalty is already handled by recordLeavePenalty above;
@@ -395,6 +404,7 @@ class GameSession {
           winnerUid: winnerUid,
           allPlayerUids: remainingUids,
           playerCount: _startingPlayerCount,
+          rankedHardcore: _rankedHardcoreRecords,
         );
       }
     }
@@ -557,6 +567,7 @@ class GameSession {
       direction: PlayDirection.clockwise,
       discardTopCard: discardTop,
       drawPileCount: _drawPile.length,
+      isHardcore: isHardcore,
       // preTurnCentreSuit is set after applyInitialFaceUpEffect below.
     );
 
@@ -586,6 +597,7 @@ class GameSession {
       'roomCode': roomCode,
       'isPrivate': isPrivate,
       'isRanked': isRanked,
+      'isHardcore': isHardcore,
       'trophyEligible': _trophyEligible,
     });
     _broadcastStateSnapshots();
@@ -841,6 +853,15 @@ class GameSession {
     final jokerCard = player.hand.firstWhereOrNull((c) => c.id == jokerCardId);
     if (jokerCard == null) {
       _sendError(playerId, 'invalid_card', 'Joker $jokerCardId not in hand.');
+      return;
+    }
+
+    if (_state.isHardcore && player.hand.length == 1) {
+      _sendError(
+        playerId,
+        'hardcore_joker_last',
+        'Hardcore: cannot play a Joker as your last card.',
+      );
       return;
     }
 
@@ -1332,14 +1353,15 @@ class GameSession {
                   displayName: e.value.displayName,
                 ))
             .toList();
-        _trophyRecorder.recordRankedResult(
-          winnerUid: winnerUid,
-          allPlayerUids: allPlayerUids,
-          playerCount: _players.length,
-        );
-      }
+      _trophyRecorder.recordRankedResult(
+        winnerUid: winnerUid,
+        allPlayerUids: allPlayerUids,
+        playerCount: _players.length,
+        rankedHardcore: _rankedHardcoreRecords,
+      );
+    }
 
-      if (bustTrophyEligible && winnerId != null) {
+    if (bustTrophyEligible && winnerId != null) {
         final bustPlayers = _players.entries
             .map((e) => (
                   playerId: e.key,
@@ -1430,6 +1452,7 @@ class GameSession {
         winnerUid: winnerUid,
         allPlayerUids: allPlayerUids,
         playerCount: _players.length,
+        rankedHardcore: _rankedHardcoreRecords,
       );
     }
 
@@ -1492,6 +1515,7 @@ class GameSession {
       direction: PlayDirection.clockwise,
       discardTopCard: discardTop,
       drawPileCount: _drawPile.length,
+      isHardcore: isHardcore,
     );
     _state = applyInitialFaceUpEffect(state: _state);
     if (_state.activeSkipCount > 0) {
@@ -1713,6 +1737,7 @@ class GameSession {
         winnerUid: winnerUid,
         allPlayerUids: allPlayerUids,
         playerCount: _players.length,
+        rankedHardcore: _rankedHardcoreRecords,
       );
     }
 

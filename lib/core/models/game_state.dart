@@ -86,6 +86,9 @@ class GameState with _$GameState {
     @JsonKey(fromJson: _stringSetFromJson, toJson: _stringSetToJson)
     @Default({})
     Set<String> lastCardsDeclaredBy,
+
+    /// Hardcore rules: cannot win on an Ace or on a Joker; 30s turn timer (online).
+    @Default(false) bool isHardcore,
   }) = _GameState;
 
   factory GameState.fromJson(Map<String, dynamic> json) =>

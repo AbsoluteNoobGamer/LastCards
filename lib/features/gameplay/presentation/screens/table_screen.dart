@@ -863,47 +863,54 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (playTurnSound) {
       game_audio.AudioService.instance.playSound(GameSound.turnStart);
     }
-    // Start the timer BEFORE subscribing so that _currentSeconds is reset to
-    // 60 before Stream.multi delivers the initial snapshot synchronously.
-    _engineTimer.start(() {
-      if (!mounted) return;
-      // Online mode: server handles timeout authoritatively via its own 60s
-      // timer. Just cancel the local timer and let the server's turn_timeout
-      // event drive the behavior.
-      if (ref.read(gameStateProvider) != null) {
-        _engineTimer.cancel();
-        return;
-      }
-      if (widget.isTournamentMode &&
-          _tournamentFinishedPlayerIds
-              .contains(_offlineState.currentPlayerId)) {
-        final nextId = _nextTournamentActivePlayerId(
-          state: _offlineState,
-          startAfterPlayerId: _offlineState.currentPlayerId,
-        );
-        setState(() {
-          _offlineState = _offlineState.copyWith(
-            currentPlayerId: nextId,
-            actionsThisTurn: 0,
-            cardsPlayedThisTurn: 0,
-            lastPlayedThisTurn: null,
-            activeSkipCount: 0,
-            queenSuitLock: null,
-            preTurnCentreSuit: _offlineState.discardTopCard?.effectiveSuit,
-          );
-        });
-        if (nextId != OfflineGameState.localId) {
-          _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
+    final gs = ref.read(gameStateProvider);
+    final secs = gs?.isHardcore == true
+        ? 30
+        : (ref.read(gameNotifierProvider).isHardcoreSession
+            ? 30
+            : GameTurnTimer.defaultDurationSeconds);
+    // Start the timer BEFORE subscribing so Stream.multi delivers a fresh countdown.
+    _engineTimer.start(
+      () {
+        if (!mounted) return;
+        // Online mode: server handles timeout authoritatively. Cancel local timer;
+        // server's turn_timeout drives behavior.
+        if (ref.read(gameStateProvider) != null) {
+          _engineTimer.cancel();
+          return;
         }
-        return;
-      }
-      if (_offlineState.currentPlayerId == OfflineGameState.localId &&
-          !_aiThinking) {
-        // Timeout rule: draw penalty chain (or 1 card), end the turn, pass play.
-        game_audio.AudioService.instance.playSound(GameSound.timerExpired);
-        _forcedTimeoutDrawAndEnd();
-      }
-    });
+        if (widget.isTournamentMode &&
+            _tournamentFinishedPlayerIds
+                .contains(_offlineState.currentPlayerId)) {
+          final nextId = _nextTournamentActivePlayerId(
+            state: _offlineState,
+            startAfterPlayerId: _offlineState.currentPlayerId,
+          );
+          setState(() {
+            _offlineState = _offlineState.copyWith(
+              currentPlayerId: nextId,
+              actionsThisTurn: 0,
+              cardsPlayedThisTurn: 0,
+              lastPlayedThisTurn: null,
+              activeSkipCount: 0,
+              queenSuitLock: null,
+              preTurnCentreSuit: _offlineState.discardTopCard?.effectiveSuit,
+            );
+          });
+          if (nextId != OfflineGameState.localId) {
+            _scheduleAiTurn(nextId, simulate: _tournamentSimulatingRest);
+          }
+          return;
+        }
+        if (_offlineState.currentPlayerId == OfflineGameState.localId &&
+            !_aiThinking) {
+          // Timeout rule: draw penalty chain (or 1 card), end the turn, pass play.
+          game_audio.AudioService.instance.playSound(GameSound.timerExpired);
+          _forcedTimeoutDrawAndEnd();
+        }
+      },
+      durationSeconds: secs,
+    );
     // Subscribe AFTER start() so the synchronous initial value from
     // Stream.multi is the freshly-reset 60, not a stale previous value.
     _timerWarningSub = _engineTimer.timeRemainingStream.listen((secondsLeft) {
@@ -1111,6 +1118,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         ? const <String>{}
         : ref.watch(gameNotifierProvider).socketDisconnectedPlayerIds;
     final gameState = liveState ?? _offlineState;
+    final turnTimerTotalSeconds = gameState.isHardcore
+        ? 30
+        : GameTurnTimer.defaultDurationSeconds;
     final isMyTurn = isOfflineMode
         ? (_offlineState.currentPlayerId == OfflineGameState.localId &&
             !_aiThinking &&
@@ -1474,6 +1484,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             : _onlineDiscardCount,
                         reshuffleNotifier: _reshuffleNotifier,
                         timeRemainingStream: _engineTimer.timeRemainingStream,
+                        turnTimerTotalSeconds: turnTimerTotalSeconds,
                         tournamentStatusBadges: _buildTournamentStatusBadges(),
                         finishedPlayerIds: _tournamentFinishedPlayerIds.toSet(),
                         aiConfigs: {

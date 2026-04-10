@@ -5,7 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 enum OnlineGameMode {
   quickMatch,
   privateGame,
-  ranked;
+  ranked,
+  rankedHardcore;
 
   String get displayName {
     switch (this) {
@@ -15,6 +16,8 @@ enum OnlineGameMode {
         return 'Private Game';
       case OnlineGameMode.ranked:
         return 'Ranked';
+      case OnlineGameMode.rankedHardcore:
+        return 'Ranked (Hardcore)';
     }
   }
 
@@ -26,6 +29,8 @@ enum OnlineGameMode {
         return 'Invite friends with a code';
       case OnlineGameMode.ranked:
         return 'Compete for MMR and climb the ladder';
+      case OnlineGameMode.rankedHardcore:
+        return 'Stricter rules, 30s turns — separate hardcore MMR';
     }
   }
 
@@ -37,6 +42,8 @@ enum OnlineGameMode {
         return '🔒';
       case OnlineGameMode.ranked:
         return '🏆';
+      case OnlineGameMode.rankedHardcore:
+        return '☠️';
     }
   }
 }
