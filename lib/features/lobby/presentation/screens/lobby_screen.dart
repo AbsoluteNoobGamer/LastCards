@@ -138,6 +138,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
     final theme = ref.watch(themeProvider).theme;
 
+    final sectionTitleStyle = GoogleFonts.inter(
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 2.2,
+      color: theme.textSecondary,
+    );
+
     return Scaffold(
       backgroundColor: theme.backgroundDeep,
       body: Stack(
@@ -150,7 +157,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 480),
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(AppDimensions.xl),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppDimensions.xl,
+                    vertical: AppDimensions.lg,
+                  ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -158,97 +168,203 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       Text(
                         'LAST CARDS',
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.playfairDisplay(
-                          fontSize: 36,
+                        style: gameTitleTextStyle(
+                          theme,
+                          fontSize: 34,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 2,
                           color: theme.accentPrimary,
+                          shadows: [
+                            Shadow(
+                              color: theme.surfaceDark.withValues(alpha: 0.85),
+                              offset: const Offset(0, 2),
+                              blurRadius: 8,
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: AppDimensions.xs),
+                      const SizedBox(height: AppDimensions.sm),
                       Text(
                         'Premium Competitive Card Game',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w400,
-                          letterSpacing: 0.2,
+                          letterSpacing: 0.35,
                           color: theme.textSecondary,
                         ),
                       ),
 
                       const SizedBox(height: AppDimensions.xxl),
 
-                      // Room code
-                      _GoldTextField(
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text('JOIN OR CREATE', style: sectionTitleStyle),
+                      ),
+                      const SizedBox(height: AppDimensions.sm),
+                      _LobbySectionCard(
                         theme: theme,
-                        controller: _codeController,
-                        label: 'Room Code',
-                        hintText: 'e.g. XKCD-42',
-                        textCapitalization: TextCapitalization.characters,
-                      ),
-
-                      const SizedBox(height: AppDimensions.lg),
-
-                      // Join / Create
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: _onJoin,
-                              child: const Text('JOIN ROOM'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _GoldTextField(
+                              theme: theme,
+                              controller: _codeController,
+                              label: 'Room Code',
+                              hintText: 'e.g. XKCD-42',
+                              textCapitalization: TextCapitalization.characters,
                             ),
-                          ),
-                          const SizedBox(width: AppDimensions.md),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _onCreate,
-                              child: const Text('CREATE ROOM'),
+                            const SizedBox(height: AppDimensions.lg),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: _onJoin,
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: theme.accentPrimary,
+                                      side: BorderSide(
+                                        color: theme.accentPrimary
+                                            .withValues(alpha: 0.85),
+                                      ),
+                                      minimumSize: const Size(
+                                        0,
+                                        AppDimensions.minTouchTarget,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                          AppDimensions.radiusModal,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'JOIN ROOM',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.6,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: AppDimensions.md),
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: _onCreate,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: theme.accentPrimary,
+                                      foregroundColor: theme.backgroundDeep,
+                                      elevation: 0,
+                                      minimumSize: const Size(
+                                        0,
+                                        AppDimensions.minTouchTarget,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                          AppDimensions.radiusModal,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'CREATE ROOM',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.6,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: AppDimensions.xxl),
-                      _Divider(theme: theme),
-                      const SizedBox(height: AppDimensions.lg),
-
-                      // Room code display (after create)
-                      if (_roomCode != null) ...[
-                        _RoomCodeCard(
-                          roomCode: _roomCode!,
-                          theme: theme,
+                          ],
                         ),
-                        const SizedBox(height: AppDimensions.lg),
-                      ],
-
-                      // Lobby player list (server events; vacant rows before others join)
-                      _LobbyPlayerList(
-                        localPlayerId: _localPlayerId,
-                        localIsReady: _isReady,
-                        playerReady: _playerReady,
-                        theme: theme,
-                        players: _lobbyPlayers,
-                        pendingJoin: _pendingJoin,
                       ),
 
-                      const SizedBox(height: AppDimensions.lg),
+                      const SizedBox(height: AppDimensions.xl),
 
-                      // Ready toggle
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _toggleReady,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _isReady
-                                ? theme.secondaryAccent
-                                : theme.accentPrimary,
-                          ),
-                          child: Text(_isReady ? 'NOT READY' : 'READY'),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text('LOBBY', style: sectionTitleStyle),
+                      ),
+                      const SizedBox(height: AppDimensions.sm),
+                      _LobbySectionCard(
+                        theme: theme,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (_roomCode != null) ...[
+                              _RoomCodeCard(
+                                roomCode: _roomCode!,
+                                theme: theme,
+                              ),
+                              const SizedBox(height: AppDimensions.lg),
+                            ],
+                            _LobbyPlayerList(
+                              localPlayerId: _localPlayerId,
+                              localIsReady: _isReady,
+                              playerReady: _playerReady,
+                              theme: theme,
+                              players: _lobbyPlayers,
+                              pendingJoin: _pendingJoin,
+                            ),
+                            const SizedBox(height: AppDimensions.lg),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _toggleReady,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _isReady
+                                      ? theme.secondaryAccent
+                                      : theme.accentPrimary,
+                                  foregroundColor: _isReady
+                                      ? theme.textPrimary
+                                      : theme.backgroundDeep,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: AppDimensions.md,
+                                  ),
+                                  minimumSize: const Size(
+                                    0,
+                                    AppDimensions.minTouchTarget + 2,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(
+                                      AppDimensions.radiusModal,
+                                    ),
+                                  ),
+                                ),
+                                child: Text(
+                                  _isReady ? 'NOT READY' : 'READY',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
+                ),
+              ),
+            ),
+          ),
+
+          // Above scroll content so it stays tappable
+          Positioned(
+            top: 0,
+            left: 0,
+            child: SafeArea(
+              child: IconButton(
+                tooltip: 'Back',
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: Icon(
+                  Icons.arrow_back_rounded,
+                  color: theme.accentPrimary,
+                  size: 26,
                 ),
               ),
             ),
@@ -384,6 +500,40 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
 // ── Supporting widgets ────────────────────────────────────────────────────────
 
+/// Felt panel with border and shadow — lobby-only chrome.
+class _LobbySectionCard extends StatelessWidget {
+  const _LobbySectionCard({
+    required this.theme,
+    required this.child,
+  });
+
+  final AppThemeData theme;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppDimensions.lg),
+      decoration: BoxDecoration(
+        color: theme.surfacePanel,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusModal),
+        border: Border.all(
+          color: theme.accentDark.withValues(alpha: 0.55),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.surfaceDark.withValues(alpha: 0.72),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
 class _GoldTextField extends StatelessWidget {
   const _GoldTextField({
     required this.theme,
@@ -436,42 +586,15 @@ class _GoldTextField extends StatelessWidget {
               vertical: AppDimensions.sm + 4,
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppDimensions.radiusButton),
+              borderRadius: BorderRadius.circular(AppDimensions.radiusModal),
               borderSide: BorderSide(color: theme.accentDark),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppDimensions.radiusButton),
+              borderRadius: BorderRadius.circular(AppDimensions.radiusModal),
               borderSide: BorderSide(color: theme.accentPrimary, width: 1.5),
             ),
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _Divider extends StatelessWidget {
-  const _Divider({required this.theme});
-
-  final AppThemeData theme;
-
-  @override
-  Widget build(BuildContext context) {
-    final labelStyle = GoogleFonts.inter(
-      fontSize: 12,
-      fontWeight: FontWeight.w400,
-      letterSpacing: 0.2,
-      color: theme.textSecondary,
-    );
-
-    return Row(
-      children: [
-        Expanded(child: Divider(color: theme.accentDark, thickness: 0.5)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppDimensions.md),
-          child: Text('LOBBY', style: labelStyle),
-        ),
-        Expanded(child: Divider(color: theme.accentDark, thickness: 0.5)),
       ],
     );
   }
@@ -496,8 +619,10 @@ class _RoomCodeCard extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: theme.backgroundMid,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusButton),
-        border: Border.all(color: theme.accentDark),
+        borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
+        border: Border.all(
+          color: theme.accentDark.withValues(alpha: 0.75),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -585,26 +710,47 @@ class _LobbyPlayerList extends StatelessWidget {
                 theme: theme),
           ];
 
-    return Column(
-      children: [
-        if (pendingJoin)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppDimensions.sm),
-            child: Text(
-              'Joining room...',
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                color: theme.textSecondary,
-                fontStyle: FontStyle.italic,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimensions.sm,
+        vertical: AppDimensions.xs,
+      ),
+      decoration: BoxDecoration(
+        color: Color.lerp(theme.surfacePanel, theme.backgroundDeep, 0.38)!,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
+        border: Border.all(
+          color: theme.accentDark.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Column(
+        children: [
+          if (pendingJoin)
+            Padding(
+              padding: const EdgeInsets.only(
+                top: AppDimensions.sm,
+                bottom: AppDimensions.sm,
+              ),
+              child: Text(
+                'Joining room...',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: theme.textSecondary,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ),
-          ),
-        for (int i = 0; i < list.length; i++) ...[
-          list[i],
-          if (i < list.length - 1)
-            Divider(height: 1, color: theme.accentDark, thickness: 0.3),
+          for (int i = 0; i < list.length; i++) ...[
+            list[i],
+            if (i < list.length - 1)
+              Divider(
+                height: 1,
+                color: theme.accentDark.withValues(alpha: 0.45),
+                thickness: 0.5,
+              ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -618,34 +764,68 @@ class _FeltBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _LobbyFeltPainter(
-        backgroundDeep: theme.backgroundDeep,
-        backgroundMid: theme.backgroundMid,
-      ),
-    );
+    return CustomPaint(painter: _LobbyFeltPainter(theme: theme));
   }
 }
 
+/// Full-screen lobby backdrop driven by [AppThemeData] — gradients and texture
+/// use each preset's surfaces and accents (not only the default green felt).
 class _LobbyFeltPainter extends CustomPainter {
-  const _LobbyFeltPainter({
-    required this.backgroundDeep,
-    required this.backgroundMid,
-  });
+  const _LobbyFeltPainter({required this.theme});
 
-  final Color backgroundDeep;
-  final Color backgroundMid;
+  final AppThemeData theme;
 
   @override
   void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+
+    // Base diagonal depth: backgroundDeep → surfacePanel → dark/mid blend
+    final baseGradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        theme.backgroundDeep,
+        Color.lerp(theme.backgroundDeep, theme.surfacePanel, 0.42)!,
+        Color.lerp(theme.surfaceDark, theme.backgroundMid, 0.38)!,
+      ],
+      stops: const [0.0, 0.52, 1.0],
+    );
+    canvas.drawRect(rect, Paint()..shader = baseGradient.createShader(rect));
+
+    // Soft upper accent bloom (gold / silver / sapphire per theme)
     canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = backgroundDeep,
+      rect,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(0, -0.52),
+          radius: 1.08,
+          colors: [
+            theme.accentPrimary.withValues(alpha: 0.088),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.58],
+        ).createShader(rect),
     );
 
-    // Subtle dot-grid micro-texture
+    // Vertical wash using theme mid-tone
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            theme.backgroundMid.withValues(alpha: 0.15),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.48],
+        ).createShader(rect),
+    );
+
+    // Dot texture: blend accentDark with felt mid so hue tracks the preset
+    final dotBase = Color.lerp(theme.accentDark, theme.backgroundMid, 0.52)!;
     final dotPaint = Paint()
-      ..color = backgroundMid.withValues(alpha: 0.07)
+      ..color = dotBase.withValues(alpha: 0.088)
       ..style = PaintingStyle.fill;
     for (double x = 0; x < size.width; x += 4) {
       for (double y = 0; y < size.height; y += 4) {
@@ -655,25 +835,26 @@ class _LobbyFeltPainter extends CustomPainter {
       }
     }
 
-    // Vignette
+    // Vignette: darken toward theme-hued edge (avoids flat neutral black)
+    final vignetteEdge =
+        Color.lerp(theme.backgroundDeep, Colors.black, 0.44)!;
     canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
+      rect,
       Paint()
         ..shader = RadialGradient(
           center: Alignment.center,
           radius: 1.0,
-          colors: [Colors.transparent, Colors.black.withValues(alpha: 0.5)],
-          stops: const [0.4, 1.0],
-        ).createShader(
-          Rect.fromLTWH(0, 0, size.width, size.height),
-        ),
+          colors: [
+            Colors.transparent,
+            vignetteEdge.withValues(alpha: 0.58),
+          ],
+          stops: const [0.38, 1.0],
+        ).createShader(rect),
     );
   }
 
   @override
-  bool shouldRepaint(_LobbyFeltPainter old) =>
-      old.backgroundDeep != backgroundDeep ||
-      old.backgroundMid != backgroundMid;
+  bool shouldRepaint(covariant _LobbyFeltPainter old) => old.theme.id != theme.id;
 }
 
 class _PlayerEntry extends StatelessWidget {
@@ -689,15 +870,19 @@ class _PlayerEntry extends StatelessWidget {
   final bool isVacantSeat;
   final AppThemeData theme;
 
-  // Semantic status green — not a brand colour, kept as constant.
-  static const Color _readyGreen = Color(0xFF27AE60);
+  /// Ready/readability green, lightly mixed with the theme accent highlight.
+  Color get _readyTint => Color.lerp(
+        const Color(0xFF27AE60),
+        theme.accentLight,
+        0.14,
+      )!;
 
   @override
   Widget build(BuildContext context) {
     final dotColor = isVacantSeat
         ? theme.accentDark
         : isReady
-            ? _readyGreen
+            ? _readyTint
             : theme.accentPrimary;
 
     final nameStyle = GoogleFonts.inter(
@@ -711,7 +896,7 @@ class _PlayerEntry extends StatelessWidget {
       fontSize: 12,
       fontWeight: FontWeight.w400,
       letterSpacing: 0.2,
-      color: isReady ? _readyGreen : theme.suitRed,
+      color: isReady ? _readyTint : theme.suitRed,
     );
 
     return Padding(
