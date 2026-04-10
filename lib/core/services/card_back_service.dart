@@ -116,9 +116,10 @@ class CardBackService {
 
     final covers = cardBackCoverDesigns.value;
     final animatedGifs = animatedGifDesigns.value;
+    final currentLevel = PlayerLevelService.instance.currentLevel.value;
     final isValidSelected = _unlocked.contains(selected) ||
         covers.any((d) => d.id == selected) ||
-        animatedGifs.any((d) => d.id == selected);
+        animatedGifs.any((d) => d.id == selected && currentLevel >= d.unlockLevel);
     if (isValidSelected) {
       selectedDesignId.value = selected;
     } else {
@@ -131,7 +132,6 @@ class CardBackService {
     final jokerSelected =
         prefs.getString(_prefsJokerCoverKey) ?? defaultJokerId;
     final jokerCovers = jokerCoverDesigns.value;
-    final currentLevel = PlayerLevelService.instance.currentLevel.value;
 
     CardBackDesign? selectedDesign;
     if (jokerSelected != 'classic') {

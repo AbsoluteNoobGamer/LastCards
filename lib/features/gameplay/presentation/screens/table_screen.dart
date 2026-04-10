@@ -3293,7 +3293,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         specialsPlayed: _matchSpecialsPlayed[p.id] ?? 0,
       ));
     }
-    stats.sort((a, b) => b.isLocal ? 1 : -1);
+    stats.sort((a, b) => a.isLocal ? -1 : (b.isLocal ? 1 : 0));
     return stats;
   }
 

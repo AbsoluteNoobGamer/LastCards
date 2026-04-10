@@ -854,9 +854,10 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
 
     final hasPlayable = aiHasPlayableTurn(
         state: _gameState, aiPlayerId: aiId);
+    final diffMult = widget.aiDifficulty.delayMultiplier;
     final delayMs = hasPlayable
-        ? (1000 + _aiDelayRng.nextInt(900))
-        : 800;
+        ? ((1000 + _aiDelayRng.nextInt(900)) * diffMult).round()
+        : (800 * diffMult).round();
 
     await Future.delayed(Duration(milliseconds: delayMs));
     if (!mounted) return;
@@ -879,6 +880,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       aiPlayerId: aiId,
       cardFactory: _makeCards,
       personality: aiConfig?.personality,
+      difficulty: widget.aiDifficulty,
     );
     _checkPlacementPileRule();
 
