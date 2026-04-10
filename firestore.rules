@@ -29,6 +29,10 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow write: if false;
     }
+    match /ranked_hardcore_stats/{uid} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
     match /leaderboard_single_player/{uid} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == uid;
