@@ -52,6 +52,7 @@ import '../../../../features/bust/models/bust_player_view_model.dart';
 import '../../../../features/bust/widgets/bust_player_rail.dart';
 import '../../../../features/leaderboard/data/leaderboard_stats_writer.dart';
 import '../../../../features/tournament/providers/tournament_session_provider.dart';
+import '../../../../features/social/widgets/other_player_profile_sheet.dart';
 import '../../../../core/widgets/themed_shimmer.dart';
 
 part 'table_screen_background.dart';
@@ -1511,6 +1512,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                           setState(() => _penaltyFlashTrigger++);
                         },
                         skipHighlightPlayerIds: _skipHighlightPlayerIds,
+                        onOpponentProfileTap: isOfflineMode
+                            ? null
+                            : _showOpponentProfileSheet,
                       ),
                     ),
                   ],
@@ -3427,6 +3431,20 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     Future.delayed(const Duration(milliseconds: 2500), () {
       if (mounted) setState(() => _lastCardsBluffBannerText = null);
     });
+  }
+
+  void _showOpponentProfileSheet(PlayerModel player) {
+    final uid = player.firebaseUid;
+    if (uid == null || uid.isEmpty) return;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => OtherPlayerProfileSheet(
+        firebaseUid: uid,
+        fallbackDisplayName: player.displayName,
+      ),
+    );
   }
 
   void _onDeclareLastCards() {

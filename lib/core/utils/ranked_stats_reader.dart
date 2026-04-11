@@ -14,9 +14,17 @@ typedef RankedStatsSnapshot = ({
 Future<RankedStatsSnapshot?> fetchRankedStatsForCurrentUser() async {
   final uid = FirebaseAuth.instance.currentUser?.uid;
   if (uid == null) return null;
+  return fetchRankedStatsForUid(uid);
+}
+
+/// Ranked stats for any user (same collection the server writes).
+Future<RankedStatsSnapshot?> fetchRankedStatsForUid(String uid) async {
+  if (uid.isEmpty) return null;
   try {
-    final doc =
-        await FirebaseFirestore.instance.collection('ranked_stats').doc(uid).get();
+    final doc = await FirebaseFirestore.instance
+        .collection('ranked_stats')
+        .doc(uid)
+        .get();
     if (!doc.exists) return null;
     final d = doc.data() ?? <String, dynamic>{};
     int toInt(Object? v, int def) => v is num ? v.toInt() : def;

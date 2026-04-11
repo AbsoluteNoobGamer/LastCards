@@ -39,6 +39,10 @@ class PlayerModel with _$PlayerModel {
     /// Set when this player's turn begins: their hand could be emptied in one
     /// legal turn (Last Cards rule). Server-authoritative for online opponents.
     @Default(false) bool lastCardsHandWasClearableAtTurnStart,
+
+    /// Firebase Auth uid when the player joined online with a token; used for
+    /// profile / friends. Omitted for offline AI and guests without auth.
+    String? firebaseUid,
   }) = _PlayerModel;
 
   factory PlayerModel.fromJson(Map<String, dynamic> json) =>

@@ -36,6 +36,10 @@ mixin _$PlayerModel {
   bool get lastCardsHandWasClearableAtTurnStart =>
       throw _privateConstructorUsedError;
 
+  /// Firebase Auth uid when the player joined online with a token; used for
+  /// profile / friends. Omitted for offline AI and guests without auth.
+  String? get firebaseUid => throw _privateConstructorUsedError;
+
   /// Serializes this PlayerModel to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
 
@@ -58,7 +62,8 @@ abstract class $PlayerModelCopyWith<$Res> {
       TablePosition tablePosition,
       List<CardModel> hand,
       int cardCount,
-      bool lastCardsHandWasClearableAtTurnStart});
+      bool lastCardsHandWasClearableAtTurnStart,
+      String? firebaseUid});
 }
 
 /// @nodoc
@@ -82,6 +87,7 @@ class _$PlayerModelCopyWithImpl<$Res, $Val extends PlayerModel>
     Object? hand = null,
     Object? cardCount = null,
     Object? lastCardsHandWasClearableAtTurnStart = null,
+    Object? firebaseUid = freezed,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -109,6 +115,10 @@ class _$PlayerModelCopyWithImpl<$Res, $Val extends PlayerModel>
           ? _value.lastCardsHandWasClearableAtTurnStart
           : lastCardsHandWasClearableAtTurnStart // ignore: cast_nullable_to_non_nullable
               as bool,
+      firebaseUid: freezed == firebaseUid
+          ? _value.firebaseUid
+          : firebaseUid // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -127,7 +137,8 @@ abstract class _$$PlayerModelImplCopyWith<$Res>
       TablePosition tablePosition,
       List<CardModel> hand,
       int cardCount,
-      bool lastCardsHandWasClearableAtTurnStart});
+      bool lastCardsHandWasClearableAtTurnStart,
+      String? firebaseUid});
 }
 
 /// @nodoc
@@ -149,6 +160,7 @@ class __$$PlayerModelImplCopyWithImpl<$Res>
     Object? hand = null,
     Object? cardCount = null,
     Object? lastCardsHandWasClearableAtTurnStart = null,
+    Object? firebaseUid = freezed,
   }) {
     return _then(_$PlayerModelImpl(
       id: null == id
@@ -176,6 +188,10 @@ class __$$PlayerModelImplCopyWithImpl<$Res>
           ? _value.lastCardsHandWasClearableAtTurnStart
           : lastCardsHandWasClearableAtTurnStart // ignore: cast_nullable_to_non_nullable
               as bool,
+      firebaseUid: freezed == firebaseUid
+          ? _value.firebaseUid
+          : firebaseUid // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -189,7 +205,8 @@ class _$PlayerModelImpl implements _PlayerModel {
       required this.tablePosition,
       final List<CardModel> hand = const [],
       this.cardCount = 0,
-      this.lastCardsHandWasClearableAtTurnStart = false})
+      this.lastCardsHandWasClearableAtTurnStart = false,
+      this.firebaseUid})
       : _hand = hand;
 
   factory _$PlayerModelImpl.fromJson(Map<String, dynamic> json) =>
@@ -227,9 +244,14 @@ class _$PlayerModelImpl implements _PlayerModel {
   @JsonKey()
   final bool lastCardsHandWasClearableAtTurnStart;
 
+  /// Firebase Auth uid when the player joined online with a token; used for
+  /// profile / friends. Omitted for offline AI and guests without auth.
+  @override
+  final String? firebaseUid;
+
   @override
   String toString() {
-    return 'PlayerModel(id: $id, displayName: $displayName, tablePosition: $tablePosition, hand: $hand, cardCount: $cardCount, lastCardsHandWasClearableAtTurnStart: $lastCardsHandWasClearableAtTurnStart)';
+    return 'PlayerModel(id: $id, displayName: $displayName, tablePosition: $tablePosition, hand: $hand, cardCount: $cardCount, lastCardsHandWasClearableAtTurnStart: $lastCardsHandWasClearableAtTurnStart, firebaseUid: $firebaseUid)';
   }
 
   @override
@@ -248,7 +270,9 @@ class _$PlayerModelImpl implements _PlayerModel {
             (identical(other.lastCardsHandWasClearableAtTurnStart,
                     lastCardsHandWasClearableAtTurnStart) ||
                 other.lastCardsHandWasClearableAtTurnStart ==
-                    lastCardsHandWasClearableAtTurnStart));
+                    lastCardsHandWasClearableAtTurnStart) &&
+            (identical(other.firebaseUid, firebaseUid) ||
+                other.firebaseUid == firebaseUid));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -260,7 +284,8 @@ class _$PlayerModelImpl implements _PlayerModel {
       tablePosition,
       const DeepCollectionEquality().hash(_hand),
       cardCount,
-      lastCardsHandWasClearableAtTurnStart);
+      lastCardsHandWasClearableAtTurnStart,
+      firebaseUid);
 
   /// Create a copy of PlayerModel
   /// with the given fields replaced by the non-null parameter values.
@@ -285,7 +310,8 @@ abstract class _PlayerModel implements PlayerModel {
       required final TablePosition tablePosition,
       final List<CardModel> hand,
       final int cardCount,
-      final bool lastCardsHandWasClearableAtTurnStart}) = _$PlayerModelImpl;
+      final bool lastCardsHandWasClearableAtTurnStart,
+      final String? firebaseUid}) = _$PlayerModelImpl;
 
   factory _PlayerModel.fromJson(Map<String, dynamic> json) =
       _$PlayerModelImpl.fromJson;
@@ -310,6 +336,11 @@ abstract class _PlayerModel implements PlayerModel {
   /// legal turn (Last Cards rule). Server-authoritative for online opponents.
   @override
   bool get lastCardsHandWasClearableAtTurnStart;
+
+  /// Firebase Auth uid when the player joined online with a token; used for
+  /// profile / friends. Omitted for offline AI and guests without auth.
+  @override
+  String? get firebaseUid;
 
   /// Create a copy of PlayerModel
   /// with the given fields replaced by the non-null parameter values.

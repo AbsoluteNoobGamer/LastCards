@@ -48,6 +48,7 @@ class PlayerZoneWidget extends ConsumerWidget {
     this.onRemoveQuickChatBubble,
     this.isAiThinking = false,
     this.skipSeatHighlight = false,
+    this.onOpponentAvatarTap,
   });
 
   final PlayerModel player;
@@ -79,6 +80,9 @@ class PlayerZoneWidget extends ConsumerWidget {
   /// Callback to remove a bubble by id.
   final void Function(String id)? onRemoveQuickChatBubble;
 
+  /// Opponent seats only: tap avatar (e.g. online profile / add friend).
+  final VoidCallback? onOpponentAvatarTap;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final appTheme = ref.watch(themeProvider).theme;
@@ -109,6 +113,7 @@ class PlayerZoneWidget extends ConsumerWidget {
           aiConfig: aiConfig,
           chatBubble: chatBubble,
           onRemoveQuickChatBubble: onRemoveQuickChatBubble,
+          onAvatarTap: onOpponentAvatarTap,
         ),
       );
     }
@@ -256,6 +261,7 @@ class _OpponentAvatarZone extends StatelessWidget {
     this.aiConfig,
     this.chatBubble,
     this.onRemoveQuickChatBubble,
+    this.onAvatarTap,
   });
 
   final PlayerModel player;
@@ -268,6 +274,7 @@ class _OpponentAvatarZone extends StatelessWidget {
   final AiPlayerConfig? aiConfig;
   final QuickChatBubbleData? chatBubble;
   final void Function(String id)? onRemoveQuickChatBubble;
+  final VoidCallback? onAvatarTap;
 
   @override
   Widget build(BuildContext context) {
@@ -311,7 +318,7 @@ class _OpponentAvatarZone extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(36),
-        onTap: () {},
+        onTap: onAvatarTap ?? () {},
         child: ConstrainedBox(
           constraints: const BoxConstraints(
             minWidth: AppDimensions.minTouchTarget,

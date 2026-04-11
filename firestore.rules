@@ -7,12 +7,10 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // User profiles: self read/write only. Final document may only contain
-    // fields set by FirestoreProfileService (displayName, avatarUrl, timestamps).
-    // Using keys() instead of writeFields: writeFields can be null in some
-    // emulator/client paths and triggers a rules evaluation error.
+    // User profiles: owner writes (displayName, avatarUrl); any signed-in user
+    // can read public fields (for friends / in-game profile sheets).
     match /users/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null;
 
       allow create, update: if request.auth != null
         && request.auth.uid == uid
@@ -22,6 +20,50 @@ service cloud.firestore {
           'updatedAt',
           'profileLastChangedAt',
         ]);
+    }
+
+    // Accepted friendships (each user has a doc per friend).
+    // Create only when a pending incoming request exists (accept flow), so
+    // users cannot self-add under another user's friends without consent.
+    match /users/{uid}/friends/{friendUid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && (
+        (
+          request.auth.uid == uid
+          && exists(/databases/$(database)/documents/users/$(uid)/incomingFriendRequests/$(friendUid))
+        )
+        || (
+          request.auth.uid == friendUid
+          && exists(/databases/$(database)/documents/users/$(friendUid)/incomingFriendRequests/$(uid))
+        )
+      );
+      allow delete: if request.auth != null
+        && (request.auth.uid == uid || request.auth.uid == friendUid);
+    }
+
+    // Incoming friend request: only [fromUid] may create; recipient or sender may delete.
+    match /users/{uid}/incomingFriendRequests/{fromUid} {
+      allow create: if request.auth != null && request.auth.uid == fromUid;
+      allow read: if request.auth != null
+        && (request.auth.uid == uid || request.auth.uid == fromUid);
+      allow delete: if request.auth != null
+        && (request.auth.uid == uid || request.auth.uid == fromUid);
+    }
+
+    // In-app room invites (recipient sees list; host creates with their uid).
+    match /users/{uid}/gameInvites/{inviteId} {
+      allow create: if request.auth != null
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'fromUid',
+          'fromDisplayName',
+          'roomCode',
+          'createdAt',
+        ]);
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow delete: if request.auth != null
+        && (request.auth.uid == uid
+          || resource.data.fromUid == request.auth.uid);
     }
 
     // Leaderboards: allow authenticated reads, only server can write.

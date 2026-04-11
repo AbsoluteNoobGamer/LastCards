@@ -11,6 +11,8 @@ import 'package:share_plus/share_plus.dart';
 import '../../../../core/models/game_event.dart';
 import '../../../../core/models/game_state.dart';
 import '../../../../core/models/player_model.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/connection_provider.dart';
 import '../../../../core/network/websocket_client.dart';
@@ -20,6 +22,7 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../gameplay/presentation/screens/table_screen.dart';
+import '../../../social/widgets/invite_friends_sheet.dart';
 
 enum OnlineMode { standard, tournament }
 
@@ -48,10 +51,18 @@ int _playerNumber(String playerId) {
 class LobbyScreen extends ConsumerStatefulWidget {
   const LobbyScreen({
     this.onlineMode = OnlineMode.standard,
+    this.initialRoomCodeToJoin,
+    this.pendingGameInviteDocIdToDismiss,
     super.key,
   });
 
   final OnlineMode onlineMode;
+
+  /// When set (e.g. from a friend invite), fills the code and attempts [join_room].
+  final String? initialRoomCodeToJoin;
+
+  /// Remove this Firestore invite doc after a successful join (`users/me/gameInvites/id`).
+  final String? pendingGameInviteDocIdToDismiss;
 
   @override
   ConsumerState<LobbyScreen> createState() => _LobbyScreenState();
@@ -95,6 +106,15 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         _enterSelectedMode(totalPlayers: e.gameState.players.length);
       }
     });
+    final joinCode = widget.initialRoomCodeToJoin?.trim();
+    if (joinCode != null && joinCode.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _codeController.text = joinCode.toUpperCase();
+        unawaited(_onJoin());
+      });
+    }
+
     _lobbyEventsSub = handler.events.listen((e) {
       if (!mounted) return;
       if (e is ErrorEvent) {
@@ -130,6 +150,18 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
           _roomCode = e.roomCode;
           _codeController.text = e.roomCode;
         });
+        final pending = widget.pendingGameInviteDocIdToDismiss;
+        final uid = ref.read(authStateProvider).value?.uid;
+        if (pending != null && uid != null) {
+          unawaited(
+            FirebaseFirestore.instance
+                .collection('users')
+                .doc(uid)
+                .collection('gameInvites')
+                .doc(pending)
+                .delete(),
+          );
+        }
         return;
       }
       if (e is PlayerReadyEvent) {
@@ -335,37 +367,78 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                 theme: theme,
                               ),
                               const SizedBox(height: AppDimensions.md),
-                              OutlinedButton.icon(
-                                onPressed: _onInviteFriends,
-                                icon: Icon(
-                                  Icons.share_rounded,
-                                  color: theme.accentPrimary,
-                                  size: 20,
-                                ),
-                                label: Text(
-                                  'INVITE',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.6,
-                                  ),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: theme.accentPrimary,
-                                  side: BorderSide(
-                                    color: theme.accentPrimary
-                                        .withValues(alpha: 0.85),
-                                  ),
-                                  minimumSize: const Size(
-                                    0,
-                                    AppDimensions.minTouchTarget,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(
-                                      AppDimensions.radiusModal,
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: _onInviteFriends,
+                                      icon: Icon(
+                                        Icons.share_rounded,
+                                        color: theme.accentPrimary,
+                                        size: 20,
+                                      ),
+                                      label: Text(
+                                        'SHARE CODE',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.6,
+                                        ),
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: theme.accentPrimary,
+                                        side: BorderSide(
+                                          color: theme.accentPrimary
+                                              .withValues(alpha: 0.85),
+                                        ),
+                                        minimumSize: const Size(
+                                          0,
+                                          AppDimensions.minTouchTarget,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            AppDimensions.radiusModal,
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
+                                  const SizedBox(width: AppDimensions.md),
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: _onInviteFriendsInApp,
+                                      icon: Icon(
+                                        Icons.group_add_rounded,
+                                        color: theme.accentPrimary,
+                                        size: 20,
+                                      ),
+                                      label: Text(
+                                        'FRIENDS',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.6,
+                                        ),
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: theme.accentPrimary,
+                                        side: BorderSide(
+                                          color: theme.accentPrimary
+                                              .withValues(alpha: 0.85),
+                                        ),
+                                        minimumSize: const Size(
+                                          0,
+                                          AppDimensions.minTouchTarget,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            AppDimensions.radiusModal,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: AppDimensions.lg),
                             ],
@@ -604,6 +677,24 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       ShareParams(
         text: text,
         subject: 'Last Cards — room $code',
+      ),
+    );
+  }
+
+  Future<void> _onInviteFriendsInApp() async {
+    final code = _roomCode;
+    if (code == null) return;
+    final theme = ref.read(themeProvider).theme;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: theme.backgroundDeep,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => InviteFriendsSheet(
+        roomCode: code,
+        onInvited: () {},
       ),
     );
   }
