@@ -195,7 +195,54 @@ class _OtherPlayerProfileSheetState
                 child: Center(child: CircularProgressIndicator()),
               );
             }
-            final data = snap.data!;
+            if (snap.hasError) {
+              return Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.error_outline_rounded,
+                      color: theme.accentPrimary,
+                      size: 40,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Could not load profile',
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: theme.textPrimary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${snap.error}',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: theme.textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              );
+            }
+            final data = snap.data;
+            if (data == null) {
+              return Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'Could not load profile.',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: theme.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              );
+            }
             final name = data.profile?.displayName.trim().isNotEmpty == true
                 ? data.profile!.displayName
                 : widget.fallbackDisplayName;
