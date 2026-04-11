@@ -127,6 +127,13 @@ void main() {
       expect(joined, isNotNull);
       expect(joined!['roomCode'], code);
       expect(joined['isPrivate'], isTrue);
+
+      // Roster replay so the guest learns about players who joined earlier.
+      final rosterIds = guest.messages
+          .where((m) => m['type'] == 'player_joined')
+          .map((m) => (m['player'] as Map<String, dynamic>)['id'] as String)
+          .toSet();
+      expect(rosterIds, containsAll(['player-1', 'player-2']));
     });
 
     test('quickplay sends queue update after each player joins queue', () async {

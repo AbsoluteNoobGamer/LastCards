@@ -208,6 +208,8 @@ class RoomManager {
     _playerRooms[ws] = code;
     _playerIds[ws] = playerId;
 
+    session.sendPlayerRosterTo(ws);
+
     ws.sink.add(jsonEncode({
       'type': 'room_joined',
       'roomCode': code,
