@@ -513,6 +513,50 @@ class GameSession {
     }
   }
 
+  /// Private lobbies: lowest-numbered `player-N` id (first joiner still present)
+  /// is the host and may call [startGameFromHost].
+  String? get hostPlayerIdForPrivateLobby {
+    String? bestId;
+    int? bestN;
+    for (final id in _players.keys) {
+      final match = RegExp(r'^player-(\d+)$').firstMatch(id);
+      if (match == null) continue;
+      final n = int.parse(match.group(1)!);
+      if (bestN == null || n < bestN) {
+        bestN = n;
+        bestId = id;
+      }
+    }
+    return bestId;
+  }
+
+  /// Host-only: starts the match with the current roster (minimum 2 players).
+  /// Does not require every player to have pressed Ready.
+  void startGameFromHost(String playerId) {
+    if (_started) {
+      _sendError(
+          playerId, 'game_started', 'Game already in progress.');
+      return;
+    }
+    if (!isPrivate) {
+      _sendError(playerId, 'invalid_action',
+          'Host start is only available in private rooms.');
+      return;
+    }
+    final host = hostPlayerIdForPrivateLobby;
+    if (host == null || playerId != host) {
+      _sendError(
+          playerId, 'not_host', 'Only the room host can start the game.');
+      return;
+    }
+    if (_players.length < 2) {
+      _sendError(playerId, 'not_enough_players',
+          'Need at least 2 players to start.');
+      return;
+    }
+    _startGame();
+  }
+
   // ── Game start ────────────────────────────────────────────────────────────
 
   void _startGame() {

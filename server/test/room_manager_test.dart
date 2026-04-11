@@ -127,6 +127,13 @@ void main() {
       expect(joined, isNotNull);
       expect(joined!['roomCode'], code);
       expect(joined['isPrivate'], isTrue);
+
+      // Roster replay so the guest learns about players who joined earlier.
+      final rosterIds = guest.messages
+          .where((m) => m['type'] == 'player_joined')
+          .map((m) => (m['player'] as Map<String, dynamic>)['id'] as String)
+          .toSet();
+      expect(rosterIds, containsAll(['player-1', 'player-2']));
     });
 
     test('quickplay sends queue update after each player joins queue', () async {
@@ -393,6 +400,39 @@ void main() {
       await b.close();
       await _flushAsync();
       expect(rm.openWebSocketCount, 0);
+    });
+
+    test('start_game from host starts with 2+ players; guest gets not_host',
+        () async {
+      final rm = RoomManager();
+      final host = FakeWs();
+      final guest = FakeWs();
+      rm.handleConnection(host);
+      host.addIncoming(jsonEncode({
+        'type': 'create_room',
+        'displayName': 'Host',
+      }));
+      await _flushAsync();
+      final code = host.lastOfType('room_created')!['roomCode'] as String;
+
+      rm.handleConnection(guest);
+      guest.addIncoming(jsonEncode({
+        'type': 'join_room',
+        'roomCode': code,
+        'displayName': 'Guest',
+      }));
+      await _flushAsync();
+
+      guest.addIncoming(jsonEncode({'type': 'start_game'}));
+      await _flushAsync();
+      expect(guest.lastOfType('error')?['code'], 'not_host');
+
+      host.addIncoming(jsonEncode({'type': 'start_game'}));
+      await _flushAsync();
+      expect(
+        host.messages.any((m) => m['type'] == 'state_snapshot'),
+        isTrue,
+      );
     });
   });
 }
