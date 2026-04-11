@@ -97,6 +97,9 @@ class RoomManager {
       case 'ready':
         _markReady(ws);
         break;
+      case 'start_game':
+        _startGameFromHost(ws);
+        break;
       case 'quickplay':
         _handleQuickplay(ws, json);
         break;
@@ -253,6 +256,14 @@ class RoomManager {
     final playerId = _playerIds[ws];
     if (roomCode != null && playerId != null) {
       _rooms[roomCode]?.markReady(playerId);
+    }
+  }
+
+  void _startGameFromHost(dynamic ws) {
+    final roomCode = _playerRooms[ws];
+    final playerId = _playerIds[ws];
+    if (roomCode != null && playerId != null) {
+      _rooms[roomCode]?.startGameFromHost(playerId);
     }
   }
 

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/navigation/app_page_routes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/models/game_event.dart';
 import '../../../../core/models/game_state.dart';
@@ -21,6 +22,26 @@ import '../../../../core/providers/theme_provider.dart';
 import '../../../gameplay/presentation/screens/table_screen.dart';
 
 enum OnlineMode { standard, tournament }
+
+/// Matches server [GameSession.hostPlayerIdForPrivateLobby] (lowest `player-N`).
+String? _hostPlayerIdForRoster(List<PlayerModel> players) {
+  if (players.isEmpty) return null;
+  var bestId = players.first.id;
+  var bestN = _playerNumber(bestId);
+  for (final p in players.skip(1)) {
+    final n = _playerNumber(p.id);
+    if (n < bestN) {
+      bestN = n;
+      bestId = p.id;
+    }
+  }
+  return bestId;
+}
+
+int _playerNumber(String playerId) {
+  final m = RegExp(r'^player-(\d+)$').firstMatch(playerId);
+  return m != null ? int.parse(m.group(1)!) : 1 << 30;
+}
 
 /// Room entry screen — players enter a room code, see the player list,
 /// and mark themselves ready before the host starts the game.
@@ -71,7 +92,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       if (e.gameState.phase == GamePhase.playing) {
         _stateSnapshotSub?.cancel();
         _stateSnapshotSub = null;
-        _enterSelectedMode();
+        _enterSelectedMode(totalPlayers: e.gameState.players.length);
       }
     });
     _lobbyEventsSub = handler.events.listen((e) {
@@ -104,7 +125,11 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         return;
       }
       if (e is RoomJoinedEvent) {
-        setState(() => _localPlayerId = e.playerId);
+        setState(() {
+          _localPlayerId = e.playerId;
+          _roomCode = e.roomCode;
+          _codeController.text = e.roomCode;
+        });
         return;
       }
       if (e is PlayerReadyEvent) {
@@ -287,6 +312,18 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                         child: Text('LOBBY', style: sectionTitleStyle),
                       ),
                       const SizedBox(height: AppDimensions.sm),
+                      Text(
+                        'Private games support 2–7 players. Everyone can tap '
+                        'Ready to start when all are ready, or the host can tap '
+                        'Start with at least two players in the room.',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          height: 1.35,
+                          fontWeight: FontWeight.w400,
+                          color: theme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: AppDimensions.md),
                       _LobbySectionCard(
                         theme: theme,
                         child: Column(
@@ -297,6 +334,39 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                 roomCode: _roomCode!,
                                 theme: theme,
                               ),
+                              const SizedBox(height: AppDimensions.md),
+                              OutlinedButton.icon(
+                                onPressed: _onInviteFriends,
+                                icon: Icon(
+                                  Icons.share_rounded,
+                                  color: theme.accentPrimary,
+                                  size: 20,
+                                ),
+                                label: Text(
+                                  'INVITE',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.6,
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: theme.accentPrimary,
+                                  side: BorderSide(
+                                    color: theme.accentPrimary
+                                        .withValues(alpha: 0.85),
+                                  ),
+                                  minimumSize: const Size(
+                                    0,
+                                    AppDimensions.minTouchTarget,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(
+                                      AppDimensions.radiusModal,
+                                    ),
+                                  ),
+                                ),
+                              ),
                               const SizedBox(height: AppDimensions.lg),
                             ],
                             _LobbyPlayerList(
@@ -306,42 +376,82 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                               theme: theme,
                               players: _lobbyPlayers,
                               pendingJoin: _pendingJoin,
+                              hostPlayerId: _hostPlayerIdForRoster(_lobbyPlayers),
                             ),
                             const SizedBox(height: AppDimensions.lg),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: _toggleReady,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _isReady
-                                      ? theme.secondaryAccent
-                                      : theme.accentPrimary,
-                                  foregroundColor: _isReady
-                                      ? theme.textPrimary
-                                      : theme.backgroundDeep,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: AppDimensions.md,
-                                  ),
-                                  minimumSize: const Size(
-                                    0,
-                                    AppDimensions.minTouchTarget + 2,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(
-                                      AppDimensions.radiusModal,
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: _toggleReady,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: _isReady
+                                          ? theme.secondaryAccent
+                                          : theme.accentPrimary,
+                                      foregroundColor: _isReady
+                                          ? theme.textPrimary
+                                          : theme.backgroundDeep,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: AppDimensions.md,
+                                      ),
+                                      minimumSize: const Size(
+                                        0,
+                                        AppDimensions.minTouchTarget + 2,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                          AppDimensions.radiusModal,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      _isReady ? 'NOT READY' : 'READY',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 1,
+                                      ),
                                     ),
                                   ),
                                 ),
-                                child: Text(
-                                  _isReady ? 'NOT READY' : 'READY',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 1,
+                                if (_roomCode != null &&
+                                    _localPlayerId != null &&
+                                    _hostPlayerIdForRoster(_lobbyPlayers) ==
+                                        _localPlayerId) ...[
+                                  const SizedBox(width: AppDimensions.md),
+                                  Expanded(
+                                    child: ElevatedButton(
+                                      onPressed: _onHostStartGame,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: theme.secondaryAccent,
+                                        foregroundColor: theme.textPrimary,
+                                        elevation: 0,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: AppDimensions.md,
+                                        ),
+                                        minimumSize: const Size(
+                                          0,
+                                          AppDimensions.minTouchTarget + 2,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            AppDimensions.radiusModal,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        'START',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 1,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
+                                ],
+                              ],
                             ),
                           ],
                         ),
@@ -485,12 +595,51 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     }
   }
 
-  Future<void> _enterSelectedMode() async {
+  Future<void> _onInviteFriends() async {
+    final code = _roomCode;
+    if (code == null) return;
+    final text = 'Join me in Last Cards (private game). Room code: $code\n'
+        'We need 2–7 players — open the app and use Join Room with this code.';
+    await SharePlus.instance.share(
+      ShareParams(
+        text: text,
+        subject: 'Last Cards — room $code',
+      ),
+    );
+  }
+
+  void _onHostStartGame() {
+    if (_lobbyPlayers.length < 2) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'At least two players must be in the room before you can start.',
+          ),
+          backgroundColor: Color(0xFFB71C1C),
+        ),
+      );
+      return;
+    }
+    final wsClient = ref.read(wsClientProvider);
+    if (!wsClient.send(jsonEncode({'type': 'start_game'}))) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Connection lost. Reconnecting — try again.'),
+            backgroundColor: Color(0xFFB71C1C),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _enterSelectedMode({required int totalPlayers}) async {
     if (!mounted) return;
     Navigator.of(context).push(
       AppPageRoutes.fadeSlide(
         (_) => TableScreen(
-          totalPlayers: 4,
+          totalPlayers: totalPlayers,
           isTournamentMode: widget.onlineMode == OnlineMode.tournament,
         ),
       ),
@@ -669,7 +818,10 @@ class _LobbyPlayerList extends StatelessWidget {
     required this.theme,
     required this.players,
     required this.pendingJoin,
+    required this.hostPlayerId,
   });
+
+  static const int _maxSlots = 7;
 
   final String? localPlayerId;
   final bool localIsReady;
@@ -677,38 +829,41 @@ class _LobbyPlayerList extends StatelessWidget {
   final AppThemeData theme;
   final List<PlayerModel> players;
   final bool pendingJoin;
+  final String? hostPlayerId;
 
   @override
   Widget build(BuildContext context) {
-    final hasPlayers = players.isNotEmpty;
-    final list = hasPlayers
-        ? players
-            .map((p) {
-              final isMe = p.id == localPlayerId;
-              final ready = isMe
-                  ? localIsReady
-                  : (playerReady[p.id] ?? false);
-              return _PlayerEntry(
-                name: p.displayName,
-                isReady: ready,
-                theme: theme,
-                isVacantSeat: false,
-              );
-            })
-            .toList()
-        : [
-            _PlayerEntry(name: 'You', isReady: localIsReady, theme: theme),
-            _PlayerEntry(
-                name: 'Waiting...',
-                isReady: false,
-                isVacantSeat: true,
-                theme: theme),
-            _PlayerEntry(
-                name: 'Waiting...',
-                isReady: false,
-                isVacantSeat: true,
-                theme: theme),
-          ];
+    final sorted = List<PlayerModel>.from(players)
+      ..sort((a, b) => _playerNumber(a.id).compareTo(_playerNumber(b.id)));
+
+    final entries = <_PlayerEntry>[];
+    for (var i = 0; i < _maxSlots; i++) {
+      if (i < sorted.length) {
+        final p = sorted[i];
+        final isMe = p.id == localPlayerId;
+        final ready =
+            isMe ? localIsReady : (playerReady[p.id] ?? false);
+        entries.add(
+          _PlayerEntry(
+            name: p.displayName,
+            isReady: ready,
+            theme: theme,
+            isVacantSeat: false,
+            isHost: hostPlayerId != null && p.id == hostPlayerId,
+          ),
+        );
+      } else {
+        entries.add(
+          _PlayerEntry(
+            name: 'Open seat',
+            isReady: false,
+            theme: theme,
+            isVacantSeat: true,
+            isHost: false,
+          ),
+        );
+      }
+    }
 
     return Container(
       width: double.infinity,
@@ -740,9 +895,9 @@ class _LobbyPlayerList extends StatelessWidget {
                 ),
               ),
             ),
-          for (int i = 0; i < list.length; i++) ...[
-            list[i],
-            if (i < list.length - 1)
+          for (int i = 0; i < entries.length; i++) ...[
+            entries[i],
+            if (i < entries.length - 1)
               Divider(
                 height: 1,
                 color: theme.accentDark.withValues(alpha: 0.45),
@@ -863,11 +1018,13 @@ class _PlayerEntry extends StatelessWidget {
     required this.isReady,
     required this.theme,
     this.isVacantSeat = false,
+    this.isHost = false,
   });
 
   final String name;
   final bool isReady;
   final bool isVacantSeat;
+  final bool isHost;
   final AppThemeData theme;
 
   /// Ready/readability green, lightly mixed with the theme accent highlight.
@@ -912,8 +1069,31 @@ class _PlayerEntry extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppDimensions.sm),
-          Text(name, style: nameStyle),
-          const Spacer(),
+          Expanded(
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    name,
+                    style: nameStyle,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (isHost && !isVacantSeat) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    'HOST',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.1,
+                      color: theme.accentLight,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
           if (!isVacantSeat)
             Text(
               isReady ? 'READY' : 'NOT READY',
