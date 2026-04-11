@@ -23,6 +23,14 @@ class FirestoreProfileService {
         .map((snap) => snap.exists ? FirestoreUserProfile.fromDoc(snap) : null);
   }
 
+  /// One-shot read of another user's public profile (requires signed-in user).
+  Future<FirestoreUserProfile?> getProfileForUid(String uid) async {
+    final snap =
+        await _firestore.collection(_usersCollection).doc(uid).get();
+    if (!snap.exists) return null;
+    return FirestoreUserProfile.fromDoc(snap);
+  }
+
   /// Updates display name and optionally avatar URL in Firestore.
   /// Also sets [profileLastChangedAt] for the 14-day edit cooldown.
   Future<void> updateProfile({

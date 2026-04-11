@@ -222,6 +222,7 @@ class GameSession {
         displayName: displayName,
         tablePosition: _positionFor(_players.length - 1),
         cardCount: 0,
+        firebaseUid: firebaseUid,
       ).toJson(),
     });
 
@@ -290,6 +291,7 @@ class GameSession {
           displayName: entry.value.displayName,
           tablePosition: _positionFor(index),
           cardCount: 0,
+          firebaseUid: entry.value.firebaseUid,
         ).toJson(),
       }));
       index++;
@@ -595,6 +597,7 @@ class GameSession {
         tablePosition: _positionFor(i),
         hand: hand,
         cardCount: hand.length,
+        firebaseUid: entries[i].value.firebaseUid,
       ));
     }
 
@@ -1543,6 +1546,7 @@ class GameSession {
         tablePosition: _positionFor(i),
         hand: hand,
         cardCount: hand.length,
+        firebaseUid: entries[i].value.firebaseUid,
       ));
     }
 

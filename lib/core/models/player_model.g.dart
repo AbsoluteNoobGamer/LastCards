@@ -18,6 +18,7 @@ _$PlayerModelImpl _$$PlayerModelImplFromJson(Map<String, dynamic> json) =>
       cardCount: (json['cardCount'] as num?)?.toInt() ?? 0,
       lastCardsHandWasClearableAtTurnStart:
           json['lastCardsHandWasClearableAtTurnStart'] as bool? ?? false,
+      firebaseUid: json['firebaseUid'] as String?,
     );
 
 Map<String, dynamic> _$$PlayerModelImplToJson(_$PlayerModelImpl instance) =>
@@ -29,6 +30,7 @@ Map<String, dynamic> _$$PlayerModelImplToJson(_$PlayerModelImpl instance) =>
       'cardCount': instance.cardCount,
       'lastCardsHandWasClearableAtTurnStart':
           instance.lastCardsHandWasClearableAtTurnStart,
+      'firebaseUid': instance.firebaseUid,
     };
 
 const _$TablePositionEnumMap = {

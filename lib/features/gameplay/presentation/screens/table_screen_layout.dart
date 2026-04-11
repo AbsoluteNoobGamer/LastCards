@@ -51,7 +51,11 @@ class _TableLayout extends StatelessWidget {
     this.onLastCardsTap,
     this.onPenaltyIncreased,
     this.skipHighlightPlayerIds = const <String>{},
+    this.onOpponentProfileTap,
   });
+
+  /// Online: tap opponent avatar to open profile / friend actions.
+  final void Function(PlayerModel player)? onOpponentProfileTap;
 
   /// Called when the pickup penalty count increases (visual feedback).
   final VoidCallback? onPenaltyIncreased;
@@ -160,6 +164,15 @@ class _TableLayout extends StatelessWidget {
             .toList()
         : <PlayerModel>[];
 
+    VoidCallback? opponentAvatarTap(PlayerModel? p) {
+      if (p == null || isOffline) return null;
+      final uid = p.firebaseUid;
+      if (uid == null || uid.isEmpty) return null;
+      final cb = onOpponentProfileTap;
+      if (cb == null) return null;
+      return () => cb(p);
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         // Use shorter dimension: in landscape, maxWidth is the long axis.
@@ -210,6 +223,7 @@ class _TableLayout extends StatelessWidget {
             onLastCardsTap: onLastCardsTap,
             onPenaltyIncreased: onPenaltyIncreased,
             skipHighlightPlayerIds: skipHighlightPlayerIds,
+            opponentAvatarTap: opponentAvatarTap,
           );
         }
 
@@ -271,6 +285,7 @@ class _TableLayout extends StatelessWidget {
                                     chatBubble: quickChatBubblesByPlayer[leftOpp.id],
                                     onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                                     skipSeatHighlight: skipHighlightPlayerIds.contains(leftOpp.id),
+                                    onOpponentAvatarTap: opponentAvatarTap(leftOpp),
                                   )
                                 : const SizedBox(height: 96),
                           )),
@@ -296,6 +311,7 @@ class _TableLayout extends StatelessWidget {
                                       chatBubble: quickChatBubblesByPlayer[topOpp.id],
                                       onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                                       skipSeatHighlight: skipHighlightPlayerIds.contains(topOpp.id),
+                                      onOpponentAvatarTap: opponentAvatarTap(topOpp),
                                     )
                                   : const _EmptyOpponentZone(),
                             ),
@@ -322,6 +338,7 @@ class _TableLayout extends StatelessWidget {
                                       chatBubble: quickChatBubblesByPlayer[rightOpp.id],
                                       onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                                       skipSeatHighlight: skipHighlightPlayerIds.contains(rightOpp.id),
+                                      onOpponentAvatarTap: opponentAvatarTap(rightOpp),
                                     )
                                   : const SizedBox(height: 96),
                             ),
@@ -596,11 +613,15 @@ class _LandscapeTableLayout extends StatelessWidget {
     this.onLastCardsTap,
     this.onPenaltyIncreased,
     this.skipHighlightPlayerIds = const <String>{},
+    required this.opponentAvatarTap,
   });
 
   final VoidCallback? onPenaltyIncreased;
 
   final Set<String> skipHighlightPlayerIds;
+
+  /// Parent closure: online + firebase uid → tap callback.
+  final VoidCallback? Function(PlayerModel? p) opponentAvatarTap;
 
   final String? nextTurnLabel;
 
@@ -706,6 +727,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                               onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                               compact: true,
                               skipSeatHighlight: skipHighlightPlayerIds.contains(leftOpp!.id),
+                              onOpponentAvatarTap: opponentAvatarTap(leftOpp),
                             )
                           : const SizedBox.shrink(),
                     ),
@@ -732,6 +754,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                               onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                               compact: true,
                               skipSeatHighlight: skipHighlightPlayerIds.contains(topOpp!.id),
+                              onOpponentAvatarTap: opponentAvatarTap(topOpp),
                             )
                           : const _EmptyOpponentZone(),
                     ),
@@ -758,6 +781,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                               onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                               compact: true,
                               skipSeatHighlight: skipHighlightPlayerIds.contains(rightOpp!.id),
+                              onOpponentAvatarTap: opponentAvatarTap(rightOpp),
                             )
                           : const SizedBox.shrink(),
                     ),
