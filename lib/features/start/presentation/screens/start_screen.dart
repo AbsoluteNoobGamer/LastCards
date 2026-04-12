@@ -30,6 +30,8 @@ import '../../../../features/tournament/widgets/tournament_type_sheet.dart';
 import '../../../../core/widgets/player_progress_widgets.dart';
 import '../../../../app/app_route_observer.dart';
 import '../../../../services/start_screen_bgm.dart';
+import '../../../../features/social/widgets/friends_list_sheet.dart';
+import '../../../../features/social/widgets/pending_friend_requests_banner.dart';
 import '../../../../features/social/widgets/pending_game_invites_banner.dart';
 
 part 'start_screen_background.dart';
@@ -469,14 +471,27 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
             ),
           ),
 
-          // 3. Friend room invites — top strip (leave space for profile badge)
+          // 3. Friends (top-left) + room invites + friend requests (leave space for profile badge)
           Positioned(
             top: 0,
             left: 0,
             right: 100,
             child: SafeArea(
               bottom: false,
-              child: const PendingGameInvitesBanner(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: _FriendsTopLeftButton(
+                      onTap: () => _showFriendsSheet(context),
+                    ),
+                  ),
+                  const PendingGameInvitesBanner(),
+                  const PendingFriendRequestsBanner(),
+                ],
+              ),
             ),
           ),
 
@@ -517,6 +532,19 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const ProviderScope(child: SettingsModal()),
+    );
+  }
+
+  void _showFriendsSheet(BuildContext context) {
+    final theme = ref.read(themeProvider).theme;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: theme.backgroundDeep,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => const FriendsListSheet(),
     );
   }
 

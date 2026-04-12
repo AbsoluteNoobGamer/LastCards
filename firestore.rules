@@ -41,9 +41,10 @@ service cloud.firestore {
         && (request.auth.uid == uid || request.auth.uid == friendUid);
     }
 
-    // Incoming friend request: only [fromUid] may create; recipient or sender may delete.
+    // Incoming friend request: only [fromUid] may create/update their doc; recipient or sender may delete.
+    // (set() on an existing request is an update, not create — both must be allowed.)
     match /users/{uid}/incomingFriendRequests/{fromUid} {
-      allow create: if request.auth != null && request.auth.uid == fromUid;
+      allow create, update: if request.auth != null && request.auth.uid == fromUid;
       allow read: if request.auth != null
         && (request.auth.uid == uid || request.auth.uid == fromUid);
       allow delete: if request.auth != null

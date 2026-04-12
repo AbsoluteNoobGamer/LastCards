@@ -1,6 +1,50 @@
 part of 'start_screen.dart';
 
 // -----------------------------------------------------------------------------
+// Friends button (top-left corner of main menu)
+// -----------------------------------------------------------------------------
+
+class _FriendsTopLeftButton extends ConsumerWidget {
+  const _FriendsTopLeftButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(themeProvider).theme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, left: 12),
+      child: Tooltip(
+        message: 'Friends',
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(40),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(40),
+                border: Border.all(
+                  color: theme.accentPrimary.withValues(alpha: 0.7),
+                  width: 1.5,
+                ),
+              ),
+              child: Icon(
+                Icons.group_rounded,
+                color: theme.accentPrimary,
+                size: 26,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
 // Auth Profile Badge (top-right corner of main menu)
 // -----------------------------------------------------------------------------
 
