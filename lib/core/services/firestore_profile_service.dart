@@ -24,11 +24,17 @@ class FirestoreProfileService {
   }
 
   /// One-shot read of another user's public profile (requires signed-in user).
+  /// Returns null if the doc is missing or on permission / network failure.
   Future<FirestoreUserProfile?> getProfileForUid(String uid) async {
-    final snap =
-        await _firestore.collection(_usersCollection).doc(uid).get();
-    if (!snap.exists) return null;
-    return FirestoreUserProfile.fromDoc(snap);
+    if (uid.isEmpty) return null;
+    try {
+      final snap =
+          await _firestore.collection(_usersCollection).doc(uid).get();
+      if (!snap.exists) return null;
+      return FirestoreUserProfile.fromDoc(snap);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Updates display name and optionally avatar URL in Firestore.
