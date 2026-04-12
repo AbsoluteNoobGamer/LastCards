@@ -4,6 +4,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+/// Display name from Firebase Auth for merging into Firestore public profile.
+/// Matches the merge logic in [userProfileProvider] (name, then email local part).
+String? resolvedPublicDisplayNameFromAuth(User user) {
+  final authName = user.displayName?.trim();
+  final emailLocal = user.email?.split('@').first;
+  if (authName != null && authName.isNotEmpty) return authName;
+  if (emailLocal != null && emailLocal.isNotEmpty) return emailLocal;
+  return null;
+}
+
 /// Server-side user profile: displayName and avatarUrl stored in Firestore.
 /// Avatar images are uploaded to Firebase Storage.
 class FirestoreProfileService {
@@ -21,6 +31,49 @@ class FirestoreProfileService {
         .doc(user.uid)
         .snapshots()
         .map((snap) => snap.exists ? FirestoreUserProfile.fromDoc(snap) : null);
+  }
+
+  /// If Firestore has no public display name / avatar but Firebase Auth does
+  /// (e.g. Google sign-in), merge those into [users/uid] so friends lists and
+  /// profiles show real names. Does not set [profileLastChangedAt] (no 14-day
+  /// cooldown); only [updateProfile] does.
+  Future<void> syncAuthToPublicProfileIfNeeded(User user) async {
+    final docRef = _firestore.collection(_usersCollection).doc(user.uid);
+    Map<String, dynamic> data;
+    try {
+      final snap = await docRef.get();
+      data = snap.data() ?? {};
+    } catch (_) {
+      return;
+    }
+
+    final existingName = (data['displayName'] as String?)?.trim() ?? '';
+    final existingAvatar = data['avatarUrl'] as String?;
+
+    final resolvedName = resolvedPublicDisplayNameFromAuth(user);
+
+    final authPhoto = user.photoURL;
+
+    final updates = <String, dynamic>{};
+    if (existingName.isEmpty &&
+        resolvedName != null &&
+        resolvedName.isNotEmpty) {
+      updates['displayName'] = resolvedName;
+    }
+    if ((existingAvatar == null || existingAvatar.isEmpty) &&
+        authPhoto != null &&
+        authPhoto.isNotEmpty) {
+      updates['avatarUrl'] = authPhoto;
+    }
+
+    if (updates.isEmpty) return;
+
+    updates['updatedAt'] = FieldValue.serverTimestamp();
+    try {
+      await docRef.set(updates, SetOptions(merge: true));
+    } catch (_) {
+      // Ignore; user may be offline or rules may reject.
+    }
   }
 
   /// One-shot read of another user's public profile (requires signed-in user).
@@ -93,7 +146,9 @@ class FirestoreUserProfile {
 
   factory FirestoreUserProfile.fromDoc(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? {};
-    final profileLastChangedAtRaw = data['profileLastChangedAt'] ?? data['updatedAt'];
+    // Cooldown applies only after explicit profile saves ([updateProfile] sets this).
+    // Do not fall back to [updatedAt] or auth sync would block edits for 14 days.
+    final profileLastChangedAtRaw = data['profileLastChangedAt'];
     DateTime? profileLastChangedAt;
     if (profileLastChangedAtRaw is Timestamp) {
       profileLastChangedAt = profileLastChangedAtRaw.toDate();
