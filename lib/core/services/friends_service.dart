@@ -52,16 +52,20 @@ class FriendsService {
     if (me == null) return FriendRelation.notSignedIn;
     if (me == otherUid) return FriendRelation.self;
 
-    final batch = await Future.wait([
-      _userDoc(me).collection(_friends).doc(otherUid).get(),
-      _userDoc(me).collection(_incoming).doc(otherUid).get(),
-      _userDoc(otherUid).collection(_incoming).doc(me).get(),
-    ]);
+    try {
+      final batch = await Future.wait([
+        _userDoc(me).collection(_friends).doc(otherUid).get(),
+        _userDoc(me).collection(_incoming).doc(otherUid).get(),
+        _userDoc(otherUid).collection(_incoming).doc(me).get(),
+      ]);
 
-    if (batch[0].exists) return FriendRelation.friends;
-    if (batch[1].exists) return FriendRelation.incomingRequest;
-    if (batch[2].exists) return FriendRelation.outgoingRequest;
-    return FriendRelation.none;
+      if (batch[0].exists) return FriendRelation.friends;
+      if (batch[1].exists) return FriendRelation.incomingRequest;
+      if (batch[2].exists) return FriendRelation.outgoingRequest;
+      return FriendRelation.none;
+    } catch (_) {
+      return FriendRelation.none;
+    }
   }
 
   Future<void> sendFriendRequest(String toUid) async {
