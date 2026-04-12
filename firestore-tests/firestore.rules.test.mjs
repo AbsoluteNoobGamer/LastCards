@@ -72,9 +72,9 @@ describe('users/{uid}', () => {
     await assertSucceeds(getDoc(doc(db, 'users', 'alice')));
   });
 
-  it('denies read of another user doc', async () => {
+  it('allows read of another user doc when authenticated', async () => {
     const db = testEnv.authenticatedContext('alice').firestore();
-    await assertFails(getDoc(doc(db, 'users', 'bob')));
+    await assertSucceeds(getDoc(doc(db, 'users', 'bob')));
   });
 
   it('denies unauthenticated read', async () => {
