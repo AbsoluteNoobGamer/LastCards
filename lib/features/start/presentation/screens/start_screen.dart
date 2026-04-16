@@ -33,6 +33,9 @@ import '../../../../services/start_screen_bgm.dart';
 import '../../../../features/social/widgets/friends_list_sheet.dart';
 import '../../../../features/social/widgets/pending_friend_requests_banner.dart';
 import '../../../../features/social/widgets/pending_game_invites_banner.dart';
+import '../../../../core/monetization/monetization_config.dart';
+import '../../../../core/monetization/monetization_provider.dart';
+import '../../../../core/widgets/monetization_banner_ad.dart';
 
 part 'start_screen_background.dart';
 part 'start_screen_buttons.dart';
@@ -502,6 +505,31 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
             child: SafeArea(
               child: _AuthProfileBadge(
                 onTap: () => _showAuthProfileSheet(context),
+              ),
+            ),
+          ),
+
+          // 5. Banner ad (hidden after remove-ads purchase or on non-mobile)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              top: false,
+              child: Center(
+                child: Consumer(
+                  builder: (context, ref, _) {
+                    final m = ref.watch(monetizationProvider);
+                    if (!kSupportsStoreMonetization() ||
+                        !m.ready ||
+                        m.adsRemoved) {
+                      return const SizedBox.shrink();
+                    }
+                    final id = kBannerAdUnitIdForPlatform();
+                    if (id.isEmpty) return const SizedBox.shrink();
+                    return MonetizationBannerAd(adUnitId: id);
+                  },
+                ),
               ),
             ),
           ),
