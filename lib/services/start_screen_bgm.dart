@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:just_audio/just_audio.dart';
 
 /// Looping background music for [LastCardsStartScreen].
@@ -9,11 +10,20 @@ import 'package:just_audio/just_audio.dart';
 /// on Windows/desktop and consistent session handling on mobile.
 ///
 /// Paused when another route covers the start screen ([RouteAware.didPushNext]);
-/// resumed when returning ([RouteAware.didPopNext]). Stopped when the screen disposes.
+/// resumed when returning ([RouteAware.didPopNext]). Paused when the app goes to
+/// the background ([AppLifecycleState.paused]); resumed on [AppLifecycleState.resumed]
+/// when the start screen route is still visible. Stopped when the screen disposes.
+///
+/// [onRouteCovered] / [onRouteVisible] are only wired from [RouteAware] on the start
+/// screen; navigation while the app is fully backgrounded is not expected, but
+/// [onRouteVisible] still checks [WidgetsBinding.lifecycleState] before playing so BGM
+/// does not resume in [AppLifecycleState.paused] / [hidden] / [detached]. After an async
+/// [AudioPlayer.play], the same check applies before clearing [_pausedByAppLifecycle] so a
+/// re-background during that await cannot desync the flag from the player.
 ///
 /// **Web:** autoplay is blocked until a user gesture — [start] is a no-op on web;
 /// the first [notifyUserGesture] (pointer down on the start screen) begins playback.
-class StartScreenBgm {
+class StartScreenBgm with WidgetsBindingObserver {
   StartScreenBgm._();
   static final StartScreenBgm instance = StartScreenBgm._();
 
@@ -21,6 +31,8 @@ class StartScreenBgm {
   bool _started = false;
   bool _starting = false;
   bool _pausedByRoute = false;
+  bool _pausedByAppLifecycle = false;
+  bool _lifecycleObserverAdded = false;
 
   /// Incremented in [stop] so in-flight [_startImpl] can detect cancellation after `await`.
   int _epoch = 0;
@@ -30,6 +42,73 @@ class StartScreenBgm {
 
   /// Full asset key as declared in pubspec (`assets/...`).
   static const _assetPath = 'assets/audio/bgm/startscreen_bgm.mp3';
+
+  void _addLifecycleObserver() {
+    if (_lifecycleObserverAdded || kIsWeb) return;
+    WidgetsBinding.instance.addObserver(this);
+    _lifecycleObserverAdded = true;
+  }
+
+  void _removeLifecycleObserver() {
+    if (!_lifecycleObserverAdded) return;
+    WidgetsBinding.instance.removeObserver(this);
+    _lifecycleObserverAdded = false;
+  }
+
+  Future<void> _safePausePlayer() async {
+    final p = _player;
+    if (p == null) return;
+    try {
+      await p.pause();
+    } catch (_) {}
+  }
+
+  /// After [AudioPlayer.play] awaits, the app may have re-backgrounded; only then treat
+  /// the lifecycle pause as fully lifted ([WidgetsBinding.lifecycleState] is [resumed]
+  /// or unknown).
+  bool _mayClearPausedByAppLifecycleAfterPlay() {
+    final life = WidgetsBinding.instance.lifecycleState;
+    if (life == null) return true;
+    return life == AppLifecycleState.resumed;
+  }
+
+  /// Clears [_pausedByAppLifecycle] only after a successful play.
+  Future<void> _resumeAfterAppLifecyclePause() async {
+    if (!_pausedByAppLifecycle || _pausedByRoute || !_started) return;
+    final p = _player;
+    if (p == null) return;
+    try {
+      await p.play();
+      if (!_started || _pausedByRoute) return;
+      if (_mayClearPausedByAppLifecycleAfterPlay()) {
+        _pausedByAppLifecycle = false;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('StartScreenBgm: resume after lifecycle pause failed: $e');
+      }
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_started || _player == null || kIsWeb) return;
+    switch (state) {
+      case AppLifecycleState.paused:
+        if (_pausedByRoute) return;
+        _pausedByAppLifecycle = true;
+        unawaited(_safePausePlayer());
+        return;
+      case AppLifecycleState.resumed:
+        if (!_pausedByAppLifecycle || _pausedByRoute) return;
+        unawaited(_resumeAfterAppLifecyclePause());
+        return;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        return;
+    }
+  }
 
   /// Updates BGM loudness (0.0–1.0).
   void setMusicVolume(double normalized) {
@@ -85,6 +164,7 @@ class StartScreenBgm {
       if (await _abortIfStale(myEpoch, localPlayer)) return;
 
       _started = true;
+      _addLifecycleObserver();
       if (kDebugMode) {
         debugPrint('StartScreenBgm: playing $_assetPath at volume $_musicVolume');
       }
@@ -107,6 +187,9 @@ class StartScreenBgm {
   Future<void> onRouteCovered() async {
     if (!_started || _player == null) return;
     _pausedByRoute = true;
+    // Do not clear [_pausedByAppLifecycle] here: if the app was backgrounded first,
+    // that flag must remain until [didChangeAppLifecycleState] / [onRouteVisible]
+    // resumes playback at a safe time.
     try {
       await _player!.pause();
     } catch (_) {}
@@ -115,8 +198,19 @@ class StartScreenBgm {
   Future<void> onRouteVisible() async {
     if (!_pausedByRoute || _player == null) return;
     _pausedByRoute = false;
+    final life = WidgetsBinding.instance.lifecycleState;
+    if (life != null &&
+        (life == AppLifecycleState.paused ||
+            life == AppLifecycleState.hidden ||
+            life == AppLifecycleState.detached)) {
+      _pausedByAppLifecycle = true;
+      return;
+    }
     try {
       await _player!.play();
+      if (_mayClearPausedByAppLifecycleAfterPlay()) {
+        _pausedByAppLifecycle = false;
+      }
     } catch (e) {
       if (kDebugMode) {
         debugPrint('StartScreenBgm.onRouteVisible play failed: $e');
@@ -128,6 +222,8 @@ class StartScreenBgm {
     _epoch++;
     _started = false;
     _pausedByRoute = false;
+    _pausedByAppLifecycle = false;
+    _removeLifecycleObserver();
     final p = _player;
     _player = null;
     if (p != null) {
