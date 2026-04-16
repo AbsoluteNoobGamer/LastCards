@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -14,6 +16,22 @@ class FriendsService {
   static const _incoming = 'incomingFriendRequests';
   static const _friends = 'friends';
   static const _invites = 'gameInvites';
+
+  /// Room-invite notifications expire after this; the Firestore doc is deleted.
+  static const Duration gameInviteMaxAge = Duration(seconds: 30);
+
+  final Map<String, Timer> _gameInviteExpireTimers = {};
+  final Map<String, DateTime> _inviteExpiryAnchorWhenNoTimestamp = {};
+
+  /// Cancels invite expiry timers. Safe to call when the service is torn down
+  /// (e.g. [Provider] `onDispose`); does not delete Firestore documents.
+  void dispose() {
+    for (final t in _gameInviteExpireTimers.values) {
+      t.cancel();
+    }
+    _gameInviteExpireTimers.clear();
+    _inviteExpiryAnchorWhenNoTimestamp.clear();
+  }
 
   String? get _uid => _auth.currentUser?.uid;
 
@@ -39,11 +57,87 @@ class FriendsService {
         );
   }
 
+  /// Pending game invites for the current user.
+  ///
+  /// **Single-subscription:** This stream performs side effects (stale deletes,
+  /// expiry timers). Subscribe at most once (e.g. one `StreamProvider`); a
+  /// second listener would duplicate timers on the shared [FriendsService] instance.
   Stream<List<GameInviteEntry>> gameInvitesStream() {
     final uid = _uid;
     if (uid == null) return const Stream.empty();
     return _userDoc(uid).collection(_invites).snapshots().map((s) {
-      return s.docs.map(GameInviteEntry.fromDoc).whereType<GameInviteEntry>().toList();
+      final entries =
+          s.docs.map(GameInviteEntry.fromDoc).whereType<GameInviteEntry>().toList();
+      final now = DateTime.now();
+      final fresh = <GameInviteEntry>[];
+      final staleIds = <String>[];
+      for (final e in entries) {
+        final anchor = e.createdAt ??
+            _inviteExpiryAnchorWhenNoTimestamp[e.id] ??
+            _inviteExpiryAnchorWhenNoTimestamp.putIfAbsent(
+              e.id,
+              () => DateTime.now(),
+            );
+        if (now.difference(anchor) > gameInviteMaxAge) {
+          staleIds.add(e.id);
+          _inviteExpiryAnchorWhenNoTimestamp.remove(e.id);
+        } else {
+          fresh.add(e);
+        }
+      }
+      if (staleIds.isNotEmpty) {
+        for (final id in staleIds) {
+          unawaited(_userDoc(uid).collection(_invites).doc(id).delete());
+        }
+      }
+      fresh.sort((a, b) {
+        final ca = a.createdAt;
+        final cb = b.createdAt;
+        if (ca == null && cb == null) return 0;
+        if (ca == null) return 1;
+        if (cb == null) return -1;
+        return cb.compareTo(ca);
+      });
+      _syncGameInviteExpireTimers(fresh);
+      return fresh;
+    });
+  }
+
+  /// Ensures each visible invite is deleted from Firestore when its window ends,
+  /// even if no further snapshots arrive (timers).
+  void _syncGameInviteExpireTimers(List<GameInviteEntry> fresh) {
+    final ids = fresh.map((e) => e.id).toSet();
+    for (final id in _gameInviteExpireTimers.keys.toList()) {
+      if (!ids.contains(id)) {
+        _gameInviteExpireTimers.remove(id)?.cancel();
+      }
+    }
+    for (final id in _inviteExpiryAnchorWhenNoTimestamp.keys.toList()) {
+      if (!ids.contains(id)) {
+        _inviteExpiryAnchorWhenNoTimestamp.remove(id);
+      }
+    }
+    for (final e in fresh) {
+      _scheduleGameInviteExpiry(e);
+    }
+  }
+
+  void _scheduleGameInviteExpiry(GameInviteEntry e) {
+    final anchor = e.createdAt ??
+        _inviteExpiryAnchorWhenNoTimestamp.putIfAbsent(
+          e.id,
+          () => DateTime.now(),
+        );
+    var remaining = gameInviteMaxAge - DateTime.now().difference(anchor);
+    if (remaining.isNegative) {
+      remaining = Duration.zero;
+    }
+
+    _gameInviteExpireTimers[e.id]?.cancel();
+    _gameInviteExpireTimers[e.id] = Timer(remaining, () {
+      _gameInviteExpireTimers.remove(e.id);
+      _inviteExpiryAnchorWhenNoTimestamp.remove(e.id);
+      unawaited(deleteGameInvite(e.id));
     });
   }
 
@@ -129,6 +223,8 @@ class FriendsService {
   }
 
   Future<void> deleteGameInvite(String inviteDocId) async {
+    _gameInviteExpireTimers.remove(inviteDocId)?.cancel();
+    _inviteExpiryAnchorWhenNoTimestamp.remove(inviteDocId);
     final uid = _uid;
     if (uid == null) return;
     await _userDoc(uid).collection(_invites).doc(inviteDocId).delete();
