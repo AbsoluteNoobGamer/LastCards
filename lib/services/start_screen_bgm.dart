@@ -10,9 +10,12 @@ import 'package:just_audio/just_audio.dart';
 /// on Windows/desktop and consistent session handling on mobile.
 ///
 /// Paused when another route covers the start screen ([RouteAware.didPushNext]);
-/// resumed when returning ([RouteAware.didPopNext]). Paused when the app goes to
-/// the background ([AppLifecycleState.paused]); resumed on [AppLifecycleState.resumed]
-/// when the start screen route is still visible. Stopped when the screen disposes.
+/// resumed when returning ([RouteAware.didPopNext]). Paused when the app is not
+/// foreground-visible ([AppLifecycleState.paused] or [AppLifecycleState.hidden] on
+/// platforms that report it—e.g. some Android builds may send [hidden] without [paused]).
+/// Resumed on [AppLifecycleState.resumed] when the start screen route is still visible.
+/// [AppLifecycleState.inactive] is ignored so BGM is not paused when opening the
+/// notification shade. Stopped when the screen disposes.
 ///
 /// [onRouteCovered] / [onRouteVisible] are only wired from [RouteAware] on the start
 /// screen; navigation while the app is fully backgrounded is not expected, but
@@ -63,6 +66,12 @@ class StartScreenBgm with WidgetsBindingObserver {
     } catch (_) {}
   }
 
+  void _pauseForAppLifecycleBackground() {
+    if (_pausedByRoute) return;
+    _pausedByAppLifecycle = true;
+    unawaited(_safePausePlayer());
+  }
+
   /// After [AudioPlayer.play] awaits, the app may have re-backgrounded; only then treat
   /// the lifecycle pause as fully lifted ([WidgetsBinding.lifecycleState] is [resumed]
   /// or unknown).
@@ -95,9 +104,8 @@ class StartScreenBgm with WidgetsBindingObserver {
     if (!_started || _player == null || kIsWeb) return;
     switch (state) {
       case AppLifecycleState.paused:
-        if (_pausedByRoute) return;
-        _pausedByAppLifecycle = true;
-        unawaited(_safePausePlayer());
+      case AppLifecycleState.hidden:
+        _pauseForAppLifecycleBackground();
         return;
       case AppLifecycleState.resumed:
         if (!_pausedByAppLifecycle || _pausedByRoute) return;
@@ -105,7 +113,6 @@ class StartScreenBgm with WidgetsBindingObserver {
         return;
       case AppLifecycleState.inactive:
       case AppLifecycleState.detached:
-      case AppLifecycleState.hidden:
         return;
     }
   }
