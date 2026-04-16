@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app_route_observer.dart';
 import '../core/theme/app_theme_data.dart';
+import '../core/monetization/monetization_provider.dart';
 import '../core/providers/auth_profile_sync_provider.dart';
 import '../core/providers/online_rejoin_listener_provider.dart';
 import '../core/providers/theme_provider.dart';
@@ -30,6 +31,7 @@ class _StackAndFlowAppState extends ConsumerState<StackAndFlowApp> {
   Widget build(BuildContext context) {
     ref.watch(onlineRejoinListenerProvider);
     ref.watch(authProfileSyncProvider);
+    ref.watch(monetizationProvider);
     final themeState = ref.watch(themeProvider);
     final reduceMotion = ref.watch(reduceMotionProvider);
     return MaterialApp(

@@ -33,6 +33,9 @@ import '../../../../services/start_screen_bgm.dart';
 import '../../../../features/social/widgets/friends_list_sheet.dart';
 import '../../../../features/social/widgets/pending_friend_requests_banner.dart';
 import '../../../../features/social/widgets/pending_game_invites_banner.dart';
+import '../../../../core/monetization/monetization_config.dart';
+import '../../../../core/monetization/monetization_provider.dart';
+import '../../../../core/widgets/monetization_banner_ad.dart';
 
 part 'start_screen_background.dart';
 part 'start_screen_buttons.dart';
@@ -157,11 +160,20 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
 
   @override
   Widget build(BuildContext context) {
+    final monetization = ref.watch(monetizationProvider);
+    final reserveScrollPaddingForAds = kSupportsStoreMonetization() &&
+        monetization.ready &&
+        !monetization.adsRemoved;
+
     return Scaffold(
       body: Listener(
         behavior: HitTestBehavior.translucent,
         onPointerDown: (_) => StartScreenBgm.instance.notifyUserGesture(),
-        child: Stack(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+        Expanded(
+          child: Stack(
           fit: StackFit.expand,
           children: [
           Stack(
@@ -462,7 +474,11 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                             ],
                           ),
                         ),
-                        const SizedBox(height: 32),
+                        // Extra bottom inset when a banner may show so the icon row
+                        // stays above the ad slot and remains scrollable/tappable.
+                        SizedBox(
+                          height: reserveScrollPaddingForAds ? 120 : 32,
+                        ),
                       ],
                     ),
                   ),
@@ -505,6 +521,28 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
               ),
             ),
           ),
+          ],
+        ),
+        ),
+        // Banner sits in layout flow (not stacked over content) so the icon row
+        // and Settings remain tappable and reachable for "Remove ads".
+        Consumer(
+          builder: (context, ref, _) {
+            final m = ref.watch(monetizationProvider);
+            if (!kSupportsStoreMonetization() || !m.ready || m.adsRemoved) {
+              return const SizedBox.shrink();
+            }
+            final id = kBannerAdUnitIdForPlatform();
+            if (id.isEmpty) return const SizedBox.shrink();
+            return SafeArea(
+              top: false,
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: MonetizationBannerAd(adUnitId: id),
+              ),
+            );
+          },
+        ),
           ],
         ),
       ),
