@@ -93,12 +93,13 @@ class StartScreenBgm {
   }
 
   /// Called from [_StartScreenBgmLifecycleObserver] for every app transition.
+  /// Called from [_StartScreenBgmLifecycleObserver] for every app transition.
   void handleAppLifecycle(AppLifecycleState state) {
+    if (kIsWeb) return;
     switch (state) {
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
         _tearDownPlaybackForLeavingApp();
-        return;
       case AppLifecycleState.resumed:
         _cancelInactivePauseTimer();
         _maybeRestartAfterReturningToApp();
