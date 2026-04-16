@@ -243,7 +243,7 @@ class StartScreenBgm {
     _pausedByRoute = false;
     _stoppedDueToAppBackground = false;
     _cancelInactivePauseTimer();
-    _cancelInactivePauseTimer();
+
     final p = _player;
     _player = null;
     if (p != null) {
