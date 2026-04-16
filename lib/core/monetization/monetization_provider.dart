@@ -56,11 +56,18 @@ class MonetizationNotifier extends StateNotifier<MonetizationState> {
   }
 
   StreamSubscription<List<PurchaseDetails>>? _purchaseSub;
+  bool _disposed = false;
+
+  void _setStateIfNotDisposed(MonetizationState next) {
+    if (_disposed) return;
+    state = next;
+  }
 
   Future<void> _init() async {
     final prefs = await SharedPreferences.getInstance();
+    if (_disposed) return;
     final cached = prefs.getBool(_prefsKeyAdsRemoved) ?? false;
-    state = state.copyWith(adsRemoved: cached, ready: true);
+    _setStateIfNotDisposed(state.copyWith(adsRemoved: cached, ready: true));
 
     if (!kSupportsStoreMonetization()) {
       return;
@@ -68,6 +75,7 @@ class MonetizationNotifier extends StateNotifier<MonetizationState> {
 
     final iap = InAppPurchase.instance;
     final available = await iap.isAvailable();
+    if (_disposed) return;
     if (!available) {
       if (kDebugMode) {
         debugPrint('Monetization: billing not available on this device.');
@@ -75,6 +83,7 @@ class MonetizationNotifier extends StateNotifier<MonetizationState> {
       return;
     }
 
+    if (_disposed) return;
     _purchaseSub = iap.purchaseStream.listen(
       _onPurchaseUpdate,
       onError: (Object e, StackTrace st) {
@@ -91,33 +100,44 @@ class MonetizationNotifier extends StateNotifier<MonetizationState> {
     if (!kSupportsStoreMonetization()) return;
     final response = await InAppPurchase.instance
         .queryProductDetails({kRemoveAdsProductId});
+    if (_disposed) return;
     if (response.notFoundIDs.isNotEmpty && kDebugMode) {
       debugPrint('Monetization: product IDs not in store: ${response.notFoundIDs}');
     }
     if (response.productDetails.isEmpty) return;
-    state = state.copyWith(removeAdsProduct: response.productDetails.first);
+    _setStateIfNotDisposed(
+      state.copyWith(removeAdsProduct: response.productDetails.first),
+    );
   }
 
   Future<void> _onPurchaseUpdate(List<PurchaseDetails> purchases) async {
+    if (_disposed) return;
     for (final purchase in purchases) {
+      if (_disposed) return;
       if (purchase.productID != kRemoveAdsProductId) {
         if (purchase.pendingCompletePurchase) {
           await InAppPurchase.instance.completePurchase(purchase);
+          if (_disposed) return;
         }
         continue;
       }
 
       switch (purchase.status) {
         case PurchaseStatus.pending:
-          state = state.copyWith(purchaseInFlight: true, clearError: true);
+          _setStateIfNotDisposed(
+            state.copyWith(purchaseInFlight: true, clearError: true),
+          );
           break;
         case PurchaseStatus.error:
-          state = state.copyWith(
-            purchaseInFlight: false,
-            lastError: purchase.error?.message ?? 'Purchase failed',
+          _setStateIfNotDisposed(
+            state.copyWith(
+              purchaseInFlight: false,
+              lastError: purchase.error?.message ?? 'Purchase failed',
+            ),
           );
           if (purchase.pendingCompletePurchase) {
             await InAppPurchase.instance.completePurchase(purchase);
+            if (_disposed) return;
           }
           break;
         case PurchaseStatus.purchased:
@@ -125,9 +145,10 @@ class MonetizationNotifier extends StateNotifier<MonetizationState> {
           await _grantRemoveAds(purchase);
           break;
         case PurchaseStatus.canceled:
-          state = state.copyWith(purchaseInFlight: false);
+          _setStateIfNotDisposed(state.copyWith(purchaseInFlight: false));
           if (purchase.pendingCompletePurchase) {
             await InAppPurchase.instance.completePurchase(purchase);
+            if (_disposed) return;
           }
           break;
       }
@@ -136,11 +157,15 @@ class MonetizationNotifier extends StateNotifier<MonetizationState> {
 
   Future<void> _grantRemoveAds(PurchaseDetails purchase) async {
     final prefs = await SharedPreferences.getInstance();
+    if (_disposed) return;
     await prefs.setBool(_prefsKeyAdsRemoved, true);
-    state = state.copyWith(
-      adsRemoved: true,
-      purchaseInFlight: false,
-      clearError: true,
+    if (_disposed) return;
+    _setStateIfNotDisposed(
+      state.copyWith(
+        adsRemoved: true,
+        purchaseInFlight: false,
+        clearError: true,
+      ),
     );
     if (purchase.pendingCompletePurchase) {
       await InAppPurchase.instance.completePurchase(purchase);
@@ -148,9 +173,10 @@ class MonetizationNotifier extends StateNotifier<MonetizationState> {
   }
 
   Future<void> purchaseRemoveAds() async {
+    if (_disposed) return;
     final product = state.removeAdsProduct;
     if (product == null || state.adsRemoved) return;
-    state = state.copyWith(purchaseInFlight: true, clearError: true);
+    _setStateIfNotDisposed(state.copyWith(purchaseInFlight: true, clearError: true));
     final param = PurchaseParam(productDetails: product);
     try {
       await InAppPurchase.instance.buyNonConsumable(purchaseParam: param);
@@ -158,26 +184,34 @@ class MonetizationNotifier extends StateNotifier<MonetizationState> {
       if (kDebugMode) {
         debugPrint('Monetization: buyNonConsumable failed: $e\n$st');
       }
-      state = state.copyWith(
-        purchaseInFlight: false,
-        lastError: e.toString(),
+      _setStateIfNotDisposed(
+        state.copyWith(
+          purchaseInFlight: false,
+          lastError: e.toString(),
+        ),
       );
     }
   }
 
   Future<void> restorePurchases() async {
-    if (!kSupportsStoreMonetization()) return;
-    state = state.copyWith(clearError: true);
+    if (!kSupportsStoreMonetization() || _disposed) return;
+    _setStateIfNotDisposed(state.copyWith(clearError: true));
     try {
       await InAppPurchase.instance.restorePurchases();
     } catch (e) {
-      state = state.copyWith(lastError: e.toString());
+      _setStateIfNotDisposed(state.copyWith(lastError: e.toString()));
     }
   }
 
   @override
   void dispose() {
-    unawaited(_purchaseSub?.cancel());
+    _disposed = true;
+    final sub = _purchaseSub;
+    _purchaseSub = null;
+    final cancelFuture = sub?.cancel();
+    if (cancelFuture != null) {
+      unawaited(cancelFuture);
+    }
     super.dispose();
   }
 }

@@ -160,6 +160,11 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
 
   @override
   Widget build(BuildContext context) {
+    final monetization = ref.watch(monetizationProvider);
+    final reserveScrollPaddingForAds = kSupportsStoreMonetization() &&
+        monetization.ready &&
+        !monetization.adsRemoved;
+
     return Scaffold(
       body: Listener(
         behavior: HitTestBehavior.translucent,
@@ -469,7 +474,11 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                             ],
                           ),
                         ),
-                        const SizedBox(height: 32),
+                        // Extra bottom inset when a banner may show so the icon row
+                        // stays above the ad slot and remains scrollable/tappable.
+                        SizedBox(
+                          height: reserveScrollPaddingForAds ? 120 : 32,
+                        ),
                       ],
                     ),
                   ),
