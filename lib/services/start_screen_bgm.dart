@@ -199,7 +199,7 @@ class StartScreenBgm {
         await localPlayer?.dispose();
       } catch (_) {}
     } finally {
-      _starting = false;
+      if (_epoch == myEpoch) _starting = false;
     }
   }
 
