@@ -17,7 +17,9 @@ import 'package:just_audio/just_audio.dart';
 /// [onRouteCovered] / [onRouteVisible] are only wired from [RouteAware] on the start
 /// screen; navigation while the app is fully backgrounded is not expected, but
 /// [onRouteVisible] still checks [WidgetsBinding.lifecycleState] before playing so BGM
-/// does not resume in [AppLifecycleState.paused] / [hidden] / [detached].
+/// does not resume in [AppLifecycleState.paused] / [hidden] / [detached]. After an async
+/// [AudioPlayer.play], the same check applies before clearing [_pausedByAppLifecycle] so a
+/// re-background during that await cannot desync the flag from the player.
 ///
 /// **Web:** autoplay is blocked until a user gesture — [start] is a no-op on web;
 /// the first [notifyUserGesture] (pointer down on the start screen) begins playback.
@@ -61,6 +63,15 @@ class StartScreenBgm with WidgetsBindingObserver {
     } catch (_) {}
   }
 
+  /// After [AudioPlayer.play] awaits, the app may have re-backgrounded; only then treat
+  /// the lifecycle pause as fully lifted ([WidgetsBinding.lifecycleState] is [resumed]
+  /// or unknown).
+  bool _mayClearPausedByAppLifecycleAfterPlay() {
+    final life = WidgetsBinding.instance.lifecycleState;
+    if (life == null) return true;
+    return life == AppLifecycleState.resumed;
+  }
+
   /// Clears [_pausedByAppLifecycle] only after a successful play.
   Future<void> _resumeAfterAppLifecyclePause() async {
     if (!_pausedByAppLifecycle || _pausedByRoute || !_started) return;
@@ -69,7 +80,9 @@ class StartScreenBgm with WidgetsBindingObserver {
     try {
       await p.play();
       if (!_started || _pausedByRoute) return;
-      _pausedByAppLifecycle = false;
+      if (_mayClearPausedByAppLifecycleAfterPlay()) {
+        _pausedByAppLifecycle = false;
+      }
     } catch (e) {
       if (kDebugMode) {
         debugPrint('StartScreenBgm: resume after lifecycle pause failed: $e');
@@ -195,7 +208,9 @@ class StartScreenBgm with WidgetsBindingObserver {
     }
     try {
       await _player!.play();
-      _pausedByAppLifecycle = false;
+      if (_mayClearPausedByAppLifecycleAfterPlay()) {
+        _pausedByAppLifecycle = false;
+      }
     } catch (e) {
       if (kDebugMode) {
         debugPrint('StartScreenBgm.onRouteVisible play failed: $e');
