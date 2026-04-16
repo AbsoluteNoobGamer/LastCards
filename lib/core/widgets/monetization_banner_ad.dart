@@ -38,7 +38,10 @@ class _MonetizationBannerAdState extends State<MonetizationBannerAd> {
         request: const AdRequest(),
         listener: BannerAdListener(
           onAdLoaded: (Ad ad) {
-            if (!mounted) return;
+            if (!mounted) {
+              ad.dispose();
+              return;
+            }
             setState(() {
               _ad = ad as BannerAd;
               _loaded = true;
