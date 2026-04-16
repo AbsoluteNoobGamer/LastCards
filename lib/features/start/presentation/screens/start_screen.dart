@@ -164,7 +164,11 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
       body: Listener(
         behavior: HitTestBehavior.translucent,
         onPointerDown: (_) => StartScreenBgm.instance.notifyUserGesture(),
-        child: Stack(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+        Expanded(
+          child: Stack(
           fit: StackFit.expand,
           children: [
           Stack(
@@ -508,31 +512,28 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
               ),
             ),
           ),
-
-          // 5. Banner ad (hidden after remove-ads purchase or on non-mobile)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SafeArea(
+          ],
+        ),
+        ),
+        // Banner sits in layout flow (not stacked over content) so the icon row
+        // and Settings remain tappable and reachable for "Remove ads".
+        Consumer(
+          builder: (context, ref, _) {
+            final m = ref.watch(monetizationProvider);
+            if (!kSupportsStoreMonetization() || !m.ready || m.adsRemoved) {
+              return const SizedBox.shrink();
+            }
+            final id = kBannerAdUnitIdForPlatform();
+            if (id.isEmpty) return const SizedBox.shrink();
+            return SafeArea(
               top: false,
-              child: Center(
-                child: Consumer(
-                  builder: (context, ref, _) {
-                    final m = ref.watch(monetizationProvider);
-                    if (!kSupportsStoreMonetization() ||
-                        !m.ready ||
-                        m.adsRemoved) {
-                      return const SizedBox.shrink();
-                    }
-                    final id = kBannerAdUnitIdForPlatform();
-                    if (id.isEmpty) return const SizedBox.shrink();
-                    return MonetizationBannerAd(adUnitId: id);
-                  },
-                ),
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: MonetizationBannerAd(adUnitId: id),
               ),
-            ),
-          ),
+            );
+          },
+        ),
           ],
         ),
       ),
