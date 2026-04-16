@@ -11,9 +11,13 @@ import 'core/services/card_back_service.dart';
 import 'core/services/profile_service.dart';
 import 'firebase_options.dart';
 import 'services/audio_service.dart';
+import 'services/start_screen_bgm.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Register before runApp so Android lifecycle reaches BGM pause logic even if
+  // playback starts later (singleton self-registration was too late on some devices).
+  registerStartScreenBgmAppLifecycleObserver();
 
   try {
     await Firebase.initializeApp(
