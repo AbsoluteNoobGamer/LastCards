@@ -63,12 +63,12 @@ class StartScreenBgm with WidgetsBindingObserver {
 
   /// Clears [_pausedByAppLifecycle] only after a successful play.
   Future<void> _resumeAfterAppLifecyclePause() async {
-    if (!_pausedByAppLifecycle || _pausedByRoute) return;
+    if (!_pausedByAppLifecycle || _pausedByRoute || !_started) return;
     final p = _player;
     if (p == null) return;
     try {
       await p.play();
-      if (_pausedByRoute) return;
+      if (!_started || _pausedByRoute) return;
       _pausedByAppLifecycle = false;
     } catch (e) {
       if (kDebugMode) {
