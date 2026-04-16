@@ -11,9 +11,8 @@ import 'package:share_plus/share_plus.dart';
 import '../../../../core/models/game_event.dart';
 import '../../../../core/models/game_state.dart';
 import '../../../../core/models/player_model.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../../../../core/providers/auth_provider.dart';
+import '../../../../core/providers/friends_provider.dart';
 import '../../../../core/providers/connection_provider.dart';
 import '../../../../core/network/websocket_client.dart';
 import '../../../../core/providers/user_profile_provider.dart';
@@ -151,15 +150,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
           _codeController.text = e.roomCode;
         });
         final pending = widget.pendingGameInviteDocIdToDismiss;
-        final uid = ref.read(authStateProvider).value?.uid;
-        if (pending != null && uid != null) {
+        if (pending != null) {
           unawaited(
-            FirebaseFirestore.instance
-                .collection('users')
-                .doc(uid)
-                .collection('gameInvites')
-                .doc(pending)
-                .delete(),
+            ref.read(friendsServiceProvider).deleteGameInvite(pending),
           );
         }
         return;

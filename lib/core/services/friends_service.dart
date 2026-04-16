@@ -23,6 +23,16 @@ class FriendsService {
   final Map<String, Timer> _gameInviteExpireTimers = {};
   final Map<String, DateTime> _inviteExpiryAnchorWhenNoTimestamp = {};
 
+  /// Cancels invite expiry timers. Safe to call when the service is torn down
+  /// (e.g. [Provider] `onDispose`); does not delete Firestore documents.
+  void dispose() {
+    for (final t in _gameInviteExpireTimers.values) {
+      t.cancel();
+    }
+    _gameInviteExpireTimers.clear();
+    _inviteExpiryAnchorWhenNoTimestamp.clear();
+  }
+
   String? get _uid => _auth.currentUser?.uid;
 
   DocumentReference<Map<String, dynamic>> _userDoc(String uid) =>
@@ -47,6 +57,11 @@ class FriendsService {
         );
   }
 
+  /// Pending game invites for the current user.
+  ///
+  /// **Single-subscription:** This stream performs side effects (stale deletes,
+  /// expiry timers). Subscribe at most once (e.g. one `StreamProvider`); a
+  /// second listener would duplicate timers on the shared [FriendsService] instance.
   Stream<List<GameInviteEntry>> gameInvitesStream() {
     final uid = _uid;
     if (uid == null) return const Stream.empty();
@@ -57,10 +72,15 @@ class FriendsService {
       final fresh = <GameInviteEntry>[];
       final staleIds = <String>[];
       for (final e in entries) {
-        final created = e.createdAt;
-        if (created != null &&
-            now.difference(created) > gameInviteMaxAge) {
+        final anchor = e.createdAt ??
+            _inviteExpiryAnchorWhenNoTimestamp[e.id] ??
+            _inviteExpiryAnchorWhenNoTimestamp.putIfAbsent(
+              e.id,
+              () => DateTime.now(),
+            );
+        if (now.difference(anchor) > gameInviteMaxAge) {
           staleIds.add(e.id);
+          _inviteExpiryAnchorWhenNoTimestamp.remove(e.id);
         } else {
           fresh.add(e);
         }
