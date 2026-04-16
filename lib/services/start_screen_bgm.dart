@@ -239,8 +239,10 @@ class StartScreenBgm {
   Future<void> stop() async {
     _epoch++;
     _started = false;
+    _starting = false;
     _pausedByRoute = false;
     _stoppedDueToAppBackground = false;
+    _cancelInactivePauseTimer();
     _cancelInactivePauseTimer();
     final p = _player;
     _player = null;
