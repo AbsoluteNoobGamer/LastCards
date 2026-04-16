@@ -28,7 +28,8 @@ class _MonetizationBannerAdState extends State<MonetizationBannerAd> {
     final width = MediaQuery.sizeOf(context).width.truncate();
     if (width <= 0) return;
 
-    final size = await AdSize.getLargeAnchoredAdaptiveBannerAdSize(width);
+    final size =
+        await AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(width);
     if (!mounted || size == null) return;
 
     unawaited(
