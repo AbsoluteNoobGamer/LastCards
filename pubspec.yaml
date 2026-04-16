@@ -46,6 +46,8 @@ dependencies:
   profanity_filter: ^2.0.0
   nsfw_detector_flutter: ^1.0.5
   just_audio: ^0.10.5
+  # Aligns BGM with Android/iOS audio focus (used with just_audio interruption handling).
+  audio_session: ^0.2.3
   http: ^1.6.0
   share_plus: ^12.0.2
   # 7.x/8.x require Dart >=3.10; ^6.0.0 stays on 6.x until the SDK supports newer plugin majors.
