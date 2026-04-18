@@ -7,17 +7,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///
 /// XP is persisted via SharedPreferences key `player_total_xp`.
 ///
-/// Level unlocks (Level = threshold index + 1):
-///   Level 1:  0 XP      Level 11: 5 600 XP
-///   Level 2:  100 XP    Level 12: 6 900 XP
-///   Level 3:  300 XP    Level 13: 8 400 XP
-///   Level 4:  600 XP    Level 14: 10 100 XP
-///   Level 5:  1 000 XP  Level 15: 12 000 XP
-///   Level 6:  1 500 XP  Level 16: 14 100 XP
-///   Level 7:  2 100 XP  Level 17: 16 400 XP
-///   Level 8:  2 800 XP  Level 18: 19 000 XP
-///   Level 9:  3 600 XP  Level 19: 21 900 XP
-///   Level 10: 4 500 XP  Level 20: 25 000 XP
+/// Levels 1–20 use fixed thresholds (see [_levelThresholds]). Levels 21–100 add
+/// [_post20XpPerLevel] XP per level after level 20’s threshold (25 000 XP).
+///
+/// [prestigeAvatarUnlockLevel] is the level at which the prestige avatar frame
+/// unlocks (currently 100).
 class PlayerLevelService {
   PlayerLevelService._();
 
@@ -27,29 +21,38 @@ class PlayerLevelService {
   static const String _prefsCurrentStreakKey = 'player_current_streak';
   static const String _prefsBestStreakKey = 'player_best_streak';
 
-  // Thresholds in ascending order (index + 1 = level).
+  /// XP added per level after the first 20 levels (linear segment).
+  static const int _post20XpPerLevel = 5000;
+
+  /// First 20 levels: threshold to *reach* that level (index + 1 = level).
   static const List<int> _levelThresholds = <int>[
-    0,      // Level 1
-    100,    // Level 2
-    300,    // Level 3
-    600,    // Level 4
-    1000,   // Level 5
-    1500,   // Level 6
-    2100,   // Level 7
-    2800,   // Level 8
-    3600,   // Level 9
-    4500,   // Level 10
-    5600,   // Level 11
-    6900,   // Level 12
-    8400,   // Level 13
-    10100,  // Level 14
-    12000,  // Level 15
-    14100,  // Level 16
-    16400,  // Level 17
-    19000,  // Level 18
-    21900,  // Level 19
-    25000,  // Level 20
+    0, // Level 1
+    100, // Level 2
+    300, // Level 3
+    600, // Level 4
+    1000, // Level 5
+    1500, // Level 6
+    2100, // Level 7
+    2800, // Level 8
+    3600, // Level 9
+    4500, // Level 10
+    5600, // Level 11
+    6900, // Level 12
+    8400, // Level 13
+    10100, // Level 14
+    12000, // Level 15
+    14100, // Level 16
+    16400, // Level 17
+    19000, // Level 18
+    21900, // Level 19
+    25000, // Level 20
   ];
+
+  /// Maximum achievable level (inclusive).
+  static const int maxLevel = 100;
+
+  /// Level at which the animated prestige avatar frame unlocks.
+  static const int prestigeAvatarUnlockLevel = 100;
 
   bool _initialized = false;
   int _totalXp = 0;
@@ -57,7 +60,7 @@ class PlayerLevelService {
   /// Persisted XP total.
   final ValueNotifier<int> currentXP = ValueNotifier<int>(0);
 
-  /// Derived level (1–20 based on [_levelThresholds]).
+  /// Derived level (1–[maxLevel]).
   final ValueNotifier<int> currentLevel = ValueNotifier<int>(1);
 
   /// Current consecutive win streak (resets on any loss).
@@ -66,17 +69,24 @@ class PlayerLevelService {
   /// All-time best win streak.
   final ValueNotifier<int> bestStreak = ValueNotifier<int>(0);
 
+  /// Minimum total XP required to be considered at least [level] (level ≥ 1).
+  static int xpThresholdForLevel(int level) {
+    final l = level.clamp(1, maxLevel);
+    if (l <= _levelThresholds.length) {
+      return _levelThresholds[l - 1];
+    }
+    final base = _levelThresholds.last;
+    return base + (l - _levelThresholds.length) * _post20XpPerLevel;
+  }
+
   static int levelFromTotalXP(int totalXP) {
     final xp = math.max(0, totalXP);
     var level = 1;
-    for (var i = 0; i < _levelThresholds.length; i++) {
-      if (xp >= _levelThresholds[i]) level = i + 1;
+    for (var l = 1; l <= maxLevel; l++) {
+      if (xp >= xpThresholdForLevel(l)) level = l;
     }
-    return level.clamp(1, _levelThresholds.length);
+    return level;
   }
-
-  /// Maximum achievable level.
-  static int get maxLevel => _levelThresholds.length;
 
   /// XP interval for the current level band: `[bandStartXp, nextBandStartXp)` until max level.
   ///
@@ -89,8 +99,8 @@ class PlayerLevelService {
   }) progressForTotalXp(int totalXP) {
     final xp = math.max(0, totalXP);
     final level = levelFromTotalXP(xp);
-    final bandStart = _levelThresholds[level - 1];
-    if (level >= _levelThresholds.length) {
+    final bandStart = xpThresholdForLevel(level);
+    if (level >= maxLevel) {
       return (
         progressFraction: 1.0,
         bandStartXp: bandStart,
@@ -98,7 +108,7 @@ class PlayerLevelService {
         level: level,
       );
     }
-    final nextStart = _levelThresholds[level];
+    final nextStart = xpThresholdForLevel(level + 1);
     final span = nextStart - bandStart;
     final frac =
         span > 0 ? ((xp - bandStart) / span).clamp(0.0, 1.0) : 1.0;
@@ -176,4 +186,3 @@ class PlayerLevelService {
     await prefs.setInt(_prefsCurrentStreakKey, 0);
   }
 }
-
