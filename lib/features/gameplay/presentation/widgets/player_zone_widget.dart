@@ -14,18 +14,11 @@ import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import 'quick_chat_bubble.dart';
 
-/// Data for a quick chat bubble shown above a player's avatar.
+/// Data for a quick chat bubble shown under the player's name (same row as avatar rail).
 typedef QuickChatBubbleData = ({String id, String playerName, String message, bool isLocal});
 
 /// Opponent circle avatar diameter (must match [SizedBox] in [_OpponentAvatarZone]).
 const double _kOpponentAvatarSize = 68;
-
-/// Gap between bubble bottom and avatar top when [QuickChatBubble] is overlaid.
-const double _kQuickChatBubbleGap = 6;
-
-/// Approximate [_PlayerLabel] row height for bubble anchoring (compact vs normal).
-double _localLabelBubbleBottomInset(bool compact) =>
-    (compact ? 28.0 : 34.0) + _kQuickChatBubbleGap;
 
 /// Wraps a player's card area with:
 /// - Accent glow ring when active turn
@@ -166,35 +159,28 @@ class PlayerZoneWidget extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                _PlayerLabel(
-                  player: playerWithReactiveCount,
-                  isActiveTurn: isActiveTurn,
-                  isLocalPlayer: isLocalPlayer,
-                  hasLastCardsDeclared: hasLastCardsDeclared,
-                  appTheme: appTheme,
-                  compact: compact,
-                ),
-                if (chatBubble != null && onRemoveQuickChatBubble != null)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: _localLabelBubbleBottomInset(compact),
-                    child: Center(
-                      child: QuickChatBubble(
-                        key: ValueKey(chatBubble!.id),
-                        playerName: chatBubble!.playerName,
-                        message: chatBubble!.message,
-                        isLocal: chatBubble!.isLocal,
-                        onDismiss: () =>
-                            onRemoveQuickChatBubble!(chatBubble!.id),
-                      ),
-                    ),
-                  ),
-              ],
+            _PlayerLabel(
+              player: playerWithReactiveCount,
+              isActiveTurn: isActiveTurn,
+              isLocalPlayer: isLocalPlayer,
+              hasLastCardsDeclared: hasLastCardsDeclared,
+              appTheme: appTheme,
+              compact: compact,
             ),
+            if (chatBubble != null && onRemoveQuickChatBubble != null) ...[
+              const SizedBox(height: 6),
+              Center(
+                child: QuickChatBubble(
+                  key: ValueKey(chatBubble!.id),
+                  playerName: chatBubble!.playerName,
+                  message: chatBubble!.message,
+                  isLocal: chatBubble!.isLocal,
+                  tailPointsUp: true,
+                  onDismiss: () =>
+                      onRemoveQuickChatBubble!(chatBubble!.id),
+                ),
+              ),
+            ],
             SizedBox(height: compact ? 2 : AppDimensions.xs),
             child ?? const SizedBox.shrink(),
           ],
@@ -407,28 +393,7 @@ class _OpponentAvatarZone extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            avatarCircle,
-            if (chatBubble != null && onRemoveQuickChatBubble != null)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: _kOpponentAvatarSize + _kQuickChatBubbleGap,
-                child: Center(
-                  child: QuickChatBubble(
-                    key: ValueKey(chatBubble!.id),
-                    playerName: chatBubble!.playerName,
-                    message: chatBubble!.message,
-                    isLocal: chatBubble!.isLocal,
-                    onDismiss: () =>
-                        onRemoveQuickChatBubble!(chatBubble!.id),
-                  ),
-                ),
-              ),
-          ],
-        ),
+        avatarCircle,
 
         const SizedBox(height: 8),
 
@@ -447,6 +412,21 @@ class _OpponentAvatarZone extends StatelessWidget {
               ? (aiConfig?.nameColor ?? positionColor)
               : (appTheme.textPrimary as Color),
         ),
+
+        if (chatBubble != null && onRemoveQuickChatBubble != null) ...[
+          const SizedBox(height: 6),
+          Center(
+            child: QuickChatBubble(
+              key: ValueKey(chatBubble!.id),
+              playerName: chatBubble!.playerName,
+              message: chatBubble!.message,
+              isLocal: chatBubble!.isLocal,
+              tailPointsUp: true,
+              onDismiss: () =>
+                  onRemoveQuickChatBubble!(chatBubble!.id),
+            ),
+          ),
+        ],
 
         if (hasLastCardsDeclared) ...[
           const SizedBox(height: 4),

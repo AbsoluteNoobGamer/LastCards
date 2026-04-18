@@ -30,7 +30,8 @@ class BustPlayerRail extends StatefulWidget {
   /// Used by the dealing animation overlay to locate render targets.
   final GlobalKey? Function(BustPlayerViewModel player)? slotKeyBuilder;
 
-  /// Rail height. Defaults to 96. Use 72 for compact landscape.
+  /// Base slot height before reserved quick-chat space. Defaults to 96; use 72
+  /// for compact landscape. Final rail height is this + fixed chat reservation.
   final double? height;
 
   /// When true, uses compact slots (smaller avatar/name) for landscape.
@@ -99,17 +100,15 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
     super.dispose();
   }
 
-  /// Extra height when any slot shows a quick chat bubble (bubble overflows above avatar).
-  static const double _chatBubbleExtraHeight = 40;
+  /// Reserved **always** so quick-chat bubbles (below names) never change rail
+  /// height — move log, piles, and turn bar stay fixed when chat appears/updates.
+  /// Must fit avatar + label + [QuickChatBubble] under [ListView] cross-axis max.
+  static const double _chatBubbleReservedHeight = 96;
 
   @override
   Widget build(BuildContext context) {
     final baseHeight = widget.height ?? 96;
-    final hasChatBubbles = widget.players.any(
-      (p) => widget.quickChatBubblesByPlayer.containsKey(p.id),
-    );
-    final railHeight =
-        hasChatBubbles ? baseHeight + _chatBubbleExtraHeight : baseHeight;
+    final railHeight = baseHeight + _chatBubbleReservedHeight;
     final slotPadding = AppDimensions.xs;
 
     Widget buildSlot(BustPlayerViewModel player) {
@@ -126,9 +125,12 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
       if (slotKey != null) {
         slot = KeyedSubtree(key: slotKey, child: slot);
       }
-      return Padding(
-        padding: EdgeInsets.symmetric(horizontal: slotPadding),
-        child: slot,
+      return Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: slotPadding),
+          child: slot,
+        ),
       );
     }
 
@@ -146,6 +148,7 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     for (final player in widget.players) buildSlot(player),
                   ],

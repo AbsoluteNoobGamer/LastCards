@@ -71,8 +71,6 @@ class BustPlayerSlot extends ConsumerWidget {
     final slotWidth = compact ? 56.0 : 80.0;
     final iconSize = compact ? 20.0 : 28.0;
 
-    const bubbleGap = 6.0;
-
     Widget slot = SizedBox(
       width: slotWidth,
       child: Column(
@@ -81,98 +79,77 @@ class BustPlayerSlot extends ConsumerWidget {
           Stack(
             clipBehavior: Clip.none,
             children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    width: avatarSize,
-                    height: avatarSize,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: bgColor,
-                      border: Border.all(color: borderColor, width: borderWidth),
-                      boxShadow: shadows,
-                    ),
-                    child: Center(
-                      child: Text(
-                        initialsFromDisplayName(player.displayName),
-                        style: TextStyle(
-                          color: player.isEliminated
-                              ? player.color.withValues(alpha: 0.7)
-                              : Colors.white.withValues(
-                                  alpha: player.isActive ? 1.0 : 0.9),
-                          fontSize: iconSize * 0.85,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (showThinking)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 2,
-                      child: IgnorePointer(
-                        child: Center(
-                          child: Text(
-                            '···',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: compact ? 12 : 16,
-                              fontWeight: FontWeight.w900,
-                              shadows: const [
-                                Shadow(blurRadius: 4, color: Colors.black87),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: badgeSize,
-                      height: badgeSize,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: theme.accentDark,
-                        border: Border.all(
-                          color: theme.surfacePanel,
-                          width: compact ? 1.0 : 1.5,
-                        ),
-                      ),
-                      child: Text(
-                        player.isEliminated ? 'X' : '${player.cardCount}',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: compact ? 9 : 11,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (chatBubble != null && onRemoveQuickChatBubble != null)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: avatarSize + bubbleGap,
-                  child: Center(
-                    child: QuickChatBubble(
-                      key: ValueKey(chatBubble!.id),
-                      playerName: chatBubble!.playerName,
-                      message: chatBubble!.message,
-                      isLocal: chatBubble!.isLocal,
-                      onDismiss: () =>
-                          onRemoveQuickChatBubble!(chatBubble!.id),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                width: avatarSize,
+                height: avatarSize,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: bgColor,
+                  border: Border.all(color: borderColor, width: borderWidth),
+                  boxShadow: shadows,
+                ),
+                child: Center(
+                  child: Text(
+                    initialsFromDisplayName(player.displayName),
+                    style: TextStyle(
+                      color: player.isEliminated
+                          ? player.color.withValues(alpha: 0.7)
+                          : Colors.white.withValues(
+                              alpha: player.isActive ? 1.0 : 0.9),
+                      fontSize: iconSize * 0.85,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ),
+              ),
+              if (showThinking)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 2,
+                  child: IgnorePointer(
+                    child: Center(
+                      child: Text(
+                        '···',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: compact ? 12 : 16,
+                          fontWeight: FontWeight.w900,
+                          shadows: const [
+                            Shadow(blurRadius: 4, color: Colors.black87),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  width: badgeSize,
+                  height: badgeSize,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: theme.accentDark,
+                    border: Border.all(
+                      color: theme.surfacePanel,
+                      width: compact ? 1.0 : 1.5,
+                    ),
+                  ),
+                  child: Text(
+                    player.isEliminated ? 'X' : '${player.cardCount}',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: compact ? 9 : 11,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
           SizedBox(height: compact ? 2 : AppDimensions.xs),
@@ -187,6 +164,20 @@ class BustPlayerSlot extends ConsumerWidget {
             textAlign: TextAlign.center,
             color: player.isActive ? player.color : theme.textPrimary,
           ),
+          if (chatBubble != null && onRemoveQuickChatBubble != null) ...[
+            const SizedBox(height: 4),
+            Center(
+              child: QuickChatBubble(
+                key: ValueKey(chatBubble!.id),
+                playerName: chatBubble!.playerName,
+                message: chatBubble!.message,
+                isLocal: chatBubble!.isLocal,
+                tailPointsUp: true,
+                onDismiss: () =>
+                    onRemoveQuickChatBubble!(chatBubble!.id),
+              ),
+            ),
+          ],
           // ── Tournament status badge (qualified/eliminated) ─────────────────
           if (player.isTournamentFinished) ...[
             SizedBox(height: compact ? 2 : 4),

@@ -237,6 +237,13 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
       );
       _enginePlayerIdsForCurrentTable = null;
       if (!mounted || _isDisposed) return;
+      if (roundResult?.isAbandoned == true) {
+        ref.read(tournamentSessionProvider.notifier).reset();
+        if (mounted && !_isDisposed) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+        return;
+      }
       if (roundResult != null) {
         // Defensive reconciliation: table can report finish IDs while the engine
         // missed one callback due to route/frame timing. Replaying ensures the

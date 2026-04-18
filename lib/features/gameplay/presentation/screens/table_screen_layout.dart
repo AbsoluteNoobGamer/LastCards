@@ -354,8 +354,8 @@ class _TableLayout extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       // HudOverlayWidget is rendered as a Positioned overlay
-                      // in the outer Stack (above the game log). This SizedBox
-                      // preserves the vertical spacing for the draw/discard piles.
+                      // in the outer Stack. This SizedBox preserves vertical
+                      // spacing for the draw/discard piles.
                       const SizedBox(height: 72),
                       SizedBox(
                           height:

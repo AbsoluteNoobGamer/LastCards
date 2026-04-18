@@ -67,7 +67,8 @@ class _DiscardPileWidgetState extends State<DiscardPileWidget> {
   @override
   Widget build(BuildContext context) {
     final height = AppDimensions.cardHeight(widget.cardWidth);
-    final targetOffset = _isHovering ? const Offset(0, -10) : Offset.zero;
+    // No hover lift — keeps the face-up pile visually stable (layout + UX).
+    final targetOffset = Offset.zero;
 
     // How many subtle card-back layers to show behind the top card
     final layers = _stackLayers(widget.discardPileCount);
@@ -127,16 +128,10 @@ class _DiscardPileWidgetState extends State<DiscardPileWidget> {
                 transform: Matrix4.translationValues(
                     targetOffset.dx, targetOffset.dy, 0),
                 child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  transitionBuilder: (child, animation) => SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0, -0.3),
-                      end: Offset.zero,
-                    ).animate(CurvedAnimation(
-                      parent: animation,
-                      curve: Curves.easeInOut,
-                    )),
-                    child: FadeTransition(opacity: animation, child: child),
+                  duration: const Duration(milliseconds: 280),
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: child,
                   ),
                   child: Hero(
                     key: ValueKey(topCard.id),
