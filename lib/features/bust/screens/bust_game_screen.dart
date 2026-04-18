@@ -22,8 +22,9 @@ import 'package:last_cards/features/gameplay/presentation/widgets/dealing_animat
 import 'package:last_cards/features/gameplay/presentation/widgets/discard_pile_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/draw_pile_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/floating_action_bar_widget.dart';
+import 'package:last_cards/features/gameplay/presentation/widgets/game_move_log_overlay.dart'
+    show GameMoveLogPanel;
 import 'package:last_cards/features/gameplay/presentation/widgets/hud_overlay_widget.dart';
-import 'package:last_cards/features/gameplay/presentation/widgets/game_move_log_overlay.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/ace_suit_picker_sheet.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/player_hand_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/player_zone_widget.dart';
@@ -166,6 +167,9 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     _reshuffleNotifier.dispose();
     _quickChatCooldownTimer?.cancel();
     _skipHighlightClearTimer?.cancel();
+    // Match [TableScreen.dispose]: stop shared SFX players so a mid-game exit
+    // cannot leave deal/AI audio overlapping the next session (lag, missing SFX).
+    unawaited(game_audio.AudioService.instance.stopAll());
     super.dispose();
   }
 
@@ -907,6 +911,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
         .where((p) => p.tablePosition == TablePosition.bottom)
         .firstOrNull;
 
+    if (!mounted) return;
     setState(() {
       _gameState = finalState.copyWith(drawPileCount: _drawPile.length);
       _aiThinking = false;
@@ -1046,8 +1051,10 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     final bubbleId =
         '${playerId}_${messageIndex}_${DateTime.now().millisecondsSinceEpoch}';
     setState(() {
+      // Same as [TableScreen._showQuickChatBubble]: one visible bubble per player;
+      // a new message replaces the previous bubble for that seat.
       _quickChatBubbles = [
-        ..._quickChatBubbles,
+        ..._quickChatBubbles.where((b) => b.playerId != playerId),
         (
           id: bubbleId,
           playerId: playerId,
@@ -1086,9 +1093,15 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   void _sendQuickChat(int messageIndex) {
     if (_quickChatCooldownRemaining > 0) return;
 
+    final bottom = _localPlayer;
+    final localChatName =
+        (bottom != null && bottom.displayName.isNotEmpty)
+            ? bottom.displayName
+            : ref.read(displayNameForGameProvider);
+
     _showQuickChatBubble(
       OfflineGameState.localId,
-      'You',
+      localChatName,
       messageIndex,
       isLocal: true,
     );
@@ -1181,57 +1194,72 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                     // 2. Round indicator
                     _RoundIndicator(roundState: rs),
 
-                    // 3. Centre board
+                    // Move log — fixed height when visible so draw/discard do not jump
+                    // when entries update; sits under round badge.
+                    if (_moveLogEntries.isNotEmpty)
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          math.max(12.0, constraints.maxWidth * 0.06),
+                          6,
+                          math.max(12.0, constraints.maxWidth * 0.06),
+                          8,
+                        ),
+                        child: SizedBox(
+                          height: 140,
+                          child: GameMoveLogPanel(entries: _moveLogEntries),
+                        ),
+                      ),
+
+                    // 3. Centre board — top-aligned so the piles stay put (no vertical
+                    // re-centering when the move log or other chrome changes).
                     Expanded(
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const SizedBox(height: 24),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SizedBox(
-                                  key: _drawPileKey,
-                                  width: 100,
-                                  height: 145,
-                                  child: OverflowBox(
-                                    maxWidth: double.infinity,
-                                    maxHeight: double.infinity,
-                                    child: DrawPileWidget(
-                                      cardCount: _gameState.drawPileCount,
-                                      cardWidth: 100,
-                                      enabled: !_isDealing &&
-                                          isMyTurn &&
-                                          (_gameState.actionsThisTurn == 0 ||
-                                              _gameState.queenSuitLock != null),
-                                      onTap: isMyTurn ? _drawCard : null,
-                                      reshuffleNotifier: _reshuffleNotifier,
-                                    ),
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                key: _drawPileKey,
+                                width: 100,
+                                height: 145,
+                                child: OverflowBox(
+                                  maxWidth: double.infinity,
+                                  maxHeight: double.infinity,
+                                  child: DrawPileWidget(
+                                    cardCount: _gameState.drawPileCount,
+                                    cardWidth: 100,
+                                    enabled: !_isDealing &&
+                                        isMyTurn &&
+                                        (_gameState.actionsThisTurn == 0 ||
+                                            _gameState.queenSuitLock != null),
+                                    onTap: isMyTurn ? _drawCard : null,
+                                    reshuffleNotifier: _reshuffleNotifier,
                                   ),
                                 ),
-                                const SizedBox(width: 24),
-                                SizedBox(
-                                  key: _discardPileKey,
-                                  width: 100,
-                                  height: 145,
-                                  child: OverflowBox(
-                                    maxWidth: double.infinity,
-                                    maxHeight: double.infinity,
-                                    child: DiscardPileWidget(
-                                      topCard: _gameState.discardTopCard,
-                                      secondCard: _gameState.discardPileHistory.isNotEmpty ? _gameState.discardPileHistory.first : null,
-                                      discardPileHistory: _gameState.discardPileHistory,
-                                      cardWidth: 100,
-                                      discardPileCount: _discardPile.length,
-                                    ),
+                              ),
+                              const SizedBox(width: 24),
+                              SizedBox(
+                                key: _discardPileKey,
+                                width: 100,
+                                height: 145,
+                                child: OverflowBox(
+                                  maxWidth: double.infinity,
+                                  maxHeight: double.infinity,
+                                  child: DiscardPileWidget(
+                                    topCard: _gameState.discardTopCard,
+                                    secondCard: _gameState.discardPileHistory.isNotEmpty ? _gameState.discardPileHistory.first : null,
+                                    discardPileHistory: _gameState.discardPileHistory,
+                                    cardWidth: 100,
+                                    discardPileCount: _discardPile.length,
                                   ),
                                 ),
-                              ],
-                            ),
-                          ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -1319,10 +1347,6 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                   ),
                 ),
               ),
-
-              // Move log (shared with TableScreen)
-              if (_moveLogEntries.isNotEmpty)
-                GameMoveLogOverlay(entries: _moveLogEntries),
 
               // Direction indicator
               Positioned.fill(

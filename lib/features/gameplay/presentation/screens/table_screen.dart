@@ -42,7 +42,7 @@ import '../widgets/player_zone_widget.dart';
 import '../widgets/card_widget.dart';
 import '../widgets/floating_action_bar_widget.dart';
 import '../widgets/turn_indicator_overlay.dart';
-import '../widgets/game_move_log_overlay.dart';
+import '../widgets/game_move_log_overlay.dart' show GameMoveLogOverlay;
 import '../widgets/quick_chat_panel.dart';
 
 import '../../../../widgets/turn_timer_bar.dart';
@@ -104,10 +104,22 @@ class TournamentRoundGameResult {
   const TournamentRoundGameResult({
     required this.finishedPlayerIds,
     required this.eliminatedPlayerId,
+    this.isAbandoned = false,
   });
 
   final List<String> finishedPlayerIds;
   final String eliminatedPlayerId;
+
+  /// User left the table before the round completed (e.g. confirmed Leave).
+  final bool isAbandoned;
+
+  /// Returned when the player confirms Leave from the tournament table so the
+  /// coordinator can exit the whole tournament instead of replaying the round.
+  static const TournamentRoundGameResult abandoned = TournamentRoundGameResult(
+    finishedPlayerIds: <String>[],
+    eliminatedPlayerId: '',
+    isAbandoned: true,
+  );
 }
 
 @visibleForTesting
@@ -845,7 +857,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 ref.read(wsClientProvider).disconnect();
               }
               Navigator.of(context).pop(); // dismiss dialog
-              Navigator.of(context).pop(); // leave table
+              final leaveResult = widget.isTournamentMode
+                  ? TournamentRoundGameResult.abandoned
+                  : null;
+              Navigator.of(context).pop(leaveResult); // leave table
             },
             child: const Text('Leave', style: TextStyle(color: Colors.red)),
           ),
@@ -1521,7 +1536,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 ),
               ),
 
-              // ── Game log panel (centred, below player avatars) ───────────
+              // ── Move log (floating — same as pre-column layout, slightly lower)
               if (_moveLogEntries.isNotEmpty)
                 GameMoveLogOverlay(entries: _moveLogEntries),
 

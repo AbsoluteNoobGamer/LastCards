@@ -8,14 +8,18 @@ import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/theme/app_dimensions.dart';
 
 /// A chat bubble for quick chat messages.
-/// Shows only the message (player name is already visible below the avatar).
+/// Shows only the message (player name is already visible near the avatar).
 /// Animates in (scale 0.8 → 1.0) and out (opacity 1.0 → 0.0) before removal.
+///
+/// [tailPointsUp] places the tail on top of the bubble pointing toward the
+/// speaker — use when the bubble sits **below** the avatar/name row.
 class QuickChatBubble extends ConsumerStatefulWidget {
   const QuickChatBubble({
     required this.playerName,
     required this.message,
     required this.isLocal,
     required this.onDismiss,
+    this.tailPointsUp = false,
     super.key,
   });
 
@@ -23,6 +27,10 @@ class QuickChatBubble extends ConsumerStatefulWidget {
   final String message;
   final bool isLocal;
   final VoidCallback onDismiss;
+
+  /// When `true`, tail is above the body and points up (bubble below speaker).
+  /// When `false`, tail is below the body and points down (bubble above speaker).
+  final bool tailPointsUp;
 
   @override
   ConsumerState<QuickChatBubble> createState() => _QuickChatBubbleState();
@@ -126,23 +134,47 @@ class _QuickChatBubbleState extends ConsumerState<QuickChatBubble>
       ),
     );
 
-    final withTail = Stack(
-      clipBehavior: Clip.none,
-      children: [
-        bubbleBody,
-        Positioned(
-          bottom: -6,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: CustomPaint(
-              size: const Size(14, 8),
-              painter: _ChatBubbleTailPainter(faceColor: bottom),
-            ),
-          ),
-        ),
-      ],
-    );
+    final withTail = widget.tailPointsUp
+        ? Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                top: -6,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: CustomPaint(
+                    size: const Size(14, 8),
+                    painter: _ChatBubbleTailPainter(
+                      faceColor: top,
+                      pointsUp: true,
+                    ),
+                  ),
+                ),
+              ),
+              bubbleBody,
+            ],
+          )
+        : Stack(
+            clipBehavior: Clip.none,
+            children: [
+              bubbleBody,
+              Positioned(
+                bottom: -6,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: CustomPaint(
+                    size: const Size(14, 8),
+                    painter: _ChatBubbleTailPainter(
+                      faceColor: bottom,
+                      pointsUp: false,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
 
     final wobble = AnimatedBuilder(
       animation: _wobbleController,
@@ -164,7 +196,9 @@ class _QuickChatBubbleState extends ConsumerState<QuickChatBubble>
           child: Transform.scale(
             scale: _scaleAnimation.value,
             child: Padding(
-              padding: const EdgeInsets.only(bottom: AppDimensions.xs),
+              padding: widget.tailPointsUp
+                  ? const EdgeInsets.only(top: AppDimensions.xs)
+                  : const EdgeInsets.only(bottom: AppDimensions.xs),
               child: child,
             ),
           ),
@@ -176,17 +210,24 @@ class _QuickChatBubbleState extends ConsumerState<QuickChatBubble>
 }
 
 class _ChatBubbleTailPainter extends CustomPainter {
-  _ChatBubbleTailPainter({required this.faceColor});
+  _ChatBubbleTailPainter({required this.faceColor, required this.pointsUp});
 
   final Color faceColor;
+  final bool pointsUp;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width / 2, size.height)
-      ..lineTo(size.width, 0)
-      ..close();
+    final path = pointsUp
+        ? (Path()
+          ..moveTo(0, size.height)
+          ..lineTo(size.width / 2, 0)
+          ..lineTo(size.width, size.height)
+          ..close())
+        : (Path()
+          ..moveTo(0, 0)
+          ..lineTo(size.width / 2, size.height)
+          ..lineTo(size.width, 0)
+          ..close());
     final paint = Paint()
       ..color = faceColor
       ..style = PaintingStyle.fill;
@@ -195,5 +236,5 @@ class _ChatBubbleTailPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ChatBubbleTailPainter oldDelegate) =>
-      oldDelegate.faceColor != faceColor;
+      oldDelegate.faceColor != faceColor || oldDelegate.pointsUp != pointsUp;
 }
