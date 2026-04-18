@@ -107,14 +107,10 @@ class _AuthProfileBadge extends ConsumerWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: theme.accentPrimary,
-                  width: 2,
-                ),
-              ),
+            PrestigeAvatarFrame(
+              avatarRadius: 22,
+              inactiveBorderColor: theme.accentPrimary,
+              inactiveBorderWidth: 2,
               child: avatarWidget,
             ),
             const SizedBox(width: 8),
@@ -198,12 +194,10 @@ class _AuthProfileSheetState extends ConsumerState<_AuthProfileSheet> {
                 ),
                 Row(
                   children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border:
-                            Border.all(color: theme.accentPrimary, width: 2),
-                      ),
+                    PrestigeAvatarFrame(
+                      avatarRadius: 40,
+                      inactiveBorderColor: theme.accentPrimary,
+                      inactiveBorderWidth: 2,
                       child: avatarUrl != null
                           ? CircleAvatar(
                               radius: 40,

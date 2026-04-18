@@ -28,6 +28,7 @@ import '../../../../features/profile/presentation/screens/profile_screen.dart';
 import '../../../../features/profile/widgets/profile_stats_section.dart';
 import '../../../../features/tournament/widgets/tournament_type_sheet.dart';
 import '../../../../core/widgets/player_progress_widgets.dart';
+import '../../../../core/widgets/prestige_avatar_frame.dart';
 import '../../../../app/app_route_observer.dart';
 import '../../../../services/start_screen_bgm.dart';
 import '../../../../features/social/widgets/friends_list_sheet.dart';

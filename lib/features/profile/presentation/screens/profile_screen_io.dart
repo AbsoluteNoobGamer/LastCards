@@ -13,6 +13,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/services/nsfw_scan_service.dart';
 import '../../../../core/utils/profile_cooldown_utils.dart';
+import '../../../../core/widgets/prestige_avatar_frame.dart';
 import '../../widgets/profile_stats_section.dart';
 
 /// The opponent display names that the local player cannot use.
@@ -428,11 +429,8 @@ class _AvatarSection extends StatelessWidget {
 
     return Column(
       children: [
-        Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.goldPrimary, width: 3),
-          ),
+        PrestigeAvatarFrame(
+          avatarRadius: 55,
           child: inner,
         ),
         const SizedBox(height: 14),
