@@ -1194,21 +1194,22 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                     // 2. Round indicator
                     _RoundIndicator(roundState: rs),
 
-                    // Move log — fixed height when visible so draw/discard do not jump
-                    // when entries update; sits under round badge.
-                    if (_moveLogEntries.isNotEmpty)
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          math.max(12.0, constraints.maxWidth * 0.06),
-                          6,
-                          math.max(12.0, constraints.maxWidth * 0.06),
-                          8,
-                        ),
-                        child: SizedBox(
-                          height: 140,
-                          child: GameMoveLogPanel(entries: _moveLogEntries),
-                        ),
+                    // Move log — fixed height reserved always so draw/discard do not jump
+                    // when the first entry appears; sits under round badge.
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        math.max(12.0, constraints.maxWidth * 0.06),
+                        6,
+                        math.max(12.0, constraints.maxWidth * 0.06),
+                        8,
                       ),
+                      child: SizedBox(
+                        height: 140,
+                        child: _moveLogEntries.isNotEmpty
+                            ? GameMoveLogPanel(entries: _moveLogEntries)
+                            : null,
+                      ),
+                    ),
 
                     // 3. Centre board — top-aligned so the piles stay put (no vertical
                     // re-centering when the move log or other chrome changes).
