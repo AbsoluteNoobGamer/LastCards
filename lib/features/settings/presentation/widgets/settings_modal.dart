@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -19,23 +20,28 @@ final settingsProvider =
 
 class SettingsState {
   final double soundVolume;
+  /// 0–100; scales turn timer tick on top of [soundVolume] (watch-style tick each second).
+  final double timerTickVolume;
   /// 0–100; applied to start-screen background music only.
   final double musicVolume;
   final bool reduceMotion;
 
   SettingsState({
     this.soundVolume = 100.0,
+    this.timerTickVolume = 65.0,
     this.musicVolume = 55.0,
     this.reduceMotion = false,
   });
 
   SettingsState copyWith({
     double? soundVolume,
+    double? timerTickVolume,
     double? musicVolume,
     bool? reduceMotion,
   }) {
     return SettingsState(
       soundVolume: soundVolume ?? this.soundVolume,
+      timerTickVolume: timerTickVolume ?? this.timerTickVolume,
       musicVolume: musicVolume ?? this.musicVolume,
       reduceMotion: reduceMotion ?? this.reduceMotion,
     );
@@ -53,6 +59,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     _prefs = await SharedPreferences.getInstance();
     state = SettingsState(
       soundVolume: _prefs?.getDouble('soundVolume') ?? 100.0,
+      timerTickVolume: _prefs?.getDouble('timer_tick_volume') ?? 65.0,
       musicVolume: _prefs?.getDouble('musicVolume') ?? 55.0,
       reduceMotion: _prefs?.getBool('reduceMotion') ?? false,
     );
@@ -71,6 +78,11 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     // Propagate to the low-level audio singleton immediately so sounds
     // reflect the new volume without requiring an app restart.
     game_audio.AudioService.instance.setVolume(val / 100.0);
+  }
+
+  Future<void> updateTimerTickVolume(double val) async {
+    state = state.copyWith(timerTickVolume: val);
+    await game_audio.AudioService.instance.setTimerTickVolume(val / 100.0);
   }
 
   void updateMusic(double val) {
@@ -159,6 +171,18 @@ class SettingsModal extends ConsumerWidget {
                           min: 0,
                           max: 100,
                           onChanged: notifier.updateSound,
+                        ),
+                        _SliderRow(
+                          label: 'Turn timer tick',
+                          subtitle:
+                              'Quiet watch-style tick each second on your turn. '
+                              'Scales with sound effects volume above.',
+                          value: settings.timerTickVolume,
+                          min: 0,
+                          max: 100,
+                          onChanged: (v) {
+                            unawaited(notifier.updateTimerTickVolume(v));
+                          },
                         ),
                         _SliderRow(
                           label: 'Music Volume',
@@ -309,6 +333,7 @@ class SettingsModal extends ConsumerWidget {
 
 class _SliderRow extends StatelessWidget {
   final String label;
+  final String? subtitle;
   final double value;
   final double min;
   final double max;
@@ -316,6 +341,7 @@ class _SliderRow extends StatelessWidget {
 
   const _SliderRow({
     required this.label,
+    this.subtitle,
     required this.value,
     required this.min,
     required this.max,
@@ -329,8 +355,28 @@ class _SliderRow extends StatelessWidget {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(fontSize: 16)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: const TextStyle(fontSize: 16)),
+                  if (subtitle != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        subtitle!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                          height: 1.25,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
             Text('${value.toInt()}%',
                 style: const TextStyle(
                     fontWeight: FontWeight.bold, color: Colors.amber)),

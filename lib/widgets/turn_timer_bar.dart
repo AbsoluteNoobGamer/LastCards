@@ -37,7 +37,7 @@ class _TurnTimerBarState extends State<TurnTimerBar>
     super.initState();
     _urgentCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 650),
+      duration: const Duration(milliseconds: 900),
     );
   }
 
@@ -85,19 +85,26 @@ class _TurnTimerBarState extends State<TurnTimerBar>
         return AnimatedBuilder(
           animation: _urgentCtrl,
           builder: (context, _) {
-            final pulse = seconds <= 10
-                ? 1.0 + 0.08 * math.sin(_urgentCtrl.value * 2 * math.pi)
-                : 1.0;
-            return Transform.scale(
-              scale: pulse,
-              alignment: Alignment.center,
-              child: _AnimatedTimerProgressFill(
-                targetWidthFactor: progress,
-                barHeight: barHeight,
-                radius: radius,
-                barColor: barColor,
-                urgentGlow: seconds <= 10,
-                urgentCtrlValue: _urgentCtrl.value.clamp(0.0, 1.0),
+            final urgent = seconds <= 10;
+            final t = _urgentCtrl.value * 2 * math.pi;
+            // Avoid center-scale: it shifts the fill left/right and reads like a
+            // layout bug. Anchor pulse at the bar start; add a tiny vertical
+            // beat so urgency reads as "heartbeat", not horizontal jitter.
+            final scale = urgent ? 1.0 + 0.022 * math.sin(t) : 1.0;
+            final lift = urgent ? 1.25 * math.sin(t + math.pi / 2) : 0.0;
+            return Transform.translate(
+              offset: Offset(0, lift),
+              child: Transform.scale(
+                scale: scale,
+                alignment: Alignment.centerLeft,
+                child: _AnimatedTimerProgressFill(
+                  targetWidthFactor: progress,
+                  barHeight: barHeight,
+                  radius: radius,
+                  barColor: barColor,
+                  urgentGlow: urgent,
+                  urgentCtrlValue: _urgentCtrl.value.clamp(0.0, 1.0),
+                ),
               ),
             );
           },
@@ -181,11 +188,16 @@ class _AnimatedTimerProgressFillState extends State<_AnimatedTimerProgressFill>
                 boxShadow: widget.urgentGlow
                     ? [
                         BoxShadow(
-                          color: widget.barColor.withAlpha(160),
-                          blurRadius: nonNegativeShadowBlur(
-                            10 + 6 * widget.urgentCtrlValue,
+                          color: widget.barColor.withAlpha(
+                            (140 + 80 * widget.urgentCtrlValue).round().clamp(
+                                  0,
+                                  255,
+                                ),
                           ),
-                          spreadRadius: 2,
+                          blurRadius: nonNegativeShadowBlur(
+                            12 + 10 * widget.urgentCtrlValue,
+                          ),
+                          spreadRadius: 1 + 2 * widget.urgentCtrlValue,
                         ),
                       ]
                     : null,

@@ -13,6 +13,8 @@ class AudioService {
   static final AudioService instance = AudioService._();
 
   static const String _prefsKeySfxEnabled = 'sound_effects_enabled';
+  /// 0–100 in [SharedPreferences]; multiplied with master SFX volume for [GameSound.timerTick] only.
+  static const String _prefsKeyTimerTickVolume = 'timer_tick_volume';
   static const Map<GameSound, String> _soundFiles = {
     GameSound.cardDraw: 'Draw-Card.wav',
     GameSound.dealCard: 'deal_card.wav', // Add your deal sound to assets/audio/sfx/
@@ -27,6 +29,7 @@ class AudioService {
     GameSound.specialJoker: 'special_joker.wav',
     GameSound.penaltyDraw: 'penalty_draw.wav',
     GameSound.turnStart: 'turn_start.wav',
+    GameSound.timerTick: 'timer_tick.wav',
     GameSound.timerWarning: 'timer_warning.wav',
     GameSound.timerExpired: 'timer_expired.wav',
     GameSound.playerWin: 'player_win.wav',
@@ -62,15 +65,25 @@ class AudioService {
   final List<AudioPlayer> _cardDrawPlayers = [];
   int _cardDrawPoolIndex = 0;
 
+  /// Timer ticks once per second; use a small pool without stop→play so other
+  /// SFX on category players never preempt the tick via a shared stop path.
+  static const int _timerTickPoolSize = 2;
+  final List<AudioPlayer> _timerTickPlayers = [];
+  int _timerTickPoolIndex = 0;
+
   SharedPreferences? _prefs;
   Set<String> _availableAssets = const <String>{};
 
   bool _initialized = false;
   bool _soundEffectsEnabled = true;
   double _volume = 0.5;
+  /// 0–1; scales turn timer tick on top of [_volume].
+  double _timerTickVolumeMul = 0.65;
 
   bool get soundEffectsEnabled => _soundEffectsEnabled;
   double get volume => _volume;
+
+  double get timerTickVolumeMultiplier => _timerTickVolumeMul;
 
   Future<void> init() async {
     if (_initialized) return;
@@ -86,6 +99,9 @@ class AudioService {
     try {
       _prefs = await SharedPreferences.getInstance();
       _soundEffectsEnabled = _prefs?.getBool(_prefsKeySfxEnabled) ?? true;
+      _timerTickVolumeMul =
+          ((_prefs?.getDouble(_prefsKeyTimerTickVolume) ?? 65.0) / 100.0)
+              .clamp(0.0, 1.0);
       _availableAssets = await _loadAudioAssets();
     } catch (_) {
       // Fail silently: missing prefs or asset manifest should not crash gameplay.
@@ -124,6 +140,9 @@ class AudioService {
       for (var i = 0; i < _cardDrawPoolSize; i++) {
         _cardDrawPlayers.add(AudioPlayer());
       }
+      for (var i = 0; i < _timerTickPoolSize; i++) {
+        _timerTickPlayers.add(AudioPlayer());
+      }
     } catch (_) {
       // Fail silently: player creation should not crash gameplay.
     }
@@ -146,8 +165,25 @@ class AudioService {
     _turnPlayer?.setVolume(_volume);
     _specialPlayer?.setVolume(_volume);
     _uiPlayer?.setVolume(_volume);
+    final tickVol = (_volume * _timerTickVolumeMul).clamp(0.0, 1.0);
+    for (final p in _timerTickPlayers) {
+      p.setVolume(tickVol);
+    }
     for (final p in _cardDrawPlayers) {
       p.setVolume(_volume);
+    }
+  }
+
+  /// [value] is 0–1 (e.g. settings slider / 100). Persisted as 0–100.
+  Future<void> setTimerTickVolume(double value) async {
+    _timerTickVolumeMul = value.clamp(0.0, 1.0);
+    try {
+      _prefs ??= await SharedPreferences.getInstance();
+      await _prefs?.setDouble(_prefsKeyTimerTickVolume, _timerTickVolumeMul * 100);
+    } catch (_) {}
+    final tickVol = (_volume * _timerTickVolumeMul).clamp(0.0, 1.0);
+    for (final p in _timerTickPlayers) {
+      p.setVolume(tickVol);
     }
   }
 
@@ -158,6 +194,7 @@ class AudioService {
       _turnPlayer,
       _specialPlayer,
       _uiPlayer,
+      ..._timerTickPlayers,
       ..._cardDrawPlayers,
     ];
     for (final player in players) {
@@ -186,6 +223,13 @@ class AudioService {
       // ── Turn-start: isolated so rapid skip-chains don't stack ──────────────
       case GameSound.turnStart:
         await _playCategorySound(_turnPlayer, assetSubpath);
+
+      case GameSound.timerTick:
+        if (_timerTickVolumeMul <= 0) return;
+        await _playTimerTickSound(
+          assetSubpath,
+          (_volume * _timerTickVolumeMul).clamp(0.0, 1.0),
+        );
 
       // ── Special card sounds: their own lane so they survive turnStart ───────
       case GameSound.specialTwo:
@@ -238,6 +282,23 @@ class AudioService {
     await _playOverlappingSound('audio/sfx/deal_card_$slot.wav');
   }
 
+  Future<void> _playTimerTickSound(String assetSubpath, double volume) async {
+    if (_timerTickPlayers.isEmpty) return;
+    final player =
+        _timerTickPlayers[_timerTickPoolIndex % _timerTickPlayers.length];
+    _timerTickPoolIndex++;
+    try {
+      await player.setVolume(volume);
+      // No stop(): let the clip finish; pool avoids clobbering a tick that
+      // overlaps rare double-fires, and keeps ticks independent of category SFX.
+      await player.play(AssetSource(assetSubpath));
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('AudioService._playTimerTickSound($assetSubpath) error: $e');
+      }
+    }
+  }
+
   /// Plays a sound on a rotating pool, allowing overlapping playback.
   /// Used for cardDraw and dealCard; rapid plays would otherwise stop each other.
   Future<void> _playOverlappingSound(String assetSubpath) async {
@@ -261,11 +322,14 @@ class AudioService {
   /// the latest sound matters, so earlier ones are cut.  Categories are kept
   /// separate so that, e.g., a tournamentQualify sound is never cut by turnStart.
   Future<void> _playCategorySound(
-      AudioPlayer? player, String assetSubpath) async {
+    AudioPlayer? player,
+    String assetSubpath, {
+    double? volume,
+  }) async {
     if (player == null) return;
     try {
       await player.stop();
-      await player.setVolume(_volume);
+      await player.setVolume(volume ?? _volume);
       await player.play(AssetSource(assetSubpath));
     } catch (e) {
       if (kDebugMode) {
@@ -281,6 +345,10 @@ class AudioService {
       await _turnPlayer?.dispose();
       await _specialPlayer?.dispose();
       await _uiPlayer?.dispose();
+      for (final p in _timerTickPlayers) {
+        await p.dispose();
+      }
+      _timerTickPlayers.clear();
       for (final p in _cardDrawPlayers) {
         await p.dispose();
       }

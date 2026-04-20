@@ -35,6 +35,17 @@ void main() {
       expect(expired, isFalse);
     });
 
+    test('secondsRemaining preserves countdown after cancel', () {
+      fakeAsync((async) {
+        timer.start(() {});
+        async.elapse(const Duration(seconds: 5));
+        expect(timer.secondsRemaining, lessThan(60));
+        final left = timer.secondsRemaining;
+        timer.cancel();
+        expect(timer.secondsRemaining, left);
+      });
+    });
+
     test('timer resets to 60 seconds', () async {
       timer.start(() {});
       timer.reset();

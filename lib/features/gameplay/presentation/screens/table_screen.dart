@@ -214,6 +214,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   /// advance [currentPlayerId]).
   String? _onlineLastKnownCurrentPlayerId;
   bool _timerWarningPlayed = false;
+  int? _lastTimerTickSeconds;
 
   bool _showQuickChatPanel = false;
 
@@ -869,8 +870,24 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     );
   }
 
-  void _startTimer({bool playTurnSound = true}) {
-    _timerWarningPlayed = false;
+  int _turnTimerBudgetSeconds() {
+    final gs = ref.read(gameStateProvider);
+    return gs?.isHardcore == true
+        ? 30
+        : (ref.read(gameNotifierProvider).isHardcoreSession
+            ? 30
+            : GameTurnTimer.defaultDurationSeconds);
+  }
+
+  /// Starts (or restarts) the local turn timer. [resumeFromSeconds] continues a
+  /// paused turn without granting extra time (e.g. Ace suit sheet dismissed).
+  void _startTimer({
+    bool playTurnSound = true,
+    int? resumeFromSeconds,
+  }) {
+    _timerWarningPlayed = resumeFromSeconds != null &&
+        resumeFromSeconds < 10;
+    _lastTimerTickSeconds = null;
     _timerWarningSub?.cancel();
     if (ref.read(gameStateProvider) == null &&
         _offlineState.currentPlayerId == OfflineGameState.localId) {
@@ -879,12 +896,22 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (playTurnSound) {
       game_audio.AudioService.instance.playSound(GameSound.turnStart);
     }
-    final gs = ref.read(gameStateProvider);
-    final secs = gs?.isHardcore == true
-        ? 30
-        : (ref.read(gameNotifierProvider).isHardcoreSession
-            ? 30
-            : GameTurnTimer.defaultDurationSeconds);
+    final budget = _turnTimerBudgetSeconds();
+    var secs = resumeFromSeconds != null
+        ? resumeFromSeconds.clamp(0, budget)
+        : budget;
+    if (secs <= 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (ref.read(gameStateProvider) != null) return;
+        if (_offlineState.currentPlayerId == OfflineGameState.localId &&
+            !_aiThinking) {
+          game_audio.AudioService.instance.playSound(GameSound.timerExpired);
+          _forcedTimeoutDrawAndEnd();
+        }
+      });
+      return;
+    }
     // Start the timer BEFORE subscribing so Stream.multi delivers a fresh countdown.
     _engineTimer.start(
       () {
@@ -927,9 +954,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       },
       durationSeconds: secs,
     );
-    // Subscribe AFTER start() so the synchronous initial value from
-    // Stream.multi is the freshly-reset 60, not a stale previous value.
+    // Subscribe AFTER start() so the synchronous initial value matches [secs].
     _timerWarningSub = _engineTimer.timeRemainingStream.listen((secondsLeft) {
+      final prevTick = _lastTimerTickSeconds;
+      _lastTimerTickSeconds = secondsLeft;
+      if (prevTick != null &&
+          secondsLeft < prevTick &&
+          secondsLeft > 0) {
+        game_audio.AudioService.instance.playSound(GameSound.timerTick);
+      }
       if (!_timerWarningPlayed && secondsLeft > 0 && secondsLeft <= 10) {
         _timerWarningPlayed = true;
         game_audio.AudioService.instance.playSound(GameSound.timerWarning);
@@ -1008,23 +1041,38 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (_offlineState.currentPlayerId != OfflineGameState.localId) return;
 
     _engineTimer.cancel();
+    final resumeTurnSeconds = _engineTimer.secondsRemaining;
     setState(() => _selectedCardId = null);
 
+    int pauseSecondsBudget() => _turnTimerBudgetSeconds();
+
+    int remainingAfterUiPause(int pauseSeconds) =>
+        (resumeTurnSeconds - pauseSeconds).clamp(0, pauseSecondsBudget());
+
+    var uiPauseSeconds = 0;
     Suit? chosenAceSuit;
     // Rule 1: Ace played alone triggers the suit selector at End Turn
     if (_offlineState.discardTopCard?.effectiveRank == Rank.ace &&
         _offlineState.cardsPlayedThisTurn == 1 &&
         _offlineState.suitLock == null &&
         mounted) {
+      final sheetStopwatch = Stopwatch()..start();
       chosenAceSuit = await showModalBottomSheet<Suit>(
         context: context,
         backgroundColor: Colors.transparent,
         builder: (_) => const AceSuitPickerSheet(),
       );
+      sheetStopwatch.stop();
+      // Count any partial second toward the pause so the sheet can't stall for free.
+      uiPauseSeconds =
+          (sheetStopwatch.elapsedMilliseconds + 999) ~/ 1000;
       if (!mounted) return;
 
       if (chosenAceSuit == null) {
-        _startTimer(); // Resume the timer if they dismissed the sheet
+        _startTimer(
+          playTurnSound: false,
+          resumeFromSeconds: remainingAfterUiPause(uiPauseSeconds),
+        );
         return; // Don't end turn yet
       }
 
@@ -1040,7 +1088,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final err = validateEndTurn(_offlineState);
     if (err != null) {
       _showError(err);
-      _startTimer();
+      _startTimer(
+        playTurnSound: false,
+        resumeFromSeconds: remainingAfterUiPause(uiPauseSeconds),
+      );
       return;
     }
 
@@ -2126,6 +2177,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         _reshuffleCentrePileIntoDrawPile();
 
         // Allow the player to continue their turn (stack more cards if they want).
+        if (newState.currentPlayerId == playerId) {
+          _startTimer(playTurnSound: false);
+        }
         return;
       }
 
@@ -2225,6 +2279,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         } else {
           _startTimer();
         }
+      } else if (newState.currentPlayerId == playerId) {
+        // Still our turn (e.g. Queen suit lock, or any extra play this turn) —
+        // restart countdown; the generic nextId==playerId branch above skips
+        // Queen because queenSuitLock is set until covered or drawn.
+        _startTimer(playTurnSound: false);
       }
     } finally {
       _localActionInProgress = false;

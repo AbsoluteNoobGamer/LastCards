@@ -14,6 +14,8 @@ enum GameSound {
   specialJoker,
   penaltyDraw,
   turnStart,
+  /// Once per second while the local turn countdown decreases (clock tick).
+  timerTick,
   timerWarning,
   timerExpired,
   playerWin,
