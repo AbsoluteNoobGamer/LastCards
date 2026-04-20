@@ -34,7 +34,7 @@ class _LastCardsPulse extends StatefulWidget {
 }
 
 class _LastCardsPulseState extends State<_LastCardsPulse>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   AnimationController? _controller;
 
   void _ensureTicker() {
