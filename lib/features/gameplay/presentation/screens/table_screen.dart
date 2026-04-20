@@ -2712,14 +2712,31 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       );
       final newlyDeclaredLastCards = result.state.lastCardsDeclaredBy
           .difference(stateBeforeAiTurn.lastCardsDeclaredBy);
-      for (final declId in newlyDeclaredLastCards) {
-        final declName =
-            result.state.playerById(declId)?.displayName ?? declId;
-        _announceLastCardsDeclaration(
-          playerId: declId,
-          playerName: declName,
-          pushMoveLog: true,
-        );
+      if (newlyDeclaredLastCards.isNotEmpty) {
+        if (offlineTournamentInstantPacing()) {
+          if (mounted) {
+            setState(() {
+              for (final declId in newlyDeclaredLastCards) {
+                final declName =
+                    result.state.playerById(declId)?.displayName ?? declId;
+                _pushMoveLog(MoveLogEntry.lastCardsDeclared(
+                  playerId: declId,
+                  playerName: declName,
+                ));
+              }
+            });
+          }
+        } else {
+          for (final declId in newlyDeclaredLastCards) {
+            final declName =
+                result.state.playerById(declId)?.displayName ?? declId;
+            _announceLastCardsDeclaration(
+              playerId: declId,
+              playerName: declName,
+              pushMoveLog: true,
+            );
+          }
+        }
       }
       if (mounted) {
         _reshuffleCentrePileIntoDrawPile(silent: _tournamentSimulatingRest);
