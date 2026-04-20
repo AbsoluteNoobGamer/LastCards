@@ -38,10 +38,14 @@ class _LastCardsPulseState extends State<_LastCardsPulse>
   AnimationController? _controller;
 
   void _ensureTicker() {
-    _controller ??= AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1100),
-    )..repeat(reverse: true);
+    if (_controller == null) {
+      _controller = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 1100),
+      )..repeat(reverse: true);
+    } else if (!_controller!.isAnimating) {
+      _controller!.repeat(reverse: true);
+    }
   }
 
   @override
@@ -56,8 +60,7 @@ class _LastCardsPulseState extends State<_LastCardsPulse>
     if (widget.pulse && !oldWidget.pulse) {
       _ensureTicker();
     } else if (!widget.pulse && oldWidget.pulse) {
-      _controller?.dispose();
-      _controller = null;
+      _controller?.stop();
     }
   }
 
