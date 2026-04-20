@@ -126,6 +126,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   bool _localActionInProgress = false;
   final math.Random _aiDelayRng = math.Random();
   final ValueNotifier<bool> _reshuffleNotifier = ValueNotifier(false);
+  final ValueNotifier<int> _handShakeNotifier = ValueNotifier(0);
   final List<MoveLogEntry> _moveLogEntries = [];
 
   bool _showQuickChatPanel = false;
@@ -165,6 +166,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   void dispose() {
     clearSuitInference(_gameState.sessionId);
     _reshuffleNotifier.dispose();
+    _handShakeNotifier.dispose();
     _quickChatCooldownTimer?.cancel();
     _skipHighlightClearTimer?.cancel();
     // Match [TableScreen.dispose]: stop shared SFX players so a mid-game exit
@@ -669,6 +671,9 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   }
 
   void _applyInvalidPlayPenalty(String playerId) {
+    if (playerId == OfflineGameState.localId) {
+      _handShakeNotifier.value++;
+    }
     final handSizeBefore =
         _gameState.playerById(playerId)?.hand.length ?? 0;
     var newState = applyInvalidPlayPenalty(
@@ -1324,6 +1329,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                                 onCardTap: isMyTurn ? _onCardTap : null,
                                 onReorder: _flyingCardId != null ? null : _onHandReorder,
                                 enabled: isMyTurn && !_isDealing,
+                                invalidPlayShakeTrigger: _handShakeNotifier,
                               ),
                             ),
                           ),

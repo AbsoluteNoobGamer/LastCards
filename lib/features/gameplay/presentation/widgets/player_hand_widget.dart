@@ -30,6 +30,7 @@ class PlayerHandWidget extends StatefulWidget {
     this.onReorder,
     this.cardWidth = AppDimensions.cardWidthMedium,
     this.enabled = true,
+    this.invalidPlayShakeTrigger,
   });
 
   final List<CardModel> cards;
@@ -43,11 +44,15 @@ class PlayerHandWidget extends StatefulWidget {
   final double cardWidth;
   final bool enabled;
 
+  /// Increment (e.g. `notifier.value++`) to play a short horizontal shake after an invalid play.
+  final ValueNotifier<int>? invalidPlayShakeTrigger;
+
   @override
   State<PlayerHandWidget> createState() => _PlayerHandWidgetState();
 }
 
-class _PlayerHandWidgetState extends State<PlayerHandWidget> {
+class _PlayerHandWidgetState extends State<PlayerHandWidget>
+    with SingleTickerProviderStateMixin {
   /// Index of the card currently being dragged (into [widget.cards]).
   int? _draggingIndex;
 
@@ -56,8 +61,66 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget> {
 
   bool _hoverWiden = false;
 
+  late final AnimationController _shakeCtrl;
+  VoidCallback? _shakeListener;
+  int _lastShakeStamp = -1;
+
   /// Fixed horizontal offset between successive cards in the fan.
   static const double _fixedSpread = 45.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _shakeCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    );
+    _attachShakeListener();
+  }
+
+  void _attachShakeListener() {
+    final n = widget.invalidPlayShakeTrigger;
+    if (n == null) return;
+    void listener() {
+      final v = n.value;
+      if (v != _lastShakeStamp) {
+        _lastShakeStamp = v;
+        // Defer: [ValueNotifier.notifyListeners] can run synchronously during a
+        // parent [setState]/layout; starting a ticker here has triggered
+        // framework assertions ('_elements.contains(element)').
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _shakeCtrl.forward(from: 0);
+        });
+      }
+    }
+
+    _shakeListener = listener;
+    n.addListener(listener);
+    _lastShakeStamp = n.value;
+  }
+
+  @override
+  void didUpdateWidget(PlayerHandWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.invalidPlayShakeTrigger != widget.invalidPlayShakeTrigger) {
+      if (oldWidget.invalidPlayShakeTrigger != null &&
+          _shakeListener != null) {
+        oldWidget.invalidPlayShakeTrigger!.removeListener(_shakeListener!);
+      }
+      _shakeListener = null;
+      _attachShakeListener();
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_shakeListener != null && widget.invalidPlayShakeTrigger != null) {
+      widget.invalidPlayShakeTrigger!.removeListener(_shakeListener!);
+    }
+    _shakeCtrl.dispose();
+    super.dispose();
+  }
 
   // ── insert-index calculation ─────────────────────────────────────────────
 
@@ -297,7 +360,22 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget> {
         final wrappedStack = MouseRegion(
           onEnter: (_) => setState(() => _hoverWiden = true),
           onExit: (_) => setState(() => _hoverWiden = false),
-          child: cardStack,
+          child: AnimatedBuilder(
+            animation: _shakeCtrl,
+            builder: (context, child) {
+              if (MediaQuery.disableAnimationsOf(context)) {
+                return child!;
+              }
+              final t = Curves.easeOutCubic.transform(_shakeCtrl.value);
+              final damp = 1.0 - t;
+              final dx = math.sin(_shakeCtrl.value * math.pi * 6.5) * 11 * damp;
+              return Transform.translate(
+                offset: Offset(dx, 0),
+                child: child,
+              );
+            },
+            child: cardStack,
+          ),
         );
 
         // ── Outer SizedBox is always exactly maxWidth wide ─────────────

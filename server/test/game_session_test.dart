@@ -222,19 +222,20 @@ TablePosition _positionFor(int index) => tablePositionForSeatIndex(index);
   );
 }
 
-/// Two-player game: P1 has already played a King this turn ([lastPlayedThisTurn]).
-/// [nextPlayerId] keeps the same seat when a King was played in 2p
-/// (`lib/shared/engine/game_engine.dart`). `declare_last_cards` only updates
-/// [GameState.lastCardsDeclaredBy], so the King stays on [lastPlayedThisTurn] until
-/// [advanceTurn] runs. [GameSession] `_advanceTurn` evaluates `nextPlayerId` before
-/// the shared [advanceTurn], so `end_turn` after declare hits the bluff check on P1.
+/// Two-player game: P1 has already played a King this turn ([lastPlayedThisTurn]),
+/// unless [p2Turn] is true — then it is P2's turn so P1 may declare Last Cards
+/// (not on own turn). [nextPlayerId] after P2 [end_turn] is P1, so the bluff check
+/// still applies to P1 when appropriate.
 ({
   GameSession session,
   _FakeWs p1ws,
   _FakeWs p2ws,
   String p1Id,
   String p2Id,
-}) _makeTwoPlayerKingRepeatTurnForP1(List<CardModel> p1Hand) {
+}) _makeTwoPlayerKingRepeatTurnForP1(
+  List<CardModel> p1Hand, {
+  bool p2Turn = false,
+}) {
   final (:session, :sockets, :ids) = _makeSession(2);
   final p1ws = sockets[0];
   final p2ws = sockets[1];
@@ -242,15 +243,25 @@ TablePosition _positionFor(int index) => tablePositionForSeatIndex(index);
   final p2Id = ids[1];
 
   final kingPlayed = _card(Rank.king, Suit.hearts);
-  final p2Hand = [
-    _card(Rank.three, Suit.hearts),
-    _card(Rank.five, Suit.hearts),
-    _card(Rank.seven, Suit.hearts),
-    _card(Rank.nine, Suit.hearts),
-    _card(Rank.jack, Suit.hearts),
-    _card(Rank.queen, Suit.hearts),
-    _card(Rank.king, Suit.diamonds),
-  ];
+  final p2PlayThisTurn = _card(Rank.three, Suit.hearts);
+  final p2Hand = p2Turn
+      ? [
+          _card(Rank.five, Suit.hearts),
+          _card(Rank.seven, Suit.hearts),
+          _card(Rank.nine, Suit.hearts),
+          _card(Rank.jack, Suit.hearts),
+          _card(Rank.queen, Suit.hearts),
+          _card(Rank.king, Suit.diamonds),
+        ]
+      : [
+          _card(Rank.three, Suit.hearts),
+          _card(Rank.five, Suit.hearts),
+          _card(Rank.seven, Suit.hearts),
+          _card(Rank.nine, Suit.hearts),
+          _card(Rank.jack, Suit.hearts),
+          _card(Rank.queen, Suit.hearts),
+          _card(Rank.king, Suit.diamonds),
+        ];
   final drawPile = List.generate(
       20, (i) => CardModel(id: 'filler_$i', rank: Rank.four, suit: Suit.clubs));
 
@@ -273,14 +284,14 @@ TablePosition _positionFor(int index) => tablePositionForSeatIndex(index);
         cardCount: p2Hand.length,
       ),
     ],
-    currentPlayerId: p1Id,
+    currentPlayerId: p2Turn ? p2Id : p1Id,
     direction: PlayDirection.clockwise,
-    discardTopCard: kingPlayed,
+    discardTopCard: p2Turn ? p2PlayThisTurn : kingPlayed,
     drawPileCount: drawPile.length,
     preTurnCentreSuit: Suit.hearts,
     actionsThisTurn: 1,
     cardsPlayedThisTurn: 1,
-    lastPlayedThisTurn: kingPlayed,
+    lastPlayedThisTurn: p2Turn ? p2PlayThisTurn : kingPlayed,
   );
 
   session.seedStateForTesting(state: state, drawPile: drawPile);
@@ -2640,17 +2651,13 @@ void main() {
           reason: 'bracket key must reflect starting player count (2p)');
     });
 
-    test('declare_last_cards works on current player turn', () {
+    test('declare_last_cards rejected on own turn', () {
       final g = _makeKnownGame();
       expect(g.p1ws.messages.any((m) => m['type'] == 'last_cards_pressed'),
           isFalse);
       g.session.handleAction(g.p1Id, {'type': 'declare_last_cards'});
-      expect(g.p1ws.lastOfType('last_cards_pressed')?['playerId'], g.p1Id);
-      final snap = _latestSnapshot(g.p1ws);
-      expect(
-        (snap['lastCardsDeclaredBy'] as List).map((e) => e as String),
-        contains(g.p1Id),
-      );
+      expect(g.p1ws.lastOfType('error')?['code'], 'last_cards_own_turn');
+      expect(g.p1ws.ofType('last_cards_pressed'), isEmpty);
     });
   });
 
@@ -2665,7 +2672,7 @@ void main() {
       ];
       expect(canHandClearInOneTurnHandOnly(p1Hand), isFalse);
 
-      final g = _makeTwoPlayerKingRepeatTurnForP1(p1Hand);
+      final g = _makeTwoPlayerKingRepeatTurnForP1(p1Hand, p2Turn: true);
       expect(
         canClearHandInOneTurn(
           state: g.session.gameStateForTesting,
@@ -2678,7 +2685,7 @@ void main() {
       g.p1ws.clear();
       g.p2ws.clear();
       g.session.handleAction(g.p1Id, {'type': 'declare_last_cards'});
-      g.session.handleAction(g.p1Id, {'type': 'end_turn'});
+      g.session.handleAction(g.p2Id, {'type': 'end_turn'});
 
       expect(g.p1ws.ofType('last_cards_bluff'), isEmpty);
     });
@@ -2693,7 +2700,7 @@ void main() {
       ];
       expect(canHandClearInOneTurnHandOnly(p1Hand), isFalse);
 
-      final g = _makeTwoPlayerKingRepeatTurnForP1(p1Hand);
+      final g = _makeTwoPlayerKingRepeatTurnForP1(p1Hand, p2Turn: true);
       expect(
         canClearHandInOneTurn(
           state: g.session.gameStateForTesting,
@@ -2706,7 +2713,7 @@ void main() {
       g.p1ws.clear();
       g.p2ws.clear();
       g.session.handleAction(g.p1Id, {'type': 'declare_last_cards'});
-      g.session.handleAction(g.p1Id, {'type': 'end_turn'});
+      g.session.handleAction(g.p2Id, {'type': 'end_turn'});
 
       expect(g.p1ws.lastOfType('last_cards_bluff')?['playerId'], g.p1Id);
     });

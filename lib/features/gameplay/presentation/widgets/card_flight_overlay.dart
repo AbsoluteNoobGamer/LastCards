@@ -130,7 +130,9 @@ class CardFlightOverlayState extends ConsumerState<CardFlightOverlay>
           return AnimatedBuilder(
             animation: f.controller,
             builder: (_, __) {
-              final t = f.controller.value;
+              final tRaw = f.controller.value;
+              // Ease travel so the arc decelerates into the discard (snappier feel).
+              final t = Curves.easeOutCubic.transform(tRaw);
               final p0 = f.origin;
               final p2 = f.target;
               final midX = (p0.dx + p2.dx) / 2;
@@ -143,9 +145,14 @@ class CardFlightOverlayState extends ConsumerState<CardFlightOverlay>
                   invT * invT * p0.dy + 2 * invT * t * cp.dy + t * t * p2.dy;
               final baseScale = 1.0 +
                   math.sin(t * math.pi) * (f.lastCardFromHand ? 0.2 : 0.12);
-              final scale = f.lastCardFromHand
+              var scale = f.lastCardFromHand
                   ? baseScale * (1.0 + 0.06 * math.sin(t * math.pi * 3))
                   : baseScale;
+              // Subtle landing “bounce” on normal plays (last-card uses its own wobble).
+              if (!f.lastCardFromHand && tRaw > 0.86) {
+                final u = (tRaw - 0.86) / 0.14;
+                scale *= 1.0 + math.sin(u * math.pi) * 0.065;
+              }
 
               Widget child = f.faceUp
                   ? CardWidget(

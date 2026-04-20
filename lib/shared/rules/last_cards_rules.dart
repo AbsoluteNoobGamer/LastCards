@@ -67,8 +67,17 @@ bool _validChainStep(CardModel prev, CardModel next) {
   return isConsecutiveSameSuit;
 }
 
-/// Whether Last Cards can be acted on (AI / helpers). There is no hand-size
-/// visibility gate. Declaring on your own turn or before is allowed.
+/// Whether a player may declare Last Cards given whose turn it is.
+/// You must declare when it is **not** your turn (before play returns to you).
+bool mayDeclareLastCards({
+  required String currentPlayerId,
+  required String playerId,
+}) =>
+    currentPlayerId != playerId;
+
+/// Whether the Last Cards **control** is shown (not bust, not already declared).
+/// Turn-order for actually declaring is enforced by [mayDeclareLastCards] and
+/// the server session.
 bool shouldShowLastCardsButton({
   required bool isBustMode,
   required bool alreadyDeclared,

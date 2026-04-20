@@ -32,15 +32,18 @@ class LastMovePanelWidget extends StatelessWidget {
                 '${visibleEntries[i].playerId}_${visibleEntries[i].type}_${GameLogFormatter.formatMove(visibleEntries[i])}',
               ),
               tween: Tween(begin: 0.0, end: 1.0),
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutCubic,
-              builder: (context, t, child) => Opacity(
-                opacity: t,
-                child: Transform.translate(
-                  offset: Offset(20 * (1 - t), 0),
-                  child: child,
-                ),
-              ),
+              duration: const Duration(milliseconds: 320),
+              curve: Curves.easeOutBack,
+              builder: (context, t, child) {
+                final u = t.clamp(0.0, 1.0);
+                return Opacity(
+                  opacity: u,
+                  child: Transform.translate(
+                    offset: Offset(22 * (1 - u), 0),
+                    child: child,
+                  ),
+                );
+              },
               child: _MoveLabel(entry: visibleEntries[i]),
             ),
           ),

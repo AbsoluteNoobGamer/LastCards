@@ -42,6 +42,8 @@ class CardWidget extends ConsumerStatefulWidget {
 }
 
 class _CardWidgetState extends ConsumerState<CardWidget> {
+  bool _pressed = false;
+
   @override
   Widget build(BuildContext context) {
     final card = widget.card;
@@ -89,13 +91,23 @@ class _CardWidgetState extends ConsumerState<CardWidget> {
         // and keeps shadow math safe if this curve ever changes.
         final v = val.clamp(0.0, 1.0);
         final liftY = -12.0 * v; // Lifts higher now!
-        final scale = 1.0 + (0.10 * v); // Scale 1.0 -> 1.1
+        final pressMul = _pressed ? 0.97 : 1.0;
+        final scale = (1.0 + (0.10 * v)) * pressMul; // Scale 1.0 -> 1.1
 
         return MouseRegion(
           cursor: widget.onTap != null
               ? SystemMouseCursors.click
               : SystemMouseCursors.basic,
           child: GestureDetector(
+            onTapDown: widget.onTap != null
+                ? (_) => setState(() => _pressed = true)
+                : null,
+            onTapUp: widget.onTap != null
+                ? (_) => setState(() => _pressed = false)
+                : null,
+            onTapCancel: widget.onTap != null
+                ? () => setState(() => _pressed = false)
+                : null,
             onTap: () {
               if (widget.onTap != null) {
                 HapticFeedback.selectionClick();
