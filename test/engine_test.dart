@@ -2026,4 +2026,60 @@ void main() {
       expect(out.state.currentPlayerId, 'p3');
     });
   });
+
+  group('applyInvalidPlayPenalty', () {
+    test('draws2WhenNoStackedPenalty', () {
+      final state = buildState(
+        discardTop: c(Rank.six, Suit.spades),
+        p1Hand: [c(Rank.three, Suit.hearts)],
+      );
+      var i = 0;
+      final after = applyInvalidPlayPenalty(
+        state: state,
+        playerId: 'p1',
+        cardFactory: (n) =>
+            List.generate(n, (_) => c(Rank.five, Suit.clubs, id: 'd${i++}')),
+      );
+      expect(after.playerById('p1')!.hand.length, 3);
+      expect(after.activePenaltyCount, 0);
+    });
+
+    test('drawsFullStackAndClearsWhenStackedPenaltyActive', () {
+      final state = buildState(
+        discardTop: c(Rank.two, Suit.spades),
+        p1Hand: [c(Rank.three, Suit.hearts)],
+        activePenalty: 7,
+        penaltyChainLive: true,
+      );
+      var i = 0;
+      final after = applyInvalidPlayPenalty(
+        state: state,
+        playerId: 'p1',
+        cardFactory: (n) =>
+            List.generate(n, (_) => c(Rank.five, Suit.clubs, id: 'd${i++}')),
+      );
+      expect(after.playerById('p1')!.hand.length, 8);
+      expect(after.activePenaltyCount, 0);
+      expect(after.penaltyChainLive, false);
+      expect(after.drawPileCount, 33);
+    });
+
+    test('keepsPenaltyChainLiveWhenOnlyChainWasLive', () {
+      final state = buildState(
+        discardTop: c(Rank.jack, Suit.hearts),
+        p1Hand: [c(Rank.three, Suit.hearts)],
+        activePenalty: 0,
+        penaltyChainLive: true,
+      );
+      var i = 0;
+      final after = applyInvalidPlayPenalty(
+        state: state,
+        playerId: 'p1',
+        cardFactory: (n) =>
+            List.generate(n, (_) => c(Rank.five, Suit.clubs, id: 'd${i++}')),
+      );
+      expect(after.playerById('p1')!.hand.length, 3);
+      expect(after.penaltyChainLive, true);
+    });
+  });
 }

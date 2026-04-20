@@ -1307,27 +1307,35 @@ removeDisconnectedStandardPlayer({
 
 // ── Shared invalid-play penalty ───────────────────────────────────────────────
 
-/// Draws 2 cards as an invalid-play penalty for [playerId] and restores any
-/// [GameState.activePenaltyCount] and [GameState.penaltyChainLive] that
-/// [applyDraw] would otherwise clear.
+/// Resolves a failed play attempt by drawing penalty cards for [playerId].
 ///
-/// An invalid play must not cancel an ongoing 2/Jack penalty chain.
+/// When no pick-up stack is pending ([activePenaltyCount] == 0), draws **2**
+/// cards (standard bad-play rule). When a stacked 2/Black Jack penalty **is**
+/// active, draws that **full** count instead — same cost as voluntarily drawing
+/// to pay the stack — so invalid plays cannot replace a large pick-up with a
+/// 2-card slap on the wrist.
+///
+/// If only a Red-Jack-style chain is live (draw count 0, [penaltyChainLive]
+/// true), the 2-card draw still applies and [penaltyChainLive] is restored so
+/// matching rules stay consistent.
+///
 /// Does NOT advance the turn — callers should call [advanceTurn] afterwards.
 GameState applyInvalidPlayPenalty({
   required GameState state,
   required String playerId,
   required List<CardModel> Function(int n) cardFactory,
 }) {
-  final savedPenalty = state.activePenaltyCount;
+  final stackedPenalty = state.activePenaltyCount;
   final savedChainLive = state.penaltyChainLive;
+  final drawCount = stackedPenalty > 0 ? stackedPenalty : 2;
   final after = applyDraw(
     state: state,
     playerId: playerId,
-    count: 2,
+    count: drawCount,
     cardFactory: cardFactory,
   );
-  return after.copyWith(
-    activePenaltyCount: savedPenalty,
-    penaltyChainLive: savedChainLive,
-  );
+  if (stackedPenalty > 0) {
+    return after;
+  }
+  return after.copyWith(penaltyChainLive: savedChainLive);
 }

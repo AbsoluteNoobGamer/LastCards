@@ -640,6 +640,74 @@ void main() {
       expect(handAfter, equals(handBefore + 2));
     });
 
+    test('invalid play under stacked pick-up draws full stack not 2', () {
+      final (:session, :sockets, :ids) = _makeSession(2);
+      final p1ws = sockets[0];
+      final p1Id = ids[0];
+      final p2Id = ids[1];
+
+      final p1Hand = [_card(Rank.three, Suit.spades)];
+      final p2Hand = [_card(Rank.five, Suit.hearts), _card(Rank.six, Suit.hearts)];
+      final discardTop = _card(Rank.four, Suit.hearts);
+      final drawPile = List.generate(
+          20, (i) => CardModel(id: 'filler_$i', rank: Rank.seven, suit: Suit.clubs));
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: p1Id,
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: p1Hand,
+            cardCount: 1,
+          ),
+          PlayerModel(
+            id: p2Id,
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: p2Hand,
+            cardCount: 2,
+          ),
+        ],
+        currentPlayerId: p1Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: discardTop,
+        drawPileCount: drawPile.length,
+        preTurnCentreSuit: Suit.hearts,
+        activePenaltyCount: 7,
+        penaltyChainLive: true,
+      );
+
+      session.seedStateForTesting(state: state, drawPile: drawPile);
+
+      final handBefore = _hand(_latestSnapshot(p1ws)).length;
+      p1ws.clear();
+
+      session.handleAction(p1Id, {
+        'type': 'play_cards',
+        'cardIds': ['three_spades'],
+      });
+
+      final err = p1ws.lastOfType('error');
+      expect(err, isNotNull);
+      expect(err!['code'], equals('invalid_play'));
+
+      final invalidEv = p1ws.lastOfType('invalid_play_penalty');
+      expect(invalidEv, isNotNull);
+      expect(invalidEv!['drawCount'], equals(7));
+
+      final penaltyAp = p1ws.lastOfType('penalty_applied');
+      expect(penaltyAp, isNotNull);
+      expect(penaltyAp!['targetPlayerId'], equals(p1Id));
+      expect(penaltyAp['cardsDrawn'], equals(7));
+      expect(penaltyAp['newPenaltyStack'], equals(0));
+
+      final snapAfter = _latestSnapshot(p1ws);
+      expect(_hand(snapAfter).length, equals(handBefore + 7));
+    });
+
     test('joker via play_cards is rejected', () {
       final (:session, :sockets, :ids) = _makeSession(2);
       final p1ws = sockets[0];

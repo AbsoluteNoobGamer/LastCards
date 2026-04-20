@@ -44,7 +44,7 @@ class _ConnectedPlayer {
 ///   • Action handling: play_cards, draw_card, declare_joker, end_turn,
 ///     suit_choice.
 ///   • 60-second per-turn timer with forced draw + turn_timeout on expiry.
-///   • Invalid-play 2-card draw penalty.
+///   • Invalid-play draw penalty (2 cards, or full pick-up stack if active).
 ///   • Reshuffle when draw pile ≤ 5 cards.
 ///   • Win detection after every state mutation.
 ///   • Personalised state_snapshot broadcasts (each client sees own hand only).
@@ -712,7 +712,8 @@ class GameSession {
     );
 
     if (err != null) {
-      // Invalid play: send error and apply 2-card draw penalty.
+      // Invalid play: send error and apply draw penalty (2 cards, or full stack
+      // if a pick-up penalty is active — see [applyInvalidPlayPenalty]).
       _sendError(playerId, 'invalid_play', err);
       _applyInvalidPlayPenalty(playerId);
       return;
@@ -1659,8 +1660,8 @@ class GameSession {
 
   // ── Invalid play penalty ──────────────────────────────────────────────────
 
-  /// Draws 2 cards for [playerId] as punishment for an invalid play attempt,
-  /// then ends their turn.
+  /// Draws penalty cards for [playerId] after an invalid play attempt (2 cards,
+  /// or the full stacked pick-up count when applicable), then ends their turn.
   void _applyInvalidPlayPenalty(String playerId) {
     final drawnCards = <CardModel>[];
     _state = applyInvalidPlayPenalty(
