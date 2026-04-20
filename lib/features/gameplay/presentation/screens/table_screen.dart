@@ -41,6 +41,7 @@ import '../widgets/ace_suit_picker_sheet.dart';
 import '../widgets/player_zone_widget.dart';
 import '../widgets/card_widget.dart';
 import '../widgets/floating_action_bar_widget.dart';
+import '../widgets/last_cards_table_strip.dart';
 import '../widgets/turn_indicator_overlay.dart';
 import '../widgets/game_move_log_overlay.dart' show GameMoveLogOverlay;
 import '../widgets/quick_chat_panel.dart';
@@ -202,11 +203,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   StreamSubscription<QuickChatEvent>? _onlineQuickChatSub;
   StreamSubscription<TurnChangedEvent>? _onlineTurnChangedSub;
   StreamSubscription<LastCardsBluffEvent>? _lastCardsBluffSub;
+  StreamSubscription<LastCardsPressedEvent>? _lastCardsPressedSub;
 
   /// Offline-only: players who falsely declared Last Cards.
   final Set<String> _offlineLastCardsBluffedBy = {};
 
   String? _lastCardsBluffBannerText;
+  String? _lastCardsDeclaredBannerText;
+  /// Clears the declare banner only for the latest [_announceLastCardsDeclaration] call.
+  int _lastCardsDeclaredBannerSeq = 0;
 
   /// Tracks [GameState.currentPlayerId] across [turn_changed] events so we can
   /// finalize move-log entries for the player whose turn ended (server
@@ -446,6 +451,28 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (!mounted) return;
       _flashLastCardsBluffBanner(
         '"${e.playerName}" bluffed Last Cards! Drew ${e.drawCount} cards.',
+      );
+    });
+
+    _lastCardsPressedSub = handler.lastCardsPressed.listen((e) {
+      if (!mounted) return;
+      final state = ref.read(gameStateProvider);
+      if (state == null) return;
+      final name = state.playerById(e.playerId)?.displayName ?? e.playerId;
+      final localId = state.localPlayer?.id;
+      if (localId != null && e.playerId == localId) {
+        setState(() {
+          _pushMoveLog(MoveLogEntry.lastCardsDeclared(
+            playerId: e.playerId,
+            playerName: name,
+          ));
+        });
+        return;
+      }
+      _announceLastCardsDeclaration(
+        playerId: e.playerId,
+        playerName: name,
+        pushMoveLog: true,
       );
     });
 
@@ -696,6 +723,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _onlineQuickChatSub?.cancel();
     _onlineTurnChangedSub?.cancel();
     _lastCardsBluffSub?.cancel();
+    _lastCardsPressedSub?.cancel();
     _quickChatCooldownTimer?.cancel();
     _skipHighlightClearTimer?.cancel();
     _engineTimer.dispose();
@@ -1781,6 +1809,47 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   ),
                 ),
 
+              if (_lastCardsDeclaredBannerText != null)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Center(
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 32),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.feltDeep.withValues(alpha: 0.92),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color:
+                                AppColors.goldLight.withValues(alpha: 0.95),
+                            width: 2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.goldPrimary
+                                  .withValues(alpha: 0.35),
+                              blurRadius: 24,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          _lastCardsDeclaredBannerText!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
               if (_lastCardsBluffBannerText != null)
                 Positioned.fill(
                   child: IgnorePointer(
@@ -1858,9 +1927,18 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
               // ── King / direction banner (below central piles, above flight reads)
               Positioned.fill(
-                child: TurnIndicatorOverlay(
-                  direction: gameState.direction,
-                  bannerAlignment: const Alignment(0, 0.22),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    TurnIndicatorOverlay(
+                      direction: gameState.direction,
+                      bannerAlignment: const Alignment(0, 0.22),
+                    ),
+                    LastCardsTableStrip(
+                      players: gameState.players,
+                      lastCardsDeclaredBy: gameState.lastCardsDeclaredBy,
+                    ),
+                  ],
                 ),
               ),
 
@@ -2632,6 +2710,17 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         personality: aiConfig?.personality,
         difficulty: widget.aiDifficulty,
       );
+      final newlyDeclaredLastCards = result.state.lastCardsDeclaredBy
+          .difference(stateBeforeAiTurn.lastCardsDeclaredBy);
+      for (final declId in newlyDeclaredLastCards) {
+        final declName =
+            result.state.playerById(declId)?.displayName ?? declId;
+        _announceLastCardsDeclaration(
+          playerId: declId,
+          playerName: declName,
+          pushMoveLog: true,
+        );
+      }
       if (mounted) {
         _reshuffleCentrePileIntoDrawPile(silent: _tournamentSimulatingRest);
       }
@@ -3531,8 +3620,38 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     );
   }
 
+  void _announceLastCardsDeclaration({
+    required String playerId,
+    required String playerName,
+    required bool pushMoveLog,
+  }) {
+    HapticFeedback.mediumImpact();
+    game_audio.AudioService.instance.playSound(GameSound.tournamentQualify);
+    final seq = ++_lastCardsDeclaredBannerSeq;
+    setState(() {
+      _lastCardsDeclaredBannerText =
+          '"$playerName" declared Last Cards!';
+      _lastCardsBluffBannerText = null;
+      if (pushMoveLog) {
+        _pushMoveLog(MoveLogEntry.lastCardsDeclared(
+          playerId: playerId,
+          playerName: playerName,
+        ));
+      }
+    });
+    Future.delayed(const Duration(milliseconds: 2200), () {
+      if (mounted && seq == _lastCardsDeclaredBannerSeq) {
+        setState(() => _lastCardsDeclaredBannerText = null);
+      }
+    });
+  }
+
   void _flashLastCardsBluffBanner(String text) {
-    setState(() => _lastCardsBluffBannerText = text);
+    _lastCardsDeclaredBannerSeq++;
+    setState(() {
+      _lastCardsBluffBannerText = text;
+      _lastCardsDeclaredBannerText = null;
+    });
     Future.delayed(const Duration(milliseconds: 2500), () {
       if (mounted) setState(() => _lastCardsBluffBannerText = null);
     });
