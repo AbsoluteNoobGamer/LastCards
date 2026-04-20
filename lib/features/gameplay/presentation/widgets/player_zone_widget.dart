@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,6 +21,71 @@ typedef QuickChatBubbleData = ({String id, String playerName, String message, bo
 
 /// Opponent circle avatar diameter (must match [SizedBox] in [_OpponentAvatarZone]).
 const double _kOpponentAvatarSize = 68;
+
+/// Subtle repeating scale while [pulse] is true (Last Cards seat emphasis).
+class _LastCardsPulse extends StatefulWidget {
+  const _LastCardsPulse({required this.pulse, required this.child});
+
+  final bool pulse;
+  final Widget child;
+
+  @override
+  State<_LastCardsPulse> createState() => _LastCardsPulseState();
+}
+
+class _LastCardsPulseState extends State<_LastCardsPulse>
+    with TickerProviderStateMixin {
+  AnimationController? _controller;
+
+  void _ensureTicker() {
+    if (_controller == null) {
+      _controller = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 1100),
+      )..repeat(reverse: true);
+    } else if (!_controller!.isAnimating) {
+      _controller!.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.pulse) _ensureTicker();
+  }
+
+  @override
+  void didUpdateWidget(covariant _LastCardsPulse oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.pulse && !oldWidget.pulse) {
+      _ensureTicker();
+    } else if (!widget.pulse && oldWidget.pulse) {
+      _controller?.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.pulse) return widget.child;
+    final c = _controller;
+    if (c == null) return widget.child;
+    return AnimatedBuilder(
+      animation: c,
+      builder: (context, child) {
+        final v = Curves.easeInOut.transform(c.value);
+        final scale = 1.0 + 0.035 * math.sin(v * math.pi);
+        return Transform.scale(scale: scale, child: child);
+      },
+      child: widget.child,
+    );
+  }
+}
 
 /// Wraps a player's card area with:
 /// - Accent glow ring when active turn
@@ -270,10 +337,15 @@ class _OpponentAvatarZone extends StatelessWidget {
 
     final avatarBaseColor = aiConfig?.avatarColor ?? positionColor;
 
-    final ringColor = isActive
-        ? (appTheme.accentPrimary as Color)
-        : (appTheme.textSecondary as Color).withValues(alpha: 0.35);
-    final ringWidth = isActive ? 3.5 : 1.5;
+    final accent = appTheme.accentPrimary as Color;
+    final ringColor = hasLastCardsDeclared
+        ? accent
+        : isActive
+            ? accent
+            : (appTheme.textSecondary as Color).withValues(alpha: 0.35);
+    final ringWidth = hasLastCardsDeclared
+        ? 3.2
+        : (isActive ? 3.5 : 1.5);
 
     // Aggressive AI gets a subtle persistent red glow even when idle.
     final isAggressive = aiConfig?.personality == AiPersonality.aggressive;
@@ -290,15 +362,28 @@ class _OpponentAvatarZone extends StatelessWidget {
               spreadRadius: 0,
             ),
           ]
-        : isAggressive
+        : hasLastCardsDeclared
             ? [
                 BoxShadow(
-                  color: const Color(0xFFFF5252).withValues(alpha: 0.30),
-                  blurRadius: 8,
+                  color: accent.withValues(alpha: 0.45),
+                  blurRadius: 14,
+                  spreadRadius: 1,
+                ),
+                BoxShadow(
+                  color: accent.withValues(alpha: 0.22),
+                  blurRadius: 22,
                   spreadRadius: 0,
                 ),
               ]
-            : null;
+            : isAggressive
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFFFF5252).withValues(alpha: 0.30),
+                      blurRadius: 8,
+                      spreadRadius: 0,
+                    ),
+                  ]
+                : null;
 
     final avatarCircle = Material(
       color: Colors.transparent,
@@ -316,34 +401,38 @@ class _OpponentAvatarZone extends StatelessWidget {
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                AnimatedOpacity(
-                  opacity: hasTournamentStatus ? 0.50 : 1.0,
-                  duration: const Duration(milliseconds: 250),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isActive
-                          ? (appTheme.accentPrimary as Color)
-                              .withValues(alpha: 0.22)
-                          : avatarBaseColor.withValues(
-                              alpha: aiConfig != null ? 0.35 : 0.20),
-                      border: Border.all(color: ringColor, width: ringWidth),
-                      boxShadow: boxShadows,
-                    ),
-                    child: CircleAvatar(
-                      radius: 30,
-                      backgroundColor: Colors.transparent,
-                      child: Text(
-                        aiConfig?.initials ??
-                            initialsFromDisplayName(player.displayName),
-                        style: TextStyle(
-                          color: isActive
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: 0.85),
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
+                _LastCardsPulse(
+                  pulse: hasLastCardsDeclared,
+                  child: AnimatedOpacity(
+                    opacity: hasTournamentStatus ? 0.50 : 1.0,
+                    duration: const Duration(milliseconds: 250),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isActive
+                            ? accent.withValues(alpha: 0.22)
+                            : hasLastCardsDeclared
+                                ? accent.withValues(alpha: 0.14)
+                                : avatarBaseColor.withValues(
+                                    alpha: aiConfig != null ? 0.35 : 0.20),
+                        border: Border.all(color: ringColor, width: ringWidth),
+                        boxShadow: boxShadows,
+                      ),
+                      child: CircleAvatar(
+                        radius: 30,
+                        backgroundColor: Colors.transparent,
+                        child: Text(
+                          aiConfig?.initials ??
+                              initialsFromDisplayName(player.displayName),
+                          style: TextStyle(
+                            color: isActive
+                                ? Colors.white
+                                : Colors.white.withValues(alpha: 0.85),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                       ),
                     ),
@@ -430,23 +519,26 @@ class _OpponentAvatarZone extends StatelessWidget {
 
         if (hasLastCardsDeclared) ...[
           const SizedBox(height: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: (appTheme.accentPrimary as Color).withValues(alpha: 0.15),
-              border: Border.all(
-                color: (appTheme.accentPrimary as Color),
-                width: 1,
+          _LastCardsPulse(
+            pulse: true,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.18),
+                border: Border.all(
+                  color: accent,
+                  width: 1.5,
+                ),
+                borderRadius: BorderRadius.circular(20),
               ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              'LAST CARDS',
-              style: TextStyle(
-                color: appTheme.accentPrimary as Color,
-                fontSize: 8,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.8,
+              child: Text(
+                'LAST CARDS',
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
+                ),
               ),
             ),
           ),
@@ -553,29 +645,33 @@ class _PlayerLabel extends StatelessWidget {
 
     final positionColor = PlayerStyles.getColor(player.tablePosition);
 
+    final accentLc = appTheme.accentPrimary as Color;
     final lastCardsPill = hasLastCardsDeclared
         ? Padding(
             padding: EdgeInsets.only(right: gap),
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: compact ? 4 : 6,
-                vertical: compact ? 1 : 2,
-              ),
-              decoration: BoxDecoration(
-                color: (appTheme.accentPrimary as Color).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(compact ? 3 : 4),
-                border: Border.all(
-                  color: (appTheme.accentPrimary as Color),
-                  width: 1,
+            child: _LastCardsPulse(
+              pulse: true,
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: compact ? 5 : 8,
+                  vertical: compact ? 2 : 3,
                 ),
-              ),
-              child: Text(
-                'LAST CARDS',
-                style: TextStyle(
-                  color: appTheme.accentPrimary as Color,
-                  fontSize: compact ? 6.5 : 8,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.5,
+                decoration: BoxDecoration(
+                  color: accentLc.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(compact ? 4 : 6),
+                  border: Border.all(
+                    color: accentLc,
+                    width: 1.5,
+                  ),
+                ),
+                child: Text(
+                  'LAST CARDS',
+                  style: TextStyle(
+                    color: accentLc,
+                    fontSize: compact ? 8 : 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.7,
+                  ),
                 ),
               ),
             ),
@@ -592,16 +688,30 @@ class _PlayerLabel extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircleAvatar(
-                radius: iconSize / 2,
-                backgroundColor: positionColor.withValues(alpha: 0.25),
-                child: Text(
-                  initialsFromDisplayName(player.displayName),
-                  style: TextStyle(
-                    color: positionColor,
-                    fontSize: iconSize * 0.45,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.3,
+              _LastCardsPulse(
+                pulse: hasLastCardsDeclared,
+                child: Container(
+                  padding: hasLastCardsDeclared
+                      ? const EdgeInsets.all(2)
+                      : EdgeInsets.zero,
+                  decoration: hasLastCardsDeclared
+                      ? BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: accentLc, width: 2),
+                        )
+                      : null,
+                  child: CircleAvatar(
+                    radius: iconSize / 2,
+                    backgroundColor: positionColor.withValues(alpha: 0.25),
+                    child: Text(
+                      initialsFromDisplayName(player.displayName),
+                      style: TextStyle(
+                        color: positionColor,
+                        fontSize: iconSize * 0.45,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
                   ),
                 ),
               ),
