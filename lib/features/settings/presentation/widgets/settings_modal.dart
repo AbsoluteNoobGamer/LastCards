@@ -25,12 +25,15 @@ class SettingsState {
   /// 0–100; applied to start-screen background music only.
   final double musicVolume;
   final bool reduceMotion;
+  /// When true (“Lower Performance”), trims heavy visuals (e.g. start menu effects).
+  final bool budgetDeviceMode;
 
   SettingsState({
     this.soundVolume = 100.0,
     this.timerTickVolume = 65.0,
     this.musicVolume = 55.0,
     this.reduceMotion = false,
+    this.budgetDeviceMode = false,
   });
 
   SettingsState copyWith({
@@ -38,12 +41,14 @@ class SettingsState {
     double? timerTickVolume,
     double? musicVolume,
     bool? reduceMotion,
+    bool? budgetDeviceMode,
   }) {
     return SettingsState(
       soundVolume: soundVolume ?? this.soundVolume,
       timerTickVolume: timerTickVolume ?? this.timerTickVolume,
       musicVolume: musicVolume ?? this.musicVolume,
       reduceMotion: reduceMotion ?? this.reduceMotion,
+      budgetDeviceMode: budgetDeviceMode ?? this.budgetDeviceMode,
     );
   }
 }
@@ -62,6 +67,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       timerTickVolume: _prefs?.getDouble('timer_tick_volume') ?? 65.0,
       musicVolume: _prefs?.getDouble('musicVolume') ?? 55.0,
       reduceMotion: _prefs?.getBool('reduceMotion') ?? false,
+      budgetDeviceMode: _prefs?.getBool('budget_device_mode') ?? false,
     );
     StartScreenBgm.instance
         .setMusicVolume(state.musicVolume / 100.0);
@@ -70,6 +76,11 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   void setReduceMotion(bool value) {
     state = state.copyWith(reduceMotion: value);
     _prefs?.setBool('reduceMotion', value);
+  }
+
+  void setBudgetDeviceMode(bool value) {
+    state = state.copyWith(budgetDeviceMode: value);
+    _prefs?.setBool('budget_device_mode', value);
   }
 
   void updateSound(double val) {
@@ -96,6 +107,11 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
 /// User preference; [StackAndFlowApp] also merges this into [MediaQuery.disableAnimations].
 final reduceMotionProvider = Provider<bool>((ref) {
   return ref.watch(settingsProvider).reduceMotion;
+});
+
+/// True when “Lower Performance” is on; heavy menu/visual effects are off (start screen).
+final budgetDeviceModeProvider = Provider<bool>((ref) {
+  return ref.watch(settingsProvider).budgetDeviceMode;
 });
 
 class SettingsModal extends ConsumerWidget {
@@ -293,6 +309,23 @@ class SettingsModal extends ConsumerWidget {
                           ),
                           value: settings.reduceMotion,
                           onChanged: (val) => notifier.setReduceMotion(val),
+                          activeThumbColor: Colors.amber,
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: isMobile,
+                          title: const Text('Lower Performance'),
+                          subtitle: Text(
+                            'When on, turns off extra start-screen effects (bloom, god rays, '
+                            'parallax, shockwaves) for smoother frame rates on slower hardware.',
+                            style: TextStyle(
+                              fontSize: isMobile ? 11 : 12,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                          value: settings.budgetDeviceMode,
+                          onChanged: (val) =>
+                              notifier.setBudgetDeviceMode(val),
                           activeThumbColor: Colors.amber,
                         ),
                         SwitchListTile(

@@ -55,6 +55,12 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
   late AnimationController _primaryEntranceController;
   late AnimationController _titleShimmerController;
   late AnimationController _dividerController;
+  late AnimationController _godRayController;
+  late AnimationController _shockwaveController;
+
+  final GlobalKey _stackKey = GlobalKey();
+  Offset _parallaxNorm = Offset.zero;
+  Offset? _shockwaveCenter;
 
   @override
   void initState() {
@@ -75,6 +81,19 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
       vsync: this,
       duration: const Duration(milliseconds: 2500),
     );
+    _godRayController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 55),
+    );
+    _shockwaveController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _shockwaveController.addStatusListener((AnimationStatus status) {
+      if (status == AnimationStatus.completed && mounted) {
+        setState(() => _shockwaveCenter = null);
+      }
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -85,11 +104,18 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
         _titleShimmerController.repeat();
         _dividerController.repeat(reverse: true);
         _primaryEntranceController.forward();
+        if (_cinematicEffectsCore(
+          context,
+          ref.read(settingsProvider).budgetDeviceMode,
+        )) {
+          _godRayController.repeat();
+        }
       } else {
         _bgController.value = 0;
         _titleShimmerController.value = 0;
         _dividerController.value = 1.0;
         _primaryEntranceController.value = 1.0;
+        _godRayController.value = 0;
       }
     });
   }
@@ -122,7 +148,66 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
     _primaryEntranceController.dispose();
     _titleShimmerController.dispose();
     _dividerController.dispose();
+    _godRayController.dispose();
+    _shockwaveController.dispose();
     super.dispose();
+  }
+
+  /// Shared logic for “heavy” start-screen VFX (god rays, bloom, parallax, shockwave).
+  /// [budgetDeviceMode] is true when “Lower Performance” is enabled in settings.
+  static bool _cinematicEffectsCore(
+    BuildContext context,
+    bool budgetDeviceMode,
+  ) {
+    if (MediaQuery.disableAnimationsOf(context)) return false;
+    if (budgetDeviceMode) return false;
+    final Size s = MediaQuery.sizeOf(context);
+    return s.shortestSide >= 600 || s.width >= 840;
+  }
+
+  bool _cinematicEffects(BuildContext context) {
+    final bool budget = ref.watch(settingsProvider).budgetDeviceMode;
+    return _cinematicEffectsCore(context, budget);
+  }
+
+  void _syncGodRayWithCinematic() {
+    if (!mounted) return;
+    final bool budget = ref.read(settingsProvider).budgetDeviceMode;
+    if (_cinematicEffectsCore(context, budget)) {
+      if (!_godRayController.isAnimating) {
+        _godRayController.repeat();
+      }
+    } else {
+      _godRayController.stop();
+      _godRayController.reset();
+    }
+  }
+
+  void _updateParallax(Offset globalPosition) {
+    final RenderBox? box =
+        _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final Offset local = box.globalToLocal(globalPosition);
+    final double w = box.size.width;
+    final double h = box.size.height;
+    if (w <= 0 || h <= 0) return;
+    final double nx = ((local.dx / w) - 0.5) * 2;
+    final double ny = ((local.dy / h) - 0.5) * 2;
+    final Offset next = Offset(
+      nx.clamp(-1.0, 1.0),
+      ny.clamp(-1.0, 1.0),
+    );
+    if ((next - _parallaxNorm).distanceSquared < 1e-8) return;
+    setState(() => _parallaxNorm = next);
+  }
+
+  void _triggerShockwave(Offset globalPosition) {
+    final RenderBox? box =
+        _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final Offset local = box.globalToLocal(globalPosition);
+    setState(() => _shockwaveCenter = local);
+    _shockwaveController.forward(from: 0);
   }
 
   /// Staggered slide + fade for primary menu buttons (indices 0–2).
@@ -159,17 +244,167 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
     );
   }
 
+  Widget _buildTitleBlock({
+    required AppThemeData splashTheme,
+    required bool disableAnim,
+    required bool cinematic,
+  }) {
+    final TextStyle titleStyle = gameTitleTextStyle(
+      splashTheme,
+      fontSize: 42,
+      fontWeight: FontWeight.bold,
+      letterSpacing: 5.0,
+      color: Colors.white,
+      shadows: [
+        Shadow(
+          color: splashTheme.accentPrimary.withValues(alpha: 0.38),
+          blurRadius: 24,
+        ),
+        const Shadow(
+          color: Color(0x80000000),
+          blurRadius: 6,
+          offset: Offset(0, 3),
+        ),
+      ],
+    );
+
+    Widget buildTitleShader() {
+      if (disableAnim) {
+        return ShaderMask(
+          shaderCallback: (Rect bounds) {
+            return const LinearGradient(
+              colors: [
+                Color(0xFFFFE566),
+                Color(0xFFC9A84C),
+                Color(0xFFFFE566),
+              ],
+            ).createShader(bounds);
+          },
+          child: Text(
+            'Last Cards',
+            textAlign: TextAlign.center,
+            style: titleStyle,
+          ),
+        );
+      }
+      return AnimatedBuilder(
+        animation: _titleShimmerController,
+        builder: (context, _) {
+          final double t = _titleShimmerController.value;
+          return ShaderMask(
+            shaderCallback: (Rect bounds) {
+              return LinearGradient(
+                begin: Alignment(-1.0 + 2.0 * t, 0),
+                end: Alignment(1.0 + 2.0 * t, 0),
+                colors: const [
+                  Color(0xFFFFE566),
+                  Color(0xFFC9A84C),
+                  Color(0xFFFFE566),
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              ).createShader(bounds);
+            },
+            child: Text(
+              'Last Cards',
+              textAlign: TextAlign.center,
+              style: titleStyle,
+            ),
+          );
+        },
+      );
+    }
+
+    final Widget core = buildTitleShader();
+
+    if (!cinematic || disableAnim) {
+      return core;
+    }
+
+    Widget blurredTitle() {
+      return ShaderMask(
+        shaderCallback: (Rect bounds) {
+          return const LinearGradient(
+            colors: [
+              Color(0xFFFFE566),
+              Color(0xFFC9A84C),
+              Color(0xFFFFE566),
+            ],
+          ).createShader(bounds);
+        },
+        child: Text(
+          'Last Cards',
+          textAlign: TextAlign.center,
+          style: titleStyle,
+        ),
+      );
+    }
+
+    return Transform.translate(
+      offset: Offset(
+        -_parallaxNorm.dx * 8,
+        -_parallaxNorm.dy * 6,
+      ),
+      child: ClipRect(
+        child: Stack(
+          alignment: Alignment.center,
+          clipBehavior: Clip.none,
+          children: [
+            ImageFiltered(
+              imageFilter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Opacity(
+                opacity: 0.35,
+                child: blurredTitle(),
+              ),
+            ),
+            ImageFiltered(
+              imageFilter: ui.ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+              child: Opacity(
+                opacity: 0.18,
+                child: blurredTitle(),
+              ),
+            ),
+            core,
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final monetization = ref.watch(monetizationProvider);
     final reserveScrollPaddingForAds = kSupportsStoreMonetization() &&
         monetization.ready &&
         !monetization.adsRemoved;
+    ref.listen<SettingsState>(settingsProvider, (prev, next) {
+      if (prev?.budgetDeviceMode == next.budgetDeviceMode) return;
+      _syncGodRayWithCinematic();
+      if (next.budgetDeviceMode) {
+        setState(() {
+          _parallaxNorm = Offset.zero;
+          _shockwaveCenter = null;
+        });
+        _shockwaveController.reset();
+      }
+    });
+    final bool cinematic = _cinematicEffects(context);
+    final Color accentForVfx =
+        ref.watch(themeProvider).theme.accentPrimary;
 
     return Scaffold(
       body: Listener(
         behavior: HitTestBehavior.translucent,
-        onPointerDown: (_) => StartScreenBgm.instance.notifyUserGesture(),
+        onPointerDown: (PointerDownEvent e) {
+          StartScreenBgm.instance.notifyUserGesture();
+          if (_cinematicEffects(context)) {
+            _triggerShockwave(e.position);
+          }
+        },
+        onPointerMove: (PointerMoveEvent e) {
+          if (_cinematicEffects(context)) {
+            _updateParallax(e.position);
+          }
+        },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -178,23 +413,39 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
           fit: StackFit.expand,
           children: [
           Stack(
+            key: _stackKey,
             fit: StackFit.expand,
             children: [
-              Container(
-                decoration: const BoxDecoration(
-                  image: DecorationImage(
-                    image:
-                        AssetImage('assets/images/StackandFlowBackground.png'),
-                    fit: BoxFit.cover,
+              Positioned.fill(
+                child: Transform.translate(
+                  offset: Offset(
+                    _parallaxNorm.dx * 10,
+                    _parallaxNorm.dy * 8,
+                  ),
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage(
+                          'assets/images/StackandFlowBackground.png',
+                        ),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
                   ),
                 ),
               ),
               Positioned.fill(
-                child: AnimatedBuilder(
-                  animation: _bgController,
-                  builder: (context, _) => CustomPaint(
-                    painter: ParticleStarfieldPainter(
-                      progress: _bgController.value,
+                child: Transform.translate(
+                  offset: Offset(
+                    _parallaxNorm.dx * 16,
+                    _parallaxNorm.dy * 12,
+                  ),
+                  child: AnimatedBuilder(
+                    animation: _bgController,
+                    builder: (context, _) => CustomPaint(
+                      painter: ParticleStarfieldPainter(
+                        progress: _bgController.value,
+                      ),
                     ),
                   ),
                 ),
@@ -211,6 +462,38 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                   ),
                 ),
               ),
+              if (cinematic)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          center: Alignment.center,
+                          radius: 1.05,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.42),
+                          ],
+                          stops: const [0.52, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              if (cinematic)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: AnimatedBuilder(
+                      animation: _godRayController,
+                      builder: (context, _) => CustomPaint(
+                        painter: GodRaysPainter(
+                          rotation: _godRayController.value * 2 * pi,
+                          accent: accentForVfx,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
 
@@ -235,85 +518,11 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           child: Column(
                             children: [
-                              disableAnim
-                                  ? ShaderMask(
-                                      shaderCallback: (Rect bounds) {
-                                        return const LinearGradient(
-                                          colors: [
-                                            Color(0xFFFFE566),
-                                            Color(0xFFC9A84C),
-                                            Color(0xFFFFE566),
-                                          ],
-                                        ).createShader(bounds);
-                                      },
-                                      child: Text(
-                                        "Last Cards",
-                                        textAlign: TextAlign.center,
-                                        style: gameTitleTextStyle(
-                                          splashTheme,
-                                          fontSize: 42,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 5.0,
-                                          color: Colors.white,
-                                          shadows: [
-                                            Shadow(
-                                              color: splashTheme.accentPrimary
-                                                  .withValues(alpha: 0.38),
-                                              blurRadius: 24,
-                                            ),
-                                            const Shadow(
-                                              color: Color(0x80000000),
-                                              blurRadius: 6,
-                                              offset: Offset(0, 3),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    )
-                                  : AnimatedBuilder(
-                                      animation: _titleShimmerController,
-                                      builder: (context, _) {
-                                        final t = _titleShimmerController.value;
-                                        return ShaderMask(
-                                          shaderCallback: (Rect bounds) {
-                                            return LinearGradient(
-                                              begin: Alignment(-1.0 + 2.0 * t, 0),
-                                              end: Alignment(1.0 + 2.0 * t, 0),
-                                              colors: const [
-                                                Color(0xFFFFE566),
-                                                Color(0xFFC9A84C),
-                                                Color(0xFFFFE566),
-                                              ],
-                                              stops: const [0.0, 0.5, 1.0],
-                                            ).createShader(bounds);
-                                          },
-                                          child: Text(
-                                            "Last Cards",
-                                            textAlign: TextAlign.center,
-                                            style: gameTitleTextStyle(
-                                              splashTheme,
-                                              fontSize: 42,
-                                              fontWeight: FontWeight.bold,
-                                              letterSpacing: 5.0,
-                                              color: Colors.white,
-                                              shadows: [
-                                                Shadow(
-                                                  color: splashTheme
-                                                      .accentPrimary
-                                                      .withValues(alpha: 0.38),
-                                                  blurRadius: 24,
-                                                ),
-                                                const Shadow(
-                                                  color: Color(0x80000000),
-                                                  blurRadius: 6,
-                                                  offset: Offset(0, 3),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
+                              _buildTitleBlock(
+                                splashTheme: splashTheme,
+                                disableAnim: disableAnim,
+                                cinematic: cinematic,
+                              ),
                               const SizedBox(height: 6),
                               Text(
                                 "Play it all. Leave nothing.",
@@ -522,6 +731,23 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
               ),
             ),
           ),
+          // 5. Cinematic tap shockwave (tablet / desktop layout)
+          if (cinematic && _shockwaveCenter != null)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: _shockwaveController,
+                  builder: (context, _) => CustomPaint(
+                    painter: ShockwavePainter(
+                      center: _shockwaveCenter!,
+                      progress: Curves.easeOutCubic
+                          .transform(_shockwaveController.value),
+                      accent: accentForVfx,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
         ),
