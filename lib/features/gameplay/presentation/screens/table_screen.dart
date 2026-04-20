@@ -2240,20 +2240,27 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   ///
   /// Penalty sequence (strictly in this order):
   ///   1. Return card to hand   — already satisfied: [applyPlay] was never called.
-  ///   2. Draw up to 2 cards from the draw pile.
+  ///   2. Draw 2 cards, or the full stacked pick-up count if one is active.
   ///   3. End the player's turn immediately.
   Future<void> _applyInvalidPlayPenalty(
       String playerId, List<CardModel> attemptedCards) async {
-    _showError('Invalid play! Drawing 2 cards as penalty.');
+    final penaltyDrawCount = _offlineState.activePenaltyCount > 0
+        ? _offlineState.activePenaltyCount
+        : 2;
+    _showError(
+      _offlineState.activePenaltyCount == 0
+          ? 'Invalid play! Drawing 2 cards as penalty.'
+          : 'Invalid play! Drawing $penaltyDrawCount cards (stacked pick-up).',
+    );
 
     try {
       if (playerId == OfflineGameState.localId) {
         HapticFeedback.lightImpact();
-        await _animateDrawFlightsToPlayer(playerId, 2);
+        await _animateDrawFlightsToPlayer(playerId, penaltyDrawCount);
         if (!mounted) return;
       }
 
-      // Step 2: draw 2 cards and preserve the active penalty chain.
+      // Step 2: apply shared invalid-play penalty (matches online server).
       var newState = applyInvalidPlayPenalty(
         state: _offlineState,
         playerId: playerId,
