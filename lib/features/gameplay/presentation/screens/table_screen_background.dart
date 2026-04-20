@@ -62,13 +62,15 @@ class _FeltTableBackgroundState extends ConsumerState<_FeltTableBackground>
             AnimatedBuilder(
               animation: _breath,
               builder: (_, __) {
+                // Animate opacity only — changing [RadialGradient.radius] every
+                // frame can contribute to relayout-boundary assertions on some GPUs.
                 final v = 0.5 + 0.5 * math.sin(_breath.value * 2 * math.pi);
                 return IgnorePointer(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: RadialGradient(
                         center: const Alignment(0, -0.15),
-                        radius: 0.85 + 0.04 * v,
+                        radius: 0.89,
                         colors: [
                           theme.accentPrimary.withValues(alpha: 0.10 * v),
                           Colors.transparent,

@@ -48,6 +48,7 @@ class _TableLayout extends StatelessWidget {
     this.isLocalTurn = false,
     this.hasAlreadyDeclaredLastCards = false,
     this.localHandSize = 0,
+    this.handShakeTrigger,
     this.onLastCardsTap,
     this.onPenaltyIncreased,
     this.skipHighlightPlayerIds = const <String>{},
@@ -70,6 +71,9 @@ class _TableLayout extends StatelessWidget {
   final bool hasAlreadyDeclaredLastCards;
   final int localHandSize;
   final VoidCallback? onLastCardsTap;
+
+  /// Drives invalid-play hand shake on the local [PlayerHandWidget].
+  final ValueNotifier<int>? handShakeTrigger;
 
   /// Shown under current turn — who follows (8 / K / direction).
   final String? nextTurnLabel;
@@ -220,6 +224,7 @@ class _TableLayout extends StatelessWidget {
             isLocalTurn: isLocalTurn,
             hasAlreadyDeclaredLastCards: hasAlreadyDeclaredLastCards,
             localHandSize: localHandSize,
+            handShakeTrigger: handShakeTrigger,
             onLastCardsTap: onLastCardsTap,
             onPenaltyIncreased: onPenaltyIncreased,
             skipHighlightPlayerIds: skipHighlightPlayerIds,
@@ -532,6 +537,7 @@ class _TableLayout extends StatelessWidget {
                             onReorder: onHandReorder,
                             enabled: isMyTurn && !isDealing,
                             cardWidth: handCardWidth,
+                            invalidPlayShakeTrigger: handShakeTrigger,
                           ),
                   ),
                 ),
@@ -610,6 +616,7 @@ class _LandscapeTableLayout extends StatelessWidget {
     this.isLocalTurn = false,
     this.hasAlreadyDeclaredLastCards = false,
     this.localHandSize = 0,
+    this.handShakeTrigger,
     this.onLastCardsTap,
     this.onPenaltyIncreased,
     this.skipHighlightPlayerIds = const <String>{},
@@ -629,6 +636,8 @@ class _LandscapeTableLayout extends StatelessWidget {
   final bool hasAlreadyDeclaredLastCards;
   final int localHandSize;
   final VoidCallback? onLastCardsTap;
+
+  final ValueNotifier<int>? handShakeTrigger;
 
   final String activePlayerDisplayName;
 
@@ -913,6 +922,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                         onReorder: onHandReorder,
                         enabled: isMyTurn && !isDealing,
                         cardWidth: handCardWidth,
+                        invalidPlayShakeTrigger: handShakeTrigger,
                       ),
               ),
             ),

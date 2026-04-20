@@ -992,6 +992,14 @@ class GameSession {
   void _handleDeclareLastCards(String playerId) {
     if (isBustMode) return;
     if (_state.lastCardsDeclaredBy.contains(playerId)) return;
+    if (_state.currentPlayerId == playerId) {
+      _sendError(
+        playerId,
+        'last_cards_own_turn',
+        'Declare Last Cards when it is not your turn.',
+      );
+      return;
+    }
 
     final player = _state.players.firstWhereOrNull((p) => p.id == playerId);
     if (player == null) return;

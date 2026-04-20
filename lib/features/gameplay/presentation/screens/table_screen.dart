@@ -256,6 +256,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   /// play the shuffle animation even on repeated reshuffles.
   final ValueNotifier<bool> _reshuffleNotifier = ValueNotifier<bool>(false);
 
+  /// Increment to run a short invalid-play shake on [PlayerHandWidget].
+  final ValueNotifier<int> _handShakeNotifier = ValueNotifier<int>(0);
+
   /// AI opponent configurations for this game session (names, personality,
   /// avatar colors). Regenerated each time [_initNewGame] is called.
   List<AiPlayerConfig> _aiPlayerConfigs = [];
@@ -728,6 +731,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _skipHighlightClearTimer?.cancel();
     _engineTimer.dispose();
     _reshuffleNotifier.dispose();
+    _handShakeNotifier.dispose();
     clearSuitInference(_offlineState.sessionId);
     unawaited(game_audio.AudioService.instance.stopAll());
     super.dispose();
@@ -1600,6 +1604,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         isLocalTurn: isMyTurn,
                         hasAlreadyDeclaredLastCards: alreadyDeclaredLastCards,
                         localHandSize: localHandSize,
+                        handShakeTrigger: _handShakeNotifier,
                         onLastCardsTap: _onDeclareLastCards,
                         onPenaltyIncreased: () {
                           if (MediaQuery.disableAnimationsOf(context)) return;
@@ -2416,6 +2421,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     try {
       if (playerId == OfflineGameState.localId) {
+        _handShakeNotifier.value++;
+        if (mounted && !MediaQuery.disableAnimationsOf(context)) {
+          setState(() => _penaltyFlashTrigger++);
+        }
         HapticFeedback.lightImpact();
         await _animateDrawFlightsToPlayer(playerId, penaltyDrawCount);
         if (!mounted) return;
@@ -3695,6 +3704,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       return;
     }
     final localId = OfflineGameState.localId;
+    if (_offlineState.currentPlayerId == localId) {
+      _showError('Declare Last Cards when it is not your turn.');
+      return;
+    }
     if (_offlineState.lastCardsDeclaredBy.contains(localId)) return;
     final p = _offlineState.playerById(localId);
     final name = p?.displayName ?? localId;

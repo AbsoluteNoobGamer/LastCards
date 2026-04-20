@@ -23,7 +23,7 @@ class FloatingActionBarWidget extends ConsumerStatefulWidget {
   final String? nextTurnLabel;
 
   /// True when it is the local player's turn — left slot shows animated direction.
-  /// When false (and [lastCardsEnabled]), left slot shows Last Cards.
+  /// When false (and [lastCardsEnabled]), left slot shows Last Cards (declare before your turn).
   final bool isLocalTurn;
 
   /// Grey out / disable Last Cards after it was pressed.
@@ -338,9 +338,6 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
         Widget leftSection() {
           final double slotWidth =
               useCompact ? 64.0 : (isMobile ? 90.0 : 120.0);
-          final canDeclareLastCards = widget.lastCardsEnabled &&
-              widget.onLastCards != null &&
-              !widget.hasAlreadyDeclared;
           final showLastCardsSlot = widget.lastCardsEnabled &&
               widget.onLastCards != null;
 
@@ -391,32 +388,6 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
               surface: surface,
               textSec: textSec,
               bgDeep: bgDeep,
-            );
-          }
-
-          // Your turn + not yet declared: direction + Last Cards (can declare now).
-          if (widget.isLocalTurn && canDeclareLastCards) {
-            final narrowLc =
-                useCompact ? 72.0 : (isMobile ? 88.0 : 104.0);
-            final dirW = useCompact ? 34.0 : 40.0;
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                directionIcon(width: dirW),
-                SizedBox(width: useCompact ? 4 : 6),
-                _buildLastCardsButton(
-                  useCompact: useCompact,
-                  isMobile: isMobile,
-                  slotWidth: narrowLc,
-                  accent: accent,
-                  accentLight: accentLight,
-                  accentDark: accentDark,
-                  surface: surface,
-                  textSec: textSec,
-                  bgDeep: bgDeep,
-                ),
-              ],
             );
           }
 
