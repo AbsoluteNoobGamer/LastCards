@@ -8,6 +8,8 @@ import 'package:last_cards/shared/constants/quick_chat_messages.dart';
 import 'package:last_cards/shared/engine/game_engine.dart';
 import 'package:last_cards/shared/engine/shuffle_utils.dart';
 import 'package:last_cards/shared/rules/move_log_support.dart';
+import 'package:last_cards/shared/rules/last_cards_rules.dart'
+    show mayDeclareLastCards;
 import 'package:last_cards/shared/rules/win_condition_rules.dart'
     show
         canConfirmPlayerWin,
@@ -16,6 +18,10 @@ import 'package:last_cards/shared/rules/win_condition_rules.dart'
 
 import 'logger.dart';
 import 'trophy_recorder.dart';
+
+// Flutter-only: Ace suit sheet UI, table animations, draw-pile visuals, floating
+// action bar layout. This process validates actions and broadcasts snapshots; see
+// server/docs/client-flutter-vs-server.md
 
 // Bust mode: 52-card deck; 3+ survivors = 2 turns each per round, eliminate bottom 2;
 // 2 survivors = race to empty hand (no turn-cap round end).
@@ -992,7 +998,8 @@ class GameSession {
   void _handleDeclareLastCards(String playerId) {
     if (isBustMode) return;
     if (_state.lastCardsDeclaredBy.contains(playerId)) return;
-    if (_state.currentPlayerId == playerId) {
+    if (!mayDeclareLastCards(
+        currentPlayerId: _state.currentPlayerId, playerId: playerId)) {
       _sendError(
         playerId,
         'last_cards_own_turn',

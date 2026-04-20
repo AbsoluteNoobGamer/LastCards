@@ -1,0 +1,30 @@
+---
+description: Offline gameplay changes must be mirrored for online play and the Dart server in the same effort.
+alwaysApply: true
+---
+
+# Offline → Online → Server Parity
+
+When you implement or fix behavior on the **offline** path (`TableScreen` / `_offlineState`, `OfflineGameState`, `bust_game_screen`, AI turns), treat **online** (`game_notifier` / `gameStateProvider`, WebSocket events) and the **authoritative server** (`server/lib/game_session.dart`) as part of the same deliverable—unless the change is **purely visual** (colors, animation curves, layout).
+
+## Gameplay vs UI
+
+| Change type | Offline | Online client | Server |
+|-------------|---------|---------------|--------|
+| Rule, turn order, penalty, win/last-cards, validation | Yes | Yes (must match server state) | Yes (`GameSession`, same shared engine/rules) |
+| Pure Flutter presentation | Yes | N/A | N/A |
+
+Prefer **one source of truth** in `lib/shared/engine/game_engine.dart` or `lib/shared/rules/*.dart`, then call it from offline, and rely on the server importing the same package (see `shared-by-default.mdc`).
+
+## Typical touchpoints
+
+- **Offline:** `lib/features/gameplay/presentation/screens/table_screen.dart`, `lib/features/bust/screens/bust_game_screen.dart`, `lib/core/models/offline_*`.
+- **Online:** `lib/core/providers/game_provider.dart`, websocket / event handling that applies server snapshots.
+- **Server:** `server/lib/game_session.dart` (and `room_manager.dart` only if a **new** action type is added).
+- **Tests:** extend `test/engine_test.dart` or shared rule tests; add/adjust `server/test/game_session_test.dart` when session handling or protocol matters.
+
+## Finish checklist
+
+- [ ] Server updated or explicitly **UI-only** and documented in the PR/summary.
+- [ ] Online play cannot diverge from offline for this rule (snapshots + client checks align).
+- [ ] `flutter analyze` and relevant `dart test` / `server` tests pass.

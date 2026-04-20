@@ -15,6 +15,8 @@ import 'package:last_cards/features/gameplay/presentation/widgets/dealing_animat
 import '../../domain/usecases/offline_game_engine.dart';
 import 'package:last_cards/shared/engine/shuffle_utils.dart';
 import 'package:last_cards/shared/rules/move_log_support.dart';
+import 'package:last_cards/shared/rules/last_cards_rules.dart'
+    show mayDeclareLastCards;
 import 'package:last_cards/shared/rules/win_condition_rules.dart'
     show canConfirmPlayerWin, needsUndeclaredLastCardsDraw, wouldConfirmWin;
 import '../../data/datasources/offline_game_state_datasource.dart';
@@ -3704,7 +3706,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       return;
     }
     final localId = OfflineGameState.localId;
-    if (_offlineState.currentPlayerId == localId) {
+    if (!mayDeclareLastCards(
+        currentPlayerId: _offlineState.currentPlayerId, playerId: localId)) {
       _showError('Declare Last Cards when it is not your turn.');
       return;
     }
