@@ -2248,7 +2248,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         ? _offlineState.activePenaltyCount
         : 2;
     _showError(
-      penaltyDrawCount == 2
+      _offlineState.activePenaltyCount == 0
           ? 'Invalid play! Drawing 2 cards as penalty.'
           : 'Invalid play! Drawing $penaltyDrawCount cards (stacked pick-up).',
     );
