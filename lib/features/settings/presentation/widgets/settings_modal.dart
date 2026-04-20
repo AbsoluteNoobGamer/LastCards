@@ -82,6 +82,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
 
   Future<void> updateTimerTickVolume(double val) async {
     state = state.copyWith(timerTickVolume: val);
+    _prefs?.setDouble('timer_tick_volume', val);
     await game_audio.AudioService.instance.setTimerTickVolume(val / 100.0);
   }
 
