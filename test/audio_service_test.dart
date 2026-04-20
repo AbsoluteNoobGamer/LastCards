@@ -197,6 +197,7 @@ void main() {
       GameSound.specialJoker: 'special_joker.wav',
       GameSound.penaltyDraw: 'penalty_draw.wav',
       GameSound.turnStart: 'turn_start.wav',
+      GameSound.timerTick: 'timer_tick.wav',
       GameSound.timerWarning: 'timer_warning.wav',
       GameSound.timerExpired: 'timer_expired.wav',
       GameSound.playerWin: 'player_win.wav',

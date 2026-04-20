@@ -12,6 +12,9 @@ class GameTurnTimer {
   /// Last started turn length (for UI progress bars).
   int get lastDurationSeconds => _durationSeconds;
 
+  /// Seconds left when the periodic timer is cancelled (or full duration if never started).
+  int get secondsRemaining => _currentSeconds;
+
   // Returns a multicast-safe stream: each subscriber gets the current value
   // immediately, then receives all subsequent controller emissions.
   // Using Stream.multi avoids creating a new async* generator chain on every

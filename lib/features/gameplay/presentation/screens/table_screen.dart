@@ -214,6 +214,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   /// advance [currentPlayerId]).
   String? _onlineLastKnownCurrentPlayerId;
   bool _timerWarningPlayed = false;
+  int? _lastTimerTickSeconds;
 
   bool _showQuickChatPanel = false;
 
@@ -869,8 +870,26 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     );
   }
 
-  void _startTimer({bool playTurnSound = true}) {
-    _timerWarningPlayed = false;
+  /// Must match the turn bar denominator ([turnTimerTotalSeconds]) and timer engine.
+  int _turnTimerBudgetSeconds() {
+    final gs = ref.read(gameStateProvider);
+    final fromState = gs?.isHardcore == true ||
+        (gs == null && _offlineState.isHardcore);
+    final fromSession = ref.read(gameNotifierProvider).isHardcoreSession;
+    return (fromState || fromSession)
+        ? 30
+        : GameTurnTimer.defaultDurationSeconds;
+  }
+
+  /// Starts (or restarts) the local turn timer. [resumeFromSeconds] continues a
+  /// paused turn without granting extra time (e.g. Ace suit sheet dismissed).
+  void _startTimer({
+    bool playTurnSound = true,
+    int? resumeFromSeconds,
+  }) {
+    _timerWarningPlayed = resumeFromSeconds != null &&
+        resumeFromSeconds < 10;
+    _lastTimerTickSeconds = null;
     _timerWarningSub?.cancel();
     if (ref.read(gameStateProvider) == null &&
         _offlineState.currentPlayerId == OfflineGameState.localId) {
@@ -879,12 +898,22 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (playTurnSound) {
       game_audio.AudioService.instance.playSound(GameSound.turnStart);
     }
-    final gs = ref.read(gameStateProvider);
-    final secs = gs?.isHardcore == true
-        ? 30
-        : (ref.read(gameNotifierProvider).isHardcoreSession
-            ? 30
-            : GameTurnTimer.defaultDurationSeconds);
+    final budget = _turnTimerBudgetSeconds();
+    var secs = resumeFromSeconds != null
+        ? resumeFromSeconds.clamp(0, budget)
+        : budget;
+    if (secs <= 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (ref.read(gameStateProvider) != null) return;
+        if (_offlineState.currentPlayerId == OfflineGameState.localId &&
+            !_aiThinking) {
+          game_audio.AudioService.instance.playSound(GameSound.timerExpired);
+          _forcedTimeoutDrawAndEnd();
+        }
+      });
+      return;
+    }
     // Start the timer BEFORE subscribing so Stream.multi delivers a fresh countdown.
     _engineTimer.start(
       () {
@@ -927,9 +956,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       },
       durationSeconds: secs,
     );
-    // Subscribe AFTER start() so the synchronous initial value from
-    // Stream.multi is the freshly-reset 60, not a stale previous value.
+    // Subscribe AFTER start() so the synchronous initial value matches [secs].
     _timerWarningSub = _engineTimer.timeRemainingStream.listen((secondsLeft) {
+      final prevTick = _lastTimerTickSeconds;
+      _lastTimerTickSeconds = secondsLeft;
+      if (prevTick != null &&
+          secondsLeft < prevTick &&
+          secondsLeft > 0) {
+        game_audio.AudioService.instance.playSound(GameSound.timerTick);
+      }
       if (!_timerWarningPlayed && secondsLeft > 0 && secondsLeft <= 10) {
         _timerWarningPlayed = true;
         game_audio.AudioService.instance.playSound(GameSound.timerWarning);
@@ -1008,23 +1043,38 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (_offlineState.currentPlayerId != OfflineGameState.localId) return;
 
     _engineTimer.cancel();
+    final resumeTurnSeconds = _engineTimer.secondsRemaining;
     setState(() => _selectedCardId = null);
 
+    int pauseSecondsBudget() => _turnTimerBudgetSeconds();
+
+    int remainingAfterUiPause(int pauseSeconds) =>
+        (resumeTurnSeconds - pauseSeconds).clamp(0, pauseSecondsBudget());
+
+    var uiPauseSeconds = 0;
     Suit? chosenAceSuit;
     // Rule 1: Ace played alone triggers the suit selector at End Turn
     if (_offlineState.discardTopCard?.effectiveRank == Rank.ace &&
         _offlineState.cardsPlayedThisTurn == 1 &&
         _offlineState.suitLock == null &&
         mounted) {
+      final sheetStopwatch = Stopwatch()..start();
       chosenAceSuit = await showModalBottomSheet<Suit>(
         context: context,
         backgroundColor: Colors.transparent,
         builder: (_) => const AceSuitPickerSheet(),
       );
+      sheetStopwatch.stop();
+      // Count any partial second toward the pause so the sheet can't stall for free.
+      uiPauseSeconds =
+          (sheetStopwatch.elapsedMilliseconds + 999) ~/ 1000;
       if (!mounted) return;
 
       if (chosenAceSuit == null) {
-        _startTimer(); // Resume the timer if they dismissed the sheet
+        _startTimer(
+          playTurnSound: false,
+          resumeFromSeconds: remainingAfterUiPause(uiPauseSeconds),
+        );
         return; // Don't end turn yet
       }
 
@@ -1040,7 +1090,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final err = validateEndTurn(_offlineState);
     if (err != null) {
       _showError(err);
-      _startTimer();
+      _startTimer(
+        playTurnSound: false,
+        resumeFromSeconds: remainingAfterUiPause(uiPauseSeconds),
+      );
       return;
     }
 
@@ -1134,9 +1187,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         ? const <String>{}
         : ref.watch(gameNotifierProvider).socketDisconnectedPlayerIds;
     final gameState = liveState ?? _offlineState;
-    final turnTimerTotalSeconds = gameState.isHardcore
-        ? 30
-        : GameTurnTimer.defaultDurationSeconds;
+    final turnTimerTotalSeconds = _turnTimerBudgetSeconds();
     final isMyTurn = isOfflineMode
         ? (_offlineState.currentPlayerId == OfflineGameState.localId &&
             !_aiThinking &&
@@ -2020,7 +2071,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         return;
       }
 
-      // Intercept Joker plays (mirrors Ace popup flow)
+      // Intercept Joker plays (mirrors Ace popup flow — timer paused for sheet)
       if (played.length == 1 && played.first.isJoker && mounted) {
         final jokerIn = resolveJokerPlayInputs(
           state: _offlineState,
@@ -2041,8 +2092,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           return;
         }
 
+        _engineTimer.cancel();
+        final frozenRemaining = _engineTimer.secondsRemaining;
+        final budget = _turnTimerBudgetSeconds();
+        int resumeAfterPauses(int sheetSec, int animSec) =>
+            (frozenRemaining - sheetSec - animSec).clamp(0, budget);
+
         // Show selection visual while the modal is open
         setState(() => _selectedCardId = cardId);
+        final sheetStopwatch = Stopwatch()..start();
         final chosenCard = await showModalBottomSheet<CardModel>(
           context: context,
           backgroundColor: Colors.transparent,
@@ -2053,10 +2111,17 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             activeSequenceSuit: jokerIn.activeSequenceSuit,
           ),
         );
+        sheetStopwatch.stop();
+        final sheetSec =
+            (sheetStopwatch.elapsedMilliseconds + 999) ~/ 1000;
 
         if (!mounted) return;
         if (chosenCard == null) {
           setState(() => _selectedCardId = null);
+          _startTimer(
+            playTurnSound: false,
+            resumeFromSeconds: resumeAfterPauses(sheetSec, 0),
+          );
           return;
         }
 
@@ -2066,9 +2131,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         );
 
         final lastFromHand = local.hand.length == 1;
+        final animStopwatch = Stopwatch()..start();
         setState(() => _flyingCardId = assignedJoker.id);
         await _animateLocalCardToDiscard(assignedJoker,
             lastCardFromHand: lastFromHand);
+        animStopwatch.stop();
+        final animSec =
+            (animStopwatch.elapsedMilliseconds + 999) ~/ 1000;
         if (!mounted) return;
         if (!lastFromHand) {
           HapticFeedback.mediumImpact();
@@ -2088,7 +2157,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               ? assignedJoker.effectiveSuit
               : null,
         );
-        _engineTimer.cancel();
 
         // Play card sounds for Joker play.
         game_audio.AudioService.instance.playSound(GameSound.cardPlace);
@@ -2126,6 +2194,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         _reshuffleCentrePileIntoDrawPile();
 
         // Allow the player to continue their turn (stack more cards if they want).
+        if (newState.currentPlayerId == playerId) {
+          _startTimer(
+            playTurnSound: false,
+            resumeFromSeconds: resumeAfterPauses(sheetSec, animSec),
+          );
+        }
         return;
       }
 
@@ -2148,6 +2222,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       var newState =
           applyPlay(state: _offlineState, playerId: playerId, cards: played);
       _engineTimer.cancel();
+      final resumeMidTurn = _engineTimer.secondsRemaining;
 
       // Play card sounds: every card uses card_place.wav; special cards also get their effect sound.
       for (final c in played) {
@@ -2225,6 +2300,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         } else {
           _startTimer();
         }
+      } else if (newState.currentPlayerId == playerId) {
+        // Still our turn (e.g. Queen suit lock, or any extra play this turn) —
+        // resume the same budget (flight ran while the timer ticked; cancel
+        // snapshot is post-animation).
+        _startTimer(
+          playTurnSound: false,
+          resumeFromSeconds: resumeMidTurn,
+        );
       }
     } finally {
       _localActionInProgress = false;
