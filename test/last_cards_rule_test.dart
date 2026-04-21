@@ -141,6 +141,49 @@ void main() {
     });
 
     test(
+        '3 players: multiple actions in one turn (e.g. pair then 6♠) even when '
+        'nextPlayerId would be another seat',
+        () {
+      final hand = [
+        c(Rank.five, Suit.hearts),
+        c(Rank.five, Suit.spades),
+        c(Rank.six, Suit.spades),
+      ];
+      final state = GameState(
+        sessionId: 't',
+        phase: GamePhase.playing,
+        currentPlayerId: 'p1',
+        direction: PlayDirection.clockwise,
+        discardTopCard: c(Rank.five, Suit.hearts),
+        drawPileCount: 10,
+        players: [
+          PlayerModel(
+            id: 'p1',
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: hand,
+            cardCount: hand.length,
+          ),
+          PlayerModel(
+            id: 'p2',
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: const [],
+            cardCount: 0,
+          ),
+          PlayerModel(
+            id: 'p3',
+            displayName: 'P3',
+            tablePosition: TablePosition.left,
+            hand: const [],
+            cardCount: 0,
+          ),
+        ],
+      );
+      expect(canClearHandInOneTurn(state: state, playerId: 'p1'), isTrue);
+    });
+
+    test(
         '5 players: four 8s in one play + 5♥ clears via skip wrap (hand-only false)',
         () {
       final hand = [

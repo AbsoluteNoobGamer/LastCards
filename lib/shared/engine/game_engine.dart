@@ -1291,18 +1291,24 @@ bool _canClearHandRespectingDiscard(GameState state, String playerId) {
     final top = s.discardTopCard;
     if (top == null) return false;
 
-    bool afterPlay(GameState played) {
+    /// After a committed play: win, recurse for more plays **this turn**, or
+    /// apply a same-seat fresh slice when [nextPlayerId] already wraps to this
+    /// seat (2p King/Eight, multi-player skip). [nextPlayerId] ≠ [playerId]
+    /// does **not** end the turn — the current player may still play again
+    /// until they end the turn; [applyPlay] + [validatePlay] model that.
+    bool continueAfterPlay(GameState played) {
       final after = played.playerById(playerId)?.hand;
       if (after == null) return false;
       if (after.isEmpty) return true;
-      if (nextPlayerId(state: played) != playerId) return false;
-      final sliced = _applySameSeatFreshTurnSlice(played);
-      return dfs(sliced);
+      final nextState = nextPlayerId(state: played) == playerId
+          ? _applySameSeatFreshTurnSlice(played)
+          : played;
+      return dfs(nextState);
     }
 
     for (final play in _legalPlaysForClearabilityProbe(s, playerId, top)) {
       final played = applyPlay(state: s, playerId: playerId, cards: play);
-      if (afterPlay(played)) return true;
+      if (continueAfterPlay(played)) return true;
     }
 
     for (final card in List<CardModel>.from(hand)) {
@@ -1324,7 +1330,7 @@ bool _canClearHandRespectingDiscard(GameState state, String playerId) {
           cards: [card],
           declaredSuit: suit,
         );
-        if (afterPlay(played)) return true;
+        if (continueAfterPlay(played)) return true;
       }
     }
     return false;
@@ -1341,8 +1347,9 @@ bool _canClearHandRespectingDiscard(GameState state, String playerId) {
 ///
 /// First tries [canHandClearInOneTurnHandOnly] (ordering without facing the
 /// pile). If that fails, runs a bounded simulation with [validatePlay] /
-/// [applyPlay], including **multi-card same-rank plays** (so stacked Eights
-/// accumulate [activeSkipCount] like real play).
+/// [applyPlay], including **multiple sequential plays per turn** (numerical
+/// flow, value chains, same-rank pairs, etc.) and **multi-card same-rank plays**
+/// (stacked Eights accumulate [activeSkipCount] like real play).
 ///
 /// Jokers use the hand-only analyzer only (declaration sites exempt bluff via
 /// [PlayerModel.hand] Joker check). [isBustMode] forces `false`. When the
