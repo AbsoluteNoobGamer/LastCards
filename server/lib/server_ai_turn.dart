@@ -160,7 +160,7 @@ List<List<CardModel>> _enumeratePlayCandidates({
       for (final combo in _combinations(group, k)) {
         result.add(combo);
       }
-    }
+
   }
   }
 
