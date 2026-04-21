@@ -8,6 +8,7 @@ import 'package:last_cards/shared/engine/game_engine.dart'
     show canClearHandInOneTurn, standardFiftyFourDeckInCanonicalOrder;
 import 'package:last_cards/shared/rules/last_cards_rules.dart'
     show canHandClearInOneTurnHandOnly;
+import 'package:fake_async/fake_async.dart';
 import 'package:test/test.dart';
 
 import 'package:last_cards_server/game_session.dart';
@@ -2400,15 +2401,174 @@ void main() {
   });
 
   group('disconnect (standard)', () {
-    test('handleSocketDisconnected ends two-player game immediately', () {
+    test('forced handleSocketDisconnected ends two-player game immediately', () {
       final g = _makeKnownGame();
       g.p2ws.clear();
-      g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
+      g.session.handleSocketDisconnected(g.p1Id, g.p1ws, forceRemove: true);
       expect(g.p2ws.lastOfType('game_ended')?['reason'], 'player_disconnected');
       expect(
         g.p2ws.messages.any((m) => m['type'] == 'player_socket_lost'),
         isFalse,
       );
+    });
+
+    test('brief disconnect keeps seat until grace elapses', () {
+      fakeAsync((async) {
+        final g = _makeKnownGame();
+        g.p2ws.clear();
+        g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
+        async.elapse(Duration.zero);
+        expect(
+          g.p2ws.messages.any((m) => m['type'] == 'player_socket_lost'),
+          isTrue,
+        );
+        expect(g.p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
+
+        final newWs = _FakeWs();
+        expect(g.session.tryReattachSocket(g.p1Id, newWs), isTrue);
+        expect(
+          g.p2ws.messages.any((m) => m['type'] == 'player_socket_restored'),
+          isTrue,
+        );
+
+        g.p2ws.clear();
+        async.elapse(GameSession.socketDisconnectGrace);
+        expect(g.p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
+      });
+    });
+
+    test('grace expiry removes player if they never reattach', () {
+      fakeAsync((async) {
+        final g = _makeKnownGame();
+        g.p2ws.clear();
+        g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
+        async.elapse(Duration.zero);
+        async.elapse(GameSession.socketDisconnectGrace);
+        expect(g.p2ws.lastOfType('game_ended')?['reason'], 'player_disconnected');
+      });
+    });
+
+    test(
+        'grace disconnect on current turn auto-draws pick-up stack then advances',
+        () {
+      fakeAsync((async) {
+        final (:session, :sockets, :ids) = _makeSession(2);
+        final p1ws = sockets[0];
+        final p2ws = sockets[1];
+        final p1Id = ids[0];
+        final p2Id = ids[1];
+
+        final p1Hand = [_card(Rank.three, Suit.spades)];
+        final p2Hand = [_card(Rank.five, Suit.hearts)];
+        final discardTop = _card(Rank.two, Suit.spades);
+        final drawPile = List.generate(
+            10,
+            (i) =>
+                CardModel(id: 'filler_$i', rank: Rank.seven, suit: Suit.clubs));
+
+        final state = GameState(
+          sessionId: 'TEST',
+          phase: GamePhase.playing,
+          players: [
+            PlayerModel(
+              id: p1Id,
+              displayName: 'P1',
+              tablePosition: TablePosition.bottom,
+              hand: p1Hand,
+              cardCount: 1,
+            ),
+            PlayerModel(
+              id: p2Id,
+              displayName: 'P2',
+              tablePosition: TablePosition.top,
+              hand: p2Hand,
+              cardCount: 1,
+            ),
+          ],
+          currentPlayerId: p1Id,
+          direction: PlayDirection.clockwise,
+          discardTopCard: discardTop,
+          drawPileCount: drawPile.length,
+          preTurnCentreSuit: Suit.spades,
+          activePenaltyCount: 4,
+        );
+
+        session.seedStateForTesting(state: state, drawPile: drawPile);
+        p2ws.clear();
+        session.handleSocketDisconnected(p1Id, p1ws);
+        async.elapse(Duration.zero);
+
+        final tt = p2ws.lastOfType('turn_timeout');
+        expect(tt, isNotNull);
+        expect(tt!['cardsDrawn'], equals(4));
+        expect(
+          p2ws.lastOfType('turn_changed')?['currentPlayerId'],
+          equals(p2Id),
+        );
+      });
+    });
+
+    test('grace expiry appends leaver hand to bottom of draw pile (3 players)',
+        () {
+      fakeAsync((async) {
+        final (:session, :sockets, :ids) = _makeSession(3);
+        final p1ws = sockets[0];
+        final p2ws = sockets[1];
+        final p3ws = sockets[2];
+        final p1Id = ids[0];
+        final p2Id = ids[1];
+        final p3Id = ids[2];
+
+        final leaverCard = _card(Rank.six, Suit.diamonds);
+        final drawPileBefore = List.generate(
+            8,
+            (i) =>
+                CardModel(id: 'pile_$i', rank: Rank.four, suit: Suit.clubs));
+
+        final state = GameState(
+          sessionId: 'TEST',
+          phase: GamePhase.playing,
+          players: [
+            PlayerModel(
+              id: p1Id,
+              displayName: 'P1',
+              tablePosition: TablePosition.bottom,
+              hand: [_card(Rank.three, Suit.spades)],
+              cardCount: 1,
+            ),
+            PlayerModel(
+              id: p2Id,
+              displayName: 'P2',
+              tablePosition: TablePosition.top,
+              hand: [_card(Rank.five, Suit.hearts)],
+              cardCount: 1,
+            ),
+            PlayerModel(
+              id: p3Id,
+              displayName: 'P3',
+              tablePosition: TablePosition.left,
+              hand: [leaverCard],
+              cardCount: 1,
+            ),
+          ],
+          currentPlayerId: p1Id,
+          direction: PlayDirection.clockwise,
+          discardTopCard: _card(Rank.two, Suit.spades),
+          drawPileCount: drawPileBefore.length,
+          preTurnCentreSuit: Suit.spades,
+        );
+
+        session.seedStateForTesting(state: state, drawPile: drawPileBefore);
+        p2ws.clear();
+        session.handleSocketDisconnected(p3Id, p3ws);
+        async.elapse(GameSession.socketDisconnectGrace);
+
+        final pileAfter = session.drawPileOrderForTesting;
+        expect(pileAfter.length, drawPileBefore.length + 1);
+        expect(pileAfter.last.id, leaverCard.id);
+        final snap = _latestSnapshot(p2ws);
+        expect((snap['drawPileCount'] as num).toInt(), pileAfter.length);
+      });
     });
 
     test('handleSocketDisconnected continues three-player game and returns hand to draw pile',
@@ -2463,7 +2623,7 @@ void main() {
       session.seedStateForTesting(state: state, drawPile: drawPileBefore);
 
       p2ws.clear();
-      session.handleSocketDisconnected(p3Id, p3ws);
+      session.handleSocketDisconnected(p3Id, p3ws, forceRemove: true);
 
       expect(p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
       expect(session.drawPileCountForTesting, drawPileBefore.length + p3Hand.length);
@@ -2526,7 +2686,7 @@ void main() {
       session.seedStateForTesting(state: state, drawPile: drawPileBefore);
 
       p2ws.clear();
-      session.handleSocketDisconnected(p3Id, p3ws);
+      session.handleSocketDisconnected(p3Id, p3ws, forceRemove: true);
 
       expect(p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
       expect(session.drawPileCountForTesting,
@@ -2539,7 +2699,7 @@ void main() {
 
     test('tryReattachSocket fails after disconnect removed player', () {
       final g = _makeKnownGame();
-      g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
+      g.session.handleSocketDisconnected(g.p1Id, g.p1ws, forceRemove: true);
       g.p2ws.clear();
       final newWs = _FakeWs();
       expect(g.session.tryReattachSocket(g.p1Id, newWs), isFalse);
@@ -2575,9 +2735,9 @@ void main() {
       final id2 = session.addPlayer(w2, 'B');
       session.markReady(id1);
       session.markReady(id2);
-      session.handleSocketDisconnected(id1, w1);
+      session.handleSocketDisconnected(id1, w1, forceRemove: true);
       expect(emptyCalled, isFalse);
-      session.handleSocketDisconnected(id2, w2);
+      session.handleSocketDisconnected(id2, w2, forceRemove: true);
       expect(emptyCalled, isTrue);
     });
 
@@ -2635,7 +2795,7 @@ void main() {
       );
 
       // P1 disconnects — P2 should be recorded as the winner.
-      session.handleSocketDisconnected(p1Id, p1ws);
+      session.handleSocketDisconnected(p1Id, p1ws, forceRemove: true);
 
       // Leave penalty recorded for the leaver.
       expect(recorder.leavePenaltyCalls, 1);

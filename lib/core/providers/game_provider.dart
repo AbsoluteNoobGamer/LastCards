@@ -395,7 +395,7 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
       }),
     );
 
-    // ── player_socket_lost / restored (legacy; server removes seat immediately)
+    // ── player_socket_lost / restored (transient disconnect vs grace expiry)
     _subs.add(
       _eventHandler.events
           .where((e) => e is PlayerSocketLostEvent)

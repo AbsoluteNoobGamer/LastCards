@@ -148,6 +148,14 @@ class GameSession {
   /// Per-turn countdown timer.
   Timer? _turnTimer;
 
+  /// After an unexpected socket close during a live game, keep the seat open
+  /// briefly so mobile clients can reconnect and [tryReattachSocket] succeeds.
+  final Map<String, Timer> _disconnectGraceTimers = {};
+
+  /// Wall-clock grace for [handleSocketDisconnected] (non-forced). Not tied to
+  /// turn timer so other players are not blocked by a brief app switch.
+  static const Duration socketDisconnectGrace = Duration(seconds: 90);
+
   bool get _trophyEligible =>
       !isPrivate && (maxPlayerCount == null || _wasFullRoster);
 
@@ -190,6 +198,10 @@ class GameSession {
 
   /// Returns the current draw pile size (for assertions in tests).
   int get drawPileCountForTesting => _drawPile.length;
+
+  /// Draw pile order for tests (index 0 is drawn next; bottom == last indices).
+  List<CardModel> get drawPileOrderForTesting =>
+      List<CardModel>.from(_drawPile);
 
   /// Returns the current discard-under-top size (for assertions in tests).
   int get discardUnderTopCountForTesting => _discardUnderTop.length;
@@ -319,13 +331,22 @@ class GameSession {
     _broadcast({'type': 'player_left', 'playerId': botPlayerId});
   }
 
-  /// Called when a client's socket closes. Drops the player from the session
-  /// immediately; there is no return window (standard or otherwise).
+  /// Called when a client's socket closes.
   ///
   /// [disconnectedWs] must be the socket that closed. If [tryReattachSocket]
   /// already replaced it, this is ignored so a late close on the old socket
   /// does not clear the new connection.
-  void handleSocketDisconnected(String playerId, dynamic disconnectedWs) {
+  ///
+  /// When [forceRemove] is true (e.g. the client is joining another room on
+  /// the same process), the player is removed immediately. Otherwise, during
+  /// an active standard or bust game, the seat is kept for [socketDisconnectGrace]
+  /// so the client can [rejoin_session] after a brief disconnect (mobile
+  /// backgrounding).
+  void handleSocketDisconnected(
+    String playerId,
+    dynamic disconnectedWs, {
+    bool forceRemove = false,
+  }) {
     final leavingPlayer = _players[playerId];
     if (leavingPlayer == null) return;
 
@@ -334,14 +355,50 @@ class GameSession {
       return;
     }
 
-    removePlayer(playerId);
+    if (forceRemove ||
+        !_started ||
+        _gameOver ||
+        leavingPlayer.isAi) {
+      _cancelDisconnectGraceTimer(playerId);
+      removePlayer(playerId);
+      return;
+    }
+
+    _cancelDisconnectGraceTimer(playerId);
+    leavingPlayer.ws = null;
+    _broadcast({
+      'type': 'player_socket_lost',
+      'playerId': playerId,
+    });
+    _disconnectGraceTimers[playerId] = Timer(socketDisconnectGrace, () {
+      _disconnectGraceTimers.remove(playerId);
+      final p = _players[playerId];
+      if (p == null) return;
+      if (p.ws != null) return;
+      removePlayer(playerId);
+    });
+
+    if (_started &&
+        !_gameOver &&
+        _state.currentPlayerId == playerId) {
+      _startTurnTimer();
+    }
   }
 
-  /// Replaces the live WebSocket when the same client connects again before
-  /// the old socket has been torn down (e.g. sent [rejoin_session] with a new
-  /// socket while the previous one still appears open). In-progress games do
-  /// not allow returning after a full disconnect — [handleSocketDisconnected]
-  /// already removed the player.
+  void _cancelDisconnectGraceTimer(String playerId) {
+    _disconnectGraceTimers.remove(playerId)?.cancel();
+  }
+
+  void _cancelAllDisconnectGraceTimers() {
+    for (final t in _disconnectGraceTimers.values) {
+      t.cancel();
+    }
+    _disconnectGraceTimers.clear();
+  }
+
+  /// Replaces the live WebSocket when the same client sends [rejoin_session],
+  /// including after a brief disconnect while the grace window in
+  /// [handleSocketDisconnected] still holds the seat.
   bool tryReattachSocket(
     String playerId,
     dynamic newWs, {
@@ -361,10 +418,19 @@ class GameSession {
       }
     }
 
-    try {
-      p.ws.sink.close();
-    } catch (_) {}
+    _cancelDisconnectGraceTimer(playerId);
+
+    final oldWs = p.ws;
+    if (oldWs != null) {
+      try {
+        oldWs.sink.close();
+      } catch (_) {}
+    }
     p.ws = newWs;
+    _broadcast({
+      'type': 'player_socket_restored',
+      'playerId': playerId,
+    });
     _broadcastStateSnapshots();
     return true;
   }
@@ -395,15 +461,23 @@ class GameSession {
   bool _clearRoomWhenNoHumansRemain() {
     if (_players.values.any((p) => !p.isAi)) return false;
     _turnTimer?.cancel();
-    if (_started) _gameOver = true;
+    if (_started) {
+      _cancelAllDisconnectGraceTimers();
+      _gameOver = true;
+    }
     _players.clear();
     onBecameEmpty?.call(roomCode);
     return true;
   }
 
+  /// Returns the leaver's cards to the **bottom** of the draw pile (append;
+  /// index 0 is still drawn first) for standard mode — same for grace expiry and
+  /// forced/immediate removal.
   void removePlayer(String playerId) {
     final leavingPlayer = _players[playerId];
     if (leavingPlayer == null) return;
+
+    _cancelDisconnectGraceTimer(playerId);
 
     final firebaseUid = leavingPlayer.firebaseUid;
     final displayName = leavingPlayer.displayName;
@@ -456,7 +530,6 @@ class GameSession {
     }
 
     _drawPile.addAll(continueGame.handForDrawPile);
-    fisherYatesShuffle(_drawPile);
     _state = continueGame.state.copyWith(drawPileCount: _drawPile.length);
 
     _checkWin();
@@ -481,6 +554,7 @@ class GameSession {
     required String displayName,
   }) {
     _turnTimer?.cancel();
+    _cancelAllDisconnectGraceTimers();
     _gameOver = true;
 
     final trophyPenaltyForLeaver = _trophyEligible;
@@ -1604,6 +1678,7 @@ class GameSession {
     });
 
     if (isGameOver) {
+      _cancelAllDisconnectGraceTimers();
       _gameOver = true;
       _state = _state.copyWith(phase: GamePhase.ended, winnerId: winnerId);
       final bustTrophyEligible = _trophyEligible;
@@ -1699,6 +1774,7 @@ class GameSession {
       'winnerId': winnerId,
     });
 
+    _cancelAllDisconnectGraceTimers();
     _gameOver = true;
     _state = _state.copyWith(phase: GamePhase.ended, winnerId: winnerId);
     final bustTrophyEligible = _trophyEligible;
@@ -1822,6 +1898,13 @@ class GameSession {
       _turnTimer = Timer(const Duration(milliseconds: 420), _executeAiTurn);
       return;
     }
+    if (slot != null && !slot.isAi && slot.ws == null) {
+      _turnTimer = Timer(
+        Duration.zero,
+        () => _onGraceDisconnectedTurnTimeout(currentId),
+      );
+      return;
+    }
     _turnTimer = Timer(_turnDuration, _onTurnTimeout);
   }
 
@@ -1852,7 +1935,27 @@ class GameSession {
 
   void _onTurnTimeout() {
     if (_gameOver) return;
-    final timedOutPlayerId = _state.currentPlayerId;
+    _executeTurnTimeoutDrawAndAdvance(_state.currentPlayerId);
+  }
+
+  /// When the current seat is in disconnect grace ([_ConnectedPlayer.ws] null),
+  /// resolves their turn immediately like [_onTurnTimeout] so others are not
+  /// blocked for the full [_turnDuration].
+  void _onGraceDisconnectedTurnTimeout(String expectedPlayerId) {
+    if (_gameOver) return;
+    if (_state.currentPlayerId != expectedPlayerId) return;
+    final slot = _players[expectedPlayerId];
+    if (slot == null) return;
+    if (slot.ws != null) {
+      _startTurnTimer();
+      return;
+    }
+    _executeTurnTimeoutDrawAndAdvance(expectedPlayerId);
+  }
+
+  void _executeTurnTimeoutDrawAndAdvance(String timedOutPlayerId) {
+    if (_gameOver) return;
+    if (_state.currentPlayerId != timedOutPlayerId) return;
 
     final count =
         _state.activePenaltyCount > 0 ? _state.activePenaltyCount : 1;
@@ -1868,7 +1971,6 @@ class GameSession {
       },
     );
 
-    // Send the drawn card only to the timed-out player.
     for (final card in drawnCards) {
       _sendTo(timedOutPlayerId, {
         'type': 'card_drawn',
@@ -1899,7 +2001,6 @@ class GameSession {
       });
     }
 
-    // Broadcast turn_timeout before advancing.
     _broadcast({
       'type': 'turn_timeout',
       'playerId': timedOutPlayerId,
@@ -2011,6 +2112,7 @@ class GameSession {
     if (winner == null) return;
     final winnerId = winner.id;
     _state = _state.copyWith(phase: GamePhase.ended, winnerId: winnerId);
+    _cancelAllDisconnectGraceTimers();
     _gameOver = true;
     _turnTimer?.cancel();
 
