@@ -180,6 +180,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   int _onlineDiscardCount = 1;
   bool _onlineWinDialogShown = false;
 
+  /// After the user dismisses the online win dialog with KEEP WATCHING (spectate).
+  /// Prevents [ref.listen] from opening the dialog again on unrelated state updates.
+  bool _spectating = false;
+
   /// Prevents overlapping online plays while a last-card flight runs.
   bool _onlineLastCardFlightInProgress = false;
 
@@ -214,6 +218,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   String? _lastCardsDeclaredBannerText;
   /// Clears the declare banner only for the latest [_announceLastCardsDeclaration] call.
   int _lastCardsDeclaredBannerSeq = 0;
+
+  /// Offline: [applyOpeningSeatLastCardsSeedIfNeeded] ran at deal — show banner/move log.
+  bool _pendingOpeningLastCardsAnnouncement = false;
 
   /// Tracks [GameState.currentPlayerId] across [turn_changed] events so we can
   /// finalize move-log entries for the player whose turn ended (server
@@ -509,6 +516,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       _discardPile.clear();
       _onlineDiscardCount = 1; // one card already on discard (discardTopCard)
       _onlineWinDialogShown = false;
+      _spectating = false;
 
       if (liveState.discardTopCard != null) {
         _discardPile.add(liveState.discardTopCard!);
@@ -597,6 +605,17 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
       );
       state = initializeFirstTurnClearability(state, isBustMode: false);
+      final openingLc = applyOpeningSeatLastCardsSeedIfNeeded(
+        state: state,
+        isBustMode: false,
+      );
+      if (openingLc.applied) {
+        state = openingLc.state;
+        if (openingLc.isBluff) {
+          _offlineLastCardsBluffedBy.add(state.currentPlayerId);
+        }
+        _pendingOpeningLastCardsAnnouncement = true;
+      }
     }
 
     // During a normal deal animation, show the dealer pile counting down from
@@ -627,6 +646,19 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      if (_pendingOpeningLastCardsAnnouncement) {
+        _pendingOpeningLastCardsAnnouncement = false;
+        final opener =
+            _offlineState.playerById(_offlineState.currentPlayerId);
+        if (opener != null &&
+            _offlineState.lastCardsDeclaredBy.contains(opener.id)) {
+          _announceLastCardsDeclaration(
+            playerId: opener.id,
+            playerName: opener.displayName,
+            pushMoveLog: true,
+          );
+        }
+      }
       if (hasDebugState || widget.debugSkipDealAnimation) {
         _startTimer();
         if (_offlineState.currentPlayerId != OfflineGameState.localId) {
@@ -1284,6 +1316,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (next == null ||
           next.phase != GamePhase.ended ||
           _onlineWinDialogShown ||
+          _spectating ||
           !mounted) {
         return;
       }
@@ -1347,6 +1380,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               },
               isOnlineMode: true,
               ratingDelta: ratingDelta,
+              onSpectate: !isLocalWin &&
+                      ref.read(gameNotifierProvider).isPrivateSession
+                  ? () {
+                      navigator.pop();
+                      setState(() => _spectating = true);
+                    }
+                  : null,
             ),
           );
         });
@@ -1564,7 +1604,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         discardPileKey: _discardPileKey,
                         thinkingOpponentId: isOfflineMode && _aiThinking
                             ? _offlineState.currentPlayerId
-                            : null,
+                            : (!isOfflineMode &&
+                                    gameState.players.any(
+                                      (p) =>
+                                          p.id ==
+                                              gameState.currentPlayerId &&
+                                          p.isAi,
+                                    ))
+                                ? gameState.currentPlayerId
+                                : null,
                         playerZoneKeys: _playerZoneKeys,
                         onCardTap: _onCardTap,
                         onDrawTap: isOfflineMode

@@ -234,7 +234,18 @@ final class ErrorEvent extends GameEvent {
 final class RoomCreatedEvent extends GameEvent {
   final String roomCode;
   final String playerId;
-  const RoomCreatedEvent(this.roomCode, {this.playerId = ''});
+
+  /// Private lobby: casual (false) vs hardcore timers/rules (true).
+  final bool isHardcore;
+
+  /// `standard` | `knockout` | `bust` — host choice for private rooms.
+  final String gameVariant;
+  const RoomCreatedEvent(
+    this.roomCode, {
+    this.playerId = '',
+    this.isHardcore = false,
+    this.gameVariant = 'standard',
+  });
 
   @override
   String get type => 'room_created';
@@ -244,10 +255,30 @@ final class RoomCreatedEvent extends GameEvent {
 final class RoomJoinedEvent extends GameEvent {
   final String roomCode;
   final String playerId;
-  const RoomJoinedEvent(this.roomCode, this.playerId);
+
+  /// Private lobby rules chosen by the host.
+  final bool isHardcore;
+
+  /// `standard` | `knockout` | `bust`.
+  final String gameVariant;
+  const RoomJoinedEvent(
+    this.roomCode,
+    this.playerId, {
+    this.isHardcore = false,
+    this.gameVariant = 'standard',
+  });
 
   @override
   String get type => 'room_joined';
+}
+
+/// Host changed private lobby rules before the match starts.
+final class PrivateLobbySettingsEvent extends GameEvent {
+  final bool isHardcore;
+  const PrivateLobbySettingsEvent({required this.isHardcore});
+
+  @override
+  String get type => 'private_lobby_settings';
 }
 
 /// A player marked themselves ready in the lobby.
@@ -315,12 +346,18 @@ final class SessionConfigEvent extends GameEvent {
   final bool isRanked;
   /// Hardcore rules + 30s turn timer (see [GameState.isHardcore]).
   final bool isHardcore;
+  /// Bust elimination mode (server-authoritative).
+  final bool isBustMode;
+  /// Knockout finish-order UX on a standard table (private lobbies).
+  final bool isKnockoutTournament;
   final bool trophyEligible;
   const SessionConfigEvent({
     this.roomCode,
     this.isPrivate = false,
     this.isRanked = false,
     this.isHardcore = false,
+    this.isBustMode = false,
+    this.isKnockoutTournament = false,
     this.trophyEligible = false,
   });
 
@@ -573,10 +610,19 @@ GameEvent parseServerEvent(String raw) {
         ),
       'room_created' => RoomCreatedEvent(
           json['roomCode'] as String? ?? '',
-          playerId: json['playerId'] as String? ?? ''),
+          playerId: json['playerId'] as String? ?? '',
+          isHardcore: json['isHardcore'] as bool? ?? false,
+          gameVariant: json['gameVariant'] as String? ?? 'standard',
+        ),
       'room_joined' => RoomJoinedEvent(
           json['roomCode'] as String? ?? '',
-          json['playerId'] as String? ?? ''),
+          json['playerId'] as String? ?? '',
+          isHardcore: json['isHardcore'] as bool? ?? false,
+          gameVariant: json['gameVariant'] as String? ?? 'standard',
+        ),
+      'private_lobby_settings' => PrivateLobbySettingsEvent(
+          isHardcore: json['isHardcore'] as bool? ?? false,
+        ),
       'player_ready' => PlayerReadyEvent(
           json['playerId'] as String? ?? ''),
       'suit_choice_required' => SuitChoiceRequiredEvent(
@@ -597,6 +643,9 @@ GameEvent parseServerEvent(String raw) {
           isPrivate: json['isPrivate'] as bool? ?? false,
           isRanked: json['isRanked'] as bool? ?? false,
           isHardcore: json['isHardcore'] as bool? ?? false,
+          isBustMode: json['isBustMode'] as bool? ?? false,
+          isKnockoutTournament:
+              json['isKnockoutTournament'] as bool? ?? false,
           trophyEligible: json['trophyEligible'] as bool? ?? false,
         ),
       'quick_chat' => QuickChatEvent(

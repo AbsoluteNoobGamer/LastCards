@@ -40,6 +40,9 @@ mixin _$PlayerModel {
   /// profile / friends. Omitted for offline AI and guests without auth.
   String? get firebaseUid => throw _privateConstructorUsedError;
 
+  /// Server-driven bot in a private online lobby (no WebSocket).
+  bool get isAi => throw _privateConstructorUsedError;
+
   /// Serializes this PlayerModel to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
 
@@ -63,7 +66,8 @@ abstract class $PlayerModelCopyWith<$Res> {
       List<CardModel> hand,
       int cardCount,
       bool lastCardsHandWasClearableAtTurnStart,
-      String? firebaseUid});
+      String? firebaseUid,
+      bool isAi});
 }
 
 /// @nodoc
@@ -88,6 +92,7 @@ class _$PlayerModelCopyWithImpl<$Res, $Val extends PlayerModel>
     Object? cardCount = null,
     Object? lastCardsHandWasClearableAtTurnStart = null,
     Object? firebaseUid = freezed,
+    Object? isAi = null,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -119,6 +124,10 @@ class _$PlayerModelCopyWithImpl<$Res, $Val extends PlayerModel>
           ? _value.firebaseUid
           : firebaseUid // ignore: cast_nullable_to_non_nullable
               as String?,
+      isAi: null == isAi
+          ? _value.isAi
+          : isAi // ignore: cast_nullable_to_non_nullable
+              as bool,
     ) as $Val);
   }
 }
@@ -138,7 +147,8 @@ abstract class _$$PlayerModelImplCopyWith<$Res>
       List<CardModel> hand,
       int cardCount,
       bool lastCardsHandWasClearableAtTurnStart,
-      String? firebaseUid});
+      String? firebaseUid,
+      bool isAi});
 }
 
 /// @nodoc
@@ -161,6 +171,7 @@ class __$$PlayerModelImplCopyWithImpl<$Res>
     Object? cardCount = null,
     Object? lastCardsHandWasClearableAtTurnStart = null,
     Object? firebaseUid = freezed,
+    Object? isAi = null,
   }) {
     return _then(_$PlayerModelImpl(
       id: null == id
@@ -192,6 +203,10 @@ class __$$PlayerModelImplCopyWithImpl<$Res>
           ? _value.firebaseUid
           : firebaseUid // ignore: cast_nullable_to_non_nullable
               as String?,
+      isAi: null == isAi
+          ? _value.isAi
+          : isAi // ignore: cast_nullable_to_non_nullable
+              as bool,
     ));
   }
 }
@@ -206,7 +221,8 @@ class _$PlayerModelImpl implements _PlayerModel {
       final List<CardModel> hand = const [],
       this.cardCount = 0,
       this.lastCardsHandWasClearableAtTurnStart = false,
-      this.firebaseUid})
+      this.firebaseUid,
+      this.isAi = false})
       : _hand = hand;
 
   factory _$PlayerModelImpl.fromJson(Map<String, dynamic> json) =>
@@ -249,9 +265,14 @@ class _$PlayerModelImpl implements _PlayerModel {
   @override
   final String? firebaseUid;
 
+  /// Server-driven bot in a private online lobby (no WebSocket).
+  @override
+  @JsonKey()
+  final bool isAi;
+
   @override
   String toString() {
-    return 'PlayerModel(id: $id, displayName: $displayName, tablePosition: $tablePosition, hand: $hand, cardCount: $cardCount, lastCardsHandWasClearableAtTurnStart: $lastCardsHandWasClearableAtTurnStart, firebaseUid: $firebaseUid)';
+    return 'PlayerModel(id: $id, displayName: $displayName, tablePosition: $tablePosition, hand: $hand, cardCount: $cardCount, lastCardsHandWasClearableAtTurnStart: $lastCardsHandWasClearableAtTurnStart, firebaseUid: $firebaseUid, isAi: $isAi)';
   }
 
   @override
@@ -272,7 +293,8 @@ class _$PlayerModelImpl implements _PlayerModel {
                 other.lastCardsHandWasClearableAtTurnStart ==
                     lastCardsHandWasClearableAtTurnStart) &&
             (identical(other.firebaseUid, firebaseUid) ||
-                other.firebaseUid == firebaseUid));
+                other.firebaseUid == firebaseUid) &&
+            (identical(other.isAi, isAi) || other.isAi == isAi));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -285,7 +307,8 @@ class _$PlayerModelImpl implements _PlayerModel {
       const DeepCollectionEquality().hash(_hand),
       cardCount,
       lastCardsHandWasClearableAtTurnStart,
-      firebaseUid);
+      firebaseUid,
+      isAi);
 
   /// Create a copy of PlayerModel
   /// with the given fields replaced by the non-null parameter values.
@@ -311,7 +334,8 @@ abstract class _PlayerModel implements PlayerModel {
       final List<CardModel> hand,
       final int cardCount,
       final bool lastCardsHandWasClearableAtTurnStart,
-      final String? firebaseUid}) = _$PlayerModelImpl;
+      final String? firebaseUid,
+      final bool isAi}) = _$PlayerModelImpl;
 
   factory _PlayerModel.fromJson(Map<String, dynamic> json) =
       _$PlayerModelImpl.fromJson;
@@ -341,6 +365,10 @@ abstract class _PlayerModel implements PlayerModel {
   /// profile / friends. Omitted for offline AI and guests without auth.
   @override
   String? get firebaseUid;
+
+  /// Server-driven bot in a private online lobby (no WebSocket).
+  @override
+  bool get isAi;
 
   /// Create a copy of PlayerModel
   /// with the given fields replaced by the non-null parameter values.

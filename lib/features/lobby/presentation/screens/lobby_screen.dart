@@ -8,7 +8,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../../../core/models/game_event.dart';
+import '../../../../core/models/game_event.dart'
+    show
+        ErrorEvent,
+        GameEvent,
+        PlayerJoinedEvent,
+        PlayerLeftEvent,
+        PlayerReadyEvent,
+        PrivateLobbySettingsEvent,
+        RoomCreatedEvent,
+        RoomJoinedEvent,
+        StateSnapshotEvent;
 import '../../../../core/models/game_state.dart';
 import '../../../../core/models/player_model.dart';
 import '../../../../core/providers/auth_provider.dart';
@@ -20,17 +30,40 @@ import '../../../../core/providers/game_provider.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/models/ai_player_config.dart';
 import '../../../gameplay/presentation/screens/table_screen.dart';
 import '../../../social/widgets/invite_friends_sheet.dart';
+import '../../../tournament/providers/tournament_session_provider.dart';
 
 enum OnlineMode { standard, tournament }
 
-/// Matches server [GameSession.hostPlayerIdForPrivateLobby] (lowest `player-N`).
+/// Host-selected private table type (mirrors server `gameVariant`).
+enum PrivateGameVariant {
+  standard,
+  knockout,
+  bust;
+
+  String get wireName => switch (this) {
+        PrivateGameVariant.standard => 'standard',
+        PrivateGameVariant.knockout => 'knockout',
+        PrivateGameVariant.bust => 'bust',
+      };
+
+  static PrivateGameVariant parse(String? s) => switch (s) {
+        'bust' => PrivateGameVariant.bust,
+        'knockout' => PrivateGameVariant.knockout,
+        _ => PrivateGameVariant.standard,
+      };
+}
+
+/// Matches server [GameSession.hostPlayerIdForPrivateLobby] (lowest `player-N`
+/// among humans only).
 String? _hostPlayerIdForRoster(List<PlayerModel> players) {
-  if (players.isEmpty) return null;
-  var bestId = players.first.id;
+  final humans = players.where((p) => !p.isAi).toList();
+  if (humans.isEmpty) return null;
+  var bestId = humans.first.id;
   var bestN = _playerNumber(bestId);
-  for (final p in players.skip(1)) {
+  for (final p in humans.skip(1)) {
     final n = _playerNumber(p.id);
     if (n < bestN) {
       bestN = n;
@@ -73,6 +106,18 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   String? _roomCode;
   String? _localPlayerId;
   bool _pendingJoin = false;
+
+  /// Casual (false) vs hardcore (30s turns, stricter rules). Synced from server
+  /// when in a room; used as create_room payload when hosting.
+  bool _privateLobbyHardcore = false;
+
+  /// True after we received [RoomCreatedEvent] for this session (not join).
+  bool _isRoomCreator = false;
+
+  /// Standard last-cards, knockout finish order, or bust elimination.
+  PrivateGameVariant _privateGameVariant = PrivateGameVariant.standard;
+
+  AiDifficulty _aiDifficulty = AiDifficulty.medium;
   final List<PlayerModel> _lobbyPlayers = [];
   final Map<String, bool> _playerReady = {};
   StreamSubscription<RoomCreatedEvent>? _roomCreatedSub;
@@ -94,6 +139,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       setState(() {
         _roomCode = e.roomCode;
         if (e.playerId.isNotEmpty) _localPlayerId = e.playerId;
+        _privateLobbyHardcore = e.isHardcore;
+        _privateGameVariant = PrivateGameVariant.parse(e.gameVariant);
+        _isRoomCreator = true;
       });
       _codeController.text = e.roomCode;
     });
@@ -130,6 +178,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         setState(() {
           _lobbyPlayers.removeWhere((p) => p.id == e.player.id);
           _lobbyPlayers.add(e.player);
+          if (e.player.isAi) {
+            _playerReady[e.player.id] = true;
+          }
           if (_pendingJoin) {
             _pendingJoin = false;
             _localPlayerId ??= e.player.id;
@@ -143,11 +194,18 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         });
         return;
       }
+      if (e is PrivateLobbySettingsEvent) {
+        setState(() => _privateLobbyHardcore = e.isHardcore);
+        return;
+      }
       if (e is RoomJoinedEvent) {
         setState(() {
           _localPlayerId = e.playerId;
           _roomCode = e.roomCode;
           _codeController.text = e.roomCode;
+          _privateLobbyHardcore = e.isHardcore;
+          _privateGameVariant = PrivateGameVariant.parse(e.gameVariant);
+          _isRoomCreator = false;
         });
         final pending = widget.pendingGameInviteDocIdToDismiss;
         if (pending != null) {
@@ -214,13 +272,12 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Logo / title
                       Text(
                         'LAST CARDS',
                         textAlign: TextAlign.center,
                         style: gameTitleTextStyle(
                           theme,
-                          fontSize: 34,
+                          fontSize: 32,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 2,
                           color: theme.accentPrimary,
@@ -233,14 +290,57 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                           ],
                         ),
                       ),
+                      const SizedBox(height: AppDimensions.md),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppDimensions.md,
+                          vertical: AppDimensions.xs + 2,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: theme.accentPrimary.withValues(alpha: 0.35),
+                          ),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              theme.accentPrimary.withValues(alpha: 0.14),
+                              theme.surfaceDark.withValues(alpha: 0.2),
+                            ],
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.lock_rounded,
+                              size: 18,
+                              color: theme.accentLight,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'PRIVATE TABLE',
+                              style: GoogleFonts.cinzel(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 2.4,
+                                color: theme.accentLight,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: AppDimensions.sm),
                       Text(
-                        'Premium Competitive Card Game',
+                        'Invite friends, pick the rules, deal the cards',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
-                          fontSize: 12,
+                          fontSize: 13,
                           fontWeight: FontWeight.w400,
-                          letterSpacing: 0.35,
+                          height: 1.4,
+                          letterSpacing: 0.2,
                           color: theme.textSecondary,
                         ),
                       ),
@@ -254,6 +354,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       const SizedBox(height: AppDimensions.sm),
                       _LobbySectionCard(
                         theme: theme,
+                        accentBorder: true,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -264,6 +365,28 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                               hintText: 'e.g. XKCD-42',
                               textCapitalization: TextCapitalization.characters,
                             ),
+                            if (_roomCode == null) ...[
+                              const SizedBox(height: AppDimensions.lg),
+                              _PrivateGameVariantPicker(
+                                theme: theme,
+                                sectionTitleStyle: sectionTitleStyle,
+                                variant: _privateGameVariant,
+                                enabled: true,
+                                subtitle:
+                                    'Pick before you create — everyone plays this format.',
+                                onSelectVariant: _selectGameVariant,
+                              ),
+                              const SizedBox(height: AppDimensions.lg),
+                              _PrivateLobbyRulesPicker(
+                                theme: theme,
+                                sectionTitleStyle: sectionTitleStyle,
+                                isHardcore: _privateLobbyHardcore,
+                                enabled: true,
+                                subtitle:
+                                    'Applies when you create a room — you are the host.',
+                                onSelectHardcore: _selectPrivateLobbyHardcore,
+                              ),
+                            ],
                             const SizedBox(height: AppDimensions.lg),
                             Row(
                               children: [
@@ -334,13 +457,15 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
                       Align(
                         alignment: Alignment.centerLeft,
-                        child: Text('LOBBY', style: sectionTitleStyle),
+                        child: Text('PLAYERS', style: sectionTitleStyle),
                       ),
                       const SizedBox(height: AppDimensions.sm),
                       Text(
-                        'Private games support 2–7 players. Everyone can tap '
-                        'Ready to start when all are ready, or the host can tap '
-                        'Start with at least two players in the room.',
+                        _privateGameVariant == PrivateGameVariant.bust
+                            ? '2–10 players in Bust. Ready up when you are set, '
+                                'or the host can start with two or more at the table.'
+                            : '2–7 players. Ready up when you are set, or the host '
+                                'can start with two or more at the table.',
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           height: 1.35,
@@ -351,6 +476,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       const SizedBox(height: AppDimensions.md),
                       _LobbySectionCard(
                         theme: theme,
+                        accentBorder: _roomCode != null,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -358,6 +484,29 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                               _RoomCodeCard(
                                 roomCode: _roomCode!,
                                 theme: theme,
+                              ),
+                              const SizedBox(height: AppDimensions.lg),
+                              _PrivateGameVariantPicker(
+                                theme: theme,
+                                sectionTitleStyle: sectionTitleStyle,
+                                variant: _privateGameVariant,
+                                enabled: false,
+                                subtitle:
+                                    'Set when the room was created — everyone plays this format.',
+                                onSelectVariant: null,
+                              ),
+                              const SizedBox(height: AppDimensions.lg),
+                              _PrivateLobbyRulesPicker(
+                                theme: theme,
+                                sectionTitleStyle: sectionTitleStyle,
+                                isHardcore: _privateLobbyHardcore,
+                                enabled: _isPrivateHost,
+                                subtitle: _isPrivateHost
+                                    ? 'Your guests see this before you start.'
+                                    : 'The host sets table rules for this room.',
+                                onSelectHardcore: _isPrivateHost
+                                    ? _selectPrivateLobbyHardcore
+                                    : null,
                               ),
                               const SizedBox(height: AppDimensions.md),
                               Row(
@@ -435,6 +584,23 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                               ),
                               const SizedBox(height: AppDimensions.lg),
                             ],
+                            if (_roomCode != null && _isPrivateHost) ...[
+                              _PrivateLobbyAiPanel(
+                                theme: theme,
+                                sectionTitleStyle: sectionTitleStyle,
+                                aiDifficulty: _aiDifficulty,
+                                onAiDifficultyChanged: (d) =>
+                                    setState(() => _aiDifficulty = d),
+                                maxTablePlayers:
+                                    _privateGameVariant ==
+                                            PrivateGameVariant.bust
+                                        ? 10
+                                        : 7,
+                                currentPlayers: _lobbyPlayers.length,
+                                onAddBot: _onAddPrivateLobbyBot,
+                              ),
+                              const SizedBox(height: AppDimensions.lg),
+                            ],
                             _LobbyPlayerList(
                               localPlayerId: _localPlayerId,
                               localIsReady: _isReady,
@@ -443,6 +609,12 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                               players: _lobbyPlayers,
                               pendingJoin: _pendingJoin,
                               hostPlayerId: _hostPlayerIdForRoster(_lobbyPlayers),
+                              maxSlots: _privateGameVariant ==
+                                      PrivateGameVariant.bust
+                                  ? 10
+                                  : 7,
+                              isPrivateHost: _isPrivateHost,
+                              onRemoveBot: _onRemovePrivateLobbyBot,
                             ),
                             const SizedBox(height: AppDimensions.lg),
                             Row(
@@ -627,6 +799,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     if (!wsClient.send(jsonEncode({
       'type': 'create_room',
       'displayName': ref.read(displayNameForGameProvider),
+      'isHardcore': _privateLobbyHardcore,
+      'gameVariant': _privateGameVariant.wireName,
       if (idToken != null) 'idToken': idToken,
     }))) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -664,8 +838,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   Future<void> _onInviteFriends() async {
     final code = _roomCode;
     if (code == null) return;
+    final maxP =
+        _privateGameVariant == PrivateGameVariant.bust ? 10 : 7;
     final text = 'Join me in Last Cards (private game). Room code: $code\n'
-        'We need 2–7 players — open the app and use Join Room with this code.';
+        'We need 2–$maxP players — open the app and use Join Room with this code.';
     await SharePlus.instance.share(
       ShareParams(
         text: text,
@@ -692,7 +868,67 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     );
   }
 
-  void _onHostStartGame() {
+  Future<void> _onAddPrivateLobbyBot() async {
+    final wsClient = ref.read(wsClientProvider);
+    try {
+      await wsClient.connect();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Connection failed: $e'),
+          backgroundColor: const Color(0xFFB71C1C),
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+    if (!wsClient.send(jsonEncode({
+          'type': 'add_private_lobby_bot',
+          'aiDifficulty': _aiDifficulty.name,
+        }))) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Connection lost. Reconnecting — try again.'),
+            backgroundColor: Color(0xFFB71C1C),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _onRemovePrivateLobbyBot(String botPlayerId) async {
+    final wsClient = ref.read(wsClientProvider);
+    try {
+      await wsClient.connect();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Connection failed: $e'),
+          backgroundColor: const Color(0xFFB71C1C),
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+    if (!wsClient.send(jsonEncode({
+          'type': 'remove_private_lobby_bot',
+          'playerId': botPlayerId,
+        }))) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Connection lost. Reconnecting — try again.'),
+            backgroundColor: Color(0xFFB71C1C),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _onHostStartGame() async {
     if (_lobbyPlayers.length < 2) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -718,13 +954,63 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     }
   }
 
+  bool get _isPrivateHost {
+    if (_roomCode == null || _localPlayerId == null) return false;
+    final hostId = _hostPlayerIdForRoster(_lobbyPlayers);
+    if (hostId != null) return hostId == _localPlayerId;
+    // Roster not synced yet — only the creator is host.
+    return _isRoomCreator;
+  }
+
+  void _selectGameVariant(PrivateGameVariant v) {
+    setState(() => _privateGameVariant = v);
+  }
+
+  void _selectPrivateLobbyHardcore(bool hardcore) {
+    setState(() => _privateLobbyHardcore = hardcore);
+    if (_roomCode == null || !_isPrivateHost) return;
+    final wsClient = ref.read(wsClientProvider);
+    if (!wsClient.send(jsonEncode({
+      'type': 'set_private_lobby_rules',
+      'isHardcore': hardcore,
+    }))) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Connection lost. Reconnecting — try again.'),
+            backgroundColor: Color(0xFFB71C1C),
+          ),
+        );
+      }
+    }
+  }
+
+  void _syncTournamentSessionForPrivateTable() {
+    final n = ref.read(tournamentSessionProvider.notifier);
+    n.reset();
+    switch (_privateGameVariant) {
+      case PrivateGameVariant.standard:
+        break;
+      case PrivateGameVariant.knockout:
+        n.setFormat(TournamentFormat.knockout);
+        n.setSubMode(GameSubMode.knockout);
+        break;
+      case PrivateGameVariant.bust:
+        n.setSubMode(GameSubMode.bust);
+        break;
+    }
+  }
+
   Future<void> _enterSelectedMode({required int totalPlayers}) async {
     if (!mounted) return;
+    _syncTournamentSessionForPrivateTable();
+    final isKnockout = _privateGameVariant == PrivateGameVariant.knockout;
     Navigator.of(context).push(
       AppPageRoutes.fadeSlide(
         (_) => TableScreen(
           totalPlayers: totalPlayers,
-          isTournamentMode: widget.onlineMode == OnlineMode.tournament,
+          isTournamentMode:
+              isKnockout || widget.onlineMode == OnlineMode.tournament,
         ),
       ),
     );
@@ -733,36 +1019,440 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
 // ── Supporting widgets ────────────────────────────────────────────────────────
 
+/// Host: add server-controlled bots that play at the same online table as guests.
+class _PrivateLobbyAiPanel extends StatelessWidget {
+  const _PrivateLobbyAiPanel({
+    required this.theme,
+    required this.sectionTitleStyle,
+    required this.aiDifficulty,
+    required this.onAiDifficultyChanged,
+    required this.maxTablePlayers,
+    required this.currentPlayers,
+    required this.onAddBot,
+  });
+
+  final AppThemeData theme;
+  final TextStyle sectionTitleStyle;
+  final AiDifficulty aiDifficulty;
+  final ValueChanged<AiDifficulty> onAiDifficultyChanged;
+  final int maxTablePlayers;
+  final int currentPlayers;
+  final Future<void> Function() onAddBot;
+
+  @override
+  Widget build(BuildContext context) {
+    final canAdd = currentPlayers < maxTablePlayers;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('AI OPPONENTS', style: sectionTitleStyle),
+        const SizedBox(height: AppDimensions.xs),
+        Text(
+          'Each bot takes the next open seat in the list (after online players). '
+          'They play on this server with everyone — same match, same rules, '
+          'including Bust.',
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            height: 1.35,
+            fontWeight: FontWeight.w400,
+            color: theme.textSecondary,
+          ),
+        ),
+        const SizedBox(height: AppDimensions.md),
+        Text(
+          'Difficulty for new bots',
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: theme.textSecondary,
+          ),
+        ),
+        const SizedBox(height: AppDimensions.xs),
+        Wrap(
+          spacing: AppDimensions.sm,
+          runSpacing: AppDimensions.xs,
+          children: AiDifficulty.values.map((d) {
+            final sel = aiDifficulty == d;
+            return ChoiceChip(
+              label: Text(d.displayName),
+              selected: sel,
+              onSelected: (_) => onAiDifficultyChanged(d),
+              selectedColor: theme.accentPrimary.withValues(alpha: 0.22),
+              labelStyle: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: sel ? theme.accentLight : theme.textSecondary,
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: AppDimensions.md),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: canAdd ? () => unawaited(onAddBot()) : null,
+            icon: Icon(Icons.smart_toy_rounded, color: theme.accentPrimary),
+            label: Text(
+              canAdd ? 'ADD BOT' : 'TABLE FULL',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.6,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: theme.accentPrimary,
+              side: BorderSide(
+                color: theme.accentPrimary.withValues(alpha: 0.85),
+              ),
+              minimumSize: const Size(0, AppDimensions.minTouchTarget),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppDimensions.radiusModal),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Felt panel with border and shadow — lobby-only chrome.
 class _LobbySectionCard extends StatelessWidget {
   const _LobbySectionCard({
     required this.theme,
     required this.child,
+    this.accentBorder = false,
   });
 
   final AppThemeData theme;
   final Widget child;
+  final bool accentBorder;
 
   @override
   Widget build(BuildContext context) {
+    final borderColor = accentBorder
+        ? theme.accentPrimary.withValues(alpha: 0.42)
+        : theme.accentDark.withValues(alpha: 0.55);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppDimensions.lg),
       decoration: BoxDecoration(
         color: theme.surfacePanel,
         borderRadius: BorderRadius.circular(AppDimensions.radiusModal),
-        border: Border.all(
-          color: theme.accentDark.withValues(alpha: 0.55),
-        ),
+        border: Border.all(color: borderColor, width: accentBorder ? 1.5 : 1),
         boxShadow: [
           BoxShadow(
             color: theme.surfaceDark.withValues(alpha: 0.72),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),
+          if (accentBorder)
+            BoxShadow(
+              color: theme.accentPrimary.withValues(alpha: 0.06),
+              blurRadius: 22,
+              offset: const Offset(0, 4),
+            ),
         ],
       ),
       child: child,
+    );
+  }
+}
+
+class _PrivateGameVariantPicker extends StatelessWidget {
+  const _PrivateGameVariantPicker({
+    required this.theme,
+    required this.sectionTitleStyle,
+    required this.variant,
+    required this.enabled,
+    required this.subtitle,
+    required this.onSelectVariant,
+  });
+
+  final AppThemeData theme;
+  final TextStyle sectionTitleStyle;
+  final PrivateGameVariant variant;
+  final bool enabled;
+  final String subtitle;
+  final ValueChanged<PrivateGameVariant>? onSelectVariant;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('GAME TYPE', style: sectionTitleStyle),
+        const SizedBox(height: AppDimensions.xs),
+        Text(
+          subtitle,
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            height: 1.35,
+            fontWeight: FontWeight.w400,
+            color: theme.textSecondary,
+          ),
+        ),
+        const SizedBox(height: AppDimensions.md),
+        _VariantTile(
+          theme: theme,
+          title: 'Standard',
+          caption: 'Classic Last Cards — one winner when someone goes out',
+          icon: Icons.style_outlined,
+          selected: variant == PrivateGameVariant.standard,
+          enabled: enabled && onSelectVariant != null,
+          onTap: () => onSelectVariant?.call(PrivateGameVariant.standard),
+        ),
+        const SizedBox(height: AppDimensions.sm),
+        _VariantTile(
+          theme: theme,
+          title: 'Knockout tournament',
+          caption: 'Same table — finish order, qualify & place (online rules)',
+          icon: Icons.emoji_events_outlined,
+          selected: variant == PrivateGameVariant.knockout,
+          enabled: enabled && onSelectVariant != null,
+          onTap: () => onSelectVariant?.call(PrivateGameVariant.knockout),
+        ),
+        const SizedBox(height: AppDimensions.sm),
+        _VariantTile(
+          theme: theme,
+          title: 'Bust',
+          caption: 'Elimination rounds — up to 10 players at this table',
+          icon: Icons.whatshot_outlined,
+          selected: variant == PrivateGameVariant.bust,
+          enabled: enabled && onSelectVariant != null,
+          onTap: () => onSelectVariant?.call(PrivateGameVariant.bust),
+        ),
+      ],
+    );
+  }
+}
+
+class _VariantTile extends StatelessWidget {
+  const _VariantTile({
+    required this.theme,
+    required this.title,
+    required this.caption,
+    required this.icon,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final AppThemeData theme;
+  final String title;
+  final String caption;
+  final IconData icon;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final border = selected
+        ? theme.accentPrimary.withValues(alpha: 0.85)
+        : theme.accentDark.withValues(alpha: 0.45);
+    final bg = selected
+        ? theme.accentPrimary.withValues(alpha: 0.1)
+        : theme.backgroundMid;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(AppDimensions.md),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
+            border: Border.all(color: border, width: selected ? 1.5 : 1),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                icon,
+                size: 22,
+                color: selected ? theme.accentLight : theme.textSecondary,
+              ),
+              const SizedBox(width: AppDimensions.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: theme.textPrimary,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      caption,
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        height: 1.35,
+                        fontWeight: FontWeight.w400,
+                        color: theme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PrivateLobbyRulesPicker extends StatelessWidget {
+  const _PrivateLobbyRulesPicker({
+    required this.theme,
+    required this.sectionTitleStyle,
+    required this.isHardcore,
+    required this.enabled,
+    required this.subtitle,
+    required this.onSelectHardcore,
+  });
+
+  final AppThemeData theme;
+  final TextStyle sectionTitleStyle;
+  final bool isHardcore;
+  final bool enabled;
+  final String subtitle;
+  final ValueChanged<bool>? onSelectHardcore;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('TABLE RULES', style: sectionTitleStyle),
+        const SizedBox(height: AppDimensions.xs),
+        Text(
+          subtitle,
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            height: 1.35,
+            fontWeight: FontWeight.w400,
+            color: theme.textSecondary,
+          ),
+        ),
+        const SizedBox(height: AppDimensions.md),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _RuleModeChip(
+                theme: theme,
+                title: 'Casual',
+                caption: '60s turns · standard Last Cards',
+                icon: Icons.wb_sunny_outlined,
+                selected: !isHardcore,
+                enabled: enabled && onSelectHardcore != null,
+                onTap: () => onSelectHardcore?.call(false),
+              ),
+            ),
+            const SizedBox(width: AppDimensions.md),
+            Expanded(
+              child: _RuleModeChip(
+                theme: theme,
+                title: 'Hardcore',
+                caption: '30s turns · stricter last-cards',
+                icon: Icons.local_fire_department_outlined,
+                selected: isHardcore,
+                enabled: enabled && onSelectHardcore != null,
+                onTap: () => onSelectHardcore?.call(true),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _RuleModeChip extends StatelessWidget {
+  const _RuleModeChip({
+    required this.theme,
+    required this.title,
+    required this.caption,
+    required this.icon,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final AppThemeData theme;
+  final String title;
+  final String caption;
+  final IconData icon;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final border = selected
+        ? theme.accentPrimary.withValues(alpha: 0.85)
+        : theme.accentDark.withValues(alpha: 0.45);
+    final bg = selected
+        ? theme.accentPrimary.withValues(alpha: 0.12)
+        : theme.backgroundMid;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.all(AppDimensions.md),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
+            border: Border.all(color: border, width: selected ? 1.5 : 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                icon,
+                size: 22,
+                color: selected ? theme.accentLight : theme.textSecondary,
+              ),
+              const SizedBox(height: AppDimensions.sm),
+              Text(
+                title,
+                style: GoogleFonts.outfit(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: theme.textPrimary,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                caption,
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  height: 1.35,
+                  fontWeight: FontWeight.w400,
+                  color: theme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -848,14 +1538,28 @@ class _RoomCodeCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
         horizontal: AppDimensions.lg,
-        vertical: AppDimensions.md,
+        vertical: AppDimensions.md + 2,
       ),
       decoration: BoxDecoration(
-        color: theme.backgroundMid,
         borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
-        border: Border.all(
-          color: theme.accentDark.withValues(alpha: 0.75),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.lerp(theme.backgroundMid, theme.accentPrimary, 0.06)!,
+            theme.backgroundMid,
+          ],
         ),
+        border: Border.all(
+          color: theme.accentPrimary.withValues(alpha: 0.35),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.accentPrimary.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -873,9 +1577,9 @@ class _RoomCodeCard extends StatelessWidget {
           SelectableText(
             roomCode,
             style: GoogleFonts.inter(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 4,
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 5,
               color: theme.accentPrimary,
             ),
           ),
@@ -903,9 +1607,10 @@ class _LobbyPlayerList extends StatelessWidget {
     required this.players,
     required this.pendingJoin,
     required this.hostPlayerId,
+    this.maxSlots = 7,
+    this.isPrivateHost = false,
+    this.onRemoveBot,
   });
-
-  static const int _maxSlots = 7;
 
   final String? localPlayerId;
   final bool localIsReady;
@@ -914,19 +1619,28 @@ class _LobbyPlayerList extends StatelessWidget {
   final List<PlayerModel> players;
   final bool pendingJoin;
   final String? hostPlayerId;
+  final int maxSlots;
+  final bool isPrivateHost;
+  final void Function(String botPlayerId)? onRemoveBot;
 
   @override
   Widget build(BuildContext context) {
     final sorted = List<PlayerModel>.from(players)
-      ..sort((a, b) => _playerNumber(a.id).compareTo(_playerNumber(b.id)));
+      ..sort((a, b) {
+        if (a.isAi != b.isAi) {
+          return a.isAi ? 1 : -1;
+        }
+        return _playerNumber(a.id).compareTo(_playerNumber(b.id));
+      });
 
     final entries = <_PlayerEntry>[];
-    for (var i = 0; i < _maxSlots; i++) {
+    for (var i = 0; i < maxSlots; i++) {
       if (i < sorted.length) {
         final p = sorted[i];
         final isMe = p.id == localPlayerId;
-        final ready =
-            isMe ? localIsReady : (playerReady[p.id] ?? false);
+        final ready = p.isAi
+            ? true
+            : (isMe ? localIsReady : (playerReady[p.id] ?? false));
         entries.add(
           _PlayerEntry(
             name: p.displayName,
@@ -934,6 +1648,9 @@ class _LobbyPlayerList extends StatelessWidget {
             theme: theme,
             isVacantSeat: false,
             isHost: hostPlayerId != null && p.id == hostPlayerId,
+            isAi: p.isAi,
+            showRemoveBot: isPrivateHost && p.isAi && onRemoveBot != null,
+            onRemoveBot: p.isAi ? () => onRemoveBot!(p.id) : null,
           ),
         );
       } else {
@@ -1103,12 +1820,18 @@ class _PlayerEntry extends StatelessWidget {
     required this.theme,
     this.isVacantSeat = false,
     this.isHost = false,
+    this.isAi = false,
+    this.showRemoveBot = false,
+    this.onRemoveBot,
   });
 
   final String name;
   final bool isReady;
   final bool isVacantSeat;
   final bool isHost;
+  final bool isAi;
+  final bool showRemoveBot;
+  final VoidCallback? onRemoveBot;
   final AppThemeData theme;
 
   /// Ready/readability green, lightly mixed with the theme accent highlight.
@@ -1175,14 +1898,37 @@ class _PlayerEntry extends StatelessWidget {
                     ),
                   ),
                 ],
+                if (isAi && !isVacantSeat) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    'AI',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.1,
+                      color: theme.textSecondary,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
-          if (!isVacantSeat)
+          if (!isVacantSeat) ...[
+            if (showRemoveBot && onRemoveBot != null)
+              IconButton(
+                tooltip: 'Remove bot',
+                onPressed: onRemoveBot,
+                icon: Icon(
+                  Icons.close_rounded,
+                  size: 20,
+                  color: theme.textSecondary,
+                ),
+              ),
             Text(
               isReady ? 'READY' : 'NOT READY',
               style: statusStyle,
             ),
+          ],
         ],
       ),
     );

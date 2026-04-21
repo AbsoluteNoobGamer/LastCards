@@ -17,6 +17,7 @@ import 'package:last_cards/shared/rules/win_condition_rules.dart'
         wouldConfirmWin;
 
 import 'logger.dart';
+import 'server_ai_turn.dart';
 import 'trophy_recorder.dart';
 
 // Flutter-only: Ace suit sheet UI, table animations, draw-pile visuals, floating
@@ -30,14 +31,18 @@ import 'trophy_recorder.dart';
 
 class _ConnectedPlayer {
   _ConnectedPlayer({
-    required this.ws,
     required this.displayName,
+    this.ws,
     this.firebaseUid,
+    this.isAi = false,
+    this.aiDifficulty = 'medium',
   });
   dynamic ws;
   final String displayName;
   final String? firebaseUid;
   bool isReady = false;
+  final bool isAi;
+  final String aiDifficulty;
 }
 
 // ── GameSession ───────────────────────────────────────────────────────────────
@@ -66,6 +71,7 @@ class GameSession {
     this.isPrivate = true,
     this.maxPlayerCount,
     this.isBustMode = false,
+    this.isKnockoutTournament = false,
     this.isRanked = false,
     this.isHardcore = false,
     TrophyPersistence? trophyRecorder,
@@ -84,15 +90,21 @@ class GameSession {
   /// True for Bust mode: 10 players, 52-card deck, multi-round with elimination.
   final bool isBustMode;
 
+  /// Private lobby: knockout tournament UX (finish order) on a standard table.
+  /// Does not change server rules — only echoed for clients.
+  final bool isKnockoutTournament;
+
   /// True for ranked matchmaking: enables MMR recording via [TrophyPersistence].
   final bool isRanked;
 
-  /// Hardcore rules (stricter plays, 30s turn timer). Used with ranked for
-  /// `ranked_hardcore_stats` and queue `ranked-hardcore-N`.
-  final bool isHardcore;
+  /// Hardcore rules (stricter plays, 30s turn timer). Ranked hardcore uses
+  /// `ranked_hardcore_stats`; private lobbies can enable the same rules
+  /// without MMR ([isRanked] stays false).
+  bool isHardcore;
 
   final TrophyPersistence _trophyRecorder;
   final _log = Logger('GameSession');
+  final math.Random _aiRng = math.Random();
 
   /// Called after [removePlayer] when no players remain. [RoomManager] uses
   /// this to drop the room from memory.
@@ -229,10 +241,82 @@ class GameSession {
         tablePosition: _positionFor(_players.length - 1),
         cardCount: 0,
         firebaseUid: firebaseUid,
+        isAi: false,
       ).toJson(),
     });
 
     return id;
+  }
+
+  /// Private lobby: host adds a server-controlled bot seat (standard, knockout, bust).
+  void addPrivateLobbyBot(String requesterId, {String aiDifficulty = 'medium'}) {
+    if (_started) {
+      _sendError(
+          requesterId, 'game_started', 'Game already in progress.');
+      return;
+    }
+    if (!isPrivate) {
+      _sendError(requesterId, 'invalid_action', 'Bots are not available here.');
+      return;
+    }
+    final host = hostPlayerIdForPrivateLobby;
+    if (host == null || requesterId != host) {
+      _sendError(
+          requesterId, 'not_host', 'Only the room host can add bots.');
+      return;
+    }
+    final maxPlayers = isBustMode ? 10 : 7;
+    if (_players.length >= maxPlayers) {
+      _sendError(
+          requesterId, 'room_full', 'Room is full (max $maxPlayers players).');
+      return;
+    }
+    if (!_players.values.any((p) => !p.isAi)) {
+      _sendError(requesterId, 'invalid_action',
+          'At least one human player is required before adding bots.');
+      return;
+    }
+    final id = 'player-${++_playerCounter}';
+    final botNum = _players.values.where((p) => p.isAi).length + 1;
+    final bot = _ConnectedPlayer(
+      displayName: 'Bot $botNum',
+      isAi: true,
+      aiDifficulty: aiDifficulty,
+    );
+    bot.isReady = true;
+    _players[id] = bot;
+
+    // Replay the full roster to every connected client so lobby UIs stay in
+    // sync (single player_joined frames can be dropped on flaky links).
+    for (final entry in _players.entries) {
+      final w = entry.value.ws;
+      if (w == null) continue;
+      sendPlayerRosterTo(w);
+    }
+    _broadcast({'type': 'player_ready', 'playerId': id});
+  }
+
+  /// Removes a bot added for the private lobby (host only, pre-game).
+  void removePrivateLobbyBot(String requesterId, String botPlayerId) {
+    if (_started) {
+      _sendError(
+          requesterId, 'game_started', 'Game already in progress.');
+      return;
+    }
+    if (!isPrivate) return;
+    final host = hostPlayerIdForPrivateLobby;
+    if (host == null || requesterId != host) {
+      _sendError(
+          requesterId, 'not_host', 'Only the room host can remove bots.');
+      return;
+    }
+    final bot = _players[botPlayerId];
+    if (bot == null || !bot.isAi) {
+      _sendError(requesterId, 'invalid_action', 'Not a bot player.');
+      return;
+    }
+    _players.remove(botPlayerId);
+    _broadcast({'type': 'player_left', 'playerId': botPlayerId});
   }
 
   /// Called when a client's socket closes. Drops the player from the session
@@ -265,6 +349,7 @@ class GameSession {
   }) {
     final p = _players[playerId];
     if (p == null) return false;
+    if (p.isAi) return false;
 
     if (isRanked) {
       final expected = p.firebaseUid;
@@ -298,10 +383,22 @@ class GameSession {
           tablePosition: _positionFor(index),
           cardCount: 0,
           firebaseUid: entry.value.firebaseUid,
+          isAi: entry.value.isAi,
         ).toJson(),
       }));
       index++;
     }
+  }
+
+  /// Drops the whole session when every remaining seat is an AI bot (or empty).
+  /// Call after mutating [_players] so the room is not left running with bots only.
+  bool _clearRoomWhenNoHumansRemain() {
+    if (_players.values.any((p) => !p.isAi)) return false;
+    _turnTimer?.cancel();
+    if (_started) _gameOver = true;
+    _players.clear();
+    onBecameEmpty?.call(roomCode);
+    return true;
   }
 
   void removePlayer(String playerId) {
@@ -317,8 +414,8 @@ class GameSession {
     _players.remove(playerId);
     _broadcast({'type': 'player_left', 'playerId': playerId});
 
-    if (_players.isEmpty) {
-      onBecameEmpty?.call(roomCode);
+    if (_clearRoomWhenNoHumansRemain()) {
+      return;
     }
 
     if (!_started || _gameOver) return;
@@ -446,6 +543,11 @@ class GameSession {
     // Authoritative ended snapshot so clients never sit in a playing state until
     // the turn timer fires; also syncs draw pile / roster with pruned players.
     _broadcastStateSnapshots();
+
+    if (!_players.values.any((p) => !p.isAi)) {
+      _players.clear();
+      onBecameEmpty?.call(roomCode);
+    }
   }
 
   /// Bust: drop the leaver from the table; continue if more than 2 survivors remain.
@@ -454,6 +556,10 @@ class GameSession {
     required String? firebaseUid,
     required String displayName,
   }) {
+    if (_clearRoomWhenNoHumansRemain()) {
+      return;
+    }
+
     _bustSurvivorIds.remove(playerId);
     _bustTurnsThisRound.remove(playerId);
     _bustPenaltyPoints.remove(playerId);
@@ -515,18 +621,20 @@ class GameSession {
     _broadcast({'type': 'player_ready', 'playerId': playerId});
 
     if (_players.length >= 2 &&
-        _players.values.every((p) => p.isReady) &&
+        _players.values.every((p) => p.isAi || p.isReady) &&
+        _players.values.any((p) => !p.isAi) &&
         !_started) {
       _startGame();
     }
   }
 
-  /// Private lobbies: lowest-numbered `player-N` id (first joiner still present)
-  /// is the host and may call [startGameFromHost].
+  /// Private lobbies: lowest-numbered `player-N` id among **human** players
+  /// (first joiner still present) is the host and may call [startGameFromHost].
   String? get hostPlayerIdForPrivateLobby {
     String? bestId;
     int? bestN;
     for (final id in _players.keys) {
+      if (_players[id]?.isAi == true) continue;
       final match = RegExp(r'^player-(\d+)$').firstMatch(id);
       if (match == null) continue;
       final n = int.parse(match.group(1)!);
@@ -562,7 +670,32 @@ class GameSession {
           'Need at least 2 players to start.');
       return;
     }
+    if (!_players.values.any((p) => !p.isAi)) {
+      _sendError(playerId, 'not_enough_players',
+          'At least one human player is required.');
+      return;
+    }
     _startGame();
+  }
+
+  /// Private lobbies only: host may toggle hardcore rules before the match.
+  void setPrivateLobbyHardcore(String playerId, bool hardcore) {
+    if (!isPrivate || _started) return;
+    final host = hostPlayerIdForPrivateLobby;
+    if (host == null || playerId != host) {
+      _sendError(
+        playerId,
+        'not_host',
+        'Only the room host can change game rules.',
+      );
+      return;
+    }
+    if (isHardcore == hardcore) return;
+    isHardcore = hardcore;
+    _broadcast({
+      'type': 'private_lobby_settings',
+      'isHardcore': isHardcore,
+    });
   }
 
   // ── Game start ────────────────────────────────────────────────────────────
@@ -604,6 +737,7 @@ class GameSession {
         hand: hand,
         cardCount: hand.length,
         firebaseUid: entries[i].value.firebaseUid,
+        isAi: entries[i].value.isAi,
       ));
     }
 
@@ -651,8 +785,12 @@ class GameSession {
       'isPrivate': isPrivate,
       'isRanked': isRanked,
       'isHardcore': isHardcore,
+      'isBustMode': isBustMode,
+      'isKnockoutTournament': isKnockoutTournament,
       'trophyEligible': _trophyEligible,
     });
+    _aiDeclareLastCardsIfNeeded();
+    _seedOpeningCurrentPlayerLastCardsIfNoOffTurnWindowYet();
     _broadcastStateSnapshots();
     _startTurnTimer();
   }
@@ -758,6 +896,14 @@ class GameSession {
 
       _checkWin();
       _broadcastStateSnapshots();
+      if (_gameOver) return;
+      if (_players[playerId]?.isAi == true) {
+        final suit = Suit.values[_aiRng.nextInt(Suit.values.length)];
+        _handleSuitChoice(playerId, {
+          'type': 'suit_choice',
+          'suit': suit.name,
+        });
+      }
       return;
     }
 
@@ -782,6 +928,9 @@ class GameSession {
     _checkWin();
     if (!_maybeAutoAdvanceSamePlayerAfterPlay(playerId)) {
       _broadcastStateSnapshots();
+      if (_players[playerId]?.isAi == true) {
+        _startTurnTimer();
+      }
     }
   }
 
@@ -804,6 +953,9 @@ class GameSession {
     // Lock the declared suit onto the current state.
     _state = _state.copyWith(suitLock: suit);
     _broadcastStateSnapshots();
+    if (_players[playerId]?.isAi == true) {
+      _startTurnTimer();
+    }
   }
 
   // ── draw_card ─────────────────────────────────────────────────────────────
@@ -975,6 +1127,9 @@ class GameSession {
     _checkWin();
     if (!_maybeAutoAdvanceSamePlayerAfterPlay(playerId)) {
       _broadcastStateSnapshots();
+      if (_players[playerId]?.isAi == true) {
+        _startTurnTimer();
+      }
     }
   }
 
@@ -1248,6 +1403,7 @@ class GameSession {
     });
 
     _broadcastStateSnapshots();
+    _aiDeclareLastCardsIfNeeded();
     _startTurnTimer();
   }
 
@@ -1325,7 +1481,58 @@ class GameSession {
     });
 
     _broadcastStateSnapshots();
+    _aiDeclareLastCardsIfNeeded();
     _startTurnTimer();
+  }
+
+  /// After [turn_changed], non-current AI seats may declare Last Cards
+  /// ([mayDeclareLastCards]). Mirrors offline AI when the hand can be cleared
+  /// in one turn (see `offline_game_engine_ai.dart`).
+  void _aiDeclareLastCardsIfNeeded() {
+    if (_gameOver || !_started || isBustMode) return;
+
+    for (final p in List<PlayerModel>.from(_state.players)) {
+      final pid = p.id;
+      if (_players[pid]?.isAi != true) continue;
+      if (pid == _state.currentPlayerId) continue;
+      if (_state.lastCardsDeclaredBy.contains(pid)) continue;
+      if (!mayDeclareLastCards(
+        currentPlayerId: _state.currentPlayerId,
+        playerId: pid,
+      )) {
+        continue;
+      }
+      if (!canClearHandInOneTurn(
+        state: _state,
+        playerId: pid,
+        isBustMode: isBustMode,
+      )) {
+        continue;
+      }
+      _handleDeclareLastCards(pid);
+    }
+  }
+
+  /// The opening [GameState.currentPlayerId] has not yet had a moment when
+  /// [mayDeclareLastCards] could apply (it is always their turn until the first
+  /// [advanceTurn]). Other seats are handled by [_aiDeclareLastCardsIfNeeded].
+  /// Uses shared [applyOpeningSeatLastCardsSeedIfNeeded]; broadcasts
+  /// [last_cards_pressed] like [_handleDeclareLastCards].
+  void _seedOpeningCurrentPlayerLastCardsIfNoOffTurnWindowYet() {
+    if (_gameOver || !_started || isBustMode) return;
+
+    final r = applyOpeningSeatLastCardsSeedIfNeeded(
+      state: _state,
+      isBustMode: isBustMode,
+    );
+    if (!r.applied) return;
+    _state = r.state;
+    final id = _state.currentPlayerId;
+    if (r.isBluff) _lastCardsBluffedBy.add(id);
+    _broadcast({
+      'type': 'last_cards_pressed',
+      'playerId': id,
+    });
   }
 
   /// With two survivors the finale is a race to empty hand — never end the
@@ -1563,6 +1770,7 @@ class GameSession {
         hand: hand,
         cardCount: hand.length,
         firebaseUid: entries[i].value.firebaseUid,
+        isAi: entries[i].value.isAi,
       ));
     }
 
@@ -1608,7 +1816,38 @@ class GameSession {
   void _startTurnTimer() {
     _turnTimer?.cancel();
     if (_gameOver) return;
+    final currentId = _state.currentPlayerId;
+    final slot = _players[currentId];
+    if (slot != null && slot.isAi) {
+      _turnTimer = Timer(const Duration(milliseconds: 420), _executeAiTurn);
+      return;
+    }
     _turnTimer = Timer(_turnDuration, _onTurnTimeout);
+  }
+
+  void _executeAiTurn() {
+    if (_gameOver) return;
+    final playerId = _state.currentPlayerId;
+    final slot = _players[playerId];
+    if (slot == null || !slot.isAi) return;
+
+    final plan = planServerAiTurn(
+      state: _state,
+      playerId: playerId,
+      difficulty: slot.aiDifficulty,
+      rng: _aiRng,
+      isHardcore: isHardcore,
+    );
+
+    if (plan.kind == ServerAiTurnKind.playCards) {
+      _handlePlayCards(playerId, plan.payload!);
+    } else if (plan.kind == ServerAiTurnKind.declareJoker) {
+      _handleDeclareJoker(playerId, plan.payload!);
+    } else if (plan.kind == ServerAiTurnKind.draw) {
+      _handleDrawCard(playerId);
+    } else {
+      _handleEndTurn(playerId);
+    }
   }
 
   void _onTurnTimeout() {

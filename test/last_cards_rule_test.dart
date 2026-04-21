@@ -1,9 +1,38 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:last_cards/shared/engine/game_engine.dart';
 import 'package:last_cards/shared/rules/last_cards_rules.dart';
+import 'package:last_cards/shared/rules/win_condition_rules.dart'
+    show needsUndeclaredLastCardsDraw;
 
 CardModel c(Rank rank, Suit suit) =>
     CardModel(id: '${rank.name}_${suit.name}', rank: rank, suit: suit);
+
+GameState stateForP1(List<CardModel> hand, {required CardModel discardTop}) {
+  return GameState(
+    sessionId: 't',
+    phase: GamePhase.playing,
+    currentPlayerId: 'p1',
+    direction: PlayDirection.clockwise,
+    discardTopCard: discardTop,
+    drawPileCount: 10,
+    players: [
+      PlayerModel(
+        id: 'p1',
+        displayName: 'P1',
+        tablePosition: TablePosition.bottom,
+        hand: hand,
+        cardCount: hand.length,
+      ),
+      PlayerModel(
+        id: 'p2',
+        displayName: 'P2',
+        tablePosition: TablePosition.top,
+        hand: const [],
+        cardCount: 0,
+      ),
+    ],
+  );
+}
 
 void main() {
   group('canHandClearInOneTurnHandOnly', () {
@@ -79,33 +108,6 @@ void main() {
   });
 
   group('canClearHandInOneTurn (engine)', () {
-    GameState stateForP1(List<CardModel> hand, {required CardModel discardTop}) {
-      return GameState(
-        sessionId: 't',
-        phase: GamePhase.playing,
-        currentPlayerId: 'p1',
-        direction: PlayDirection.clockwise,
-        discardTopCard: discardTop,
-        drawPileCount: 10,
-        players: [
-          PlayerModel(
-            id: 'p1',
-            displayName: 'P1',
-            tablePosition: TablePosition.bottom,
-            hand: hand,
-            cardCount: hand.length,
-          ),
-          PlayerModel(
-            id: 'p2',
-            displayName: 'P2',
-            tablePosition: TablePosition.top,
-            hand: const [],
-            cardCount: 0,
-          ),
-        ],
-      );
-    }
-
     test('sequence then value chain: discard top does not affect clearability', () {
       final hand = [
         c(Rank.three, Suit.hearts),
@@ -181,6 +183,74 @@ void main() {
           isBustMode: false,
           alreadyDeclared: true,
         ),
+        isFalse,
+      );
+    });
+  });
+
+  group('applyOpeningSeatLastCardsSeedIfNeeded', () {
+    test('seeds opener when hand was clearable at deal (offline/online parity)', () {
+      final hand = [
+        c(Rank.three, Suit.hearts),
+        c(Rank.four, Suit.hearts),
+        c(Rank.five, Suit.hearts),
+        c(Rank.five, Suit.clubs),
+      ];
+      var state = stateForP1(hand, discardTop: c(Rank.king, Suit.spades));
+      state = initializeFirstTurnClearability(state, isBustMode: false);
+      expect(
+        state.playerById('p1')!.lastCardsHandWasClearableAtTurnStart,
+        isTrue,
+      );
+
+      final r = applyOpeningSeatLastCardsSeedIfNeeded(state: state);
+      expect(r.applied, isTrue);
+      expect(r.isBluff, isFalse);
+      expect(r.state.lastCardsDeclaredBy, contains('p1'));
+    });
+
+    test('no-op when opener already declared', () {
+      final hand = [c(Rank.five, Suit.hearts)];
+      var state = stateForP1(hand, discardTop: c(Rank.king, Suit.spades));
+      state = initializeFirstTurnClearability(state, isBustMode: false);
+      state = state.copyWith(lastCardsDeclaredBy: {'p1'});
+
+      final r = applyOpeningSeatLastCardsSeedIfNeeded(state: state);
+      expect(r.applied, isFalse);
+    });
+
+    test('no-op in bust mode', () {
+      final hand = [c(Rank.five, Suit.hearts)];
+      var state = stateForP1(hand, discardTop: c(Rank.king, Suit.spades));
+      state = initializeFirstTurnClearability(state, isBustMode: true);
+
+      final r = applyOpeningSeatLastCardsSeedIfNeeded(
+        state: state,
+        isBustMode: true,
+      );
+      expect(r.applied, isFalse);
+    });
+
+    test('empty hand would not trigger undeclared draw after seed', () {
+      var state = stateForP1(
+        [
+          c(Rank.five, Suit.hearts),
+        ],
+        discardTop: c(Rank.five, Suit.hearts),
+      );
+      state = initializeFirstTurnClearability(state, isBustMode: false);
+      final seeded = applyOpeningSeatLastCardsSeedIfNeeded(state: state);
+      expect(seeded.applied, isTrue);
+      final empty = seeded.state.copyWith(
+        players: seeded.state.players
+            .map((p) {
+              if (p.id != 'p1') return p;
+              return p.copyWith(hand: [], cardCount: 0);
+            })
+            .toList(),
+      );
+      expect(
+        needsUndeclaredLastCardsDraw(state: empty, playerId: 'p1'),
         isFalse,
       );
     });
