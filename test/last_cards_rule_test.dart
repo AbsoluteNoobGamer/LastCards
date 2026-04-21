@@ -108,7 +108,142 @@ void main() {
   });
 
   group('canClearHandInOneTurn (engine)', () {
-    test('sequence then value chain: discard top does not affect clearability', () {
+    test(
+        '2p King repeat turn: K♥ then 4♥ clears on 6♥ or 9♥ pile though hand-only is false',
+        () {
+      final hand = [
+        c(Rank.king, Suit.hearts),
+        c(Rank.four, Suit.hearts),
+      ];
+      expect(canHandClearInOneTurnHandOnly(hand), isFalse);
+
+      final onSix = stateForP1(hand, discardTop: c(Rank.six, Suit.hearts));
+      expect(canClearHandInOneTurn(state: onSix, playerId: 'p1'), isTrue);
+
+      final onNine = stateForP1(hand, discardTop: c(Rank.nine, Suit.hearts));
+      expect(canClearHandInOneTurn(state: onNine, playerId: 'p1'), isTrue);
+    });
+
+    test(
+        '2p Eight skip repeat turn: 8♥ then 4♥ clears on 6♥ or 9♥ pile though hand-only is false',
+        () {
+      final hand = [
+        c(Rank.eight, Suit.hearts),
+        c(Rank.four, Suit.hearts),
+      ];
+      expect(canHandClearInOneTurnHandOnly(hand), isFalse);
+
+      final onSix = stateForP1(hand, discardTop: c(Rank.six, Suit.hearts));
+      expect(canClearHandInOneTurn(state: onSix, playerId: 'p1'), isTrue);
+
+      final onNine = stateForP1(hand, discardTop: c(Rank.nine, Suit.hearts));
+      expect(canClearHandInOneTurn(state: onNine, playerId: 'p1'), isTrue);
+    });
+
+    test(
+        '3 players: multiple actions in one turn (e.g. pair then 6♠) even when '
+        'nextPlayerId would be another seat',
+        () {
+      final hand = [
+        c(Rank.five, Suit.hearts),
+        c(Rank.five, Suit.spades),
+        c(Rank.six, Suit.spades),
+      ];
+      final state = GameState(
+        sessionId: 't',
+        phase: GamePhase.playing,
+        currentPlayerId: 'p1',
+        direction: PlayDirection.clockwise,
+        discardTopCard: c(Rank.five, Suit.hearts),
+        drawPileCount: 10,
+        players: [
+          PlayerModel(
+            id: 'p1',
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: hand,
+            cardCount: hand.length,
+          ),
+          PlayerModel(
+            id: 'p2',
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: const [],
+            cardCount: 0,
+          ),
+          PlayerModel(
+            id: 'p3',
+            displayName: 'P3',
+            tablePosition: TablePosition.left,
+            hand: const [],
+            cardCount: 0,
+          ),
+        ],
+      );
+      expect(canClearHandInOneTurn(state: state, playerId: 'p1'), isTrue);
+    });
+
+    test(
+        '5 players: four 8s in one play + 5♥ clears via skip wrap (hand-only false)',
+        () {
+      final hand = [
+        c(Rank.eight, Suit.hearts),
+        c(Rank.eight, Suit.diamonds),
+        c(Rank.eight, Suit.clubs),
+        c(Rank.eight, Suit.spades),
+        c(Rank.five, Suit.hearts),
+      ];
+      expect(canHandClearInOneTurnHandOnly(hand), isFalse);
+
+      final state = GameState(
+        sessionId: 't',
+        phase: GamePhase.playing,
+        currentPlayerId: 'p1',
+        direction: PlayDirection.clockwise,
+        discardTopCard: c(Rank.eight, Suit.hearts),
+        drawPileCount: 10,
+        players: [
+          PlayerModel(
+            id: 'p1',
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: hand,
+            cardCount: hand.length,
+          ),
+          PlayerModel(
+            id: 'p2',
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: const [],
+            cardCount: 0,
+          ),
+          PlayerModel(
+            id: 'p3',
+            displayName: 'P3',
+            tablePosition: TablePosition.left,
+            hand: const [],
+            cardCount: 0,
+          ),
+          PlayerModel(
+            id: 'p4',
+            displayName: 'P4',
+            tablePosition: TablePosition.right,
+            hand: const [],
+            cardCount: 0,
+          ),
+          PlayerModel(
+            id: 'p5',
+            displayName: 'P5',
+            tablePosition: TablePosition.bottomLeft,
+            hand: const [],
+            cardCount: 0,
+          ),
+        ],
+      );
+      expect(canClearHandInOneTurn(state: state, playerId: 'p1'), isTrue);
+    });
+
+    test('sequence then value chain: hand-only path still succeeds vs bad discard', () {
       final hand = [
         c(Rank.three, Suit.hearts),
         c(Rank.four, Suit.hearts),

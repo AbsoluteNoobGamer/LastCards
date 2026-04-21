@@ -1137,15 +1137,223 @@ bool needsBustPlacementPileReshuffleFromUnderTop(int underTopCardCount) =>
 
 // ── Last Cards — hand clearability (shared offline + server) ─────────────────
 
-/// Whether [playerId]'s hand can be emptied in one turn for Last Cards
-/// must-declare snapshots and AI declaration eligibility. Uses
-/// [canHandClearInOneTurnHandOnly] (discard pile ignored). Human-only Joker
-/// bluff exemption is **not** applied here — add it at offline/server Last
-/// Cards declaration handlers when recording a bluff. [isBustMode] forces
-/// `false` (no Last Cards in Bust).
+/// Normalizes [state] so [playerId]'s next legal plays are evaluated as at the
+/// **start** of their turn (see [advanceTurn] field resets). Used when probing
+/// clearability while another seat holds the turn (Last Cards declare timing).
+GameState _normalizeStateForLastCardsClearabilityProbe(
+  GameState state,
+  String playerId,
+) {
+  if (state.currentPlayerId == playerId) return state;
+  return state.copyWith(
+    currentPlayerId: playerId,
+    actionsThisTurn: 0,
+    cardsPlayedThisTurn: 0,
+    lastPlayedThisTurn: null,
+    activeSkipCount: 0,
+    preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
+    queenSuitLock: null,
+  );
+}
+
+/// Mirrors [GameSession._sameSeatFreshTurnAfterSkipOrKing] / offline same-seat
+/// turn slices: after Skip or 2p King, the next card is validated like a new
+/// lead against [discardTopCard] (not numerical flow off the prior card).
+GameState _applySameSeatFreshTurnSlice(GameState state) {
+  final lastCard = state.lastPlayedThisTurn;
+  final lastWasPenalty = lastCard != null &&
+      (lastCard.effectiveRank == Rank.two ||
+          lastCard.effectiveRank == Rank.jack);
+  return state.copyWith(
+    actionsThisTurn: 0,
+    cardsPlayedThisTurn: 0,
+    lastPlayedThisTurn: null,
+    activeSkipCount: 0,
+    preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
+    queenSuitLock: null,
+    penaltyChainLive: lastWasPenalty ? state.penaltyChainLive : false,
+  );
+}
+
+/// Max hand size for full subset enumeration of legal plays (2^n). Above this,
+/// we enumerate singles plus same-rank Eight stacks only — enough for stacked
+/// skip math (e.g. four Eights returning the turn in 5-player).
+const int _clearabilityMaxSubsetBruteForce = 16;
+
+bool _isWildNaturalAceSingles(
+  GameState s,
+  List<CardModel> play,
+) {
+  return play.length == 1 &&
+      play.single.effectiveRank == Rank.ace &&
+      !play.single.isJoker &&
+      s.actionsThisTurn == 0;
+}
+
+/// Same-rank multi-card plays depend on order: [applyPlay] leaves [discardTopCard]
+/// as the **last** card, which affects the next legal play (e.g. four Eights then
+/// a heart on the final Eight).
+void _forEachSameRankPlayOrdering(
+  List<CardModel> play,
+  void Function(List<CardModel> ordered) emit,
+) {
+  final ranks = play.map((c) => c.effectiveRank).toSet();
+  if (play.length <= 1 || ranks.length != 1) {
+    emit(play);
+    return;
+  }
+  void permute(List<CardModel> prefix, List<CardModel> rem) {
+    if (rem.isEmpty) {
+      emit(prefix);
+      return;
+    }
+    for (var i = 0; i < rem.length; i++) {
+      final next = List<CardModel>.from(rem)..removeAt(i);
+      permute([...prefix, rem[i]], next);
+    }
+  }
+
+  permute([], play);
+}
+
+/// Legal multi-card and non–wild-Ace single plays for clearability DFS.
+/// Wild natural Aces are excluded — callers must branch [declaredSuit] per suit.
+List<List<CardModel>> _legalPlaysForClearabilityProbe(
+  GameState s,
+  String playerId,
+  CardModel discardTop,
+) {
+  final hand = s.playerById(playerId)?.hand;
+  if (hand == null || hand.isEmpty) return [];
+
+  final n = hand.length;
+  final seen = <String>{};
+  final out = <List<CardModel>>[];
+
+  void tryAdd(List<CardModel> play) {
+    if (_isWildNaturalAceSingles(s, play)) return;
+
+    void pushIfValid(List<CardModel> ordered) {
+      if (validatePlay(cards: ordered, discardTop: discardTop, state: s) !=
+          null) {
+        return;
+      }
+      final ranks = ordered.map((c) => c.effectiveRank).toSet();
+      final key = ranks.length == 1 && ordered.length > 1
+          ? ordered.map((c) => c.id).join('>')
+          : (ordered.map((c) => c.id).toList()..sort()).join(',');
+      if (!seen.add(key)) return;
+      out.add(ordered);
+    }
+
+    _forEachSameRankPlayOrdering(play, pushIfValid);
+  }
+
+  if (n <= _clearabilityMaxSubsetBruteForce) {
+    for (var mask = 1; mask < (1 << n); mask++) {
+      final play = <CardModel>[];
+      for (var i = 0; i < n; i++) {
+        if ((mask >> i) & 1 == 1) play.add(hand[i]);
+      }
+      tryAdd(play);
+    }
+  } else {
+    for (final card in hand) {
+      if (_isWildNaturalAceSingles(s, [card])) continue;
+      tryAdd([card]);
+    }
+    final eights = hand.where((c) => c.effectiveRank == Rank.eight).toList();
+    final m = eights.length;
+    for (var mask = 1; mask < (1 << m); mask++) {
+      final play = <CardModel>[];
+      for (var i = 0; i < m; i++) {
+        if ((mask >> i) & 1 == 1) play.add(eights[i]);
+      }
+      tryAdd(play);
+    }
+  }
+
+  return out;
+}
+
+bool _canClearHandRespectingDiscard(GameState state, String playerId) {
+  final normalized = _normalizeStateForLastCardsClearabilityProbe(
+    state,
+    playerId,
+  );
+  if (normalized.discardTopCard == null) return false;
+
+  bool dfs(GameState s) {
+    final hand = s.playerById(playerId)?.hand;
+    if (hand == null) return false;
+    if (hand.isEmpty) return true;
+
+    final top = s.discardTopCard;
+    if (top == null) return false;
+
+    /// After a committed play: win, recurse for more plays **this turn**, or
+    /// apply a same-seat fresh slice when [nextPlayerId] already wraps to this
+    /// seat (2p King/Eight, multi-player skip). [nextPlayerId] ≠ [playerId]
+    /// does **not** end the turn — the current player may still play again
+    /// until they end the turn; [applyPlay] + [validatePlay] model that.
+    bool continueAfterPlay(GameState played) {
+      final after = played.playerById(playerId)?.hand;
+      if (after == null) return false;
+      if (after.isEmpty) return true;
+      final nextState = nextPlayerId(state: played) == playerId
+          ? _applySameSeatFreshTurnSlice(played)
+          : played;
+      return dfs(nextState);
+    }
+
+    for (final play in _legalPlaysForClearabilityProbe(s, playerId, top)) {
+      final played = applyPlay(state: s, playerId: playerId, cards: play);
+      if (continueAfterPlay(played)) return true;
+    }
+
+    for (final card in List<CardModel>.from(hand)) {
+      if (card.effectiveRank != Rank.ace ||
+          s.actionsThisTurn != 0 ||
+          card.isJoker) {
+        continue;
+      }
+      final aceErr = validatePlay(
+        cards: [card],
+        discardTop: top,
+        state: s,
+      );
+      if (aceErr != null) continue;
+      for (final suit in Suit.values) {
+        final played = applyPlay(
+          state: s,
+          playerId: playerId,
+          cards: [card],
+          declaredSuit: suit,
+        );
+        if (continueAfterPlay(played)) return true;
+      }
+    }
+    return false;
+  }
+
+  return dfs(normalized);
+}
+
+/// Whether [playerId]'s hand can be emptied in one **visit** (single seat
+/// continuity), including same-seat continuance when [nextPlayerId] stays on
+/// this seat: **2-player King**; **stacked Eights** (skip math can wrap the
+/// table so the turn returns immediately, e.g. four Eights in 5-player); and
+/// **1v1 Eight skip** (same as King).
 ///
-/// When the opponent's hand is hidden (`cardCount` ≠ `hand.length`), returns
-/// `false` (server has full hands; online clients rely on snapshots).
+/// First tries [canHandClearInOneTurnHandOnly] (ordering without facing the
+/// pile). If that fails, runs a bounded simulation with [validatePlay] /
+/// [applyPlay], including **multiple sequential plays per turn** (numerical
+/// flow, value chains, same-rank pairs, etc.) and **multi-card same-rank plays**
+/// (stacked Eights accumulate [activeSkipCount] like real play).
+///
+/// Jokers use the hand-only analyzer only (declaration sites exempt bluff via
+/// [PlayerModel.hand] Joker check). [isBustMode] forces `false`. When the
+/// opponent's hand is hidden (`cardCount` ≠ `hand.length`), returns `false`.
 bool canClearHandInOneTurn({
   required GameState state,
   required String playerId,
@@ -1156,7 +1364,11 @@ bool canClearHandInOneTurn({
   if (p == null) return false;
   if (p.hand.isEmpty) return true;
   if (p.hand.length != p.cardCount) return false;
-  return canHandClearInOneTurnHandOnly(p.hand);
+  if (p.hand.any((c) => c.isJoker)) {
+    return canHandClearInOneTurnHandOnly(p.hand);
+  }
+  if (canHandClearInOneTurnHandOnly(p.hand)) return true;
+  return _canClearHandRespectingDiscard(state, playerId);
 }
 
 /// Sets [PlayerModel.lastCardsHandWasClearableAtTurnStart] for
