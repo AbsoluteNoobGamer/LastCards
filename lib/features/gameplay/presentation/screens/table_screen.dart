@@ -180,6 +180,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   int _onlineDiscardCount = 1;
   bool _onlineWinDialogShown = false;
 
+  /// After the user dismisses the online win dialog with KEEP WATCHING (spectate).
+  /// Prevents [ref.listen] from opening the dialog again on unrelated state updates.
+  bool _spectating = false;
+
   /// Prevents overlapping online plays while a last-card flight runs.
   bool _onlineLastCardFlightInProgress = false;
 
@@ -509,6 +513,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       _discardPile.clear();
       _onlineDiscardCount = 1; // one card already on discard (discardTopCard)
       _onlineWinDialogShown = false;
+      _spectating = false;
 
       if (liveState.discardTopCard != null) {
         _discardPile.add(liveState.discardTopCard!);
@@ -1284,6 +1289,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (next == null ||
           next.phase != GamePhase.ended ||
           _onlineWinDialogShown ||
+          _spectating ||
           !mounted) {
         return;
       }
@@ -1351,7 +1357,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                       ref.read(gameNotifierProvider).isPrivateSession
                   ? () {
                       navigator.pop();
-                      setState(() => _onlineWinDialogShown = false);
+                      setState(() => _spectating = true);
                     }
                   : null,
             ),
