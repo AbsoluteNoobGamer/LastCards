@@ -390,6 +390,17 @@ class GameSession {
     }
   }
 
+  /// Drops the whole session when every remaining seat is an AI bot (or empty).
+  /// Call after mutating [_players] so the room is not left running with bots only.
+  bool _clearRoomWhenNoHumansRemain() {
+    if (_players.values.any((p) => !p.isAi)) return false;
+    _turnTimer?.cancel();
+    if (_started) _gameOver = true;
+    _players.clear();
+    onBecameEmpty?.call(roomCode);
+    return true;
+  }
+
   void removePlayer(String playerId) {
     final leavingPlayer = _players[playerId];
     if (leavingPlayer == null) return;
@@ -403,8 +414,8 @@ class GameSession {
     _players.remove(playerId);
     _broadcast({'type': 'player_left', 'playerId': playerId});
 
-    if (_players.isEmpty) {
-      onBecameEmpty?.call(roomCode);
+    if (_clearRoomWhenNoHumansRemain()) {
+      return;
     }
 
     if (!_started || _gameOver) return;
@@ -532,6 +543,11 @@ class GameSession {
     // Authoritative ended snapshot so clients never sit in a playing state until
     // the turn timer fires; also syncs draw pile / roster with pruned players.
     _broadcastStateSnapshots();
+
+    if (!_players.values.any((p) => !p.isAi)) {
+      _players.clear();
+      onBecameEmpty?.call(roomCode);
+    }
   }
 
   /// Bust: drop the leaver from the table; continue if more than 2 survivors remain.
@@ -540,6 +556,10 @@ class GameSession {
     required String? firebaseUid,
     required String displayName,
   }) {
+    if (_clearRoomWhenNoHumansRemain()) {
+      return;
+    }
+
     _bustSurvivorIds.remove(playerId);
     _bustTurnsThisRound.remove(playerId);
     _bustPenaltyPoints.remove(playerId);
@@ -1379,6 +1399,7 @@ class GameSession {
     });
 
     _broadcastStateSnapshots();
+    _aiDeclareLastCardsIfNeeded();
     _startTurnTimer();
   }
 
@@ -1456,7 +1477,36 @@ class GameSession {
     });
 
     _broadcastStateSnapshots();
+    _aiDeclareLastCardsIfNeeded();
     _startTurnTimer();
+  }
+
+  /// After [turn_changed], non-current AI seats may declare Last Cards
+  /// ([mayDeclareLastCards]). Mirrors offline AI when the hand can be cleared
+  /// in one turn (see `offline_game_engine_ai.dart`).
+  void _aiDeclareLastCardsIfNeeded() {
+    if (_gameOver || !_started || isBustMode) return;
+
+    for (final p in List<PlayerModel>.from(_state.players)) {
+      final pid = p.id;
+      if (_players[pid]?.isAi != true) continue;
+      if (pid == _state.currentPlayerId) continue;
+      if (_state.lastCardsDeclaredBy.contains(pid)) continue;
+      if (!mayDeclareLastCards(
+        currentPlayerId: _state.currentPlayerId,
+        playerId: pid,
+      )) {
+        continue;
+      }
+      if (!canClearHandInOneTurn(
+        state: _state,
+        playerId: pid,
+        isBustMode: isBustMode,
+      )) {
+        continue;
+      }
+      _handleDeclareLastCards(pid);
+    }
   }
 
   /// With two survivors the finale is a race to empty hand — never end the
