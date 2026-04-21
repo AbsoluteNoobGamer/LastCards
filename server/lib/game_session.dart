@@ -789,6 +789,8 @@ class GameSession {
       'isKnockoutTournament': isKnockoutTournament,
       'trophyEligible': _trophyEligible,
     });
+    _aiDeclareLastCardsIfNeeded();
+    _seedOpeningCurrentPlayerLastCardsIfNoOffTurnWindowYet();
     _broadcastStateSnapshots();
     _startTurnTimer();
   }
@@ -894,6 +896,7 @@ class GameSession {
 
       _checkWin();
       _broadcastStateSnapshots();
+      if (_gameOver) return;
       if (_players[playerId]?.isAi == true) {
         final suit = Suit.values[_aiRng.nextInt(Suit.values.length)];
         _handleSuitChoice(playerId, {
@@ -1507,6 +1510,35 @@ class GameSession {
         continue;
       }
       _handleDeclareLastCards(pid);
+    }
+  }
+
+  /// The opening [GameState.currentPlayerId] has not yet had a moment when
+  /// [mayDeclareLastCards] could apply (it is always their turn until the first
+  /// [advanceTurn]). Other seats are handled by [_aiDeclareLastCardsIfNeeded].
+  /// Seeds [lastCardsDeclaredBy] when the deal was already clearable so a
+  /// first-turn win is not treated as undeclared Last Cards.
+  void _seedOpeningCurrentPlayerLastCardsIfNoOffTurnWindowYet() {
+    if (_gameOver || !_started || isBustMode) return;
+
+    final id = _state.currentPlayerId;
+    if (_state.lastCardsDeclaredBy.contains(id)) return;
+    final player = _state.playerById(id);
+    if (player == null) return;
+    if (!player.lastCardsHandWasClearableAtTurnStart) return;
+
+    _state = _state.copyWith(
+      lastCardsDeclaredBy: {..._state.lastCardsDeclaredBy, id},
+    );
+
+    final hasJoker = player.hand.any((c) => c.isJoker);
+    if (!hasJoker &&
+        !canClearHandInOneTurn(
+          state: _state,
+          playerId: id,
+          isBustMode: isBustMode,
+        )) {
+      _lastCardsBluffedBy.add(id);
     }
   }
 

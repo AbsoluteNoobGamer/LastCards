@@ -47,36 +47,8 @@ ServerAiTurnPlan planServerAiTurn({
 
   final easy = difficulty == 'easy';
 
-  // Joker in hand — try a legal declaration before normal plays.
-  final jokerInHand = player.hand.where((c) => c.isJoker).toList();
-  if (jokerInHand.isNotEmpty &&
-      !(isHardcore && player.hand.length == 1)) {
-    final jokerCard = jokerInHand.first;
-    final jokerIn = resolveJokerPlayInputs(state: state, discardTop: top);
-    final options = getValidJokerOptions(
-      state: state,
-      discardTop: top,
-      context: jokerIn.resolvedContext,
-      contextTopCard: jokerIn.anchor,
-    );
-    if (options.isNotEmpty) {
-      final pick = easy
-          ? options[rng.nextInt(options.length)]
-          : _pickBestJokerOption(options, rng);
-      return ServerAiTurnPlan.declareJoker({
-        'type': 'declare_joker',
-        'jokerCardId': jokerCard.id,
-        'declaredSuit': pick.suit.name,
-        'declaredRank': pick.rank.name,
-      });
-    }
-  }
-
   // Enumerate same-rank stacks (offline-style multi plays).
-  final playCandidates = _enumeratePlayCandidates(
-    hand: player.hand,
-    isHardcore: isHardcore,
-  );
+  final playCandidates = _enumeratePlayCandidates(hand: player.hand);
 
   final scored = <({List<CardModel> cards, Suit? declaredSuit, int score})>[];
   for (final cards in playCandidates) {
@@ -106,26 +78,53 @@ ServerAiTurnPlan planServerAiTurn({
     scored.add((cards: cards, declaredSuit: declaredSuit, score: score));
   }
 
-  if (scored.isEmpty) {
-    if (state.actionsThisTurn > 0 && validateEndTurn(state) == null) {
-      return ServerAiTurnPlan.endTurn();
+  if (scored.isNotEmpty) {
+    scored.sort((a, b) => b.score.compareTo(a.score));
+    final best =
+        easy ? scored[rng.nextInt(scored.length)] : scored.first;
+
+    final payload = <String, dynamic>{
+      'type': 'play_cards',
+      'cardIds': best.cards.map((c) => c.id).toList(),
+    };
+    if (best.declaredSuit != null) {
+      payload['declaredSuit'] = best.declaredSuit!.name;
     }
-    return ServerAiTurnPlan.draw();
+
+    return ServerAiTurnPlan.playCards(payload);
   }
 
-  scored.sort((a, b) => b.score.compareTo(a.score));
-  final best =
-      easy ? scored[rng.nextInt(scored.length)] : scored.first;
-
-  final payload = <String, dynamic>{
-    'type': 'play_cards',
-    'cardIds': best.cards.map((c) => c.id).toList(),
-  };
-  if (best.declaredSuit != null) {
-    payload['declaredSuit'] = best.declaredSuit!.name;
+  // No valid normal play — try a Joker only as the first action of the turn
+  // (mid-turn continuations use [scored] / end_turn / draw).
+  final jokerInHand = player.hand.where((c) => c.isJoker).toList();
+  if (state.actionsThisTurn == 0 &&
+      jokerInHand.isNotEmpty &&
+      !(isHardcore && player.hand.length == 1)) {
+    final jokerCard = jokerInHand.first;
+    final jokerIn = resolveJokerPlayInputs(state: state, discardTop: top);
+    final options = getValidJokerOptions(
+      state: state,
+      discardTop: top,
+      context: jokerIn.resolvedContext,
+      contextTopCard: jokerIn.anchor,
+    );
+    if (options.isNotEmpty) {
+      final pick = easy
+          ? options[rng.nextInt(options.length)]
+          : _pickBestJokerOption(options, rng);
+      return ServerAiTurnPlan.declareJoker({
+        'type': 'declare_joker',
+        'jokerCardId': jokerCard.id,
+        'declaredSuit': pick.suit.name,
+        'declaredRank': pick.rank.name,
+      });
+    }
   }
 
-  return ServerAiTurnPlan.playCards(payload);
+  if (state.actionsThisTurn > 0 && validateEndTurn(state) == null) {
+    return ServerAiTurnPlan.endTurn();
+  }
+  return ServerAiTurnPlan.draw();
 }
 
 CardModel _pickBestJokerOption(List<CardModel> options, math.Random rng) {
@@ -144,7 +143,6 @@ CardModel _pickBestJokerOption(List<CardModel> options, math.Random rng) {
 /// Builds candidate stacks: singles and same-rank multiples (non-joker).
 List<List<CardModel>> _enumeratePlayCandidates({
   required List<CardModel> hand,
-  required bool isHardcore,
 }) {
   final result = <List<CardModel>>[];
   final nonJokers = hand.where((c) => !c.isJoker).toList();
@@ -160,8 +158,7 @@ List<List<CardModel>> _enumeratePlayCandidates({
       for (final combo in _combinations(group, k)) {
         result.add(combo);
       }
-
-  }
+    }
   }
 
   return result;
