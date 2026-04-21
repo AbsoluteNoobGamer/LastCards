@@ -33,6 +33,7 @@ import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/models/ai_player_config.dart';
 import '../../../gameplay/presentation/screens/table_screen.dart';
 import '../../../social/widgets/invite_friends_sheet.dart';
+import '../../../social/widgets/pending_friend_requests_banner.dart';
 import '../../../tournament/providers/tournament_session_provider.dart';
 
 enum OnlineMode { standard, tournament }
@@ -261,443 +262,468 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
           Positioned.fill(child: _FeltBackground(theme: theme)),
 
           SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppDimensions.xl,
-                    vertical: AppDimensions.lg,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'LAST CARDS',
-                        textAlign: TextAlign.center,
-                        style: gameTitleTextStyle(
-                          theme,
-                          fontSize: 32,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 2,
-                          color: theme.accentPrimary,
-                          shadows: [
-                            Shadow(
-                              color: theme.surfaceDark.withValues(alpha: 0.85),
-                              offset: const Offset(0, 2),
-                              blurRadius: 8,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: AppDimensions.md),
-                      Container(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const PendingFriendRequestsBanner(),
+                Expanded(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 480),
+                      child: SingleChildScrollView(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: AppDimensions.md,
-                          vertical: AppDimensions.xs + 2,
+                          horizontal: AppDimensions.xl,
+                          vertical: AppDimensions.lg,
                         ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: theme.accentPrimary.withValues(alpha: 0.35),
-                          ),
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              theme.accentPrimary.withValues(alpha: 0.14),
-                              theme.surfaceDark.withValues(alpha: 0.2),
-                            ],
-                          ),
-                        ),
-                        child: Row(
+                        child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              Icons.lock_rounded,
-                              size: 18,
-                              color: theme.accentLight,
-                            ),
-                            const SizedBox(width: 10),
                             Text(
-                              'PRIVATE TABLE',
-                              style: GoogleFonts.cinzel(
-                                fontSize: 15,
+                              'LAST CARDS',
+                              textAlign: TextAlign.center,
+                              style: gameTitleTextStyle(
+                                theme,
+                                fontSize: 32,
                                 fontWeight: FontWeight.w700,
-                                letterSpacing: 2.4,
-                                color: theme.accentLight,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: AppDimensions.sm),
-                      Text(
-                        'Invite friends, pick the rules, deal the cards',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          height: 1.4,
-                          letterSpacing: 0.2,
-                          color: theme.textSecondary,
-                        ),
-                      ),
-
-                      const SizedBox(height: AppDimensions.xxl),
-
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text('JOIN OR CREATE', style: sectionTitleStyle),
-                      ),
-                      const SizedBox(height: AppDimensions.sm),
-                      _LobbySectionCard(
-                        theme: theme,
-                        accentBorder: true,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _GoldTextField(
-                              theme: theme,
-                              controller: _codeController,
-                              label: 'Room Code',
-                              hintText: 'e.g. XKCD-42',
-                              textCapitalization: TextCapitalization.characters,
-                            ),
-                            if (_roomCode == null) ...[
-                              const SizedBox(height: AppDimensions.lg),
-                              _PrivateGameVariantPicker(
-                                theme: theme,
-                                sectionTitleStyle: sectionTitleStyle,
-                                variant: _privateGameVariant,
-                                enabled: true,
-                                subtitle:
-                                    'Pick before you create — everyone plays this format.',
-                                onSelectVariant: _selectGameVariant,
-                              ),
-                              const SizedBox(height: AppDimensions.lg),
-                              _PrivateLobbyRulesPicker(
-                                theme: theme,
-                                sectionTitleStyle: sectionTitleStyle,
-                                isHardcore: _privateLobbyHardcore,
-                                enabled: true,
-                                subtitle:
-                                    'Applies when you create a room — you are the host.',
-                                onSelectHardcore: _selectPrivateLobbyHardcore,
-                              ),
-                            ],
-                            const SizedBox(height: AppDimensions.lg),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton(
-                                    onPressed: _onJoin,
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: theme.accentPrimary,
-                                      side: BorderSide(
-                                        color: theme.accentPrimary
-                                            .withValues(alpha: 0.85),
-                                      ),
-                                      minimumSize: const Size(
-                                        0,
-                                        AppDimensions.minTouchTarget,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(
-                                          AppDimensions.radiusModal,
-                                        ),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      'JOIN ROOM',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 0.6,
-                                      ),
-                                    ),
+                                letterSpacing: 2,
+                                color: theme.accentPrimary,
+                                shadows: [
+                                  Shadow(
+                                    color: theme.surfaceDark
+                                        .withValues(alpha: 0.85),
+                                    offset: const Offset(0, 2),
+                                    blurRadius: 8,
                                   ),
-                                ),
-                                const SizedBox(width: AppDimensions.md),
-                                Expanded(
-                                  child: ElevatedButton(
-                                    onPressed: _onCreate,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: theme.accentPrimary,
-                                      foregroundColor: theme.backgroundDeep,
-                                      elevation: 0,
-                                      minimumSize: const Size(
-                                        0,
-                                        AppDimensions.minTouchTarget,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(
-                                          AppDimensions.radiusModal,
-                                        ),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      'CREATE ROOM',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 0.6,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: AppDimensions.xl),
-
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text('PLAYERS', style: sectionTitleStyle),
-                      ),
-                      const SizedBox(height: AppDimensions.sm),
-                      Text(
-                        _privateGameVariant == PrivateGameVariant.bust
-                            ? '2–10 players in Bust. Ready up when you are set, '
-                                'or the host can start with two or more at the table.'
-                            : '2–7 players. Ready up when you are set, or the host '
-                                'can start with two or more at the table.',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          height: 1.35,
-                          fontWeight: FontWeight.w400,
-                          color: theme.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: AppDimensions.md),
-                      _LobbySectionCard(
-                        theme: theme,
-                        accentBorder: _roomCode != null,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            if (_roomCode != null) ...[
-                              _RoomCodeCard(
-                                roomCode: _roomCode!,
-                                theme: theme,
+                            const SizedBox(height: AppDimensions.md),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppDimensions.md,
+                                vertical: AppDimensions.xs + 2,
                               ),
-                              const SizedBox(height: AppDimensions.lg),
-                              _PrivateGameVariantPicker(
-                                theme: theme,
-                                sectionTitleStyle: sectionTitleStyle,
-                                variant: _privateGameVariant,
-                                enabled: false,
-                                subtitle:
-                                    'Set when the room was created — everyone plays this format.',
-                                onSelectVariant: null,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: theme.accentPrimary
+                                      .withValues(alpha: 0.35),
+                                ),
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    theme.accentPrimary.withValues(alpha: 0.14),
+                                    theme.surfaceDark.withValues(alpha: 0.2),
+                                  ],
+                                ),
                               ),
-                              const SizedBox(height: AppDimensions.lg),
-                              _PrivateLobbyRulesPicker(
-                                theme: theme,
-                                sectionTitleStyle: sectionTitleStyle,
-                                isHardcore: _privateLobbyHardcore,
-                                enabled: _isPrivateHost,
-                                subtitle: _isPrivateHost
-                                    ? 'Your guests see this before you start.'
-                                    : 'The host sets table rules for this room.',
-                                onSelectHardcore: _isPrivateHost
-                                    ? _selectPrivateLobbyHardcore
-                                    : null,
-                              ),
-                              const SizedBox(height: AppDimensions.md),
-                              Row(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Expanded(
-                                    child: OutlinedButton.icon(
-                                      onPressed: _onInviteFriends,
-                                      icon: Icon(
-                                        Icons.share_rounded,
-                                        color: theme.accentPrimary,
-                                        size: 20,
-                                      ),
-                                      label: Text(
-                                        'SHARE CODE',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          letterSpacing: 0.6,
-                                        ),
-                                      ),
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: theme.accentPrimary,
-                                        side: BorderSide(
-                                          color: theme.accentPrimary
-                                              .withValues(alpha: 0.85),
-                                        ),
-                                        minimumSize: const Size(
-                                          0,
-                                          AppDimensions.minTouchTarget,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            AppDimensions.radiusModal,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                                  Icon(
+                                    Icons.lock_rounded,
+                                    size: 18,
+                                    color: theme.accentLight,
                                   ),
-                                  const SizedBox(width: AppDimensions.md),
-                                  Expanded(
-                                    child: OutlinedButton.icon(
-                                      onPressed: _onInviteFriendsInApp,
-                                      icon: Icon(
-                                        Icons.group_add_rounded,
-                                        color: theme.accentPrimary,
-                                        size: 20,
-                                      ),
-                                      label: Text(
-                                        'FRIENDS',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          letterSpacing: 0.6,
-                                        ),
-                                      ),
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: theme.accentPrimary,
-                                        side: BorderSide(
-                                          color: theme.accentPrimary
-                                              .withValues(alpha: 0.85),
-                                        ),
-                                        minimumSize: const Size(
-                                          0,
-                                          AppDimensions.minTouchTarget,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            AppDimensions.radiusModal,
-                                          ),
-                                        ),
-                                      ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'PRIVATE TABLE',
+                                    style: GoogleFonts.cinzel(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 2.4,
+                                      color: theme.accentLight,
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: AppDimensions.lg),
-                            ],
-                            if (_roomCode != null && _isPrivateHost) ...[
-                              _PrivateLobbyAiPanel(
-                                theme: theme,
-                                sectionTitleStyle: sectionTitleStyle,
-                                aiDifficulty: _aiDifficulty,
-                                onAiDifficultyChanged: (d) =>
-                                    setState(() => _aiDifficulty = d),
-                                maxTablePlayers:
-                                    _privateGameVariant ==
+                            ),
+                            const SizedBox(height: AppDimensions.sm),
+                            Text(
+                              'Invite friends, pick the rules, deal the cards',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w400,
+                                height: 1.4,
+                                letterSpacing: 0.2,
+                                color: theme.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: AppDimensions.xxl),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text('JOIN OR CREATE',
+                                  style: sectionTitleStyle),
+                            ),
+                            const SizedBox(height: AppDimensions.sm),
+                            _LobbySectionCard(
+                              theme: theme,
+                              accentBorder: true,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _GoldTextField(
+                                    theme: theme,
+                                    controller: _codeController,
+                                    label: 'Room Code',
+                                    hintText: 'e.g. XKCD-42',
+                                    textCapitalization:
+                                        TextCapitalization.characters,
+                                  ),
+                                  if (_roomCode == null) ...[
+                                    const SizedBox(height: AppDimensions.lg),
+                                    _PrivateGameVariantPicker(
+                                      theme: theme,
+                                      sectionTitleStyle: sectionTitleStyle,
+                                      variant: _privateGameVariant,
+                                      enabled: true,
+                                      subtitle:
+                                          'Pick before you create — everyone plays this format.',
+                                      onSelectVariant: _selectGameVariant,
+                                    ),
+                                    const SizedBox(height: AppDimensions.lg),
+                                    _PrivateLobbyRulesPicker(
+                                      theme: theme,
+                                      sectionTitleStyle: sectionTitleStyle,
+                                      isHardcore: _privateLobbyHardcore,
+                                      enabled: true,
+                                      subtitle:
+                                          'Applies when you create a room — you are the host.',
+                                      onSelectHardcore:
+                                          _selectPrivateLobbyHardcore,
+                                    ),
+                                  ],
+                                  const SizedBox(height: AppDimensions.lg),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: OutlinedButton(
+                                          onPressed: _onJoin,
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor:
+                                                theme.accentPrimary,
+                                            side: BorderSide(
+                                              color: theme.accentPrimary
+                                                  .withValues(alpha: 0.85),
+                                            ),
+                                            minimumSize: const Size(
+                                              0,
+                                              AppDimensions.minTouchTarget,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                AppDimensions.radiusModal,
+                                              ),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            'JOIN ROOM',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              letterSpacing: 0.6,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: AppDimensions.md),
+                                      Expanded(
+                                        child: ElevatedButton(
+                                          onPressed: _onCreate,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                theme.accentPrimary,
+                                            foregroundColor:
+                                                theme.backgroundDeep,
+                                            elevation: 0,
+                                            minimumSize: const Size(
+                                              0,
+                                              AppDimensions.minTouchTarget,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                AppDimensions.radiusModal,
+                                              ),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            'CREATE ROOM',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              letterSpacing: 0.6,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: AppDimensions.xl),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text('PLAYERS', style: sectionTitleStyle),
+                            ),
+                            const SizedBox(height: AppDimensions.sm),
+                            Text(
+                              _privateGameVariant == PrivateGameVariant.bust
+                                  ? '2–10 players in Bust. Ready up when you are set, '
+                                      'or the host can start with two or more at the table.'
+                                  : '2–7 players. Ready up when you are set, or the host '
+                                      'can start with two or more at the table.',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                height: 1.35,
+                                fontWeight: FontWeight.w400,
+                                color: theme.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: AppDimensions.md),
+                            _LobbySectionCard(
+                              theme: theme,
+                              accentBorder: _roomCode != null,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  if (_roomCode != null) ...[
+                                    _RoomCodeCard(
+                                      roomCode: _roomCode!,
+                                      theme: theme,
+                                    ),
+                                    const SizedBox(height: AppDimensions.lg),
+                                    _PrivateGameVariantPicker(
+                                      theme: theme,
+                                      sectionTitleStyle: sectionTitleStyle,
+                                      variant: _privateGameVariant,
+                                      enabled: false,
+                                      subtitle:
+                                          'Set when the room was created — everyone plays this format.',
+                                      onSelectVariant: null,
+                                    ),
+                                    const SizedBox(height: AppDimensions.lg),
+                                    _PrivateLobbyRulesPicker(
+                                      theme: theme,
+                                      sectionTitleStyle: sectionTitleStyle,
+                                      isHardcore: _privateLobbyHardcore,
+                                      enabled: _isPrivateHost,
+                                      subtitle: _isPrivateHost
+                                          ? 'Your guests see this before you start.'
+                                          : 'The host sets table rules for this room.',
+                                      onSelectHardcore: _isPrivateHost
+                                          ? _selectPrivateLobbyHardcore
+                                          : null,
+                                    ),
+                                    const SizedBox(height: AppDimensions.md),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: OutlinedButton.icon(
+                                            onPressed: _onInviteFriends,
+                                            icon: Icon(
+                                              Icons.share_rounded,
+                                              color: theme.accentPrimary,
+                                              size: 20,
+                                            ),
+                                            label: Text(
+                                              'SHARE CODE',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                letterSpacing: 0.6,
+                                              ),
+                                            ),
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor:
+                                                  theme.accentPrimary,
+                                              side: BorderSide(
+                                                color: theme.accentPrimary
+                                                    .withValues(alpha: 0.85),
+                                              ),
+                                              minimumSize: const Size(
+                                                0,
+                                                AppDimensions.minTouchTarget,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                  AppDimensions.radiusModal,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: AppDimensions.md),
+                                        Expanded(
+                                          child: OutlinedButton.icon(
+                                            onPressed: _onInviteFriendsInApp,
+                                            icon: Icon(
+                                              Icons.group_add_rounded,
+                                              color: theme.accentPrimary,
+                                              size: 20,
+                                            ),
+                                            label: Text(
+                                              'FRIENDS',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                letterSpacing: 0.6,
+                                              ),
+                                            ),
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor:
+                                                  theme.accentPrimary,
+                                              side: BorderSide(
+                                                color: theme.accentPrimary
+                                                    .withValues(alpha: 0.85),
+                                              ),
+                                              minimumSize: const Size(
+                                                0,
+                                                AppDimensions.minTouchTarget,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                  AppDimensions.radiusModal,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: AppDimensions.lg),
+                                  ],
+                                  if (_roomCode != null && _isPrivateHost) ...[
+                                    _PrivateLobbyAiPanel(
+                                      theme: theme,
+                                      sectionTitleStyle: sectionTitleStyle,
+                                      aiDifficulty: _aiDifficulty,
+                                      onAiDifficultyChanged: (d) =>
+                                          setState(() => _aiDifficulty = d),
+                                      maxTablePlayers: _privateGameVariant ==
+                                              PrivateGameVariant.bust
+                                          ? 10
+                                          : 7,
+                                      currentPlayers: _lobbyPlayers.length,
+                                      onAddBot: _onAddPrivateLobbyBot,
+                                    ),
+                                    const SizedBox(height: AppDimensions.lg),
+                                  ],
+                                  _LobbyPlayerList(
+                                    localPlayerId: _localPlayerId,
+                                    localIsReady: _isReady,
+                                    playerReady: _playerReady,
+                                    theme: theme,
+                                    players: _lobbyPlayers,
+                                    pendingJoin: _pendingJoin,
+                                    hostPlayerId:
+                                        _hostPlayerIdForRoster(_lobbyPlayers),
+                                    maxSlots: _privateGameVariant ==
                                             PrivateGameVariant.bust
                                         ? 10
                                         : 7,
-                                currentPlayers: _lobbyPlayers.length,
-                                onAddBot: _onAddPrivateLobbyBot,
-                              ),
-                              const SizedBox(height: AppDimensions.lg),
-                            ],
-                            _LobbyPlayerList(
-                              localPlayerId: _localPlayerId,
-                              localIsReady: _isReady,
-                              playerReady: _playerReady,
-                              theme: theme,
-                              players: _lobbyPlayers,
-                              pendingJoin: _pendingJoin,
-                              hostPlayerId: _hostPlayerIdForRoster(_lobbyPlayers),
-                              maxSlots: _privateGameVariant ==
-                                      PrivateGameVariant.bust
-                                  ? 10
-                                  : 7,
-                              isPrivateHost: _isPrivateHost,
-                              onRemoveBot: _onRemovePrivateLobbyBot,
-                            ),
-                            const SizedBox(height: AppDimensions.lg),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: ElevatedButton(
-                                    onPressed: _toggleReady,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: _isReady
-                                          ? theme.secondaryAccent
-                                          : theme.accentPrimary,
-                                      foregroundColor: _isReady
-                                          ? theme.textPrimary
-                                          : theme.backgroundDeep,
-                                      elevation: 0,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: AppDimensions.md,
-                                      ),
-                                      minimumSize: const Size(
-                                        0,
-                                        AppDimensions.minTouchTarget + 2,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(
-                                          AppDimensions.radiusModal,
-                                        ),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      _isReady ? 'NOT READY' : 'READY',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 1,
-                                      ),
-                                    ),
+                                    isPrivateHost: _isPrivateHost,
+                                    onRemoveBot: _onRemovePrivateLobbyBot,
                                   ),
-                                ),
-                                if (_roomCode != null &&
-                                    _localPlayerId != null &&
-                                    _hostPlayerIdForRoster(_lobbyPlayers) ==
-                                        _localPlayerId) ...[
-                                  const SizedBox(width: AppDimensions.md),
-                                  Expanded(
-                                    child: ElevatedButton(
-                                      onPressed: _onHostStartGame,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: theme.secondaryAccent,
-                                        foregroundColor: theme.textPrimary,
-                                        elevation: 0,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: AppDimensions.md,
-                                        ),
-                                        minimumSize: const Size(
-                                          0,
-                                          AppDimensions.minTouchTarget + 2,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            AppDimensions.radiusModal,
+                                  const SizedBox(height: AppDimensions.lg),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: ElevatedButton(
+                                          onPressed: _toggleReady,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: _isReady
+                                                ? theme.secondaryAccent
+                                                : theme.accentPrimary,
+                                            foregroundColor: _isReady
+                                                ? theme.textPrimary
+                                                : theme.backgroundDeep,
+                                            elevation: 0,
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: AppDimensions.md,
+                                            ),
+                                            minimumSize: const Size(
+                                              0,
+                                              AppDimensions.minTouchTarget + 2,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                AppDimensions.radiusModal,
+                                              ),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            _isReady ? 'NOT READY' : 'READY',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 1,
+                                            ),
                                           ),
                                         ),
                                       ),
-                                      child: Text(
-                                        'START',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: 1,
+                                      if (_roomCode != null &&
+                                          _localPlayerId != null &&
+                                          _hostPlayerIdForRoster(
+                                                  _lobbyPlayers) ==
+                                              _localPlayerId) ...[
+                                        const SizedBox(width: AppDimensions.md),
+                                        Expanded(
+                                          child: ElevatedButton(
+                                            onPressed: _onHostStartGame,
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  theme.secondaryAccent,
+                                              foregroundColor:
+                                                  theme.textPrimary,
+                                              elevation: 0,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                vertical: AppDimensions.md,
+                                              ),
+                                              minimumSize: const Size(
+                                                0,
+                                                AppDimensions.minTouchTarget +
+                                                    2,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                  AppDimensions.radiusModal,
+                                                ),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              'START',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w700,
+                                                letterSpacing: 1,
+                                              ),
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                    ),
+                                      ],
+                                    ],
                                   ),
                                 ],
-                              ],
+                              ),
                             ),
                           ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ),
 
@@ -838,8 +864,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   Future<void> _onInviteFriends() async {
     final code = _roomCode;
     if (code == null) return;
-    final maxP =
-        _privateGameVariant == PrivateGameVariant.bust ? 10 : 7;
+    final maxP = _privateGameVariant == PrivateGameVariant.bust ? 10 : 7;
     final text = 'Join me in Last Cards (private game). Room code: $code\n'
         'We need 2–$maxP players — open the app and use Join Room with this code.';
     await SharePlus.instance.share(
@@ -884,9 +909,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     }
     if (!mounted) return;
     if (!wsClient.send(jsonEncode({
-          'type': 'add_private_lobby_bot',
-          'aiDifficulty': _aiDifficulty.name,
-        }))) {
+      'type': 'add_private_lobby_bot',
+      'aiDifficulty': _aiDifficulty.name,
+    }))) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -914,9 +939,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     }
     if (!mounted) return;
     if (!wsClient.send(jsonEncode({
-          'type': 'remove_private_lobby_bot',
-          'playerId': botPlayerId,
-        }))) {
+      'type': 'remove_private_lobby_bot',
+      'playerId': botPlayerId,
+    }))) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1792,8 +1817,7 @@ class _LobbyFeltPainter extends CustomPainter {
     }
 
     // Vignette: darken toward theme-hued edge (avoids flat neutral black)
-    final vignetteEdge =
-        Color.lerp(theme.backgroundDeep, Colors.black, 0.44)!;
+    final vignetteEdge = Color.lerp(theme.backgroundDeep, Colors.black, 0.44)!;
     canvas.drawRect(
       rect,
       Paint()
@@ -1810,7 +1834,8 @@ class _LobbyFeltPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _LobbyFeltPainter old) => old.theme.id != theme.id;
+  bool shouldRepaint(covariant _LobbyFeltPainter old) =>
+      old.theme.id != theme.id;
 }
 
 class _PlayerEntry extends StatelessWidget {

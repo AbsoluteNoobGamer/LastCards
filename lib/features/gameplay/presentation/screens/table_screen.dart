@@ -56,6 +56,7 @@ import '../../../../features/bust/widgets/bust_player_rail.dart';
 import '../../../../features/leaderboard/data/leaderboard_stats_writer.dart';
 import '../../../../features/tournament/providers/tournament_session_provider.dart';
 import '../../../../features/social/widgets/other_player_profile_sheet.dart';
+import '../../../../features/social/widgets/pending_friend_requests_banner.dart';
 import '../../../../core/widgets/themed_shimmer.dart';
 
 part 'table_screen_background.dart';
@@ -216,6 +217,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   String? _lastCardsBluffBannerText;
   String? _lastCardsDeclaredBannerText;
+
   /// Clears the declare banner only for the latest [_announceLastCardsDeclaration] call.
   int _lastCardsDeclaredBannerSeq = 0;
 
@@ -648,8 +650,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (!mounted) return;
       if (_pendingOpeningLastCardsAnnouncement) {
         _pendingOpeningLastCardsAnnouncement = false;
-        final opener =
-            _offlineState.playerById(_offlineState.currentPlayerId);
+        final opener = _offlineState.playerById(_offlineState.currentPlayerId);
         if (opener != null &&
             _offlineState.lastCardsDeclaredBy.contains(opener.id)) {
           _announceLastCardsDeclaration(
@@ -939,8 +940,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   /// Must match the turn bar denominator ([turnTimerTotalSeconds]) and timer engine.
   int _turnTimerBudgetSeconds() {
     final gs = ref.read(gameStateProvider);
-    final fromState = gs?.isHardcore == true ||
-        (gs == null && _offlineState.isHardcore);
+    final fromState =
+        gs?.isHardcore == true || (gs == null && _offlineState.isHardcore);
     final fromSession = ref.read(gameNotifierProvider).isHardcoreSession;
     return (fromState || fromSession)
         ? 30
@@ -953,8 +954,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     bool playTurnSound = true,
     int? resumeFromSeconds,
   }) {
-    _timerWarningPlayed = resumeFromSeconds != null &&
-        resumeFromSeconds < 10;
+    _timerWarningPlayed = resumeFromSeconds != null && resumeFromSeconds < 10;
     _lastTimerTickSeconds = null;
     _timerWarningSub?.cancel();
     if (ref.read(gameStateProvider) == null &&
@@ -965,9 +965,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       game_audio.AudioService.instance.playSound(GameSound.turnStart);
     }
     final budget = _turnTimerBudgetSeconds();
-    var secs = resumeFromSeconds != null
-        ? resumeFromSeconds.clamp(0, budget)
-        : budget;
+    var secs =
+        resumeFromSeconds != null ? resumeFromSeconds.clamp(0, budget) : budget;
     if (secs <= 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -1026,9 +1025,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _timerWarningSub = _engineTimer.timeRemainingStream.listen((secondsLeft) {
       final prevTick = _lastTimerTickSeconds;
       _lastTimerTickSeconds = secondsLeft;
-      if (prevTick != null &&
-          secondsLeft < prevTick &&
-          secondsLeft > 0) {
+      if (prevTick != null && secondsLeft < prevTick && secondsLeft > 0) {
         game_audio.AudioService.instance.playSound(GameSound.timerTick);
       }
       if (!_timerWarningPlayed && secondsLeft > 0 && secondsLeft <= 10) {
@@ -1086,8 +1083,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     final nextId = nextPlayerId(state: afterDraw);
     final resolvedNextId = _resolveTournamentNextPlayerId(afterDraw, nextId);
-    final advanced =
-        advanceTurn(afterDraw, nextId: resolvedNextId).copyWith(
+    final advanced = advanceTurn(afterDraw, nextId: resolvedNextId).copyWith(
       drawPileCount: _drawPile.length,
     );
 
@@ -1132,8 +1128,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       );
       sheetStopwatch.stop();
       // Count any partial second toward the pause so the sheet can't stall for free.
-      uiPauseSeconds =
-          (sheetStopwatch.elapsedMilliseconds + 999) ~/ 1000;
+      uiPauseSeconds = (sheetStopwatch.elapsedMilliseconds + 999) ~/ 1000;
       if (!mounted) return;
 
       if (chosenAceSuit == null) {
@@ -1380,13 +1375,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               },
               isOnlineMode: true,
               ratingDelta: ratingDelta,
-              onSpectate: !isLocalWin &&
-                      ref.read(gameNotifierProvider).isPrivateSession
-                  ? () {
-                      navigator.pop();
-                      setState(() => _spectating = true);
-                    }
-                  : null,
+              onSpectate:
+                  !isLocalWin && ref.read(gameNotifierProvider).isPrivateSession
+                      ? () {
+                          navigator.pop();
+                          setState(() => _spectating = true);
+                        }
+                      : null,
             ),
           );
         });
@@ -1576,6 +1571,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               SafeArea(
                 child: Column(
                   children: [
+                    if (!isOfflineMode) const PendingFriendRequestsBanner(),
                     Expanded(
                       child: _TableLayout(
                         gameState: gameState,
@@ -1607,8 +1603,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             : (!isOfflineMode &&
                                     gameState.players.any(
                                       (p) =>
-                                          p.id ==
-                                              gameState.currentPlayerId &&
+                                          p.id == gameState.currentPlayerId &&
                                           p.isAi,
                                     ))
                                 ? gameState.currentPlayerId
@@ -1661,9 +1656,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                           setState(() => _penaltyFlashTrigger++);
                         },
                         skipHighlightPlayerIds: _skipHighlightPlayerIds,
-                        onOpponentProfileTap: isOfflineMode
-                            ? null
-                            : _showOpponentProfileSheet,
+                        onOpponentProfileTap:
+                            isOfflineMode ? null : _showOpponentProfileSheet,
                       ),
                     ),
                   ],
@@ -1878,14 +1872,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                           color: AppColors.feltDeep.withValues(alpha: 0.92),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color:
-                                AppColors.goldLight.withValues(alpha: 0.95),
+                            color: AppColors.goldLight.withValues(alpha: 0.95),
                             width: 2,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.goldPrimary
-                                  .withValues(alpha: 0.35),
+                              color:
+                                  AppColors.goldPrimary.withValues(alpha: 0.35),
                               blurRadius: 24,
                               spreadRadius: 2,
                             ),
@@ -2001,8 +1994,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               if (!isOfflineMode)
                 Positioned.fill(
                   child: ValueListenableBuilder<WsConnectionState>(
-                    valueListenable:
-                        ref.read(wsClientProvider).connectionState,
+                    valueListenable: ref.read(wsClientProvider).connectionState,
                     builder: (context, connState, _) {
                       return ValueListenableBuilder<bool>(
                         valueListenable:
@@ -2245,8 +2237,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           ),
         );
         sheetStopwatch.stop();
-        final sheetSec =
-            (sheetStopwatch.elapsedMilliseconds + 999) ~/ 1000;
+        final sheetSec = (sheetStopwatch.elapsedMilliseconds + 999) ~/ 1000;
 
         if (!mounted) return;
         if (chosenCard == null) {
@@ -2269,8 +2260,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         await _animateLocalCardToDiscard(assignedJoker,
             lastCardFromHand: lastFromHand);
         animStopwatch.stop();
-        final animSec =
-            (animStopwatch.elapsedMilliseconds + 999) ~/ 1000;
+        final animSec = (animStopwatch.elapsedMilliseconds + 999) ~/ 1000;
         if (!mounted) return;
         if (!lastFromHand) {
           HapticFeedback.mediumImpact();
@@ -3035,7 +3025,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   lastPlayedThisTurn: null,
                   activeSkipCount: 0,
                   queenSuitLock: null,
-                  preTurnCentreSuit: _offlineState.discardTopCard?.effectiveSuit,
+                  preTurnCentreSuit:
+                      _offlineState.discardTopCard?.effectiveSuit,
                   drawPileCount: _drawPile.length,
                 );
               });
@@ -3251,8 +3242,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         cardFactory: _makeCards,
       ).copyWith(drawPileCount: _drawPile.length);
     });
-    final name =
-        _offlineState.playerById(playerId)?.displayName ?? playerId;
+    final name = _offlineState.playerById(playerId)?.displayName ?? playerId;
     _pushMoveLog(MoveLogEntry.lastCardsBluff(
       playerId: playerId,
       playerName: name,
@@ -3283,8 +3273,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         isBustMode: false,
         cardFactory: _makeCards,
       );
-      final offenderName =
-          state.playerById(p.id)?.displayName ?? p.id;
+      final offenderName = state.playerById(p.id)?.displayName ?? p.id;
       if (p.id == OfflineGameState.localId) {
         _showError('You must declare Last Cards before winning!');
       } else {
@@ -3574,17 +3563,24 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   static bool _isSpecialCardStat(CardModel c) {
     const specialRanks = {
-      Rank.two, Rank.jack, Rank.queen, Rank.king, Rank.ace, Rank.eight,
+      Rank.two,
+      Rank.jack,
+      Rank.queen,
+      Rank.king,
+      Rank.ace,
+      Rank.eight,
     };
     return specialRanks.contains(c.effectiveRank) || c.isJoker;
   }
 
   void _trackMatchPlay(String playerId, List<CardModel> cards) {
     if (!_isOfflineSession) return;
-    _matchCardsPlayed[playerId] = (_matchCardsPlayed[playerId] ?? 0) + cards.length;
+    _matchCardsPlayed[playerId] =
+        (_matchCardsPlayed[playerId] ?? 0) + cards.length;
     final specials = cards.where(_isSpecialCardStat).length;
     if (specials > 0) {
-      _matchSpecialsPlayed[playerId] = (_matchSpecialsPlayed[playerId] ?? 0) + specials;
+      _matchSpecialsPlayed[playerId] =
+          (_matchSpecialsPlayed[playerId] ?? 0) + specials;
     }
   }
 
@@ -3728,8 +3724,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     game_audio.AudioService.instance.playSound(GameSound.tournamentQualify);
     final seq = ++_lastCardsDeclaredBannerSeq;
     setState(() {
-      _lastCardsDeclaredBannerText =
-          '"$playerName" declared Last Cards!';
+      _lastCardsDeclaredBannerText = '"$playerName" declared Last Cards!';
       _lastCardsBluffBannerText = null;
       if (pushMoveLog) {
         _pushMoveLog(MoveLogEntry.lastCardsDeclared(

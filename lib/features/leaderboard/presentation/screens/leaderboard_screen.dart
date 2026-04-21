@@ -108,15 +108,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     LeaderboardMode.bustOnline,
   };
 
-  /// Offline / local-only modes stay in [LeaderboardMode] for profile; this screen
-  /// only lists online (server-backed) leaderboards.
-  static const List<LeaderboardMode> _screenModes = [
-    LeaderboardMode.ranked,
-    LeaderboardMode.rankedHardcore,
-    LeaderboardMode.online,
-    LeaderboardMode.tournamentOnline,
-    LeaderboardMode.bustOnline,
-  ];
+  /// Every [LeaderboardMode] (ranked boards use [_RankedLeaderboard]; others [_ModeLeaderboard]).
+  static final List<LeaderboardMode> _screenModes =
+      List<LeaderboardMode>.unmodifiable(LeaderboardMode.values);
 
   // ── Ranked Firestore data ─────────────────────────────────────────────────
 
@@ -195,8 +189,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       // Drop entries with zero bracket activity so players who have never
       // played an N-player game don't appear in the bracket-filtered view.
       if (n != null) {
-        remoteEntries =
-            remoteEntries.where((e) => e.gamesPlayed > 0).toList();
+        remoteEntries = remoteEntries.where((e) => e.gamesPlayed > 0).toList();
       }
 
       if (remoteEntries.isEmpty) {
@@ -472,6 +465,7 @@ class _RankedLeaderboard extends StatefulWidget {
   final _RankedEntry? Function(List<_RankedEntry>) findLocalEntry;
   final int Function(List<_RankedEntry>) localRank;
   final AppThemeData theme;
+
   /// When this changes, the list is re-fetched (parent passes playerCountFilter).
   final int? filterKey;
 
@@ -533,11 +527,14 @@ class _RankedLeaderboardState extends State<_RankedLeaderboard> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.cloud_off, color: theme.textSecondary.withValues(alpha: 0.6), size: 48),
+                Icon(Icons.cloud_off,
+                    color: theme.textSecondary.withValues(alpha: 0.6),
+                    size: 48),
                 const SizedBox(height: 12),
                 Text(
                   'Failed to load rankings.',
-                  style: GoogleFonts.inter(color: theme.textSecondary.withValues(alpha: 0.6)),
+                  style: GoogleFonts.inter(
+                      color: theme.textSecondary.withValues(alpha: 0.6)),
                 ),
                 const SizedBox(height: 16),
                 TextButton.icon(
@@ -622,7 +619,8 @@ class _RankedLeaderboardState extends State<_RankedLeaderboard> {
 // ── Your Rank Banner ──────────────────────────────────────────────────────────
 
 class _YourRankBanner extends StatelessWidget {
-  const _YourRankBanner({required this.entry, required this.rank, required this.theme});
+  const _YourRankBanner(
+      {required this.entry, required this.rank, required this.theme});
 
   final _RankedEntry? entry;
   final int rank;
@@ -695,7 +693,9 @@ class _YourRankBanner extends StatelessWidget {
             )
           : Text(
               'Play a ranked game to appear on the leaderboard.',
-              style: GoogleFonts.inter(color: theme.textSecondary.withValues(alpha: 0.6), fontSize: 13),
+              style: GoogleFonts.inter(
+                  color: theme.textSecondary.withValues(alpha: 0.6),
+                  fontSize: 13),
             ),
     );
   }
@@ -735,8 +735,7 @@ class _Podium extends StatelessWidget {
           return Expanded(
             child: Column(
               children: [
-                Text(orderedEmojis[i],
-                    style: const TextStyle(fontSize: 24)),
+                Text(orderedEmojis[i], style: const TextStyle(fontSize: 24)),
                 const SizedBox(height: 4),
                 Text(
                   e.displayName,
@@ -760,8 +759,8 @@ class _Podium extends StatelessWidget {
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   decoration: BoxDecoration(
                     color: orderedColors[i].withValues(alpha: 0.15),
-                    borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(8)),
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(8)),
                     border: Border.all(
                       color: orderedColors[i].withValues(alpha: 0.5),
                       width: 1.5,
@@ -811,7 +810,9 @@ class _RankedTile extends StatelessWidget {
       Color(0xFFB0BEC5),
       Color(0xFFBF8970),
     ];
-    final rankColor = isTop3 ? medalColors[rank - 1] : theme.textSecondary.withValues(alpha: 0.6);
+    final rankColor = isTop3
+        ? medalColors[rank - 1]
+        : theme.textSecondary.withValues(alpha: 0.6);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
@@ -854,8 +855,7 @@ class _RankedTile extends StatelessWidget {
             ),
             if (isLocal)
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: theme.accentPrimary.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
@@ -874,7 +874,8 @@ class _RankedTile extends StatelessWidget {
         ),
         subtitle: Text(
           'W ${entry.wins}  ·  L ${entry.losses}  ·  ${entry.gamesPlayed} games',
-          style: GoogleFonts.inter(color: theme.textSecondary.withValues(alpha: 0.6), fontSize: 11),
+          style: GoogleFonts.inter(
+              color: theme.textSecondary.withValues(alpha: 0.6), fontSize: 11),
         ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -890,7 +891,9 @@ class _RankedTile extends StatelessWidget {
             ),
             Text(
               'MMR',
-              style: GoogleFonts.inter(color: theme.textSecondary.withValues(alpha: 0.6), fontSize: 9),
+              style: GoogleFonts.inter(
+                  color: theme.textSecondary.withValues(alpha: 0.6),
+                  fontSize: 9),
             ),
           ],
         ),
@@ -916,6 +919,7 @@ class _ModeLeaderboard extends StatefulWidget {
   final _ModeEntry? Function(List<_ModeEntry>) findLocalEntry;
   final int Function(List<_ModeEntry>) localRank;
   final AppThemeData theme;
+
   /// When this changes, the list is re-fetched.
   final int? filterKey;
 
@@ -977,12 +981,13 @@ class _ModeLeaderboardState extends State<_ModeLeaderboard> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.cloud_off,
-                    color: theme.textSecondary.withValues(alpha: 0.6), size: 48),
+                    color: theme.textSecondary.withValues(alpha: 0.6),
+                    size: 48),
                 const SizedBox(height: 12),
                 Text(
                   'Failed to load ${widget.mode.label} leaderboard.',
-                  style:
-                      GoogleFonts.inter(color: theme.textSecondary.withValues(alpha: 0.6)),
+                  style: GoogleFonts.inter(
+                      color: theme.textSecondary.withValues(alpha: 0.6)),
                 ),
                 const SizedBox(height: 16),
                 TextButton.icon(
@@ -1039,14 +1044,16 @@ class _ModeLeaderboardState extends State<_ModeLeaderboard> {
               ),
               if (entries.length >= 3)
                 SliverToBoxAdapter(
-                  child: _ModePodium(top3: entries.take(3).toList(), theme: theme),
+                  child:
+                      _ModePodium(top3: entries.take(3).toList(), theme: theme),
                 ),
               SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, i) => _ModeTile(
                     index: i,
                     entry: entries[i],
-                    isLocal: entries[i].uid == FirebaseAuth.instance.currentUser?.uid,
+                    isLocal: entries[i].uid ==
+                        FirebaseAuth.instance.currentUser?.uid,
                     theme: theme,
                   ),
                   childCount: entries.length,
@@ -1232,8 +1239,9 @@ class _ModeTile extends StatelessWidget {
       Color(0xFFB0BEC5),
       Color(0xFFBF8970),
     ];
-    final rankColor =
-        isTop3 ? medalColors[rank - 1] : theme.textSecondary.withValues(alpha: 0.6);
+    final rankColor = isTop3
+        ? medalColors[rank - 1]
+        : theme.textSecondary.withValues(alpha: 0.6);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
