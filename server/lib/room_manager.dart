@@ -144,7 +144,7 @@ class RoomManager {
     final playerId = _playerIds.remove(ws);
     if (roomCode == null || playerId == null) return;
     final session = _rooms[roomCode];
-    session?.handleSocketDisconnected(playerId, ws);
+    session?.handleSocketDisconnected(playerId, ws, forceRemove: true);
     if (session != null && session.isEmpty) {
       _rooms.remove(roomCode);
     }
