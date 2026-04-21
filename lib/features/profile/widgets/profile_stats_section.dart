@@ -59,14 +59,17 @@ class _ProfileStatsSectionState extends ConsumerState<ProfileStatsSection> {
   late final Future<
       ({
         RankedStatsSnapshot? ranked,
+        RankedStatsSnapshot? rankedHardcore,
         Map<LeaderboardMode, _ModeStatsTuple> modes,
       })> _statsFuture = Future.wait([
     fetchRankedStatsForCurrentUser(),
+    fetchRankedHardcoreStatsForCurrentUser(),
     _fetchAllModeStats(),
   ]).then(
     (results) => (
       ranked: results[0] as RankedStatsSnapshot?,
-      modes: results[1] as Map<LeaderboardMode, _ModeStatsTuple>,
+      rankedHardcore: results[1] as RankedStatsSnapshot?,
+      modes: results[2] as Map<LeaderboardMode, _ModeStatsTuple>,
     ),
   );
 
@@ -136,17 +139,20 @@ class _ProfileStatsSectionState extends ConsumerState<ProfileStatsSection> {
     return FutureBuilder<
         ({
           RankedStatsSnapshot? ranked,
+          RankedStatsSnapshot? rankedHardcore,
           Map<LeaderboardMode, _ModeStatsTuple> modes,
         })>(
       future: _statsFuture,
       builder: (context, snap) {
         final ranked = snap.data?.ranked;
+        final rankedHardcore = snap.data?.rankedHardcore;
         final modeMap = snap.data?.modes ?? {};
         final showXp = widget.showXpProgress;
         final headerTop = widget.statsHeaderTopSpacing;
         final hasXp = showXp;
         final hasRanked = ranked != null;
-        final hasUpperBlock = hasXp || hasRanked;
+        final hasRankedHardcore = rankedHardcore != null;
+        final hasUpperBlock = hasXp || hasRanked || hasRankedHardcore;
         final dividerColor = theme.accentDark.withValues(alpha: 0.35);
         final borderColor = theme.accentPrimary.withValues(alpha: 0.45);
 
@@ -168,8 +174,7 @@ class _ProfileStatsSectionState extends ConsumerState<ProfileStatsSection> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: theme.surfacePanel,
-                borderRadius:
-                    BorderRadius.circular(AppDimensions.radiusButton),
+                borderRadius: BorderRadius.circular(AppDimensions.radiusButton),
                 border: Border.all(color: borderColor),
               ),
               child: Column(
@@ -178,15 +183,14 @@ class _ProfileStatsSectionState extends ConsumerState<ProfileStatsSection> {
                   if (hasXp)
                     PlayerXpProgressBar(
                       accentColor: theme.accentPrimary,
-                      surfaceColor:
-                          theme.surfaceDark.withValues(alpha: 0.85),
+                      surfaceColor: theme.surfaceDark.withValues(alpha: 0.85),
                       textSecondary: theme.textSecondary,
                     ),
                   if (hasXp) ...[
                     const SizedBox(height: 12),
                     _StreakRow(theme: theme),
                   ],
-                  if (hasXp && hasRanked) ...[
+                  if (hasXp && (hasRanked || hasRankedHardcore)) ...[
                     const SizedBox(height: 16),
                     Divider(color: dividerColor, height: 1),
                   ],
@@ -194,6 +198,18 @@ class _ProfileStatsSectionState extends ConsumerState<ProfileStatsSection> {
                     _RankedStatsBlock(
                       stats: ranked,
                       theme: theme,
+                      title: 'RANKED',
+                    ),
+                  if (hasRanked && hasRankedHardcore) ...[
+                    const SizedBox(height: 14),
+                    Divider(color: dividerColor, height: 1),
+                    const SizedBox(height: 14),
+                  ],
+                  if (hasRankedHardcore)
+                    _RankedStatsBlock(
+                      stats: rankedHardcore,
+                      theme: theme,
+                      title: 'RANKED (HARDCORE)',
                     ),
                   if (hasUpperBlock) ...[
                     const SizedBox(height: 16),
@@ -213,10 +229,9 @@ class _ProfileStatsSectionState extends ConsumerState<ProfileStatsSection> {
                   ...LeaderboardMode.values.asMap().entries.map(
                     (e) {
                       final mode = e.value;
-                      final isLast =
-                          e.key == LeaderboardMode.values.length - 1;
-                      final s = modeMap[mode] ??
-                          (wins: 0, losses: 0, gamesPlayed: 0);
+                      final isLast = e.key == LeaderboardMode.values.length - 1;
+                      final s =
+                          modeMap[mode] ?? (wins: 0, losses: 0, gamesPlayed: 0);
                       return Padding(
                         padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
                         child: _ModeStatsRow(
@@ -241,10 +256,12 @@ class _RankedStatsBlock extends StatelessWidget {
   const _RankedStatsBlock({
     required this.stats,
     required this.theme,
+    this.title = 'RANKED',
   });
 
   final RankedStatsSnapshot stats;
   final AppThemeData theme;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
@@ -253,7 +270,7 @@ class _RankedStatsBlock extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'RANKED',
+          title,
           style: TextStyle(
             color: theme.textSecondary,
             fontSize: 11,

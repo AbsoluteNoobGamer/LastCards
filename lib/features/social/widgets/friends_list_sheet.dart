@@ -8,6 +8,7 @@ import '../../../core/providers/theme_provider.dart';
 import '../../../core/services/firestore_profile_service.dart';
 import '../../../core/providers/user_profile_provider.dart';
 import '../../lobby/presentation/screens/lobby_screen.dart';
+import 'other_player_profile_sheet.dart';
 
 /// Start-menu sheet: lists accepted friends, remove, and shortcut to lobby for in-app invites.
 class FriendsListSheet extends ConsumerWidget {
@@ -65,7 +66,8 @@ class FriendsListSheet extends ConsumerWidget {
                   AppPageRoutes.fadeSlide((_) => const LobbyScreen()),
                 );
               },
-              icon: Icon(Icons.meeting_room_rounded, color: theme.accentPrimary),
+              icon:
+                  Icon(Icons.meeting_room_rounded, color: theme.accentPrimary),
               label: Text(
                 'Open online lobby',
                 style: GoogleFonts.inter(
@@ -101,10 +103,10 @@ class FriendsListSheet extends ConsumerWidget {
                       return FutureBuilder<FirestoreUserProfile?>(
                         future: profileService.getProfileForUid(uid),
                         builder: (context, snap) {
-                          final name = snap.data?.displayName.trim().isNotEmpty ==
-                                  true
-                              ? snap.data!.displayName
-                              : uid.substring(0, uid.length.clamp(0, 8));
+                          final name =
+                              snap.data?.displayName.trim().isNotEmpty == true
+                                  ? snap.data!.displayName
+                                  : uid.substring(0, uid.length.clamp(0, 8));
                           return ListTile(
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 8,
@@ -113,10 +115,21 @@ class FriendsListSheet extends ConsumerWidget {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                               side: BorderSide(
-                                color: theme.accentPrimary
-                                    .withValues(alpha: 0.35),
+                                color:
+                                    theme.accentPrimary.withValues(alpha: 0.35),
                               ),
                             ),
+                            onTap: () {
+                              showModalBottomSheet<void>(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (ctx) => OtherPlayerProfileSheet(
+                                  firebaseUid: uid,
+                                  fallbackDisplayName: name,
+                                ),
+                              );
+                            },
                             leading: CircleAvatar(
                               backgroundColor: theme.surfacePanel,
                               backgroundImage: snap.data?.avatarUrl != null

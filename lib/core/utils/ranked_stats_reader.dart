@@ -19,12 +19,26 @@ Future<RankedStatsSnapshot?> fetchRankedStatsForCurrentUser() async {
 
 /// Ranked stats for any user (same collection the server writes).
 Future<RankedStatsSnapshot?> fetchRankedStatsForUid(String uid) async {
+  return _fetchRankedDoc(uid, 'ranked_stats');
+}
+
+/// Hardcore ranked (30s turns, etc.) — `ranked_hardcore_stats` on the server.
+Future<RankedStatsSnapshot?> fetchRankedHardcoreStatsForUid(String uid) async {
+  return _fetchRankedDoc(uid, 'ranked_hardcore_stats');
+}
+
+Future<RankedStatsSnapshot?> fetchRankedHardcoreStatsForCurrentUser() async {
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) return null;
+  return fetchRankedHardcoreStatsForUid(uid);
+}
+
+Future<RankedStatsSnapshot?> _fetchRankedDoc(
+    String uid, String collection) async {
   if (uid.isEmpty) return null;
   try {
-    final doc = await FirebaseFirestore.instance
-        .collection('ranked_stats')
-        .doc(uid)
-        .get();
+    final doc =
+        await FirebaseFirestore.instance.collection(collection).doc(uid).get();
     if (!doc.exists) return null;
     final d = doc.data() ?? <String, dynamic>{};
     int toInt(Object? v, int def) => v is num ? v.toInt() : def;

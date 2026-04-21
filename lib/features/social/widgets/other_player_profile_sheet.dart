@@ -37,6 +37,7 @@ class _OtherPlayerProfileSheetState
       ({
         FirestoreUserProfile? profile,
         RankedStatsSnapshot? ranked,
+        RankedStatsSnapshot? rankedHardcore,
         Map<LeaderboardMode, PublicModeStats> modes,
         FriendRelation relation,
       })> _load;
@@ -51,6 +52,7 @@ class _OtherPlayerProfileSheetState
       ({
         FirestoreUserProfile? profile,
         RankedStatsSnapshot? ranked,
+        RankedStatsSnapshot? rankedHardcore,
         Map<LeaderboardMode, PublicModeStats> modes,
         FriendRelation relation,
       })> _buildLoadFuture() {
@@ -60,14 +62,16 @@ class _OtherPlayerProfileSheetState
     return Future.wait([
       service.getProfileForUid(uid),
       fetchRankedStatsForUid(uid),
+      fetchRankedHardcoreStatsForUid(uid),
       fetchPublicModeStatsForUid(uid),
       friends.relationTo(uid),
     ]).then(
       (results) => (
         profile: results[0] as FirestoreUserProfile?,
         ranked: results[1] as RankedStatsSnapshot?,
-        modes: results[2] as Map<LeaderboardMode, PublicModeStats>,
-        relation: results[3] as FriendRelation,
+        rankedHardcore: results[2] as RankedStatsSnapshot?,
+        modes: results[3] as Map<LeaderboardMode, PublicModeStats>,
+        relation: results[4] as FriendRelation,
       ),
     );
   }
@@ -178,12 +182,14 @@ class _OtherPlayerProfileSheetState
         decoration: BoxDecoration(
           color: theme.backgroundDeep,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          border: Border.all(color: theme.accentPrimary.withValues(alpha: 0.35)),
+          border:
+              Border.all(color: theme.accentPrimary.withValues(alpha: 0.35)),
         ),
         child: FutureBuilder<
             ({
               FirestoreUserProfile? profile,
               RankedStatsSnapshot? ranked,
+              RankedStatsSnapshot? rankedHardcore,
               Map<LeaderboardMode, PublicModeStats> modes,
               FriendRelation relation,
             })>(
@@ -307,7 +313,19 @@ class _OtherPlayerProfileSheetState
                   ),
                   if (data.ranked != null) ...[
                     const SizedBox(height: 20),
-                    _RankedBlock(stats: data.ranked!, theme: theme),
+                    _RankedBlock(
+                      stats: data.ranked!,
+                      theme: theme,
+                      title: 'RANKED',
+                    ),
+                  ],
+                  if (data.rankedHardcore != null) ...[
+                    SizedBox(height: data.ranked != null ? 16 : 20),
+                    _RankedBlock(
+                      stats: data.rankedHardcore!,
+                      theme: theme,
+                      title: 'RANKED (HARDCORE)',
+                    ),
                   ],
                   const SizedBox(height: 16),
                   Text(
@@ -341,7 +359,8 @@ class _OtherPlayerProfileSheetState
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(mode.icon, size: 18, color: theme.accentPrimary),
+                              Icon(mode.icon,
+                                  size: 18, color: theme.accentPrimary),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Column(
@@ -446,10 +465,12 @@ class _RankedBlock extends StatelessWidget {
   const _RankedBlock({
     required this.stats,
     required this.theme,
+    this.title = 'RANKED',
   });
 
   final RankedStatsSnapshot stats;
   final AppThemeData theme;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
@@ -467,7 +488,7 @@ class _RankedBlock extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'RANKED',
+            title,
             style: TextStyle(
               color: theme.textSecondary,
               fontSize: 11,
