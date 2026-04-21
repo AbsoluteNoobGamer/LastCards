@@ -57,6 +57,7 @@ import '../../../../features/leaderboard/data/leaderboard_stats_writer.dart';
 import '../../../../features/tournament/providers/tournament_session_provider.dart';
 import '../../../../features/social/widgets/other_player_profile_sheet.dart';
 import '../../../../features/social/widgets/pending_friend_requests_banner.dart';
+import '../../../../features/settings/presentation/widgets/settings_modal.dart';
 import '../../../../core/widgets/themed_shimmer.dart';
 
 part 'table_screen_background.dart';
@@ -937,6 +938,17 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     );
   }
 
+  void _showSettingsSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const ProviderScope(
+        child: SettingsModal(),
+      ),
+    );
+  }
+
   /// Must match the turn bar denominator ([turnTimerTotalSeconds]) and timer engine.
   int _turnTimerBudgetSeconds() {
     final gs = ref.read(gameStateProvider);
@@ -1745,7 +1757,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   ),
                 ),
 
-              // ── Floating back control (single-player and online) ────────────
+              // ── Settings + back (single-player and online) ──────────────────
               Positioned(
                 bottom: isLandscapeMobile ? 130 : 210,
                 left: 0,
@@ -1753,21 +1765,43 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   top: false,
                   child: Padding(
                     padding: const EdgeInsets.all(AppDimensions.xs),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.30),
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        tooltip: isOfflineMode ? 'Exit game' : 'Leave game',
-                        icon: const Icon(
-                          Icons.arrow_back_ios_new_rounded,
-                          size: 18,
-                          color: Colors.white,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.30),
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            tooltip: 'Settings',
+                            icon: const Icon(
+                              Icons.settings_rounded,
+                              size: 20,
+                              color: Colors.white,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => _showSettingsSheet(context),
+                          ),
                         ),
-                        visualDensity: VisualDensity.compact,
-                        onPressed: _onBackPressed,
-                      ),
+                        const SizedBox(height: 8),
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.30),
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            tooltip: isOfflineMode ? 'Exit game' : 'Leave game',
+                            icon: const Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              size: 18,
+                              color: Colors.white,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            onPressed: _onBackPressed,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
