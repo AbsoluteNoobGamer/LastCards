@@ -56,12 +56,14 @@ enum PrivateGameVariant {
       };
 }
 
-/// Matches server [GameSession.hostPlayerIdForPrivateLobby] (lowest `player-N`).
+/// Matches server [GameSession.hostPlayerIdForPrivateLobby] (lowest `player-N`
+/// among humans only).
 String? _hostPlayerIdForRoster(List<PlayerModel> players) {
-  if (players.isEmpty) return null;
-  var bestId = players.first.id;
+  final humans = players.where((p) => !p.isAi).toList();
+  if (humans.isEmpty) return null;
+  var bestId = humans.first.id;
   var bestN = _playerNumber(bestId);
-  for (final p in players.skip(1)) {
+  for (final p in humans.skip(1)) {
     final n = _playerNumber(p.id);
     if (n < bestN) {
       bestN = n;

@@ -628,12 +628,13 @@ class GameSession {
     }
   }
 
-  /// Private lobbies: lowest-numbered `player-N` id (first joiner still present)
-  /// is the host and may call [startGameFromHost].
+  /// Private lobbies: lowest-numbered `player-N` id among **human** players
+  /// (first joiner still present) is the host and may call [startGameFromHost].
   String? get hostPlayerIdForPrivateLobby {
     String? bestId;
     int? bestN;
     for (final id in _players.keys) {
+      if (_players[id]?.isAi == true) continue;
       final match = RegExp(r'^player-(\d+)$').firstMatch(id);
       if (match == null) continue;
       final n = int.parse(match.group(1)!);
