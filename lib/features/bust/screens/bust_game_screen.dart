@@ -30,6 +30,7 @@ import 'package:last_cards/features/gameplay/presentation/widgets/player_hand_wi
 import 'package:last_cards/features/gameplay/presentation/widgets/player_zone_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/quick_chat_panel.dart' show kQuickMessages, QuickChatPanel;
 import 'package:last_cards/features/gameplay/presentation/widgets/turn_indicator_overlay.dart';
+import 'package:last_cards/features/settings/presentation/widgets/settings_modal.dart';
 import 'package:last_cards/shared/rules/move_log_support.dart';
 
 import '../bust_engine.dart';
@@ -173,6 +174,17 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     // cannot leave deal/AI audio overlapping the next session (lag, missing SFX).
     unawaited(game_audio.AudioService.instance.stopAll());
     super.dispose();
+  }
+
+  void _showSettingsSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const ProviderScope(
+        child: SettingsModal(),
+      ),
+    );
   }
 
   // ── Initialisation ─────────────────────────────────────────────────────────
@@ -1381,7 +1393,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
 
               // Direction: left slot of [FloatingActionBarWidget] (no Last Cards in Bust).
 
-              // Back button
+              // Settings + back
               Positioned(
                 bottom: 210,
                 left: 0,
@@ -1389,22 +1401,44 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                   top: false,
                   child: Padding(
                     padding: const EdgeInsets.all(AppDimensions.xs),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.30),
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        tooltip: 'Exit game',
-                        icon: const Icon(
-                          Icons.arrow_back_ios_new_rounded,
-                          size: 18,
-                          color: Colors.white,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.30),
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            tooltip: 'Settings',
+                            icon: const Icon(
+                              Icons.settings_rounded,
+                              size: 20,
+                              color: Colors.white,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => _showSettingsSheet(context),
+                          ),
                         ),
-                        visualDensity: VisualDensity.compact,
-                        onPressed: () => Navigator.of(context)
-                            .popUntil((route) => route.isFirst),
-                      ),
+                        const SizedBox(height: 8),
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.30),
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            tooltip: 'Exit game',
+                            icon: const Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              size: 18,
+                              color: Colors.white,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => Navigator.of(context)
+                                .popUntil((route) => route.isFirst),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
