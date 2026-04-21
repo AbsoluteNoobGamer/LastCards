@@ -16,7 +16,7 @@ import '../../domain/usecases/offline_game_engine.dart';
 import 'package:last_cards/shared/engine/shuffle_utils.dart';
 import 'package:last_cards/shared/rules/move_log_support.dart';
 import 'package:last_cards/shared/rules/last_cards_rules.dart'
-    show mayDeclareLastCards;
+    show lastCardsMaxHandSize, mayDeclareLastCards;
 import 'package:last_cards/shared/rules/win_condition_rules.dart'
     show canConfirmPlayerWin, needsUndeclaredLastCardsDraw, wouldConfirmWin;
 import '../../data/datasources/offline_game_state_datasource.dart';
@@ -2652,6 +2652,22 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     return min + _aiDelayRng.nextInt((max - min) + 1);
   }
 
+  /// Extra delay before an offline AI move so the human can tap Last Cards on
+  /// the opponent's turn. Hard difficulty shortens base "think" time a lot; this
+  /// keeps declaration feasible without changing shared game rules.
+  int _offlineLocalLastCardsReactionGraceMs({required String aiId}) {
+    if (aiId == OfflineGameState.localId) return 0;
+    final localId = OfflineGameState.localId;
+    if (_offlineState.lastCardsDeclaredBy.contains(localId)) return 0;
+    final local = _offlineState.playerById(localId);
+    if (local == null) return 0;
+    if (local.hand.length > lastCardsMaxHandSize &&
+        !canClearHandInOneTurn(state: _offlineState, playerId: localId)) {
+      return 0;
+    }
+    return _randomAiDelayMs(700, 1300);
+  }
+
   /// Whether each AI-played card can be applied one-at-a-time (same end state).
   bool _offlineAiPlayedCardsReplaySequentially(
     GameState start,
@@ -2748,6 +2764,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final baseThinkMs = offlineTournamentInstantPacing()
           ? 0
           : (_randomAiDelayMs(1200, 2500) * diffMult).round();
+
+      final lastCardsReactionGraceMs =
+          _offlineLocalLastCardsReactionGraceMs(aiId: aiId);
+      if (!offlineTournamentInstantPacing() && lastCardsReactionGraceMs > 0) {
+        await Future.delayed(Duration(milliseconds: lastCardsReactionGraceMs));
+        if (!mounted) return;
+      }
 
       // Forced draw pacing: pause before draw and a brief pause after.
       if (!hasPlayable) {
