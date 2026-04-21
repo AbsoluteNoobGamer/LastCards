@@ -179,12 +179,14 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         setState(() {
           _lobbyPlayers.removeWhere((p) => p.id == e.player.id);
           _lobbyPlayers.add(e.player);
+          // Host receives player_joined before room_created; learn our id early
+          // so the seat list uses local ready state instead of waiting on map.
+          _localPlayerId ??= e.player.id;
           if (e.player.isAi) {
             _playerReady[e.player.id] = true;
           }
           if (_pendingJoin) {
             _pendingJoin = false;
-            _localPlayerId ??= e.player.id;
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Joined room! Tap READY when ready.'),
@@ -225,6 +227,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
           _lobbyPlayers.removeWhere((p) => p.id == e.playerId);
           _playerReady.remove(e.playerId);
         });
+        return;
       }
     });
   }
@@ -1662,10 +1665,11 @@ class _LobbyPlayerList extends StatelessWidget {
     for (var i = 0; i < maxSlots; i++) {
       if (i < sorted.length) {
         final p = sorted[i];
-        final isMe = p.id == localPlayerId;
+        final isMe = localPlayerId != null && p.id == localPlayerId;
+        final serverReady = playerReady[p.id] ?? false;
         final ready = p.isAi
             ? true
-            : (isMe ? localIsReady : (playerReady[p.id] ?? false));
+            : (isMe ? (localIsReady || serverReady) : serverReady);
         entries.add(
           _PlayerEntry(
             name: p.displayName,
