@@ -1347,6 +1347,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               },
               isOnlineMode: true,
               ratingDelta: ratingDelta,
+              onSpectate: !isLocalWin &&
+                      ref.read(gameNotifierProvider).isPrivateSession
+                  ? () {
+                      navigator.pop();
+                      setState(() => _onlineWinDialogShown = false);
+                    }
+                  : null,
             ),
           );
         });
@@ -1564,7 +1571,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         discardPileKey: _discardPileKey,
                         thinkingOpponentId: isOfflineMode && _aiThinking
                             ? _offlineState.currentPlayerId
-                            : null,
+                            : (!isOfflineMode &&
+                                    gameState.players.any(
+                                      (p) =>
+                                          p.id ==
+                                              gameState.currentPlayerId &&
+                                          p.isAi,
+                                    ))
+                                ? gameState.currentPlayerId
+                                : null,
                         playerZoneKeys: _playerZoneKeys,
                         onCardTap: _onCardTap,
                         onDrawTap: isOfflineMode

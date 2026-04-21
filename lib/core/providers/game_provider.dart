@@ -29,6 +29,9 @@ class GameNotifierState {
     this.rankedRatingChanges,
     this.isRanked = false,
     this.isHardcoreSession = false,
+    this.isPrivateSession = false,
+    this.isBustSession = false,
+    this.isKnockoutTournamentSession = false,
     this.socketDisconnectedPlayerIds = const <String>{},
   });
 
@@ -69,6 +72,15 @@ class GameNotifierState {
   /// Hardcore session (from session_config); mirrors [GameState.isHardcore] once snapshots arrive.
   final bool isHardcoreSession;
 
+  /// Private friend room ([session_config.isPrivate]).
+  final bool isPrivateSession;
+
+  /// Bust mode session ([session_config.isBustMode]).
+  final bool isBustSession;
+
+  /// Knockout tournament UX ([session_config.isKnockoutTournament]).
+  final bool isKnockoutTournamentSession;
+
   GameNotifierState copyWith({
     GameState? gameState,
     bool? pendingSuitChoice,
@@ -79,6 +91,9 @@ class GameNotifierState {
     Map<String, int>? rankedRatingChanges,
     bool? isRanked,
     bool? isHardcoreSession,
+    bool? isPrivateSession,
+    bool? isBustSession,
+    bool? isKnockoutTournamentSession,
     Set<String>? socketDisconnectedPlayerIds,
     bool clearError = false,
     bool clearSuitChoice = false,
@@ -102,6 +117,10 @@ class GameNotifierState {
       rankedRatingChanges: rankedRatingChanges ?? this.rankedRatingChanges,
       isRanked: isRanked ?? this.isRanked,
       isHardcoreSession: isHardcoreSession ?? this.isHardcoreSession,
+      isPrivateSession: isPrivateSession ?? this.isPrivateSession,
+      isBustSession: isBustSession ?? this.isBustSession,
+      isKnockoutTournamentSession:
+          isKnockoutTournamentSession ?? this.isKnockoutTournamentSession,
       socketDisconnectedPlayerIds: clearSocketDisconnected
           ? const <String>{}
           : (socketDisconnectedPlayerIds ?? this.socketDisconnectedPlayerIds),
@@ -485,6 +504,9 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
         state = state.copyWith(
           isRanked: e.isRanked,
           isHardcoreSession: e.isHardcore,
+          isPrivateSession: e.isPrivate,
+          isBustSession: e.isBustMode,
+          isKnockoutTournamentSession: e.isKnockoutTournament,
         );
       }),
     );

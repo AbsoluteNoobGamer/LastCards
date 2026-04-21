@@ -84,6 +84,53 @@ void main() {
       expect(code, matches(RegExp(r'^[0-9A-F]{6}$')));
       expect(created['isPrivate'], isTrue);
       expect(created['playerId'], isNotEmpty);
+      expect(created['isHardcore'], isFalse);
+      expect(created['gameVariant'], 'standard');
+    });
+
+    test('create_room with isHardcore echoes in room_created', () async {
+      final rm = RoomManager();
+      final ws = FakeWs();
+      rm.handleConnection(ws);
+      ws.addIncoming(jsonEncode({
+        'type': 'create_room',
+        'displayName': 'Host',
+        'isHardcore': true,
+      }));
+      await _flushAsync();
+
+      final created = ws.lastOfType('room_created');
+      expect(created!['isHardcore'], isTrue);
+    });
+
+    test('create_room with gameVariant bust', () async {
+      final rm = RoomManager();
+      final ws = FakeWs();
+      rm.handleConnection(ws);
+      ws.addIncoming(jsonEncode({
+        'type': 'create_room',
+        'displayName': 'Host',
+        'gameVariant': 'bust',
+      }));
+      await _flushAsync();
+
+      final created = ws.lastOfType('room_created');
+      expect(created!['gameVariant'], 'bust');
+    });
+
+    test('create_room with gameVariant knockout', () async {
+      final rm = RoomManager();
+      final ws = FakeWs();
+      rm.handleConnection(ws);
+      ws.addIncoming(jsonEncode({
+        'type': 'create_room',
+        'displayName': 'Host',
+        'gameVariant': 'knockout',
+      }));
+      await _flushAsync();
+
+      final created = ws.lastOfType('room_created');
+      expect(created!['gameVariant'], 'knockout');
     });
 
     test('join_room unknown code returns room_not_found', () async {
@@ -127,6 +174,8 @@ void main() {
       expect(joined, isNotNull);
       expect(joined!['roomCode'], code);
       expect(joined['isPrivate'], isTrue);
+      expect(joined['isHardcore'], isFalse);
+      expect(joined['gameVariant'], 'standard');
 
       // Roster replay so the guest learns about players who joined earlier.
       final rosterIds = guest.messages
@@ -400,6 +449,43 @@ void main() {
       await b.close();
       await _flushAsync();
       expect(rm.openWebSocketCount, 0);
+    });
+
+    test('set_private_lobby_rules from host updates everyone', () async {
+      final rm = RoomManager();
+      final host = FakeWs();
+      final guest = FakeWs();
+      rm.handleConnection(host);
+      host.addIncoming(jsonEncode({
+        'type': 'create_room',
+        'displayName': 'Host',
+      }));
+      await _flushAsync();
+      final code = host.lastOfType('room_created')!['roomCode'] as String;
+
+      rm.handleConnection(guest);
+      guest.addIncoming(jsonEncode({
+        'type': 'join_room',
+        'roomCode': code,
+        'displayName': 'Guest',
+      }));
+      await _flushAsync();
+
+      host.addIncoming(jsonEncode({
+        'type': 'set_private_lobby_rules',
+        'isHardcore': true,
+      }));
+      await _flushAsync();
+
+      Map<String, dynamic>? lastSettings(List<Map<String, dynamic>> msgs) {
+        final list =
+            msgs.where((m) => m['type'] == 'private_lobby_settings').toList();
+        if (list.isEmpty) return null;
+        return list.last;
+      }
+
+      expect(lastSettings(host.messages)?['isHardcore'], isTrue);
+      expect(lastSettings(guest.messages)?['isHardcore'], isTrue);
     });
 
     test('start_game from host starts with 2+ players; guest gets not_host',

@@ -43,6 +43,9 @@ class PlayerModel with _$PlayerModel {
     /// Firebase Auth uid when the player joined online with a token; used for
     /// profile / friends. Omitted for offline AI and guests without auth.
     String? firebaseUid,
+
+    /// Server-driven bot in a private online lobby (no WebSocket).
+    @Default(false) bool isAi,
   }) = _PlayerModel;
 
   factory PlayerModel.fromJson(Map<String, dynamic> json) =>

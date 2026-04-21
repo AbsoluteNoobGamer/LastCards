@@ -29,12 +29,16 @@ class _WinDialog extends ConsumerStatefulWidget {
     this.ratingDelta,
     this.xpAwarded,
     this.matchStats,
+    this.onSpectate,
   });
 
   final String winnerName;
   final bool isLocalWin;
   final VoidCallback onPlayAgain;
   final bool isOnlineMode;
+
+  /// Private online match: dismiss overlay and stay at the table (losers only).
+  final VoidCallback? onSpectate;
 
   /// Rating change for the local player in a ranked game, or null.
   final int? ratingDelta;
@@ -205,7 +209,41 @@ class _WinDialogState extends ConsumerState<_WinDialog>
                               ),
                             ],
                             const SizedBox(height: AppDimensions.xl),
-                            if (widget.isOnlineMode)
+                            if (widget.isOnlineMode) ...[
+                              if (widget.onSpectate != null &&
+                                  !widget.isLocalWin) ...[
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton(
+                                    onPressed: widget.onSpectate,
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: theme.accentPrimary,
+                                      side: BorderSide(
+                                        color: theme.accentPrimary
+                                            .withValues(alpha: 0.75),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: AppDimensions.md,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                          AppDimensions.radiusButton,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'KEEP WATCHING',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 1.0,
+                                        fontSize: 15,
+                                        color: theme.accentPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: AppDimensions.sm),
+                              ],
                               SizedBox(
                                 width: double.infinity,
                                 child: ElevatedButton(
@@ -230,8 +268,9 @@ class _WinDialogState extends ConsumerState<_WinDialog>
                                     ),
                                   ),
                                 ),
-                              )
-                            else
+                              ),
+                            ],
+                            if (!widget.isOnlineMode)
                               Row(
                                 children: [
                                   Expanded(

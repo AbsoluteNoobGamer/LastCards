@@ -100,6 +100,15 @@ class RoomManager {
       case 'start_game':
         _startGameFromHost(ws);
         break;
+      case 'set_private_lobby_rules':
+        _setPrivateLobbyRules(ws, json);
+        break;
+      case 'add_private_lobby_bot':
+        _addPrivateLobbyBot(ws, json);
+        break;
+      case 'remove_private_lobby_bot':
+        _removePrivateLobbyBot(ws, json);
+        break;
       case 'quickplay':
         _handleQuickplay(ws, json);
         break;
@@ -152,9 +161,16 @@ class RoomManager {
     final displayName =
         sanitizeDisplayName(json['displayName'] as String? ?? 'Player');
     final firebaseUid = _playerUserIds[ws];
+    final isHardcore = json['isHardcore'] == true;
+    final gameVariant = json['gameVariant'] as String? ?? 'standard';
+    final isBust = gameVariant == 'bust';
+    final isKnockout = gameVariant == 'knockout';
     final session = GameSession(
       roomCode,
       isPrivate: true,
+      isHardcore: isHardcore,
+      isBustMode: isBust,
+      isKnockoutTournament: isKnockout && !isBust,
       onBecameEmpty: (_) => _rooms.remove(roomCode),
     );
     _rooms[roomCode] = session;
@@ -168,7 +184,15 @@ class RoomManager {
       'roomCode': roomCode,
       'playerId': playerId,
       'isPrivate': true,
+      'isHardcore': session.isHardcore,
+      'gameVariant': _wireGameVariant(session),
     }));
+  }
+
+  String _wireGameVariant(GameSession session) {
+    if (session.isBustMode) return 'bust';
+    if (session.isKnockoutTournament) return 'knockout';
+    return 'standard';
   }
 
   void _joinRoom(dynamic ws, Map<String, dynamic> json) {
@@ -195,6 +219,8 @@ class RoomManager {
           'roomCode': code,
           'playerId': existingId,
           'isPrivate': session.isPrivate,
+          'isHardcore': session.isHardcore,
+          'gameVariant': _wireGameVariant(session),
         }));
         return;
       }
@@ -215,6 +241,8 @@ class RoomManager {
       'roomCode': code,
       'playerId': playerId,
       'isPrivate': session.isPrivate,
+      'isHardcore': session.isHardcore,
+      'gameVariant': _wireGameVariant(session),
     }));
   }
 
@@ -267,6 +295,31 @@ class RoomManager {
     if (roomCode != null && playerId != null) {
       _rooms[roomCode]?.startGameFromHost(playerId);
     }
+  }
+
+  void _setPrivateLobbyRules(dynamic ws, Map<String, dynamic> json) {
+    final roomCode = _playerRooms[ws];
+    final playerId = _playerIds[ws];
+    final hardcore = json['isHardcore'] == true;
+    if (roomCode != null && playerId != null) {
+      _rooms[roomCode]?.setPrivateLobbyHardcore(playerId, hardcore);
+    }
+  }
+
+  void _addPrivateLobbyBot(dynamic ws, Map<String, dynamic> json) {
+    final roomCode = _playerRooms[ws];
+    final playerId = _playerIds[ws];
+    if (roomCode == null || playerId == null) return;
+    final difficulty = json['aiDifficulty'] as String? ?? 'medium';
+    _rooms[roomCode]?.addPrivateLobbyBot(playerId, aiDifficulty: difficulty);
+  }
+
+  void _removePrivateLobbyBot(dynamic ws, Map<String, dynamic> json) {
+    final roomCode = _playerRooms[ws];
+    final playerId = _playerIds[ws];
+    final botId = json['playerId'] as String?;
+    if (roomCode == null || playerId == null || botId == null) return;
+    _rooms[roomCode]?.removePrivateLobbyBot(playerId, botId);
   }
 
   int _targetPlayerCountForQueueKey(Object queueKey) {
