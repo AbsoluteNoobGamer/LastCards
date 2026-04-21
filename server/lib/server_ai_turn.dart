@@ -158,11 +158,7 @@ List<List<CardModel>> _enumeratePlayCandidates({
     final n = group.length;
     for (var k = 1; k <= n; k++) {
       for (final combo in _combinations(group, k)) {
-        if (isHardcore &&
-            combo.length == 1 &&
-            combo.first.isJoker &&
-            hand.length == 1) {
-          continue;
+
         }
         result.add(combo);
       }
