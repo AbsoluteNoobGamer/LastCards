@@ -1185,6 +1185,44 @@ GameState initializeFirstTurnClearability(
   return state.copyWith(players: players);
 }
 
+/// Opening [GameState.currentPlayerId] has not yet had a moment when
+/// [mayDeclareLastCards] could apply (see `last_cards_rules.dart`). If the deal
+/// was already clearable ([PlayerModel.lastCardsHandWasClearableAtTurnStart]),
+/// adds that player to [lastCardsDeclaredBy] so a first-turn win is not treated
+/// as undeclared Last Cards ([needsUndeclaredLastCardsDraw]).
+///
+/// Call after [initializeFirstTurnClearability] when the discard pile and
+/// opening skip (e.g. Eight) are final — same moment as server `_startGame`.
+/// Offline [TableScreen] and [GameSession] must both invoke this for parity.
+({GameState state, bool applied, bool isBluff}) applyOpeningSeatLastCardsSeedIfNeeded({
+  required GameState state,
+  bool isBustMode = false,
+}) {
+  if (isBustMode) {
+    return (state: state, applied: false, isBluff: false);
+  }
+  final id = state.currentPlayerId;
+  if (state.lastCardsDeclaredBy.contains(id)) {
+    return (state: state, applied: false, isBluff: false);
+  }
+  final player = state.playerById(id);
+  if (player == null) return (state: state, applied: false, isBluff: false);
+  if (!player.lastCardsHandWasClearableAtTurnStart) {
+    return (state: state, applied: false, isBluff: false);
+  }
+  final nextState = state.copyWith(
+    lastCardsDeclaredBy: {...state.lastCardsDeclaredBy, id},
+  );
+  final hasJoker = player.hand.any((c) => c.isJoker);
+  final bluff = !hasJoker &&
+      !canClearHandInOneTurn(
+        state: nextState,
+        playerId: id,
+        isBustMode: isBustMode,
+      );
+  return (state: nextState, applied: true, isBluff: bluff);
+}
+
 // ── Shared turn advancement ───────────────────────────────────────────────────
 
 /// Advances to the next player and resets all per-turn state fields.

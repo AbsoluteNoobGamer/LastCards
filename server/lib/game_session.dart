@@ -1516,30 +1516,23 @@ class GameSession {
   /// The opening [GameState.currentPlayerId] has not yet had a moment when
   /// [mayDeclareLastCards] could apply (it is always their turn until the first
   /// [advanceTurn]). Other seats are handled by [_aiDeclareLastCardsIfNeeded].
-  /// Seeds [lastCardsDeclaredBy] when the deal was already clearable so a
-  /// first-turn win is not treated as undeclared Last Cards.
+  /// Uses shared [applyOpeningSeatLastCardsSeedIfNeeded]; broadcasts
+  /// [last_cards_pressed] like [_handleDeclareLastCards].
   void _seedOpeningCurrentPlayerLastCardsIfNoOffTurnWindowYet() {
     if (_gameOver || !_started || isBustMode) return;
 
-    final id = _state.currentPlayerId;
-    if (_state.lastCardsDeclaredBy.contains(id)) return;
-    final player = _state.playerById(id);
-    if (player == null) return;
-    if (!player.lastCardsHandWasClearableAtTurnStart) return;
-
-    _state = _state.copyWith(
-      lastCardsDeclaredBy: {..._state.lastCardsDeclaredBy, id},
+    final r = applyOpeningSeatLastCardsSeedIfNeeded(
+      state: _state,
+      isBustMode: isBustMode,
     );
-
-    final hasJoker = player.hand.any((c) => c.isJoker);
-    if (!hasJoker &&
-        !canClearHandInOneTurn(
-          state: _state,
-          playerId: id,
-          isBustMode: isBustMode,
-        )) {
-      _lastCardsBluffedBy.add(id);
-    }
+    if (!r.applied) return;
+    _state = r.state;
+    final id = _state.currentPlayerId;
+    if (r.isBluff) _lastCardsBluffedBy.add(id);
+    _broadcast({
+      'type': 'last_cards_pressed',
+      'playerId': id,
+    });
   }
 
   /// With two survivors the finale is a race to empty hand — never end the

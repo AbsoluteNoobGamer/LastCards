@@ -219,6 +219,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   /// Clears the declare banner only for the latest [_announceLastCardsDeclaration] call.
   int _lastCardsDeclaredBannerSeq = 0;
 
+  /// Offline: [applyOpeningSeatLastCardsSeedIfNeeded] ran at deal — show banner/move log.
+  bool _pendingOpeningLastCardsAnnouncement = false;
+
   /// Tracks [GameState.currentPlayerId] across [turn_changed] events so we can
   /// finalize move-log entries for the player whose turn ended (server
   /// `card_played.turnContinues` is unreliable because applyPlay does not
@@ -602,6 +605,17 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
       );
       state = initializeFirstTurnClearability(state, isBustMode: false);
+      final openingLc = applyOpeningSeatLastCardsSeedIfNeeded(
+        state: state,
+        isBustMode: false,
+      );
+      if (openingLc.applied) {
+        state = openingLc.state;
+        if (openingLc.isBluff) {
+          _offlineLastCardsBluffedBy.add(state.currentPlayerId);
+        }
+        _pendingOpeningLastCardsAnnouncement = true;
+      }
     }
 
     // During a normal deal animation, show the dealer pile counting down from
@@ -632,6 +646,19 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      if (_pendingOpeningLastCardsAnnouncement) {
+        _pendingOpeningLastCardsAnnouncement = false;
+        final opener =
+            _offlineState.playerById(_offlineState.currentPlayerId);
+        if (opener != null &&
+            _offlineState.lastCardsDeclaredBy.contains(opener.id)) {
+          _announceLastCardsDeclaration(
+            playerId: opener.id,
+            playerName: opener.displayName,
+            pushMoveLog: true,
+          );
+        }
+      }
       if (hasDebugState || widget.debugSkipDealAnimation) {
         _startTimer();
         if (_offlineState.currentPlayerId != OfflineGameState.localId) {
