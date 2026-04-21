@@ -1669,7 +1669,7 @@ class _LobbyPlayerList extends StatelessWidget {
         final serverReady = playerReady[p.id] ?? false;
         final ready = p.isAi
             ? true
-            : (isMe ? (localIsReady || serverReady) : serverReady);
+            : (isMe ? localIsReady : serverReady);
         entries.add(
           _PlayerEntry(
             name: p.displayName,
