@@ -158,11 +158,10 @@ List<List<CardModel>> _enumeratePlayCandidates({
     final n = group.length;
     for (var k = 1; k <= n; k++) {
       for (final combo in _combinations(group, k)) {
-
-        }
         result.add(combo);
       }
     }
+  }
   }
 
   return result;
