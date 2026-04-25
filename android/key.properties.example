@@ -1,18 +1,10 @@
-# Copy this file to key.properties (same folder as this example) and fill in
-# your release keystore. key.properties is gitignored.
+# Copy to key.properties and fill in. key.properties is gitignored.
+# Keystore (see Flutter: https://docs.flutter.dev/deployment/android#signing-the-app)
 #
-# Generate a keystore (one-time), then:
-#   storePassword=<keystore password>
-#   keyPassword=<key password>
-#   keyAlias=<your key alias>
-#   storeFile=<path to .jks or .keystore, use forward slashes>
+# storeFile: path relative to this android/ folder, e.g. upload-keystore.p12
+# Or use an absolute path.
 #
-# Example (Windows):
-#   storeFile=C:/Users/you/keys/lastcards-release.jks
-#
-# See: https://docs.flutter.dev/deployment/android#signing-the-app
-
 storePassword=
 keyPassword=
-keyAlias=
-storeFile=
+keyAlias=upload
+storeFile=upload-keystore.p12

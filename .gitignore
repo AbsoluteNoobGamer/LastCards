@@ -55,6 +55,9 @@ app.*.map.json
 **/android/gradlew.bat
 **/android/local.properties
 **/android/key.properties
+**/android/*.jks
+**/android/*.p12
+**/android/*.keystore
 
 # Windows
 windows/flutter/ephemeral/
