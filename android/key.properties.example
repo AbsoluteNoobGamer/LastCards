@@ -1,6 +1,9 @@
 # Copy to key.properties and fill in. key.properties is gitignored.
 # Keystore (see Flutter: https://docs.flutter.dev/deployment/android#signing-the-app)
 #
+# `flutter build appbundle --release` requires a valid key.properties + keystore
+# (see app/build.gradle.kts). Verify SHA-1: pwsh -File android/verify_upload_cert.ps1
+#
 # storeFile: path relative to this android/ folder, e.g. upload-keystore.p12
 # Or use an absolute path.
 #
