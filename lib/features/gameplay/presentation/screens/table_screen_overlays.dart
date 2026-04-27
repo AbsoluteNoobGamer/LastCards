@@ -30,12 +30,16 @@ class _WinDialog extends ConsumerStatefulWidget {
     this.xpAwarded,
     this.matchStats,
     this.onSpectate,
+    this.onReturnToMenu,
   });
 
   final String winnerName;
   final bool isLocalWin;
   final VoidCallback onPlayAgain;
   final bool isOnlineMode;
+
+  /// Offline only: called right before [Navigator.popUntil] to the main menu.
+  final VoidCallback? onReturnToMenu;
 
   /// Private online match: dismiss overlay and stay at the table (losers only).
   final VoidCallback? onSpectate;
@@ -275,8 +279,11 @@ class _WinDialogState extends ConsumerState<_WinDialog>
                                 children: [
                                   Expanded(
                                     child: OutlinedButton(
-                                      onPressed: () => Navigator.of(context)
-                                          .popUntil((route) => route.isFirst),
+                                      onPressed: () {
+                                        widget.onReturnToMenu?.call();
+                                        Navigator.of(context).popUntil(
+                                            (route) => route.isFirst);
+                                      },
                                       style: OutlinedButton.styleFrom(
                                         padding: const EdgeInsets.symmetric(
                                             vertical: AppDimensions.md),

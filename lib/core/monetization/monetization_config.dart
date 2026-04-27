@@ -19,6 +19,21 @@ const String kAdmobBannerIos = String.fromEnvironment(
   defaultValue: _testBannerIos,
 );
 
+const String _testInterstitialAndroid = 'ca-app-pub-3940256099942544/1033173712';
+const String _testInterstitialIos = 'ca-app-pub-3940256099942544/4411468910';
+
+/// Interstitial (post-game) — use real IDs in release, e.g.
+/// `--dart-define=ADMOB_INTERSTITIAL_ANDROID=…`
+const String kAdmobInterstitialAndroid = String.fromEnvironment(
+  'ADMOB_INTERSTITIAL_ANDROID',
+  defaultValue: _testInterstitialAndroid,
+);
+
+const String kAdmobInterstitialIos = String.fromEnvironment(
+  'ADMOB_INTERSTITIAL_IOS',
+  defaultValue: _testInterstitialIos,
+);
+
 bool kSupportsStoreMonetization() {
   if (kIsWeb) return false;
   return defaultTargetPlatform == TargetPlatform.android ||
@@ -32,6 +47,18 @@ String kBannerAdUnitIdForPlatform() {
       return kAdmobBannerAndroid;
     case TargetPlatform.iOS:
       return kAdmobBannerIos;
+    default:
+      return '';
+  }
+}
+
+String kInterstitialAdUnitIdForPlatform() {
+  if (kIsWeb) return '';
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.android:
+      return kAdmobInterstitialAndroid;
+    case TargetPlatform.iOS:
+      return kAdmobInterstitialIos;
     default:
       return '';
   }

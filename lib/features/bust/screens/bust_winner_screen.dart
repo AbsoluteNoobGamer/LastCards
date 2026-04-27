@@ -10,6 +10,7 @@ import 'package:last_cards/core/providers/user_profile_provider.dart';
 import 'package:last_cards/core/theme/app_colors.dart';
 import 'package:last_cards/core/theme/app_dimensions.dart';
 import 'package:last_cards/core/theme/app_typography.dart';
+import 'package:last_cards/core/monetization/post_game_interstitial.dart';
 
 import '../../leaderboard/data/leaderboard_stats_writer.dart';
 
@@ -234,8 +235,13 @@ class _BustWinnerScreenState extends ConsumerState<BustWinnerScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.of(context)
-                          .popUntil((route) => route.isFirst),
+                      onPressed: () {
+                        ref
+                            .read(postGameInterstitialProvider.notifier)
+                            .markCompletedPlaySession();
+                        Navigator.of(context)
+                            .popUntil((route) => route.isFirst);
+                      },
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
                             vertical: AppDimensions.md),
@@ -255,8 +261,13 @@ class _BustWinnerScreenState extends ConsumerState<BustWinnerScreen> {
                   const SizedBox(width: AppDimensions.sm),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () => Navigator.of(context)
-                          .popUntil((route) => route.isFirst),
+                      onPressed: () {
+                        ref
+                            .read(postGameInterstitialProvider.notifier)
+                            .markCompletedPlaySession();
+                        Navigator.of(context)
+                            .popUntil((route) => route.isFirst);
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: localWon
                             ? AppColors.goldPrimary

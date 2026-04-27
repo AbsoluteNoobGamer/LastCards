@@ -36,6 +36,7 @@ import '../../../../features/social/widgets/pending_friend_requests_banner.dart'
 import '../../../../features/social/widgets/pending_game_invites_banner.dart';
 import '../../../../core/monetization/monetization_config.dart';
 import '../../../../core/monetization/monetization_provider.dart';
+import '../../../../core/monetization/post_game_interstitial.dart';
 import '../../../../core/widgets/monetization_banner_ad.dart';
 
 part 'start_screen_background.dart';
@@ -138,6 +139,17 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
   @override
   void didPopNext() {
     unawaited(StartScreenBgm.instance.onRouteVisible());
+    // Post-game interstitial: only after a completed session (see
+    // [PostGameInterstitialNotifier.markCompletedPlaySession]) and subject to
+    // cooldown + remove-ads purchase.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        ref
+            .read(postGameInterstitialProvider.notifier)
+            .maybeShowWhenStartVisible(ref, context),
+      );
+    });
   }
 
   @override

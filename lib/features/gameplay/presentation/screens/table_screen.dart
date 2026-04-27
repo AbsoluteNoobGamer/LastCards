@@ -59,6 +59,7 @@ import '../../../../features/social/widgets/other_player_profile_sheet.dart';
 import '../../../../features/social/widgets/pending_friend_requests_banner.dart';
 import '../../../../features/settings/presentation/widgets/settings_modal.dart';
 import '../../../../core/widgets/themed_shimmer.dart';
+import '../../../../core/monetization/post_game_interstitial.dart';
 
 part 'table_screen_background.dart';
 part 'table_screen_layout.dart';
@@ -1380,6 +1381,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               winnerName: winner.displayName,
               isLocalWin: isLocalWin,
               onPlayAgain: () {
+                ref
+                    .read(postGameInterstitialProvider.notifier)
+                    .markCompletedPlaySession();
                 ref.read(gameNotifierProvider.notifier).clearOnlineState();
                 ref.read(wsClientProvider).disconnect();
                 navigator.pop(); // close dialog
@@ -1418,6 +1422,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               actions: [
                 TextButton(
                   onPressed: () {
+                    ref
+                        .read(postGameInterstitialProvider.notifier)
+                        .markCompletedPlaySession();
                     ref.read(gameNotifierProvider.notifier).clearOnlineState();
                     ref.read(wsClientProvider).disconnect();
                     navigator.pop(); // close dialog
@@ -3214,6 +3221,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   /// this route is removed. Synchronous [Navigator.pop] here caused
   /// `'_dependents.isEmpty': is not true` when leaving the table after round 1.
   void _scheduleTournamentTablePop(TournamentRoundGameResult result) {
+    if (!result.isAbandoned) {
+      ref
+          .read(postGameInterstitialProvider.notifier)
+          .markCompletedPlaySession();
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final nav = Navigator.maybeOf(context);
@@ -3474,6 +3486,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         builder: (_) => _WinDialog(
           winnerName: winner.displayName,
           isLocalWin: winner.id == OfflineGameState.localId,
+          onReturnToMenu: () {
+            ref
+                .read(postGameInterstitialProvider.notifier)
+                .markCompletedPlaySession();
+          },
           onPlayAgain: () {
             Navigator.of(context).pop();
             setState(() {
