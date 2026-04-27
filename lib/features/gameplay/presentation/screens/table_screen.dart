@@ -60,6 +60,7 @@ import '../../../../features/social/widgets/pending_friend_requests_banner.dart'
 import '../../../../features/settings/presentation/widgets/settings_modal.dart';
 import '../../../../core/widgets/themed_shimmer.dart';
 import '../../../../core/monetization/post_game_interstitial.dart';
+import '../../../../core/monetization/tournament_skip_rewarded_ad.dart';
 
 part 'table_screen_background.dart';
 part 'table_screen_layout.dart';
@@ -200,6 +201,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   /// When true, we're fast-forwarding the rest of the round after user tapped Skip.
   bool _tournamentSimulatingRest = false;
+
+  /// While the rewarded-ad dialog is open or an ad is loading/showing (offline tournament skip).
+  bool _tournamentSkipAdInFlight = false;
   // ── Turn timer ────────────────────────────────────────────────────
   late final GameTurnTimer _engineTimer = GameTurnTimer();
   StreamSubscription<int>? _timerWarningSub;
@@ -1704,21 +1708,26 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          onTap: _tournamentSimulatingRest
+                          onTap: (_tournamentSimulatingRest ||
+                                  _tournamentSkipAdInFlight)
                               ? null
-                              : _startTournamentSimulation,
+                              : () {
+                                  unawaited(_onTournamentSkipTapped());
+                                },
                           borderRadius: BorderRadius.circular(20),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 10),
                             decoration: BoxDecoration(
-                              color: _tournamentSimulatingRest
+                              color: (_tournamentSimulatingRest ||
+                                      _tournamentSkipAdInFlight)
                                   ? Colors.white24
                                   : AppColors.goldPrimary
                                       .withValues(alpha: 0.9),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: _tournamentSimulatingRest
+                                color: (_tournamentSimulatingRest ||
+                                        _tournamentSkipAdInFlight)
                                     ? Colors.white38
                                     : AppColors.goldDark,
                                 width: 1.5,
@@ -1727,7 +1736,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                if (_tournamentSimulatingRest)
+                                if (_tournamentSimulatingRest ||
+                                    _tournamentSkipAdInFlight)
                                   SizedBox(
                                     width: 18,
                                     height: 18,
@@ -1746,11 +1756,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                 Text(
                                   _tournamentSimulatingRest
                                       ? 'Simulating…'
-                                      : 'Skip to result',
+                                      : _tournamentSkipAdInFlight
+                                          ? 'Loading…'
+                                          : 'Skip to result',
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w700,
-                                    color: _tournamentSimulatingRest
+                                    color: (_tournamentSimulatingRest ||
+                                            _tournamentSkipAdInFlight)
                                         ? Colors.white70
                                         : Colors.black87,
                                   ),
@@ -3089,6 +3102,49 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       }
       if (drainPendingAfterTurn) {
         _drainPendingOfflineAiTurns();
+      }
+    }
+  }
+
+  /// Rewarded ad (or remove-ads entitlement) before [_startTournamentSimulation].
+  Future<void> _onTournamentSkipTapped() async {
+    if (!widget.isTournamentMode ||
+        !_isOfflineSession ||
+        _tournamentRoundComplete ||
+        _tournamentSimulatingRest) {
+      return;
+    }
+    if (!_tournamentFinishedPlayerIds.contains(OfflineGameState.localId)) {
+      return;
+    }
+    if (_tournamentSkipAdInFlight) return;
+
+    setState(() => _tournamentSkipAdInFlight = true);
+    try {
+      final outcome = await runTournamentSkipRewardedAdGate(
+        context: context,
+        ref: ref,
+      );
+      if (!mounted) return;
+      switch (outcome) {
+        case TournamentSkipAdOutcome.startSimulation:
+          _startTournamentSimulation();
+        case TournamentSkipAdOutcome.userCancelled:
+          break;
+        case TournamentSkipAdOutcome.adDidNotComplete:
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Video not available. Try again in a moment to fast-forward.',
+              ),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          break;
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _tournamentSkipAdInFlight = false);
       }
     }
   }

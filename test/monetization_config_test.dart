@@ -13,4 +13,9 @@ void main() {
       greaterThanOrEqualTo(3),
     );
   });
+
+  test('rewarded test ad unit defaults are Google sample IDs', () {
+    expect(kAdmobRewardedAndroid, contains('ca-app-pub-3940256099942544'));
+    expect(kAdmobRewardedIos, contains('ca-app-pub-3940256099942544'));
+  });
 }
