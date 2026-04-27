@@ -246,7 +246,7 @@ class SettingsModal extends ConsumerWidget {
                                     title: const Text('Remove ads'),
                                     subtitle: Text(
                                       mono.removeAdsProduct != null
-                                          ? '${mono.removeAdsProduct!.title} — ${mono.removeAdsProduct!.price} (one-time)'
+                                          ? '${mono.removeAdsProduct!.title} — ${mono.removeAdsProduct!.price} (one-time). Removes all ads, including optional videos (e.g. tournament skip).'
                                           : 'Product not available yet. Add “remove_ads_lifetime” in Play Console and App Store Connect.',
                                       style: TextStyle(
                                         fontSize: isMobile ? 11 : 12,
