@@ -183,14 +183,19 @@ class CardBackService {
     return '$_cardFacePrefix$faceSetId/${rank.name}_${suit.name}.png';
   }
 
-  Future<bool> selectCardFaceSet(String faceSetId) async {
+  /// [pushToFirestore]: set false when applying a batch from Firestore (each
+  /// selection would otherwise write all three fields and clobber not-yet-applied keys).
+  Future<bool> selectCardFaceSet(
+    String faceSetId, {
+    bool pushToFirestore = true,
+  }) async {
     await init();
     if (faceSetId != 'classic' && faceSetId != 'default') return false;
     if (selectedCardFaceSetId.value == faceSetId) return true;
     selectedCardFaceSetId.value = faceSetId;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsCardFaceSetKey, faceSetId);
-    unawaited(_pushCardCustomizationToFirestore());
+    if (pushToFirestore) unawaited(_pushCardCustomizationToFirestore());
     return true;
   }
 
@@ -318,7 +323,11 @@ class CardBackService {
     return _unlocked.contains(designId);
   }
 
-  Future<bool> selectDesign(String designId) async {
+  /// [pushToFirestore]: set false when applying a batch from Firestore (avoids each step writing all three fields).
+  Future<bool> selectDesign(
+    String designId, {
+    bool pushToFirestore = true,
+  }) async {
     await init();
     if (designId == 'uploaded' && uploadedAnimatedAssetPath.value == null) {
       return false;
@@ -344,11 +353,15 @@ class CardBackService {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsSelectedKey, designId);
-    unawaited(_pushCardCustomizationToFirestore());
+    if (pushToFirestore) unawaited(_pushCardCustomizationToFirestore());
     return true;
   }
 
-  Future<bool> selectJokerCover(String designId) async {
+  /// [pushToFirestore]: set false when applying a batch from Firestore (avoids each step writing all three fields).
+  Future<bool> selectJokerCover(
+    String designId, {
+    bool pushToFirestore = true,
+  }) async {
     await init();
     if (designId != 'classic') {
       CardBackDesign? design;
@@ -367,7 +380,7 @@ class CardBackService {
     selectedJokerCoverId.value = designId;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsJokerCoverKey, designId);
-    unawaited(_pushCardCustomizationToFirestore());
+    if (pushToFirestore) unawaited(_pushCardCustomizationToFirestore());
     return true;
   }
 

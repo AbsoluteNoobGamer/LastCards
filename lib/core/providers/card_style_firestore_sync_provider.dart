@@ -39,16 +39,19 @@ Future<void> applyFirestoreDeckPrefs(FirestoreUserProfile? fp) async {
   if (fp == null) return;
   if (FirebaseAuth.instance.currentUser == null) return;
   await CardBackService.instance.init();
+  // Suppress per-call Firestore write-back: each select* otherwise pushes all three
+  // fields and mid-sequence writes would clobber not-yet-applied keys.
+  const push = false;
   final back = fp.cardBackSelectedId?.trim();
   if (back != null && back.isNotEmpty) {
-    await CardBackService.instance.selectDesign(back);
+    await CardBackService.instance.selectDesign(back, pushToFirestore: push);
   }
   final joker = fp.selectedJokerCoverId?.trim();
   if (joker != null && joker.isNotEmpty) {
-    await CardBackService.instance.selectJokerCover(joker);
+    await CardBackService.instance.selectJokerCover(joker, pushToFirestore: push);
   }
   final face = fp.cardFaceSetId?.trim();
   if (face != null && face.isNotEmpty) {
-    await CardBackService.instance.selectCardFaceSet(face);
+    await CardBackService.instance.selectCardFaceSet(face, pushToFirestore: push);
   }
 }
