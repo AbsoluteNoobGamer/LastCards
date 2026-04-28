@@ -263,6 +263,23 @@ class _AuthProfileSheetState extends ConsumerState<_AuthProfileSheet> {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      showReactionWheelCustomizeSheet(context);
+                    },
+                    icon: const Icon(Icons.emoji_emotions_outlined),
+                    label: const Text('Reaction wheel'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: theme.accentPrimary,
+                      side: BorderSide(color: theme.accentPrimary),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
                     onPressed: () async {
                       await authService.signOut();
                       if (context.mounted) Navigator.of(context).pop();

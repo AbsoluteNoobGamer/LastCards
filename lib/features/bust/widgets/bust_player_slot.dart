@@ -170,7 +170,7 @@ class BustPlayerSlot extends ConsumerWidget {
               child: QuickChatBubble(
                 key: ValueKey(chatBubble!.id),
                 playerName: chatBubble!.playerName,
-                message: chatBubble!.message,
+                reactionWireIndex: chatBubble!.reactionWireIndex,
                 isLocal: chatBubble!.isLocal,
                 tailPointsUp: true,
                 onDismiss: () =>

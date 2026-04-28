@@ -6,18 +6,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/theme/app_dimensions.dart';
+import '../../../../shared/reactions/reaction_catalog.dart';
 
-/// Floating emoji bubble for preset reactions (Clash Royale–style).
+/// Floating reaction bubble — Unicode emoji or animated GIF preset.
 ///
-/// Shows a single emoji; player name stays near the avatar.
-/// Animates in (scale 0.82 → 1.0) and out before removal.
-///
-/// [tailPointsUp] only affects outer padding when the bubble sits below vs
-/// above the speaker row.
+/// Wire index selects [kReactionDefinitions] (broadcast from server/offline pipeline).
 class QuickChatBubble extends ConsumerStatefulWidget {
   const QuickChatBubble({
     required this.playerName,
-    required this.message,
+    required this.reactionWireIndex,
     required this.isLocal,
     required this.onDismiss,
     this.tailPointsUp = false,
@@ -25,12 +22,13 @@ class QuickChatBubble extends ConsumerStatefulWidget {
   });
 
   final String playerName;
-  /// Single emoji string (matches [kQuickMessages] entry).
-  final String message;
+
+  /// Index into shared [kReactionDefinitions] (`messageIndex` on wire).
+  final int reactionWireIndex;
   final bool isLocal;
   final VoidCallback onDismiss;
 
-  /// When `true`, a bit more top padding — bubble visually below speaker.
+  /// Outer padding tweak when bubble sits below vs above the speaker row.
   final bool tailPointsUp;
 
   @override
@@ -45,11 +43,21 @@ class _QuickChatBubbleState extends ConsumerState<QuickChatBubble>
   late Animation<double> _scaleAnimation;
   Timer? _dismissTimer;
 
-  static const _wobbleEmoji = {'😂', '🔥', '💪', '😤', '🤞'};
+  static const _wobbleUnicode = {'😂', '🔥', '💪', '😤', '🤞'};
 
-  static bool _shouldWobble(String m) {
-    final t = m.trim();
-    return _wobbleEmoji.any((e) => e == t);
+  static bool _shouldWobble(ReactionDefinition def) {
+    if (def.kind != ReactionVisualKind.unicode || def.unicodeLabel == null) {
+      return false;
+    }
+    final t = def.unicodeLabel!.trim();
+    return _wobbleUnicode.any((e) => e == t);
+  }
+
+  ReactionDefinition get _def {
+    if (!isValidReactionWireIndex(widget.reactionWireIndex)) {
+      return kReactionDefinitions[0];
+    }
+    return kReactionDefinitions[widget.reactionWireIndex];
   }
 
   @override
@@ -74,8 +82,7 @@ class _QuickChatBubbleState extends ConsumerState<QuickChatBubble>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (_shouldWobble(widget.message) &&
-          !MediaQuery.disableAnimationsOf(context)) {
+      if (_shouldWobble(_def) && !MediaQuery.disableAnimationsOf(context)) {
         _wobbleController.forward(from: 0);
       }
     });
@@ -106,6 +113,28 @@ class _QuickChatBubbleState extends ConsumerState<QuickChatBubble>
     final top = Color.lerp(base, Colors.white, widget.isLocal ? 0.14 : 0.1)!;
     final bottom = Color.lerp(base, Colors.black, 0.24)!;
 
+    Widget inner;
+    if (_def.kind == ReactionVisualKind.gifAsset &&
+        _def.gifAssetPath != null) {
+      inner = ClipOval(
+        child: Image.asset(
+          _def.gifAssetPath!,
+          width: 38,
+          height: 38,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+        ),
+      );
+    } else if (_def.unicodeLabel != null) {
+      inner = Text(
+        _def.unicodeLabel!,
+        textAlign: TextAlign.center,
+        style: const TextStyle(fontSize: 30, height: 1.0),
+      );
+    } else {
+      inner = const SizedBox.shrink();
+    }
+
     final bubbleBody = Container(
       width: 54,
       height: 54,
@@ -125,11 +154,7 @@ class _QuickChatBubbleState extends ConsumerState<QuickChatBubble>
           ),
         ],
       ),
-      child: Text(
-        widget.message,
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 30, height: 1.0),
-      ),
+      child: inner,
     );
 
     final wobble = AnimatedBuilder(

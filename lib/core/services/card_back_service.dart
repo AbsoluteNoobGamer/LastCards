@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/card_model.dart';
+import 'firestore_profile_service.dart';
 import 'player_level_service.dart';
 
 class CardBackDesign {
@@ -188,7 +190,23 @@ class CardBackService {
     selectedCardFaceSetId.value = faceSetId;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsCardFaceSetKey, faceSetId);
+    unawaited(_pushCardCustomizationToFirestore());
     return true;
+  }
+
+  Future<void> _pushCardCustomizationToFirestore() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      await FirestoreProfileService().updateCardStyleSelections(
+        uid,
+        cardBackSelectedId: selectedDesignId.value,
+        jokerCoverSelectedId: selectedJokerCoverId.value,
+        cardFaceSetId: selectedCardFaceSetId.value,
+      );
+    } catch (_) {
+      // Offline or rules rejection — local prefs remain source of truth.
+    }
   }
 
   Future<List<CardBackDesign>> _loadJokerCoverDesigns() async {
@@ -326,6 +344,7 @@ class CardBackService {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsSelectedKey, designId);
+    unawaited(_pushCardCustomizationToFirestore());
     return true;
   }
 
@@ -348,6 +367,7 @@ class CardBackService {
     selectedJokerCoverId.value = designId;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsJokerCoverKey, designId);
+    unawaited(_pushCardCustomizationToFirestore());
     return true;
   }
 

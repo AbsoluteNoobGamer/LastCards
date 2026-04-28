@@ -1,20 +1,24 @@
-/// Preset emoji reactions shared by client and server (Clash Royale–style).
+import '../reactions/reaction_catalog.dart';
+
+export '../reactions/reaction_catalog.dart'
+    show
+        ReactionDefinition,
+        ReactionVisualKind,
+        defaultWheelReactionIndices,
+        isReactionUnlockedForLevel,
+        isValidReactionWireIndex,
+        kAiQuickReactionIndices,
+        kReactionCatalogLength,
+        kReactionDefinitions,
+        kStarterReactionCount,
+        unlockedReactionIndicesForLevel;
+
+/// Back-compat emoji strings aligned with reaction indices (`legacyWireEmoji`
+/// substitutes `🎞` for GIF entries).
 ///
-/// Identified by index (0-based) over the wire. The client UI ([QuickChatPanel])
-/// and the server ([GameSession.handleQuickChat]) reference this list so they
-/// stay in sync automatically.
-const List<String> kQuickMessages = [
-  '🤞', // good luck
-  '👏', // well played
-  '😅', // oops
-  '🔥', // nice one
-  '🙏', // sorry
-  '🙌', // good game
-  '💪', // too good
-  '✌️', // GG
-  '🃏', // joker
-  '☝️', // pick up
-  '😂', // laugh
-  '😬', // frustrated
-  '😤', // damn
-];
+/// Prefer [kReactionDefinitions] for UI; wire format stays **index**.
+final List<String> kQuickMessages = List.unmodifiable(
+  [
+    for (final d in kReactionDefinitions) d.legacyWireEmoji,
+  ],
+);
