@@ -1444,7 +1444,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                 ),
               ),
 
-              // Quick chat toggle and panel (bottom right, opposite back)
+              // Emoji reactions toggle and panel (bottom right, opposite back)
               if (!_isDealing && _gameState.phase != GamePhase.ended)
                 Positioned(
                   bottom: 210,
@@ -1463,7 +1463,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                               child: ConstrainedBox(
                                 constraints: BoxConstraints(
                                   maxWidth: MediaQuery.of(context).size.width * 0.55,
-                                  maxHeight: 200,
+                                  maxHeight: 260,
                                 ),
                                 child: SingleChildScrollView(
                                   child: QuickChatPanel(
@@ -1484,10 +1484,10 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                                 ),
                                 child: IconButton(
                                   tooltip: _quickChatCooldownRemaining > 0
-                                      ? 'Quick chat (${_quickChatCooldownRemaining}s)'
-                                      : 'Quick chat',
+                                      ? 'Reactions (${_quickChatCooldownRemaining}s)'
+                                      : 'Reactions',
                                   icon: const Icon(
-                                    Icons.chat_bubble_outline,
+                                    Icons.emoji_emotions_outlined,
                                     size: 20,
                                     color: Colors.white,
                                   ),

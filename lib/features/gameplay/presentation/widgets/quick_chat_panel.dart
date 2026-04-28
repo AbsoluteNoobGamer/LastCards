@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/providers/theme_provider.dart';
-import '../../../../core/theme/app_theme_data.dart';
 import '../../../../shared/constants/quick_chat_messages.dart';
 
 export '../../../../shared/constants/quick_chat_messages.dart' show kQuickMessages;
 
-/// Compact panel listing preset quick chat messages.
-/// Styled to match the game log box — same font, background, and accent border.
+/// Emoji reaction picker — same presets as server ([kQuickMessages]), CR-style grid.
 class QuickChatPanel extends ConsumerWidget {
   const QuickChatPanel({
     required this.onMessageSelected,
@@ -23,44 +20,44 @@ class QuickChatPanel extends ConsumerWidget {
     final theme = ref.watch(themeProvider).theme;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: theme.accentDark.withValues(alpha: 0.45),
           width: 1,
         ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var i = 0; i < kQuickMessages.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: _ChatOption(
-                message: kQuickMessages[i],
-                theme: theme,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 220),
+        child: Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          alignment: WrapAlignment.center,
+          children: [
+            for (var i = 0; i < kQuickMessages.length; i++)
+              _EmojiOption(
+                emoji: kQuickMessages[i],
+                theme: theme.accentDark,
                 onTap: () => onMessageSelected(i),
               ),
-            ),
-          const SizedBox(height: 2),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _ChatOption extends StatelessWidget {
-  const _ChatOption({
-    required this.message,
+class _EmojiOption extends StatelessWidget {
+  const _EmojiOption({
+    required this.emoji,
     required this.theme,
     required this.onTap,
   });
 
-  final String message;
-  final AppThemeData theme;
+  final String emoji;
+  final Color theme;
   final VoidCallback onTap;
 
   @override
@@ -69,23 +66,22 @@ class _ChatOption extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        customBorder: const CircleBorder(),
+        child: Ink(
+          width: 44,
+          height: 44,
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.40),
-            borderRadius: BorderRadius.circular(10),
+            shape: BoxShape.circle,
+            color: Colors.black.withValues(alpha: 0.42),
             border: Border.all(
-              color: theme.accentDark.withValues(alpha: 0.45),
+              color: theme.withValues(alpha: 0.5),
               width: 1,
             ),
           ),
-          child: Text(
-            message,
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
+          child: Center(
+            child: Text(
+              emoji,
+              style: const TextStyle(fontSize: 26, height: 1.0),
             ),
           ),
         ),
