@@ -28,8 +28,11 @@ import 'package:last_cards/features/gameplay/presentation/widgets/hud_overlay_wi
 import 'package:last_cards/features/gameplay/presentation/widgets/ace_suit_picker_sheet.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/player_hand_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/player_zone_widget.dart';
-import 'package:last_cards/features/gameplay/presentation/widgets/quick_chat_panel.dart' show kQuickMessages, QuickChatPanel;
+import 'package:last_cards/features/gameplay/presentation/widgets/quick_chat_panel.dart'
+    show QuickChatPanel;
 import 'package:last_cards/features/gameplay/presentation/widgets/turn_indicator_overlay.dart';
+import 'package:last_cards/core/services/player_level_service.dart';
+import 'package:last_cards/shared/reactions/reaction_catalog.dart';
 import 'package:last_cards/features/settings/presentation/widgets/settings_modal.dart';
 import 'package:last_cards/shared/rules/move_log_support.dart';
 
@@ -133,7 +136,15 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   bool _showQuickChatPanel = false;
   int _quickChatCooldownRemaining = 0;
   Timer? _quickChatCooldownTimer;
-  List<({String id, String playerId, String playerName, String message, bool isLocal})> _quickChatBubbles = [];
+  List<
+          ({
+            String id,
+            String playerId,
+            String playerName,
+            int reactionWireIndex,
+            bool isLocal
+          })>
+      _quickChatBubbles = [];
 
   bool _isDealing = false;
   bool _bustRoundNavigationQueued = false;
@@ -968,7 +979,8 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     if (result.playedCards.isNotEmpty &&
         _aiDelayRng.nextDouble() < 0.30 &&
         mounted) {
-      final msgIndex = _aiDelayRng.nextInt(kQuickMessages.length);
+      final pool = kAiQuickReactionIndices;
+      final msgIndex = pool[_aiDelayRng.nextInt(pool.length)];
       _showQuickChatBubble(aiId, aiName, msgIndex, isLocal: false);
     }
 
@@ -1063,8 +1075,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
 
   void _showQuickChatBubble(String playerId, String playerName, int messageIndex,
       {bool isLocal = false}) {
-    if (messageIndex < 0 || messageIndex >= kQuickMessages.length) return;
-    final message = kQuickMessages[messageIndex];
+    if (!isValidReactionWireIndex(messageIndex)) return;
     final bubbleId =
         '${playerId}_${messageIndex}_${DateTime.now().millisecondsSinceEpoch}';
     setState(() {
@@ -1076,7 +1087,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
           id: bubbleId,
           playerId: playerId,
           playerName: playerName,
-          message: message,
+          reactionWireIndex: messageIndex,
           isLocal: isLocal,
         ),
       ];
@@ -1109,6 +1120,8 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
 
   void _sendQuickChat(int messageIndex) {
     if (_quickChatCooldownRemaining > 0) return;
+    final level = PlayerLevelService.instance.currentLevel.value;
+    if (!isReactionUnlockedForLevel(messageIndex, level)) return;
 
     final bottom = _localPlayer;
     final localChatName =
@@ -1203,7 +1216,12 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                       skipHighlightPlayerIds: _skipHighlightPlayerIds,
                       quickChatBubblesByPlayer: {
                         for (final b in _quickChatBubbles)
-                          b.playerId: (id: b.id, playerName: b.playerName, message: b.message, isLocal: b.isLocal),
+                          b.playerId: (
+                              id: b.id,
+                              playerName: b.playerName,
+                              reactionWireIndex: b.reactionWireIndex,
+                              isLocal: b.isLocal,
+                            ),
                       },
                       onRemoveQuickChatBubble: _removeQuickChatBubble,
                     ),
@@ -1331,7 +1349,12 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                                     .where((b) => b.playerId == OfflineGameState.localId)
                                     .lastOrNull;
                                 return b != null
-                                    ? (id: b.id, playerName: b.playerName, message: b.message, isLocal: b.isLocal)
+                                    ? (
+                                        id: b.id,
+                                        playerName: b.playerName,
+                                        reactionWireIndex: b.reactionWireIndex,
+                                        isLocal: b.isLocal,
+                                      )
                                     : null;
                               }(),
                               onRemoveQuickChatBubble: _removeQuickChatBubble,
@@ -1444,7 +1467,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                 ),
               ),
 
-              // Quick chat toggle and panel (bottom right, opposite back)
+              // Emoji reactions toggle and panel (bottom right, opposite back)
               if (!_isDealing && _gameState.phase != GamePhase.ended)
                 Positioned(
                   bottom: 210,
@@ -1463,7 +1486,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                               child: ConstrainedBox(
                                 constraints: BoxConstraints(
                                   maxWidth: MediaQuery.of(context).size.width * 0.55,
-                                  maxHeight: 200,
+                                  maxHeight: 260,
                                 ),
                                 child: SingleChildScrollView(
                                   child: QuickChatPanel(
@@ -1484,10 +1507,10 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                                 ),
                                 child: IconButton(
                                   tooltip: _quickChatCooldownRemaining > 0
-                                      ? 'Quick chat (${_quickChatCooldownRemaining}s)'
-                                      : 'Quick chat',
+                                      ? 'Reactions (${_quickChatCooldownRemaining}s)'
+                                      : 'Reactions',
                                   icon: const Icon(
-                                    Icons.chat_bubble_outline,
+                                    Icons.emoji_emotions_outlined,
                                     size: 20,
                                     color: Colors.white,
                                   ),

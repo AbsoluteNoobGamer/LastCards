@@ -6,17 +6,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/theme/app_dimensions.dart';
+import '../../../../shared/reactions/reaction_catalog.dart';
 
-/// A chat bubble for quick chat messages.
-/// Shows only the message (player name is already visible near the avatar).
-/// Animates in (scale 0.8 → 1.0) and out (opacity 1.0 → 0.0) before removal.
+/// Floating reaction bubble — Unicode emoji or animated GIF preset.
 ///
-/// [tailPointsUp] places the tail on top of the bubble pointing toward the
-/// speaker — use when the bubble sits **below** the avatar/name row.
+/// Wire index selects [kReactionDefinitions] (broadcast from server/offline pipeline).
 class QuickChatBubble extends ConsumerStatefulWidget {
   const QuickChatBubble({
     required this.playerName,
-    required this.message,
+    required this.reactionWireIndex,
     required this.isLocal,
     required this.onDismiss,
     this.tailPointsUp = false,
@@ -24,12 +22,13 @@ class QuickChatBubble extends ConsumerStatefulWidget {
   });
 
   final String playerName;
-  final String message;
+
+  /// Index into shared [kReactionDefinitions] (`messageIndex` on wire).
+  final int reactionWireIndex;
   final bool isLocal;
   final VoidCallback onDismiss;
 
-  /// When `true`, tail is above the body and points up (bubble below speaker).
-  /// When `false`, tail is below the body and points down (bubble above speaker).
+  /// Outer padding tweak when bubble sits below vs above the speaker row.
   final bool tailPointsUp;
 
   @override
@@ -44,13 +43,21 @@ class _QuickChatBubbleState extends ConsumerState<QuickChatBubble>
   late Animation<double> _scaleAnimation;
   Timer? _dismissTimer;
 
-  static bool _isExcitedMessage(String m) {
-    final t = m.trim();
-    if (t.isEmpty) return false;
-    if (t.contains('!')) return true;
-    final letters = RegExp(r'[A-Za-z]').allMatches(t).map((e) => e.group(0)!);
-    if (letters.isEmpty) return false;
-    return t == t.toUpperCase();
+  static const _wobbleUnicode = {'😂', '🔥', '💪', '😤', '🤞'};
+
+  static bool _shouldWobble(ReactionDefinition def) {
+    if (def.kind != ReactionVisualKind.unicode || def.unicodeLabel == null) {
+      return false;
+    }
+    final t = def.unicodeLabel!.trim();
+    return _wobbleUnicode.any((e) => e == t);
+  }
+
+  ReactionDefinition get _def {
+    if (!isValidReactionWireIndex(widget.reactionWireIndex)) {
+      return kReactionDefinitions[0];
+    }
+    return kReactionDefinitions[widget.reactionWireIndex];
   }
 
   @override
@@ -75,8 +82,7 @@ class _QuickChatBubbleState extends ConsumerState<QuickChatBubble>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (_isExcitedMessage(widget.message) &&
-          !MediaQuery.disableAnimationsOf(context)) {
+      if (_shouldWobble(_def) && !MediaQuery.disableAnimationsOf(context)) {
         _wobbleController.forward(from: 0);
       }
     });
@@ -102,88 +108,63 @@ class _QuickChatBubbleState extends ConsumerState<QuickChatBubble>
   Widget build(BuildContext context) {
     final theme = ref.watch(themeProvider).theme;
     final base = widget.isLocal
-        ? theme.accentPrimary.withValues(alpha: 0.88)
-        : theme.surfacePanel.withValues(alpha: 0.95);
-    final top = Color.lerp(base, Colors.white, widget.isLocal ? 0.12 : 0.08)!;
-    final bottom = Color.lerp(base, Colors.black, 0.22)!;
+        ? theme.accentPrimary.withValues(alpha: 0.92)
+        : theme.surfacePanel.withValues(alpha: 0.96);
+    final top = Color.lerp(base, Colors.white, widget.isLocal ? 0.14 : 0.1)!;
+    final bottom = Color.lerp(base, Colors.black, 0.24)!;
+
+    Widget inner;
+    if (_def.kind == ReactionVisualKind.gifAsset &&
+        _def.gifAssetPath != null) {
+      inner = ClipOval(
+        child: Image.asset(
+          _def.gifAssetPath!,
+          width: 38,
+          height: 38,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+        ),
+      );
+    } else if (_def.unicodeLabel != null) {
+      inner = Text(
+        _def.unicodeLabel!,
+        textAlign: TextAlign.center,
+        style: const TextStyle(fontSize: 30, height: 1.0),
+      );
+    } else {
+      inner = const SizedBox.shrink();
+    }
 
     final bubbleBody = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      width: 54,
+      height: 54,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
+        shape: BoxShape.circle,
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [top, bottom],
         ),
-        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withValues(alpha: 0.38),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
-      child: Text(
-        widget.message,
-        style: TextStyle(
-          color: theme.textPrimary,
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
+      child: inner,
     );
-
-    final withTail = widget.tailPointsUp
-        ? Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned(
-                top: -6,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: CustomPaint(
-                    size: const Size(14, 8),
-                    painter: _ChatBubbleTailPainter(
-                      faceColor: top,
-                      pointsUp: true,
-                    ),
-                  ),
-                ),
-              ),
-              bubbleBody,
-            ],
-          )
-        : Stack(
-            clipBehavior: Clip.none,
-            children: [
-              bubbleBody,
-              Positioned(
-                bottom: -6,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: CustomPaint(
-                    size: const Size(14, 8),
-                    painter: _ChatBubbleTailPainter(
-                      faceColor: bottom,
-                      pointsUp: false,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
 
     final wobble = AnimatedBuilder(
       animation: _wobbleController,
       builder: (context, child) {
         final t = _wobbleController.value;
-        final dx = math.sin(t * math.pi * 7) * 3.2 * (1.0 - t);
+        final dx = math.sin(t * math.pi * 7) * 3.4 * (1.0 - t);
         return Transform.translate(offset: Offset(dx, 0), child: child);
       },
-      child: withTail,
+      child: bubbleBody,
     );
 
     return AnimatedBuilder(
@@ -192,7 +173,7 @@ class _QuickChatBubbleState extends ConsumerState<QuickChatBubble>
         final outOpacity = 1.0 - _fadeController.value;
         final inOpacity = _scaleController.value.clamp(0.0, 1.0);
         return Opacity(
-          opacity: outOpacity * (0.2 + 0.8 * inOpacity),
+          opacity: outOpacity * (0.25 + 0.75 * inOpacity),
           child: Transform.scale(
             scale: _scaleAnimation.value,
             child: Padding(
@@ -207,34 +188,4 @@ class _QuickChatBubbleState extends ConsumerState<QuickChatBubble>
       child: wobble,
     );
   }
-}
-
-class _ChatBubbleTailPainter extends CustomPainter {
-  _ChatBubbleTailPainter({required this.faceColor, required this.pointsUp});
-
-  final Color faceColor;
-  final bool pointsUp;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = pointsUp
-        ? (Path()
-          ..moveTo(0, size.height)
-          ..lineTo(size.width / 2, 0)
-          ..lineTo(size.width, size.height)
-          ..close())
-        : (Path()
-          ..moveTo(0, 0)
-          ..lineTo(size.width / 2, size.height)
-          ..lineTo(size.width, 0)
-          ..close());
-    final paint = Paint()
-      ..color = faceColor
-      ..style = PaintingStyle.fill;
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _ChatBubbleTailPainter oldDelegate) =>
-      oldDelegate.faceColor != faceColor || oldDelegate.pointsUp != pointsUp;
 }

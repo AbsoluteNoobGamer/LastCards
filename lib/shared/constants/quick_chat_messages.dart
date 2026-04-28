@@ -1,20 +1,24 @@
-/// Preset quick chat messages shared by client and server.
+import '../reactions/reaction_catalog.dart';
+
+export '../reactions/reaction_catalog.dart'
+    show
+        ReactionDefinition,
+        ReactionVisualKind,
+        defaultWheelReactionIndices,
+        isReactionUnlockedForLevel,
+        isValidReactionWireIndex,
+        kAiQuickReactionIndices,
+        kReactionCatalogLength,
+        kReactionDefinitions,
+        kStarterReactionCount,
+        unlockedReactionIndicesForLevel;
+
+/// Back-compat emoji strings aligned with reaction indices (`legacyWireEmoji`
+/// substitutes `🎞` for GIF entries).
 ///
-/// Messages are identified by index (0-based) over the wire. Both the client
-/// UI ([QuickChatPanel]) and the server validation ([GameSession.handleQuickChat])
-/// reference this list so they stay in sync automatically.
-const List<String> kQuickMessages = [
-  'Good luck!',
-  'Well played',
-  'Oops!',
-  'Nice one!',
-  'Sorry!',
-  'Good game',
-  'Too good!',
-  'GG!',
-  'I Have A Joker',
-  'Pick up',
-  'Ahahaha',
-  'Sh*t',
-  'Damn',
-];
+/// Prefer [kReactionDefinitions] for UI; wire format stays **index**.
+final List<String> kQuickMessages = List.unmodifiable(
+  [
+    for (final d in kReactionDefinitions) d.legacyWireEmoji,
+  ],
+);

@@ -7,8 +7,9 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // User profiles: owner writes (displayName, avatarUrl); any signed-in user
-    // can read public fields (for friends / in-game profile sheets).
+    // User profiles: owner writes; any signed-in user can read public fields
+    // (friends / in-game profile sheets). After merge, the document may only
+    // contain these keys (see FirestoreProfileService).
     match /users/{uid} {
       allow read: if request.auth != null;
 
@@ -19,6 +20,10 @@ service cloud.firestore {
           'avatarUrl',
           'updatedAt',
           'profileLastChangedAt',
+          'cardBackSelectedId',
+          'jokerCoverSelectedId',
+          'cardFaceSet',
+          'reactionWheel',
         ]);
     }
 

@@ -17,7 +17,12 @@ import '../../../../core/theme/app_theme_data.dart';
 import 'quick_chat_bubble.dart';
 
 /// Data for a quick chat bubble shown under the player's name (same row as avatar rail).
-typedef QuickChatBubbleData = ({String id, String playerName, String message, bool isLocal});
+typedef QuickChatBubbleData = ({
+  String id,
+  String playerName,
+  int reactionWireIndex,
+  bool isLocal
+});
 
 /// Opponent circle avatar diameter (must match [SizedBox] in [_OpponentAvatarZone]).
 const double _kOpponentAvatarSize = 68;
@@ -240,7 +245,7 @@ class PlayerZoneWidget extends ConsumerWidget {
                 child: QuickChatBubble(
                   key: ValueKey(chatBubble!.id),
                   playerName: chatBubble!.playerName,
-                  message: chatBubble!.message,
+                  reactionWireIndex: chatBubble!.reactionWireIndex,
                   isLocal: chatBubble!.isLocal,
                   tailPointsUp: true,
                   onDismiss: () =>
@@ -508,7 +513,7 @@ class _OpponentAvatarZone extends StatelessWidget {
             child: QuickChatBubble(
               key: ValueKey(chatBubble!.id),
               playerName: chatBubble!.playerName,
-              message: chatBubble!.message,
+              reactionWireIndex: chatBubble!.reactionWireIndex,
               isLocal: chatBubble!.isLocal,
               tailPointsUp: true,
               onDismiss: () =>

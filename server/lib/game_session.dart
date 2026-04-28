@@ -4,7 +4,7 @@ import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
 import 'package:last_cards/core/models/table_position_layout.dart';
-import 'package:last_cards/shared/constants/quick_chat_messages.dart';
+import 'package:last_cards/shared/reactions/reaction_catalog.dart';
 import 'package:last_cards/shared/engine/game_engine.dart';
 import 'package:last_cards/shared/engine/shuffle_utils.dart';
 import 'package:last_cards/shared/rules/move_log_support.dart';
@@ -2324,12 +2324,12 @@ class GameSession {
 
   // ── Quick chat ─────────────────────────────────────────────────────────────
 
-  /// Broadcasts a preset quick chat message to all players.
-  /// Message index must be in range [0, kQuickMessages.length).
+  /// Broadcasts a preset reaction (emoji / GIF catalogue index) to all players.
+  /// Index must satisfy [isValidReactionWireIndex].
   void handleQuickChat(String playerId, Map<String, dynamic> json) {
     if (!_started || _gameOver) return;
     final messageIndex = json['messageIndex'] as int?;
-    if (messageIndex == null || messageIndex < 0 || messageIndex >= kQuickMessages.length) return;
+    if (messageIndex == null || !isValidReactionWireIndex(messageIndex)) return;
 
     // Server-side rate limit: 10 seconds between messages per player.
     final now = DateTime.now();

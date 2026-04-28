@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+import '../../shared/reactions/reaction_catalog.dart';
+
 /// Display name from Firebase Auth for merging into Firestore public profile.
 /// Matches the merge logic in [userProfileProvider] (name, then email local part).
 String? resolvedPublicDisplayNameFromAuth(User user) {
@@ -119,6 +121,38 @@ class FirestoreProfileService {
     return ref.getDownloadURL();
   }
 
+  /// Persists card back, joker cover, and card face set prefs (cross-device deck sync).
+  Future<void> updateCardStyleSelections(
+    String uid, {
+    required String cardBackSelectedId,
+    required String jokerCoverSelectedId,
+    required String cardFaceSetId,
+  }) async {
+    final now = FieldValue.serverTimestamp();
+    await _firestore.collection(_usersCollection).doc(uid).set(
+          {
+            'cardBackSelectedId': cardBackSelectedId,
+            'jokerCoverSelectedId': jokerCoverSelectedId,
+            'cardFaceSet': cardFaceSetId,
+            'updatedAt': now,
+          },
+          SetOptions(merge: true),
+        );
+  }
+
+  /// Persists emoji reaction wheel (13 starter slots = catalog ids).
+  Future<void> updateReactionWheel(String uid, List<int> slots) async {
+    if (slots.length != kStarterReactionCount) return;
+    final now = FieldValue.serverTimestamp();
+    await _firestore.collection(_usersCollection).doc(uid).set(
+          {
+            'reactionWheel': slots,
+            'updatedAt': now,
+          },
+          SetOptions(merge: true),
+        );
+  }
+
   /// Clears the avatar (sets avatarUrl to null in Firestore).
   Future<void> clearAvatar(String uid) async {
     final now = FieldValue.serverTimestamp();
@@ -137,11 +171,22 @@ class FirestoreUserProfile {
   final String displayName;
   final String? avatarUrl;
   final DateTime? profileLastChangedAt;
+  /// 13 starter-row reaction catalog indices (cross-device emoji wheel sync).
+  final List<int>? reactionWheel;
+  /// [CardBackService.selectedDesignId] wire value.
+  final String? cardBackSelectedId;
+  final String? selectedJokerCoverId;
+  /// `default` or `classic` (see [CardBackService.selectCardFaceSet]).
+  final String? cardFaceSetId;
 
   const FirestoreUserProfile({
     required this.displayName,
     this.avatarUrl,
     this.profileLastChangedAt,
+    this.reactionWheel,
+    this.cardBackSelectedId,
+    this.selectedJokerCoverId,
+    this.cardFaceSetId,
   });
 
   factory FirestoreUserProfile.fromDoc(DocumentSnapshot doc) {
@@ -153,10 +198,25 @@ class FirestoreUserProfile {
     if (profileLastChangedAtRaw is Timestamp) {
       profileLastChangedAt = profileLastChangedAtRaw.toDate();
     }
+
+    List<int>? reactionWheel;
+    final rw = data['reactionWheel'];
+    if (rw is List && rw.isNotEmpty) {
+      try {
+        reactionWheel = rw.map((e) => (e as num).toInt()).toList();
+      } catch (_) {
+        reactionWheel = null;
+      }
+    }
+
     return FirestoreUserProfile(
       displayName: data['displayName'] as String? ?? '',
       avatarUrl: data['avatarUrl'] as String?,
       profileLastChangedAt: profileLastChangedAt,
+      reactionWheel: reactionWheel,
+      cardBackSelectedId: data['cardBackSelectedId'] as String?,
+      selectedJokerCoverId: data['jokerCoverSelectedId'] as String?,
+      cardFaceSetId: data['cardFaceSet'] as String?,
     );
   }
 }

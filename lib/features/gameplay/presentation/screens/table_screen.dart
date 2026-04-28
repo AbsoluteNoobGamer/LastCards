@@ -48,6 +48,8 @@ import '../widgets/turn_indicator_overlay.dart';
 import '../widgets/game_move_log_overlay.dart' show GameMoveLogOverlay;
 import '../widgets/quick_chat_panel.dart';
 
+import '../../../../shared/reactions/reaction_catalog.dart';
+
 import '../../../../widgets/turn_timer_bar.dart';
 import '../../../../services/audio_service.dart' as game_audio;
 import '../../../../services/game_sound.dart';
@@ -251,14 +253,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   int _quickChatCooldownRemaining = 0;
   Timer? _quickChatCooldownTimer;
 
-  /// Active quick chat bubbles. Each entry: (id, playerId, playerName, message, isLocal).
+  /// Reaction bubbles: wire index into shared catalog per entry.
   /// Max 2 visible at once.
   List<
       ({
         String id,
         String playerId,
         String playerName,
-        String message,
+        int reactionWireIndex,
         bool isLocal
       })> _quickChatBubbles = [];
 
@@ -1663,7 +1665,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             b.playerId: (
                               id: b.id,
                               playerName: b.playerName,
-                              message: b.message,
+                              reactionWireIndex: b.reactionWireIndex,
                               isLocal: b.isLocal
                             ),
                         },
@@ -1827,7 +1829,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 ),
               ),
 
-              // ── Quick chat toggle and panel (bottom right, opposite back) ─
+              // ── Emoji reactions toggle and panel (bottom right, opposite back)
               if (!_isDealing && gameState.phase != GamePhase.ended)
                 Positioned(
                   bottom: isLandscapeMobile ? 130 : 210,
@@ -1847,7 +1849,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                 constraints: BoxConstraints(
                                   maxWidth:
                                       MediaQuery.of(context).size.width * 0.55,
-                                  maxHeight: 200,
+                                  maxHeight: 260,
                                 ),
                                 child: SingleChildScrollView(
                                   child: QuickChatPanel(
@@ -1868,10 +1870,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                 ),
                                 child: IconButton(
                                   tooltip: _quickChatCooldownRemaining > 0
-                                      ? 'Quick chat (${_quickChatCooldownRemaining}s)'
-                                      : 'Quick chat',
+                                      ? 'Reactions (${_quickChatCooldownRemaining}s)'
+                                      : 'Reactions',
                                   icon: const Icon(
-                                    Icons.chat_bubble_outline,
+                                    Icons.emoji_emotions_outlined,
                                     size: 20,
                                     color: Colors.white,
                                   ),
@@ -3012,7 +3014,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           aiConfig != null &&
           playedByAi.isNotEmpty &&
           _chatRng.nextDouble() < 0.30) {
-        final msgIndex = _chatRng.nextInt(kQuickMessages.length);
+        final pool = kAiQuickReactionIndices;
+        final msgIndex = pool[_chatRng.nextInt(pool.length)];
         _showQuickChatBubble(aiId, aiPlayerName, msgIndex, isLocal: false);
       }
 
@@ -3912,8 +3915,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   void _showQuickChatBubble(
       String playerId, String playerName, int messageIndex,
       {bool isLocal = false}) {
-    if (messageIndex < 0 || messageIndex >= kQuickMessages.length) return;
-    final message = kQuickMessages[messageIndex];
+    if (!isValidReactionWireIndex(messageIndex)) return;
     final bubbleId =
         '${playerId}_${messageIndex}_${DateTime.now().millisecondsSinceEpoch}';
     setState(() {
@@ -3923,7 +3925,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           id: bubbleId,
           playerId: playerId,
           playerName: playerName,
-          message: message,
+          reactionWireIndex: messageIndex,
           isLocal: isLocal,
         ),
       ];
@@ -3940,6 +3942,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   void _sendQuickChat(int messageIndex) {
     if (_quickChatCooldownRemaining > 0) return;
+    final level = PlayerLevelService.instance.currentLevel.value;
+    if (!isReactionUnlockedForLevel(messageIndex, level)) return;
 
     final isOfflineMode = ref.read(gameStateProvider) == null;
 

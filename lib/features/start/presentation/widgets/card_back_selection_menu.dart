@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/services/card_back_service.dart';
 import '../../../../core/services/player_level_service.dart';
@@ -472,6 +473,16 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
   }
 }
 
+/// Opens the Card Styles sheet (same UI as Start → Card Styles icon row).
+void showCardStylesModal(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) => const CardStylesModal(),
+  );
+}
+
 class CardStylesModal extends StatelessWidget {
   const CardStylesModal({super.key});
 
@@ -480,9 +491,10 @@ class CardStylesModal extends StatelessWidget {
     final media = MediaQuery.of(context);
     final isMobile = math.min(media.size.width, media.size.height) <
         AppDimensions.breakpointMobile;
-    final initialSize = isMobile ? 0.56 : 0.48;
-    final minSize = isMobile ? 0.38 : 0.3;
-    final maxSize = isMobile ? 0.72 : 0.62;
+    // Taller sheet so nested sections (animated / covers / jokers / faces) breathe.
+    final initialSize = isMobile ? 0.78 : 0.68;
+    final minSize = isMobile ? 0.42 : 0.38;
+    final maxSize = isMobile ? 0.92 : 0.88;
 
     return DraggableScrollableSheet(
       initialChildSize: initialSize,
@@ -490,38 +502,91 @@ class CardStylesModal extends StatelessWidget {
       maxChildSize: maxSize,
       expand: false,
       builder: (context, scrollController) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF1E1E1E),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        final bottomInset = media.viewInsets.bottom;
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A1E),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.22),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.45),
+                blurRadius: 24,
+                offset: const Offset(0, -4),
+              ),
+            ],
           ),
-          child: SafeArea(
-            top: false,
-            child: ListView(
-              controller: scrollController,
-              padding:
-                  EdgeInsets.fromLTRB(16, 16, 16, 16 + media.viewInsets.bottom),
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 18),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade600,
-                      borderRadius: BorderRadius.circular(2),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 10),
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade600,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                ),
-                const Text(
-                  'Card Styles',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                CardBackSelectionMenu(
-                  onSelectionApplied: () => Navigator.of(context).maybePop(),
-                ),
-              ],
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Card styles',
+                          style: GoogleFonts.inter(
+                            fontSize: isMobile ? 21 : 23,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Customize backs, joker art, and faces. Some options unlock as you level up.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.4,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Colors.white.withValues(alpha: 0.06),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      controller: scrollController,
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        16,
+                        16,
+                        20 + bottomInset,
+                      ),
+                      children: [
+                        CardBackSelectionMenu(
+                          showSectionTitle: false,
+                          onSelectionApplied: () =>
+                              Navigator.of(context).maybePop(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );

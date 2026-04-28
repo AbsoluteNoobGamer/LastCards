@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/card_model.dart';
+import 'firestore_profile_service.dart';
 import 'player_level_service.dart';
 
 class CardBackDesign {
@@ -181,14 +183,35 @@ class CardBackService {
     return '$_cardFacePrefix$faceSetId/${rank.name}_${suit.name}.png';
   }
 
-  Future<bool> selectCardFaceSet(String faceSetId) async {
+  /// [pushToFirestore]: set false when applying a batch from Firestore (each
+  /// selection would otherwise write all three fields and clobber not-yet-applied keys).
+  Future<bool> selectCardFaceSet(
+    String faceSetId, {
+    bool pushToFirestore = true,
+  }) async {
     await init();
     if (faceSetId != 'classic' && faceSetId != 'default') return false;
     if (selectedCardFaceSetId.value == faceSetId) return true;
     selectedCardFaceSetId.value = faceSetId;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsCardFaceSetKey, faceSetId);
+    if (pushToFirestore) unawaited(_pushCardCustomizationToFirestore());
     return true;
+  }
+
+  Future<void> _pushCardCustomizationToFirestore() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      await FirestoreProfileService().updateCardStyleSelections(
+        uid,
+        cardBackSelectedId: selectedDesignId.value,
+        jokerCoverSelectedId: selectedJokerCoverId.value,
+        cardFaceSetId: selectedCardFaceSetId.value,
+      );
+    } catch (_) {
+      // Offline or rules rejection — local prefs remain source of truth.
+    }
   }
 
   Future<List<CardBackDesign>> _loadJokerCoverDesigns() async {
@@ -300,7 +323,11 @@ class CardBackService {
     return _unlocked.contains(designId);
   }
 
-  Future<bool> selectDesign(String designId) async {
+  /// [pushToFirestore]: set false when applying a batch from Firestore (avoids each step writing all three fields).
+  Future<bool> selectDesign(
+    String designId, {
+    bool pushToFirestore = true,
+  }) async {
     await init();
     if (designId == 'uploaded' && uploadedAnimatedAssetPath.value == null) {
       return false;
@@ -326,10 +353,15 @@ class CardBackService {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsSelectedKey, designId);
+    if (pushToFirestore) unawaited(_pushCardCustomizationToFirestore());
     return true;
   }
 
-  Future<bool> selectJokerCover(String designId) async {
+  /// [pushToFirestore]: set false when applying a batch from Firestore (avoids each step writing all three fields).
+  Future<bool> selectJokerCover(
+    String designId, {
+    bool pushToFirestore = true,
+  }) async {
     await init();
     if (designId != 'classic') {
       CardBackDesign? design;
@@ -348,6 +380,7 @@ class CardBackService {
     selectedJokerCoverId.value = designId;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsJokerCoverKey, designId);
+    if (pushToFirestore) unawaited(_pushCardCustomizationToFirestore());
     return true;
   }
 

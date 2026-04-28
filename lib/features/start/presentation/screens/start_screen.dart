@@ -32,6 +32,7 @@ import '../../../../core/widgets/prestige_avatar_frame.dart';
 import '../../../../app/app_route_observer.dart';
 import '../../../../services/start_screen_bgm.dart';
 import '../../../../features/social/widgets/friends_list_sheet.dart';
+import '../../../../features/reactions/reaction_wheel_customize_sheet.dart';
 import '../../../../features/social/widgets/pending_friend_requests_banner.dart';
 import '../../../../features/social/widgets/pending_game_invites_banner.dart';
 import '../../../../core/monetization/monetization_config.dart';
@@ -826,12 +827,7 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
   }
 
   void _showCardStyles(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const CardStylesModal(),
-    );
+    showCardStylesModal(context);
   }
 
   void _showAISelector(BuildContext context) {
