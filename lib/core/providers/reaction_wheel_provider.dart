@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/reactions/reaction_catalog.dart';
@@ -23,6 +24,9 @@ final reactionWheelProvider =
   return n;
 });
 
+/// True when `Firebase.initializeApp()` has run (tests often omit Firebase).
+bool _firebaseAppsReady() => Firebase.apps.isNotEmpty;
+
 class ReactionWheelNotifier extends StateNotifier<List<int>> {
   ReactionWheelNotifier(this._ref)
       : super(List<int>.generate(kStarterReactionCount, (i) => i)) {
@@ -40,7 +44,7 @@ class ReactionWheelNotifier extends StateNotifier<List<int>> {
     var sanitized =
         ReactionWheelService.instance.sanitizeForLevel(raw, level);
     state = sanitized;
-    if (FirebaseAuth.instance.currentUser != null) {
+    if (_firebaseAppsReady() && FirebaseAuth.instance.currentUser != null) {
       await refreshFromFirestore();
     }
   }
@@ -61,6 +65,7 @@ class ReactionWheelNotifier extends StateNotifier<List<int>> {
   }
 
   Future<void> refreshFromFirestore() async {
+    if (!_firebaseAppsReady()) return;
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     final profile =
@@ -98,7 +103,8 @@ class ReactionWheelNotifier extends StateNotifier<List<int>> {
   Future<void> _persist(List<int> sanitized, {bool syncFirebase = true}) async {
     await ReactionWheelService.instance.saveSlots(sanitized);
     state = sanitized;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid =
+        _firebaseAppsReady() ? FirebaseAuth.instance.currentUser?.uid : null;
     if (syncFirebase && uid != null) {
       unawaited(
         _ref
