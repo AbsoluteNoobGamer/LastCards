@@ -106,11 +106,18 @@ class ReactionWheelNotifier extends StateNotifier<List<int>> {
     final uid =
         _firebaseAppsReady() ? FirebaseAuth.instance.currentUser?.uid : null;
     if (syncFirebase && uid != null) {
-      unawaited(
-        _ref
-            .read(firestoreProfileServiceProvider)
-            .updateReactionWheel(uid, sanitized),
-      );
+      unawaited(_pushReactionWheelToFirestore(uid, sanitized));
+    }
+  }
+
+  /// Best-effort Firestore sync; local prefs remain source of truth on failure.
+  Future<void> _pushReactionWheelToFirestore(String uid, List<int> slots) async {
+    try {
+      await _ref
+          .read(firestoreProfileServiceProvider)
+          .updateReactionWheel(uid, slots);
+    } catch (_) {
+      // Offline or rules rejection — ignore (same pattern as CardBackService).
     }
   }
 
