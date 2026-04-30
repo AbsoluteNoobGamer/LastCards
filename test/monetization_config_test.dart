@@ -14,8 +14,16 @@ void main() {
     );
   });
 
-  test('rewarded test ad unit defaults are Google sample IDs', () {
-    expect(kAdmobRewardedAndroid, contains('ca-app-pub-3940256099942544'));
+  test('Android banner and interstitial default to LastCards AdMob units', () {
+    expect(kAdmobBannerAndroid, 'ca-app-pub-4446209247875215/3931896362');
+    expect(
+      kAdmobInterstitialAndroid,
+      'ca-app-pub-4446209247875215/6454117927',
+    );
+  });
+
+  test('Android rewarded defaults to LastCards skip unit; iOS uses sample test ID', () {
+    expect(kAdmobRewardedAndroid, 'ca-app-pub-4446209247875215/9319954415');
     expect(kAdmobRewardedIos, contains('ca-app-pub-3940256099942544'));
   });
 }

@@ -4,14 +4,15 @@ import 'package:flutter/foundation.dart';
 /// App Store Connect (one-time purchase, non-consumable).
 const String kRemoveAdsProductId = 'remove_ads_lifetime';
 
-const String _testBannerAndroid = 'ca-app-pub-3940256099942544/6300978111';
 const String _testBannerIos = 'ca-app-pub-3940256099942544/2934735716';
 
-/// Release builds: pass real ad unit IDs, e.g.
-/// `--dart-define=ADMOB_BANNER_ANDROID=ca-app-pub-xxx/yyy`
+/// LastCards Android (AdMob). For Google test banners during dev:
+/// `--dart-define=ADMOB_BANNER_ANDROID=ca-app-pub-3940256099942544/6300978111`
+const String _prodBannerAndroid = 'ca-app-pub-4446209247875215/3931896362';
+
 const String kAdmobBannerAndroid = String.fromEnvironment(
   'ADMOB_BANNER_ANDROID',
-  defaultValue: _testBannerAndroid,
+  defaultValue: _prodBannerAndroid,
 );
 
 const String kAdmobBannerIos = String.fromEnvironment(
@@ -19,14 +20,15 @@ const String kAdmobBannerIos = String.fromEnvironment(
   defaultValue: _testBannerIos,
 );
 
-const String _testInterstitialAndroid = 'ca-app-pub-3940256099942544/1033173712';
 const String _testInterstitialIos = 'ca-app-pub-3940256099942544/4411468910';
 
-/// Interstitial (post-game) — use real IDs in release, e.g.
-/// `--dart-define=ADMOB_INTERSTITIAL_ANDROID=…`
+/// LastCards Android post-game interstitial. For Google test interstitials during dev:
+/// `--dart-define=ADMOB_INTERSTITIAL_ANDROID=ca-app-pub-3940256099942544/1033173712`
+const String _prodInterstitialAndroid = 'ca-app-pub-4446209247875215/6454117927';
+
 const String kAdmobInterstitialAndroid = String.fromEnvironment(
   'ADMOB_INTERSTITIAL_ANDROID',
-  defaultValue: _testInterstitialAndroid,
+  defaultValue: _prodInterstitialAndroid,
 );
 
 const String kAdmobInterstitialIos = String.fromEnvironment(
@@ -34,14 +36,15 @@ const String kAdmobInterstitialIos = String.fromEnvironment(
   defaultValue: _testInterstitialIos,
 );
 
-const String _testRewardedAndroid = 'ca-app-pub-3940256099942544/5224354917';
 const String _testRewardedIos = 'ca-app-pub-3940256099942544/1712485313';
 
-/// Rewarded (e.g. offline tournament skip) — use real IDs in release, e.g.
-/// `--dart-define=ADMOB_REWARDED_ANDROID=…`
+/// Rewarded — offline tournament skip (Android). For Google test rewarded during dev:
+/// `--dart-define=ADMOB_REWARDED_ANDROID=ca-app-pub-3940256099942544/5224354917`
+const String _prodRewardedAndroid = 'ca-app-pub-4446209247875215/9319954415';
+
 const String kAdmobRewardedAndroid = String.fromEnvironment(
   'ADMOB_REWARDED_ANDROID',
-  defaultValue: _testRewardedAndroid,
+  defaultValue: _prodRewardedAndroid,
 );
 
 const String kAdmobRewardedIos = String.fromEnvironment(
