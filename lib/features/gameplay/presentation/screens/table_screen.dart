@@ -249,6 +249,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   /// Tracks [GameState.currentPlayerId] for your-turn edge pulse (transition onto local).
   String? _prevTurnPlayerIdForEdge;
 
+  /// HUD penalty badge increased — screen-edge red pulse (skipped during
+  /// offline tournament fast-forward so skip-to-result stays visually quiet).
+  void _bumpPenaltyFlashForHud() {
+    if (_tournamentSimulatingRest) return;
+    if (!mounted) return;
+    if (MediaQuery.disableAnimationsOf(context)) return;
+    setState(() => _penaltyFlashTrigger++);
+  }
+
   /// Seconds remaining until next quick chat can be sent (10s cooldown).
   int _quickChatCooldownRemaining = 0;
   Timer? _quickChatCooldownTimer;
@@ -1676,10 +1685,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         localHandSize: localHandSize,
                         handShakeTrigger: _handShakeNotifier,
                         onLastCardsTap: _onDeclareLastCards,
-                        onPenaltyIncreased: () {
-                          if (MediaQuery.disableAnimationsOf(context)) return;
-                          setState(() => _penaltyFlashTrigger++);
-                        },
+                        onPenaltyIncreased: _bumpPenaltyFlashForHud,
                         skipHighlightPlayerIds: _skipHighlightPlayerIds,
                         onOpponentProfileTap:
                             isOfflineMode ? null : _showOpponentProfileSheet,
@@ -2006,10 +2012,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                 .firstOrNull
                                 ?.tablePosition
                             : null,
-                        onPenaltyIncreased: () {
-                          if (MediaQuery.disableAnimationsOf(context)) return;
-                          setState(() => _penaltyFlashTrigger++);
-                        },
+                        onPenaltyIncreased: _bumpPenaltyFlashForHud,
                       ),
                     ),
                   ),
@@ -2518,9 +2521,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     try {
       if (playerId == OfflineGameState.localId) {
         _handShakeNotifier.value++;
-        if (mounted && !MediaQuery.disableAnimationsOf(context)) {
-          setState(() => _penaltyFlashTrigger++);
-        }
+        _bumpPenaltyFlashForHud();
         HapticFeedback.lightImpact();
         await _animateDrawFlightsToPlayer(playerId, penaltyDrawCount);
         if (!mounted) return;
