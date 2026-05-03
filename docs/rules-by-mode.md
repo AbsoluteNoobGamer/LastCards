@@ -36,7 +36,7 @@
 - **Pick-up matching:** While the penalty chain is **live** (a penalty card was most recently played and no player has drawn or played a non-penalty card to break it), penalty cards (`2` / Black Jack / Red Jack) may be played on other penalty cards without matching suit or rank. The chain stays **live** after a Red Jack resets the draw count to zero; it ends when someone draws, a non-penalty card clears the chain (e.g. sequence continuation), or the turn advances after a non-penalty card.
 - `King`: Reverses direction of play. **2 players:** that sends the turn back to you; your **next** card on that same turn is matched to the discard top (the King) with normal suit/rank rules — it does **not** have to be the next/previous rank in a numerical run from the King. **Ace on that follow-up** is not “change the suit” wild; it must match the King by suit or by rank like other cards. **3+ players:** mid-turn numerical-flow rules still apply after a King like any other non-special card.
 - `Ace`: Player changes the active suit.
-- `Queen`: Suit lock; next player must follow that suit (no number-match bypass).
+- `Queen`: **Suit lock on the player who played it.** After a Queen, your turn is not done until you either play another card of **that Queen’s suit** or play **another Queen** (no rank-only bypass while the lock is active), or you **draw**—drawing ends your turn and clears the lock; the next player does **not** inherit a suit obligation from the Queen.
 - `8`: Next player is skipped.
 - `Joker`: Wild; player declares both suit and rank.
 
@@ -45,7 +45,7 @@ When multiple effects are active together, resolve in this order:
 1. Draw penalties (`2` / Black Jack)
 2. Skip (`8`)
 3. Reverse (`King`)
-4. Suit lock (`Queen`)
+4. Suit lock (`Queen`; applies to the active player until covered or they draw)
 
 ### Edge Cases
 - If draw pile is empty, reshuffle discard pile (except top card) into a new draw pile.

@@ -72,7 +72,7 @@ After that cross-suit value match, normal matching rules apply.
 | **Red Jack (♥ / ♦)** | Cancels any active draw penalty. Resets the draw stack to 0. |
 | **King** | Reverses the direction of play. |
 | **Ace** | Player changes the active suit. Player declares the new suit upon playing. |
-| **Queen** | Next player must follow the same suit. Cannot change suit or match by number. Must be covered with the same suit. |
+| **Queen** | Suit lock on **you** after you play it: play another card of that Queen’s suit or another Queen before ending your turn (no rank-only bypass while locked), or draw to end your turn (lock does not pass to the next player). |
 | **8** | Next player misses their turn (skip). |
 | **Joker** | Wild card. Player declares both the suit and rank. Treated as that card until replaced. |
 
@@ -85,7 +85,7 @@ When multiple effects are active simultaneously, they resolve in this order:
 1. Draw penalties (2s / Black Jacks)
 2. Skip (8)
 3. Reverse (King)
-4. Suit lock (Queen)
+4. Suit lock (Queen — active player until covered or draw)
 
 ---
 
