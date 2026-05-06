@@ -522,13 +522,25 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _matchCardsPlayed.clear();
     _matchDrawsTaken.clear();
     _matchSpecialsPlayed.clear();
-    final liveState = ref.read(gameStateProvider);
+    _pendingOpeningLastCardsAnnouncement = false;
+    _offlineLastCardsBluffedBy.clear();
+
+    // [gameNotifierProvider] keeps the last online [GameState] (including
+    // lastCardsDeclaredBy) after game_ended until an explicit clear — SP flows
+    // often never hit those clears. Drop ended snapshots so new tables don't
+    // inherit declaration UI from the previous match.
+    var liveState = ref.read(gameStateProvider);
+    if (liveState?.phase == GamePhase.ended) {
+      ref.read(gameNotifierProvider.notifier).clearOnlineState();
+      liveState = null;
+    }
     _bustLeaderboardRecorded = false;
     _tournamentSimulatingRest = false;
     if (liveState != null) {
+      final snap = liveState;
       _isOfflineSession = false;
       // Online mode: server sent state. Run visual deal animation then use it.
-      _offlineState = liveState;
+      _offlineState = snap;
       _drawPile = [];
       _tournamentFinishedPlayerIds.clear();
       _tournamentRoundComplete = false;
@@ -537,15 +549,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       _onlineWinDialogShown = false;
       _spectating = false;
 
-      if (liveState.discardTopCard != null) {
-        _discardPile.add(liveState.discardTopCard!);
+      if (snap.discardTopCard != null) {
+        _discardPile.add(snap.discardTopCard!);
       }
       _moveLogEntries.clear();
       _playerZoneKeys.clear();
-      for (final p in liveState.players) {
+      for (final p in snap.players) {
         _playerZoneKeys[p.id] = GlobalKey();
       }
-      final localStart = liveState.players
+      final localStart = snap.players
           .where((p) => p.tablePosition == TablePosition.bottom)
           .firstOrNull;
       _handOrder = localStart?.hand.map((c) => c.id).toList() ?? [];
@@ -554,11 +566,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       setState(() {
         _isDealing = true;
         _visibleCardCounts.clear();
-        for (final p in liveState.players) {
+        for (final p in snap.players) {
           _visibleCardCounts[p.id] = 0;
         }
         // Pre-deal countdown (54 - 1 face-up = 53), matching offline.
-        _offlineState = liveState.copyWith(drawPileCount: 53);
+        _offlineState = snap.copyWith(drawPileCount: 53);
       });
 
       WidgetsBinding.instance.addPostFrameCallback((_) {

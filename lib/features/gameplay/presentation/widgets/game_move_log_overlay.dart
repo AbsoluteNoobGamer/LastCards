@@ -15,19 +15,22 @@ class GameMoveLogPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        width: double.infinity,
-        constraints: const BoxConstraints(maxHeight: 140),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(12),
+    return FractionalTranslation(
+      translation: const Offset(0, -0.5),
+      child: IgnorePointer(
+        child: Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(maxHeight: 140),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 6,
+          ),
+          child: LastMovePanelWidget(entries: entries),
         ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 10,
-          vertical: 6,
-        ),
-        child: LastMovePanelWidget(entries: entries),
       ),
     );
   }
@@ -37,6 +40,8 @@ class GameMoveLogPanel extends StatelessWidget {
 ///
 /// Previously used `+175` / `+72` below padding; nudged **down** slightly (`+200` / `+96`)
 /// so it sits a bit lower without overlapping the centre HUD on typical phones.
+/// [GameMoveLogPanel] applies the same fractional upward shift as centre piles
+/// (`FractionalTranslation` −0.5 of panel height).
 class GameMoveLogOverlay extends StatelessWidget {
   const GameMoveLogOverlay({super.key, required this.entries});
 

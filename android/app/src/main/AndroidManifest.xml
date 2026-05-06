@@ -35,8 +35,8 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <!-- AdMob App ID — LastCards (Android) from AdMob console. Ad units: pass via
-             --dart-define=ADMOB_BANNER_ANDROID / ADMOB_INTERSTITIAL_ANDROID / ADMOB_REWARDED_ANDROID. -->
+        <!-- AdMob App ID — LastCards (Android) from AdMob console. Ad unit IDs:
+             ADMOB_BANNER_ANDROID, ADMOB_INTERSTITIAL_ANDROID, ADMOB_REWARDED_ANDROID (dart-define). -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-4446209247875215~4405615640"/>

@@ -69,6 +69,22 @@ void main() {
     expect(notifier.state.gameState, isNull);
   });
 
+  test('clearOnlineState drops stale gameState for offline entry', () async {
+    final gs = makeGameState().copyWith(
+      phase: GamePhase.ended,
+      lastCardsDeclaredBy: {'p1'},
+    );
+    fakeWs.injectServerMessage(jsonEncode({
+      'type': 'state_snapshot',
+      'payload': gs.toJson(),
+    }));
+    await flushEvents();
+    expect(notifier.state.gameState!.lastCardsDeclaredBy, contains('p1'));
+
+    notifier.clearOnlineState();
+    expect(notifier.state.gameState, isNull);
+  });
+
   test('state_snapshot replaces full game state', () async {
     final gs = makeGameState();
     fakeWs.injectServerMessage(jsonEncode({
