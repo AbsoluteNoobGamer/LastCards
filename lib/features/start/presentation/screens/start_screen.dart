@@ -19,6 +19,7 @@ import '../../../../core/theme/theme_selector_modal.dart';
 import '../../../../core/navigation/app_page_routes.dart';
 import '../../../../core/widgets/glass_frosted_panel.dart';
 import '../../../../core/widgets/themed_shimmer.dart';
+import '../../../../core/providers/game_provider.dart';
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/server_live_connections_provider.dart';
 import '../../../../core/providers/theme_provider.dart';

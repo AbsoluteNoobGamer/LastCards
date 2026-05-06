@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/providers/game_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../features/gameplay/presentation/screens/table_screen.dart';
 import '../providers/single_player_session_provider.dart';
@@ -71,6 +72,7 @@ class _GameLoadingScreenState extends ConsumerState<GameLoadingScreen>
     final playerCount = session.playerCount ?? 2;
     final difficulty = session.difficulty;
     ref.read(singlePlayerSessionProvider.notifier).reset();
+    ref.read(gameNotifierProvider.notifier).clearOnlineState();
 
     Navigator.of(context).pushAndRemoveUntil(
       PageRouteBuilder(

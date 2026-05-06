@@ -306,12 +306,12 @@ class _AuthProfileSheetState extends ConsumerState<_AuthProfileSheet> {
 // Primary Buttons
 // -----------------------------------------------------------------------------
 
-class _PlayAiButton extends StatefulWidget {
+class _PlayAiButton extends ConsumerStatefulWidget {
   @override
-  State<_PlayAiButton> createState() => _PlayAiButtonState();
+  ConsumerState<_PlayAiButton> createState() => _PlayAiButtonState();
 }
 
-class _PlayAiButtonState extends State<_PlayAiButton> {
+class _PlayAiButtonState extends ConsumerState<_PlayAiButton> {
   bool _isHovered = false;
   bool _isPressed = false;
 
@@ -334,6 +334,7 @@ class _PlayAiButtonState extends State<_PlayAiButton> {
         if (parentState != null) {
           parentState._showAISelector(context);
         } else {
+          ref.read(gameNotifierProvider.notifier).clearOnlineState();
           Navigator.push(
             context,
             AppPageRoutes.fadeSlide((_) => const TableScreen()),

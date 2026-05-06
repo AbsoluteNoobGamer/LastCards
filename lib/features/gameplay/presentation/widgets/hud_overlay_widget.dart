@@ -68,7 +68,14 @@ class HudOverlayWidget extends ConsumerWidget {
 
         // Active suit badge (Ace/Joker declaration) — premium badge with pop-in
         if (activeSuit != null) ...[
-          _AnimatedSuitBadge(suit: activeSuit!, theme: theme, compact: compact),
+          FractionalTranslation(
+            translation: const Offset(0, -0.5),
+            child: _AnimatedSuitBadge(
+              suit: activeSuit!,
+              theme: theme,
+              compact: compact,
+            ),
+          ),
           SizedBox(width: gap),
         ],
 

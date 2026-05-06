@@ -1253,48 +1253,51 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                         alignment: Alignment.topCenter,
                         child: Padding(
                           padding: const EdgeInsets.only(top: 8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                key: _drawPileKey,
-                                width: 100,
-                                height: 145,
-                                child: OverflowBox(
-                                  maxWidth: double.infinity,
-                                  maxHeight: double.infinity,
-                                  child: DrawPileWidget(
-                                    cardCount: _gameState.drawPileCount,
-                                    cardWidth: 100,
-                                    enabled: !_isDealing &&
-                                        isMyTurn &&
-                                        (_gameState.actionsThisTurn == 0 ||
-                                            _gameState.queenSuitLock != null),
-                                    onTap: isMyTurn ? _drawCard : null,
-                                    reshuffleNotifier: _reshuffleNotifier,
+                          child: FractionalTranslation(
+                            translation: const Offset(0, -0.5),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  key: _drawPileKey,
+                                  width: 100,
+                                  height: 145,
+                                  child: OverflowBox(
+                                    maxWidth: double.infinity,
+                                    maxHeight: double.infinity,
+                                    child: DrawPileWidget(
+                                      cardCount: _gameState.drawPileCount,
+                                      cardWidth: 100,
+                                      enabled: !_isDealing &&
+                                          isMyTurn &&
+                                          (_gameState.actionsThisTurn == 0 ||
+                                              _gameState.queenSuitLock != null),
+                                      onTap: isMyTurn ? _drawCard : null,
+                                      reshuffleNotifier: _reshuffleNotifier,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 24),
-                              SizedBox(
-                                key: _discardPileKey,
-                                width: 100,
-                                height: 145,
-                                child: OverflowBox(
-                                  maxWidth: double.infinity,
-                                  maxHeight: double.infinity,
-                                  child: DiscardPileWidget(
-                                    topCard: _gameState.discardTopCard,
-                                    secondCard: _gameState.discardPileHistory.isNotEmpty ? _gameState.discardPileHistory.first : null,
-                                    discardPileHistory: _gameState.discardPileHistory,
-                                    cardWidth: 100,
-                                    discardPileCount: _discardPile.length,
+                                const SizedBox(width: 24),
+                                SizedBox(
+                                  key: _discardPileKey,
+                                  width: 100,
+                                  height: 145,
+                                  child: OverflowBox(
+                                    maxWidth: double.infinity,
+                                    maxHeight: double.infinity,
+                                    child: DiscardPileWidget(
+                                      topCard: _gameState.discardTopCard,
+                                      secondCard: _gameState.discardPileHistory.isNotEmpty ? _gameState.discardPileHistory.first : null,
+                                      discardPileHistory: _gameState.discardPileHistory,
+                                      cardWidth: 100,
+                                      discardPileCount: _discardPile.length,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
