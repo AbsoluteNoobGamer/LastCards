@@ -5,10 +5,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 /// Anchored adaptive banner for the bottom of a screen (e.g. start menu).
 ///
-/// Uses [AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize] (google_mobile_ads 6.x).
-/// When upgrading to plugin 8.x+ and Dart 3.10+, you may switch to
-/// [AdSize.getLargeAnchoredAdaptiveBannerAdSize] for taller “large” adaptive banners;
-/// revisit layout padding (e.g. start screen bottom inset) if the slot height changes.
+/// Uses [AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize] (google_mobile_ads 7.x).
 class MonetizationBannerAd extends StatefulWidget {
   const MonetizationBannerAd({super.key, required this.adUnitId});
 
@@ -33,7 +30,6 @@ class _MonetizationBannerAdState extends State<MonetizationBannerAd> {
     final width = MediaQuery.sizeOf(context).width.truncate();
     if (width <= 0) return;
 
-    // See class doc: 6.x API; 8.x offers getLargeAnchoredAdaptiveBannerAdSize.
     final size =
         await AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(width);
     if (!mounted || size == null) return;

@@ -1,7 +1,7 @@
 name: last_cards
 description: "Last Cards — Play It All. Leave Nothing."
 publish_to: "none"
-version: 1.0.0+10
+version: 1.0.0+11
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -50,8 +50,8 @@ dependencies:
   audio_session: ^0.2.3
   http: ^1.6.0
   share_plus: ^12.0.2
-  # 7.x/8.x require Dart >=3.10; ^6.0.0 stays on 6.x until the SDK supports newer plugin majors.
-  google_mobile_ads: ^6.0.0
+  # 8.x requires Dart SDK >=3.10 (CI may use Flutter with Dart 3.9.x).
+  google_mobile_ads: ^7.0.0
   in_app_purchase: ^3.2.3
 
 dev_dependencies:
