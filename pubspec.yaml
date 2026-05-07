@@ -50,7 +50,8 @@ dependencies:
   audio_session: ^0.2.3
   http: ^1.6.0
   share_plus: ^12.0.2
-  google_mobile_ads: ^8.0.0
+  # 8.x requires Dart SDK >=3.10 (CI may use Flutter with Dart 3.9.x).
+  google_mobile_ads: ^7.0.0
   in_app_purchase: ^3.2.3
 
 dev_dependencies:
