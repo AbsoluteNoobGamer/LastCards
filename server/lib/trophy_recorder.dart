@@ -305,9 +305,10 @@ class _FirestoreClient {
         body: body,
       );
       if (response.statusCode == 200) return true;
-      // 400 with ALREADY_EXISTS means the conditional create was skipped
-      // (doc exists). Re-send with only the transforms + string overwrites.
-      if (response.statusCode == 400 &&
+      // Conditional create fails when the doc already exists. Firestore may
+      // return 400 or 409 (ALREADY_EXISTS). Re-send with only the transforms +
+      // string overwrites.
+      if ((response.statusCode == 400 || response.statusCode == 409) &&
           response.body.contains('ALREADY_EXISTS')) {
         return _updateExisting(
           token: token,
