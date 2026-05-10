@@ -7,13 +7,11 @@ import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../lobby/presentation/screens/lobby_screen.dart';
 import '../providers/online_session_provider.dart';
+import '../screens/matchmaking_screen.dart';
 import 'player_count_sheet.dart';
+import 'queue_join_style_sheet.dart';
 
-/// Bottom Sheet 1 — Game Mode Selection
-///
-/// Shows three large tappable option cards for the player to choose:
-/// Quick Match, Private Game, or Tournament.
-/// On selection, dismisses and opens [PlayerCountSheet].
+/// Bottom Sheet — online mode selection (Select table / Quick match / Private / Ranked).
 class ModeSelectionSheet extends ConsumerWidget {
   const ModeSelectionSheet({super.key});
 
@@ -31,7 +29,6 @@ class ModeSelectionSheet extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ── Drag handle ───────────────────────────────────────────────
             const SizedBox(height: 12),
             Container(
               width: 40,
@@ -42,8 +39,6 @@ class ModeSelectionSheet extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 20),
-
-            // ── Title ─────────────────────────────────────────────────────
             Text(
               'Choose Mode',
               style: GoogleFonts.cinzel(
@@ -63,8 +58,6 @@ class ModeSelectionSheet extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 24),
-
-            // ── Mode Cards ────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
@@ -79,7 +72,6 @@ class ModeSelectionSheet extends ConsumerWidget {
                 }).toList(),
               ),
             ),
-
             const SizedBox(height: 8),
           ],
         ),
@@ -88,9 +80,9 @@ class ModeSelectionSheet extends ConsumerWidget {
   }
 
   void _onModeSelected(
-      BuildContext context, WidgetRef ref, OnlineGameMode mode) {
-    // Ranked / ranked hardcore require a signed-in Firebase user (anonymous auth counts).
-    if (mode == OnlineGameMode.ranked || mode == OnlineGameMode.rankedHardcore) {
+    BuildContext context, WidgetRef ref, OnlineGameMode mode) {
+    if (mode == OnlineGameMode.ranked ||
+        mode == OnlineGameMode.rankedHardcore) {
       final user = ref.read(authStateProvider).value;
       if (user == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -106,22 +98,57 @@ class ModeSelectionSheet extends ConsumerWidget {
 
     ref.read(onlineSessionProvider.notifier).setMode(mode);
     Navigator.of(context).pop();
+
     if (mode == OnlineGameMode.privateGame) {
       Navigator.of(context).push(
         AppPageRoutes.fadeSlide((_) => const LobbyScreen()),
       );
       return;
     }
+
+    if (mode == OnlineGameMode.selectTableCasual) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => const PlayerCountSheet(),
+      );
+      return;
+    }
+
+    if (mode == OnlineGameMode.quickMatchCasual) {
+      Navigator.of(context).push(
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const MatchmakingScreen(),
+          transitionDuration: const Duration(milliseconds: 400),
+          transitionsBuilder: (_, animation, __, child) {
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.06),
+                  end: Offset.zero,
+                ).animate(CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOutCubic,
+                )),
+                child: child,
+              ),
+            );
+          },
+        ),
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const PlayerCountSheet(),
+      builder: (_) => const QueueJoinStyleSheet(),
     );
   }
 }
-
-// ── Mode Option Card ──────────────────────────────────────────────────────────
 
 class _ModeCard extends ConsumerStatefulWidget {
   const _ModeCard({required this.mode, required this.onTap});
@@ -144,9 +171,9 @@ class _ModeCardState extends ConsumerState<_ModeCard> {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() {
-            _isHovered = false;
-            _isPressed = false;
-          }),
+        _isHovered = false;
+        _isPressed = false;
+      }),
       cursor: SystemMouseCursors.click,
       child: AnimatedScale(
         duration: const Duration(milliseconds: 180),
@@ -183,7 +210,6 @@ class _ModeCardState extends ConsumerState<_ModeCard> {
             ),
             child: Row(
               children: [
-                // Emoji icon in a circle badge
                 Container(
                   width: 48,
                   height: 48,
@@ -203,8 +229,6 @@ class _ModeCardState extends ConsumerState<_ModeCard> {
                   ),
                 ),
                 const SizedBox(width: 16),
-
-                // Text
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -230,8 +254,6 @@ class _ModeCardState extends ConsumerState<_ModeCard> {
                     ],
                   ),
                 ),
-
-                // Chevron
                 Icon(
                   Icons.chevron_right_rounded,
                   color: theme.accentPrimary.withValues(alpha: 0.6),

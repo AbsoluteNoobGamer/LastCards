@@ -187,10 +187,10 @@ class RulesScreen extends StatelessWidget {
                     'Play Online — Lobby/room flow; same core rules.',
                 ),
                 _BodyText(
-                    'Ranked — Signed-in quick match; MMR and the Ranked leaderboard (standard rules, 60s turns).',
+                    'Ranked — Signed-in matchmaking (Select table or Quick match); MMR and the Ranked leaderboard (standard rules, 60s turns).',
                 ),
                 _BodyText(
-                    'Ranked (Hardcore) — Signed-in quick match in a separate queue; stricter finish rules, 30s turns, separate MMR and leaderboard. See Hardcore Mode (Online) above.',
+                    'Ranked (Hardcore) — Same matchmaking options in a separate queue; stricter finish rules, 30s turns, separate MMR and leaderboard. See Hardcore Mode (Online) above.',
                 ),
                 _BulletPoint(
                     'Disconnect: player is removed (no rejoin). With two or more others left, their hand shuffles into the draw pile; if only one player remains, the session ends.',

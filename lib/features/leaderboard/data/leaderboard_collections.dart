@@ -5,7 +5,7 @@ enum LeaderboardMode {
   ranked('Ranked', Icons.emoji_events),
   rankedHardcore('Ranked (Hardcore)', Icons.whatshot),
   singlePlayer('Single Player', Icons.smart_toy),
-  online('Online (Quick Match)', Icons.people),
+  online('Online (casual)', Icons.people),
   tournamentVsAi('Tournament (vs AI)', Icons.shield),
   tournamentOnline('Tournament (Online)', Icons.public),
   bustOffline('Bust (Offline)', Icons.auto_awesome_rounded),
