@@ -6,6 +6,7 @@ import '../../../../core/providers/theme_provider.dart';
 import '../providers/online_session_provider.dart';
 import '../screens/matchmaking_screen.dart';
 import 'mode_selection_sheet.dart';
+import 'queue_join_style_sheet.dart';
 
 /// Bottom Sheet 2 — Player Count Selection
 ///
@@ -163,12 +164,16 @@ class _PlayerCountSheetState extends ConsumerState<PlayerCountSheet> {
   }
 
   void _goBack(BuildContext context) {
+    final mode = ref.read(onlineSessionProvider).mode;
     Navigator.of(context).pop();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const ModeSelectionSheet(),
+      builder: (_) => (mode == OnlineGameMode.ranked ||
+              mode == OnlineGameMode.rankedHardcore)
+          ? const QueueJoinStyleSheet()
+          : const ModeSelectionSheet(),
     );
   }
 

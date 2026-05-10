@@ -90,13 +90,20 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
       duration: const Duration(milliseconds: 2400),
     )..repeat(reverse: true);
 
-    final playerCount = ref.read(onlineSessionProvider).playerCount ?? 4;
+    final onlineSession = ref.read(onlineSessionProvider);
+    final joinWaiting = onlineSession.isJoinWaitingQueue;
     final local = ref.read(displayNameForGameProvider);
     final localLabel = local.isEmpty ? 'Player' : local;
-    _slotNames = List<String?>.generate(
-      playerCount,
-      (i) => i == 0 ? localLabel : null,
-    );
+    if (joinWaiting) {
+      _slotNames = [];
+    } else {
+      final playerCount =
+          onlineSession.playerCount ?? 4;
+      _slotNames = List<String?>.generate(
+        playerCount,
+        (i) => i == 0 ? localLabel : null,
+      );
+    }
     _yourSlotIndex = 0;
 
     // Ensure GameNotifier is subscribed before any state_snapshot arrives,
@@ -110,6 +117,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
         _onQueueUpdate(event);
       } else if (event is PlayerJoinedEvent) {
         _onPlayerJoined(event);
+      } else if (event is ErrorEvent) {
+        _onMatchmakingError(event);
       }
     });
 
@@ -120,16 +129,23 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     final isRankedHardcore = onlineMode == OnlineGameMode.rankedHardcore;
     final isRanked = onlineMode == OnlineGameMode.ranked || isRankedHardcore;
     final displayName = ref.read(displayNameForGameProvider);
-    _connectAndRequestMatch(playerCount,
-        displayName: displayName,
-        isBust: isBust,
-        isRanked: isRanked,
-        isRankedHardcore: isRankedHardcore);
+    _connectAndRequestMatch(
+      playerCount: ref.read(onlineSessionProvider).playerCount,
+      displayName: displayName,
+      isBust: isBust,
+      isRanked: isRanked,
+      isRankedHardcore: isRankedHardcore,
+    );
   }
 
   void _onQueueUpdate(QuickplayQueueUpdateEvent e) {
-    final playerCount = ref.read(onlineSessionProvider).playerCount ?? 4;
-    if (e.playerCount != playerCount) return;
+    final session = ref.read(onlineSessionProvider);
+    if (!session.isJoinWaitingQueue) {
+      final expected = session.playerCount ?? 4;
+      if (e.playerCount != expected) return;
+    }
+    ref.read(onlineSessionProvider.notifier).setPlayerCount(e.playerCount);
+    final playerCount = e.playerCount;
     setState(() {
       final you = e.yourIndex.clamp(0, playerCount - 1);
       _yourSlotIndex = you;
@@ -138,6 +154,20 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
         _slotNames[i] = i < e.displayNames.length ? e.displayNames[i] : null;
       }
     });
+  }
+
+  void _onMatchmakingError(ErrorEvent e) {
+    if (e.code != 'no_waiting_tables') return;
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    ref.read(onlineSessionProvider.notifier).reset();
+    Navigator.of(context).pop();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(e.message),
+        backgroundColor: const Color(0xFFB71C1C),
+      ),
+    );
   }
 
   void _onPlayerJoined(PlayerJoinedEvent e) {
@@ -188,8 +218,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     });
   }
 
-  Future<void> _connectAndRequestMatch(
-    int playerCount, {
+  Future<void> _connectAndRequestMatch({
+    int? playerCount,
     required String displayName,
     bool isBust = false,
     bool isRanked = false,
@@ -212,6 +242,11 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     }
     if (!mounted) return;
 
+    final sess = ref.read(onlineSessionProvider);
+    final effectiveJoinWaiting = sess.isJoinWaitingQueue && !isBust;
+    final sizeForSelectPath =
+        playerCount ?? sess.playerCount ?? (isBust ? 10 : 4);
+
     String? gameMode;
     if (isBust) {
       gameMode = 'bust';
@@ -223,7 +258,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
 
     if (!wsClient.send(jsonEncode({
       'type': 'quickplay',
-      'playerCount': playerCount,
+      if (!effectiveJoinWaiting) 'playerCount': sizeForSelectPath,
+      if (effectiveJoinWaiting) 'joinWaitingQueue': true,
       if (gameMode != null) 'gameMode': gameMode,
       'displayName': displayName.isEmpty ? 'Player' : displayName,
       if (idToken != null) 'idToken': idToken,
@@ -259,18 +295,38 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
 
     final theme = ref.watch(themeProvider).theme;
     final session = ref.watch(onlineSessionProvider);
-    final playerCount = session.playerCount ?? 4;
-    final modeName = session.mode?.displayName ?? 'Quick Match';
-    if (_slotNames.length != playerCount) {
+    final awaitingTableAssignment =
+        session.isJoinWaitingQueue && session.playerCount == null;
+    final rosterSize = awaitingTableAssignment
+        ? 0
+        : (session.playerCount ??
+            (session.isJoinWaitingQueue
+                ? math.max(2, _slotNames.length)
+                : 4));
+    final modeName = session.mode?.displayName ?? 'Online';
+    if (!awaitingTableAssignment && _slotNames.length != rosterSize) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        final pc = ref.read(onlineSessionProvider).playerCount ?? 4;
+        final sess = ref.read(onlineSessionProvider);
+        final awaitingNow =
+            sess.isJoinWaitingQueue && sess.playerCount == null;
+        if (awaitingNow) return;
+        final pc = sess.playerCount ??
+            (sess.isJoinWaitingQueue
+                ? math.max(2, _slotNames.length)
+                : 4);
         if (_slotNames.length == pc) return;
         setState(() => _growOrShrinkSlots(pc));
       });
     }
-    final slots = _slotsForDisplay(playerCount);
+    final slots = _slotsForDisplay(rosterSize);
     final joinedCount = slots.where((n) => n != null).length;
+    final statusLine = awaitingTableAssignment
+        ? 'Finding a match…'
+        : 'Finding players… ($joinedCount/$rosterSize)';
+    final headerSubtitle = awaitingTableAssignment
+        ? '$modeName · Finding a match'
+        : '$modeName · $rosterSize Players';
 
     return PopScope(
       canPop: false, // Only Cancel button exits
@@ -353,7 +409,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
-                                              '$modeName · $playerCount Players',
+                                              headerSubtitle,
                                               style: GoogleFonts.inter(
                                                 fontSize: 12,
                                                 color: theme.textSecondary,
@@ -378,16 +434,20 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                                               rotateController:
                                                   _rotateController,
                                               pulseController: _pulseController,
-                                              joinedCount: joinedCount,
-                                              totalCount: playerCount,
+                                              joinedCount: awaitingTableAssignment
+                                                  ? 0
+                                                  : joinedCount,
+                                              totalCount: awaitingTableAssignment
+                                                  ? 0
+                                                  : rosterSize,
                                             ),
                                             const SizedBox(height: 8),
                                             AnimatedSwitcher(
                                               duration: const Duration(
                                                   milliseconds: 300),
                                               child: Text(
-                                                'Finding players… ($joinedCount/$playerCount)',
-                                                key: ValueKey(joinedCount),
+                                                statusLine,
+                                                key: ValueKey(statusLine),
                                                 textAlign: TextAlign.center,
                                                 style: GoogleFonts.inter(
                                                   fontSize: 13,
@@ -399,29 +459,31 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                                           ],
                                         ),
                                       ),
-                                      Expanded(
-                                        child: Center(
-                                          child: Wrap(
-                                            alignment: WrapAlignment.center,
-                                            spacing: 16,
-                                            runSpacing: 12,
-                                            children:
-                                                List.generate(playerCount, (i) {
-                                              return Padding(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 6),
-                                                child: _PlayerSlot(
-                                                  label: slots[i] ?? '…',
-                                                  isFilled: slots[i] != null,
-                                                  isLocalSlot:
-                                                      i == _yourSlotIndex,
-                                                ),
-                                              );
-                                            }),
+                                      if (!awaitingTableAssignment &&
+                                          rosterSize > 0)
+                                        Expanded(
+                                          child: Center(
+                                            child: Wrap(
+                                              alignment: WrapAlignment.center,
+                                              spacing: 16,
+                                              runSpacing: 12,
+                                              children: List.generate(
+                                                  rosterSize, (i) {
+                                                return Padding(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                          horizontal: 6),
+                                                  child: _PlayerSlot(
+                                                    label: slots[i] ?? '…',
+                                                    isFilled: slots[i] != null,
+                                                    isLocalSlot:
+                                                        i == _yourSlotIndex,
+                                                  ),
+                                                );
+                                              }),
+                                            ),
                                           ),
                                         ),
-                                      ),
                                     ],
                                   ),
                                   const SizedBox(height: 24),
@@ -478,7 +540,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  '$modeName · $playerCount Players',
+                                  headerSubtitle,
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.inter(
                                     fontSize: 13,
@@ -502,8 +564,12 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                                   child: _AnimatedWaitingIndicator(
                                     rotateController: _rotateController,
                                     pulseController: _pulseController,
-                                    joinedCount: joinedCount,
-                                    totalCount: playerCount,
+                                    joinedCount: awaitingTableAssignment
+                                        ? 0
+                                        : joinedCount,
+                                    totalCount: awaitingTableAssignment
+                                        ? 0
+                                        : rosterSize,
                                   ),
                                 ),
                                 const SizedBox(height: 16),
@@ -511,8 +577,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                                   child: AnimatedSwitcher(
                                     duration: const Duration(milliseconds: 300),
                                     child: Text(
-                                      'Finding players… ($joinedCount/$playerCount)',
-                                      key: ValueKey(joinedCount),
+                                      statusLine,
+                                      key: ValueKey(statusLine),
                                       textAlign: TextAlign.center,
                                       style: GoogleFonts.inter(
                                         fontSize: 14,
@@ -523,26 +589,27 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                                   ),
                                 ),
                                 const SizedBox(height: 20),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 24),
-                                  child: Wrap(
-                                    alignment: WrapAlignment.center,
-                                    spacing: 12,
-                                    runSpacing: 14,
-                                    children: List.generate(playerCount, (i) {
-                                      return Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 4),
-                                        child: _PlayerSlot(
-                                          label: slots[i] ?? '…',
-                                          isFilled: slots[i] != null,
-                                          isLocalSlot: i == _yourSlotIndex,
-                                        ),
-                                      );
-                                    }),
+                                if (!awaitingTableAssignment && rosterSize > 0)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 24),
+                                    child: Wrap(
+                                      alignment: WrapAlignment.center,
+                                      spacing: 12,
+                                      runSpacing: 14,
+                                      children: List.generate(rosterSize, (i) {
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 4),
+                                          child: _PlayerSlot(
+                                            label: slots[i] ?? '…',
+                                            isFilled: slots[i] != null,
+                                            isLocalSlot: i == _yourSlotIndex,
+                                          ),
+                                        );
+                                      }),
+                                    ),
                                   ),
-                                ),
                                 const SizedBox(height: 24),
                               ],
                             ),

@@ -21,6 +21,25 @@ String sanitizeDisplayName(String raw) {
   return name;
 }
 
+/// Table size from quickplay JSON (2–7). Handles [num] from loosely-typed clients.
+int parseQuickplayTableSize(Map<String, dynamic> json) {
+  final v = json['playerCount'];
+  if (v is int) return v.clamp(2, 7);
+  if (v is num) return v.round().clamp(2, 7);
+  return 4;
+}
+
+/// True when [json] carries a typical "boolean true" from clients / proxies.
+bool jsonTruth(dynamic v) {
+  if (v == true) return true;
+  if (v == 1) return true;
+  if (v is String) {
+    final s = v.toLowerCase().trim();
+    return s == 'true' || s == '1' || s == 'yes';
+  }
+  return false;
+}
+
 class RoomManager {
   RoomManager({
     Future<String?> Function(String idToken)? verifyIdToken,
@@ -334,6 +353,57 @@ class RoomManager {
     return 4;
   }
 
+  /// Picks a quickplay queue that already has waiters and is not full.
+  ///
+  /// Preference order:
+  /// 1. Highest fill ratio (waiters / target size) so nearly-full tables start first.
+  /// 2. More waiters in the queue.
+  /// 3. Smaller table size (stable tie-break).
+  Object? _pickJoinWaitingQueueKey({
+    required bool casual,
+    required bool ranked,
+    required bool rankedHardcore,
+  }) {
+    final candidates = <MapEntry<Object, List<_QueuedPlayer>>>[];
+    for (final entry in _quickplayQueues.entries) {
+      final key = entry.key;
+      final q = entry.value;
+      if (q.isEmpty) continue;
+      final target = _targetPlayerCountForQueueKey(key);
+      if (q.length >= target) continue;
+
+      var include = false;
+      if (casual) {
+        include = key is int && key >= 2 && key <= 7;
+      } else if (rankedHardcore) {
+        include = key is String && key.startsWith('ranked-hardcore-');
+      } else if (ranked) {
+        include = key is String &&
+            key.startsWith('ranked-') &&
+            !key.startsWith('ranked-hardcore-');
+      }
+      if (include) {
+        candidates.add(entry);
+      }
+    }
+    if (candidates.isEmpty) return null;
+
+    int targetFor(Object key) => _targetPlayerCountForQueueKey(key);
+
+    candidates.sort((a, b) {
+      final qa = a.value.length;
+      final qb = b.value.length;
+      final ta = targetFor(a.key);
+      final tb = targetFor(b.key);
+      final cmpFill = (qb * ta).compareTo(qa * tb);
+      if (cmpFill != 0) return cmpFill;
+      final cmpLen = qb.compareTo(qa);
+      if (cmpLen != 0) return cmpLen;
+      return ta.compareTo(tb);
+    });
+    return candidates.first.key;
+  }
+
   /// Notifies every socket in [queueKey]'s quickplay queue who is waiting.
   void _broadcastQuickplayQueueUpdate(Object queueKey) {
     final queue = _quickplayQueues[queueKey];
@@ -351,12 +421,31 @@ class RoomManager {
     }
   }
 
+  /// Final roster snapshot for players who just matched. Ensures everyone
+  /// (including the socket that filled the table) receives [playerCount] before
+  /// [player_joined] / room creation, since the partial-queue branch skips broadcast.
+  void _notifyMatchedQuickplayRoster(
+    List<_QueuedPlayer> matched,
+    int targetPlayerCount,
+  ) {
+    final names = matched.map((q) => q.displayName).toList();
+    for (var i = 0; i < matched.length; i++) {
+      matched[i].ws.sink.add(jsonEncode({
+        'type': 'quickplay_queue_update',
+        'playerCount': targetPlayerCount,
+        'displayNames': names,
+        'yourIndex': i,
+      }));
+    }
+  }
+
   void _handleQuickplay(dynamic ws, Map<String, dynamic> json) {
     final gameMode = json['gameMode'] as String?;
     final isBust = gameMode == 'bust';
     final isRankedHardcore = gameMode == 'ranked_hardcore';
     final isRanked = gameMode == 'ranked' || isRankedHardcore;
-    final playerCount = isBust ? 10 : (json['playerCount'] as int? ?? 4);
+    final joinWaitingQueueRequested = jsonTruth(json['joinWaitingQueue']);
+    final joinWaitingQueue = joinWaitingQueueRequested && !isBust;
     final displayName =
         sanitizeDisplayName(json['displayName'] as String? ?? 'Player');
     final firebaseUid = _playerUserIds[ws];
@@ -375,20 +464,45 @@ class RoomManager {
       _clearWsFromRoom(ws);
     }
 
-    // Each mode uses an isolated queue so ranked players only match each other.
     final Object queueKey;
-    if (isBust) {
-      queueKey = 'bust';
-    } else if (isRankedHardcore) {
-      queueKey = 'ranked-hardcore-$playerCount';
-    } else if (isRanked) {
-      queueKey = 'ranked-$playerCount';
+    late final int playerCount;
+
+    if (joinWaitingQueue) {
+      final casual = !isRanked;
+      final picked = _pickJoinWaitingQueueKey(
+        casual: casual,
+        ranked: isRanked && !isRankedHardcore,
+        rankedHardcore: isRankedHardcore,
+      );
+      if (picked == null) {
+        ws.sink.add(jsonEncode({
+          'type': 'error',
+          'code': 'no_waiting_tables',
+          'message':
+              'No open tables are waiting for players. Try Select table.',
+        }));
+        return;
+      }
+      queueKey = picked;
+      playerCount = _targetPlayerCountForQueueKey(queueKey);
+      _log.info(
+          'Player "$displayName" uid=${firebaseUid ?? "none"} join-waiting into '
+          'queue $queueKey (target $playerCount)');
     } else {
-      queueKey = playerCount;
+      playerCount = isBust ? 10 : parseQuickplayTableSize(json);
+      if (isBust) {
+        queueKey = 'bust';
+      } else if (isRankedHardcore) {
+        queueKey = 'ranked-hardcore-$playerCount';
+      } else if (isRanked) {
+        queueKey = 'ranked-$playerCount';
+      } else {
+        queueKey = playerCount;
+      }
+      _log.info(
+          'Player "$displayName" uid=${firebaseUid ?? "none"} queued for $playerCount-player '
+          '${isBust ? "Bust" : isRankedHardcore ? "Ranked Hardcore" : isRanked ? "Ranked" : ""} match');
     }
-    _log.info(
-        'Player "$displayName" uid=${firebaseUid ?? "none"} queued for $playerCount-player '
-        '${isBust ? "Bust" : isRankedHardcore ? "Ranked Hardcore" : isRanked ? "Ranked" : ""} match');
 
     final queue = _quickplayQueues.putIfAbsent(queueKey, () => []);
 
@@ -400,6 +514,7 @@ class RoomManager {
 
     if (queue.length >= playerCount) {
       final matched = queue.sublist(0, playerCount);
+      _notifyMatchedQuickplayRoster(matched, playerCount);
       queue.removeRange(0, playerCount);
       if (queue.isEmpty) {
         _quickplayQueues.remove(queueKey);

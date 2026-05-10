@@ -250,6 +250,32 @@ void main() {
       );
     });
 
+    test('full quickplay table sends final quickplay_queue_update to every player',
+        () async {
+      final rm = RoomManager();
+      final sockets = List.generate(3, (_) => FakeWs());
+      for (final w in sockets) {
+        rm.handleConnection(w);
+      }
+      for (var i = 0; i < 3; i++) {
+        sockets[i].addIncoming(jsonEncode({
+          'type': 'quickplay',
+          'playerCount': 3,
+          'displayName': 'P${i + 1}',
+        }));
+        await _flushAsync();
+      }
+      for (final w in sockets) {
+        final qs = w.messages
+            .where((m) => m['type'] == 'quickplay_queue_update')
+            .toList();
+        expect(qs, isNotEmpty);
+        final last = qs.last;
+        expect(last['playerCount'], 3);
+        expect((last['displayNames'] as List).length, 3);
+      }
+    });
+
     test('quickplay ranked without verified uid returns auth_required', () async {
       final rm = RoomManager(
         verifyIdToken: (_) async => null,
@@ -323,6 +349,192 @@ void main() {
       final cfg = cfgs.last;
       expect(cfg['isHardcore'], isTrue);
       expect(cfg['isRanked'], isTrue);
+    });
+
+    test('quickplay joinWaitingQueue joins existing casual queue', () async {
+      final rm = RoomManager();
+      final a = FakeWs();
+      final b = FakeWs();
+      rm.handleConnection(a);
+      rm.handleConnection(b);
+
+      a.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'playerCount': 3,
+        'displayName': 'P1',
+      }));
+      await _flushAsync();
+
+      b.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'joinWaitingQueue': true,
+        'displayName': 'P2',
+      }));
+      await _flushAsync();
+
+      final qu = b.lastOfType('quickplay_queue_update');
+      expect(qu, isNotNull);
+      expect(qu!['playerCount'], 3);
+      expect((qu['displayNames'] as List).length, 2);
+    });
+
+    test('quickplay joinWaitingQueue accepts numeric 1 as true', () async {
+      final rm = RoomManager();
+      final a = FakeWs();
+      final b = FakeWs();
+      rm.handleConnection(a);
+      rm.handleConnection(b);
+      a.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'playerCount': 3,
+        'displayName': 'P1',
+      }));
+      await _flushAsync();
+      b.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'joinWaitingQueue': 1,
+        'displayName': 'P2',
+      }));
+      await _flushAsync();
+      final qu = b.lastOfType('quickplay_queue_update');
+      expect(qu!['playerCount'], 3);
+    });
+
+    test('quickplay joinWaitingQueue with no waiters returns no_waiting_tables',
+        () async {
+      final rm = RoomManager();
+      final ws = FakeWs();
+      rm.handleConnection(ws);
+      ws.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'joinWaitingQueue': true,
+        'displayName': 'P',
+      }));
+      await _flushAsync();
+
+      final err = ws.lastOfType('error');
+      expect(err, isNotNull);
+      expect(err!['code'], 'no_waiting_tables');
+    });
+
+    test('quickplay ranked joinWaitingQueue without uid returns auth_required',
+        () async {
+      final rm = RoomManager(
+        verifyIdToken: (_) async => null,
+      );
+      final ws = FakeWs();
+      rm.handleConnection(ws);
+      ws.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'gameMode': 'ranked',
+        'joinWaitingQueue': true,
+        'displayName': 'R',
+        'idToken': 'fake-token',
+      }));
+      await _flushAsync();
+
+      final err = ws.lastOfType('error');
+      expect(err, isNotNull);
+      expect(err!['code'], 'auth_required');
+    });
+
+    test('quickplay ranked joinWaitingQueue joins existing ranked queue', () async {
+      final rm = RoomManager(
+        verifyIdToken: (_) async => 'firebase-u1',
+      );
+      final a = FakeWs();
+      final b = FakeWs();
+      rm.handleConnection(a);
+      rm.handleConnection(b);
+
+      a.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'gameMode': 'ranked',
+        'playerCount': 3,
+        'displayName': 'R1',
+        'idToken': 't',
+      }));
+      await _flushAsync();
+
+      b.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'gameMode': 'ranked',
+        'joinWaitingQueue': true,
+        'displayName': 'R2',
+        'idToken': 't',
+      }));
+      await _flushAsync();
+
+      final qu = b.lastOfType('quickplay_queue_update');
+      expect(qu, isNotNull);
+      expect(qu!['playerCount'], 3);
+      expect((qu['displayNames'] as List).length, 2);
+    });
+
+    test('quickplay ranked_hardcore joinWaitingQueue joins existing queue',
+        () async {
+      final rm = RoomManager(
+        verifyIdToken: (_) async => 'firebase-u1',
+      );
+      final a = FakeWs();
+      final b = FakeWs();
+      rm.handleConnection(a);
+      rm.handleConnection(b);
+
+      a.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'gameMode': 'ranked_hardcore',
+        'playerCount': 3,
+        'displayName': 'H1',
+        'idToken': 't',
+      }));
+      await _flushAsync();
+
+      b.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'gameMode': 'ranked_hardcore',
+        'joinWaitingQueue': true,
+        'displayName': 'H2',
+        'idToken': 't',
+      }));
+      await _flushAsync();
+
+      final qu = b.lastOfType('quickplay_queue_update');
+      expect(qu, isNotNull);
+      expect(qu!['playerCount'], 3);
+      expect((qu['displayNames'] as List).length, 2);
+    });
+
+    test('joinWaitingQueue prefers more-filled table when tie on waiter count',
+        () async {
+      final rm = RoomManager();
+      final q3 = FakeWs();
+      final q4 = FakeWs();
+      final joiner = FakeWs();
+      rm.handleConnection(q3);
+      rm.handleConnection(q4);
+      rm.handleConnection(joiner);
+      q3.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'playerCount': 3,
+        'displayName': 'T3',
+      }));
+      q4.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'playerCount': 4,
+        'displayName': 'T4',
+      }));
+      await _flushAsync();
+      joiner.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'joinWaitingQueue': true,
+        'displayName': 'Join',
+      }));
+      await _flushAsync();
+      final qu = joiner.lastOfType('quickplay_queue_update');
+      expect(qu, isNotNull);
+      expect(qu!['playerCount'], 3);
+      expect((qu['displayNames'] as List).length, 2);
     });
 
     test('rejoin_session unknown room returns room_not_found', () async {
