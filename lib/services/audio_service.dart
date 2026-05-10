@@ -1,6 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 
-import 'package:audioplayers/audioplayers.dart';
+import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,6 +12,23 @@ class AudioService {
   AudioService._();
 
   static final AudioService instance = AudioService._();
+
+  static final AudioContext _sfxAudioContext = AudioContext(
+    // Android: USAGE_GAME + sonification mixes reliably with in-app BGM on many
+    // OEMs (e.g. Samsung). USAGE_ASSISTANCE_SONIFICATION + AUDIOFOCUS_NONE can be
+    // muted or routed away while STREAM_MUSIC / music session is active.
+    android: AudioContextAndroid(
+      audioFocus: AndroidAudioFocus.none,
+      isSpeakerphoneOn: false,
+      audioMode: AndroidAudioMode.normal,
+      stayAwake: false,
+      contentType: AndroidContentType.sonification,
+      usageType: AndroidUsageType.game,
+    ),
+    iOS: AudioContextIOS(
+      category: AVAudioSessionCategory.ambient,
+    ),
+  );
 
   static const String _prefsKeySfxEnabled = 'sound_effects_enabled';
   /// 0–100 in [SharedPreferences]; multiplied with master SFX volume for [GameSound.timerTick] only.
@@ -47,29 +65,16 @@ class AudioService {
     GameSound.endTurnButton: 'end_turn-button.wav',
   };
 
-  // Category players: each owns a single AudioPlayer that is stopped then
-  // replayed for every new sound in that category.  Separating categories
-  // prevents a rapid-fire turnStart (produced by tournament skip chains) from
-  // silently dropping UI or special-card sounds and vice-versa.
-  //
-  // Using explicit stop() → play() is intentional: within each category only
-  // the most-recent sound matters, so earlier sounds are cleanly cut.
-  AudioPlayer? _turnPlayer;
-  AudioPlayer? _specialPlayer;
-  AudioPlayer? _uiPlayer;
+  /// Flame [FlameAudio.play] gives a fresh [AudioPlayer] per sound; keep one active per lane so
+  /// [stop]/[stopAll] can cut overlapping category SFX reliably.
+  AudioPlayer? _laneTurn;
+  AudioPlayer? _laneSpecial;
+  AudioPlayer? _laneUi;
 
-  // Card-draw pool: allows overlapping plays during deal animations.
-  // Without this, rapid playSound(cardDraw) calls would stop the previous
-  // before it's heard. Rotating through 3 players lets each play to completion.
-  static const int _cardDrawPoolSize = 3;
-  final List<AudioPlayer> _cardDrawPlayers = [];
-  int _cardDrawPoolIndex = 0;
-
-  /// Timer ticks once per second; use a small pool without stop→play so other
-  /// SFX on category players never preempt the tick via a shared stop path.
-  static const int _timerTickPoolSize = 2;
-  final List<AudioPlayer> _timerTickPlayers = [];
-  int _timerTickPoolIndex = 0;
+  /// Pre-loaded pool for repeating tick (same clip); see [FlameAudio.createPool].
+  AudioPool? _timerTickPool;
+  /// One pool per relative path (e.g. draw + deal_card variants) — [FlameAudio.createPool].
+  final Map<String, AudioPool> _overlapPoolsByPath = {};
 
   SharedPreferences? _prefs;
   Set<String> _availableAssets = const <String>{};
@@ -108,46 +113,29 @@ class AudioService {
     }
 
     try {
-      await AudioPlayer.global.setAudioContext(
-        AudioContext(
-          // Mix with background apps (e.g. YouTube): no audio focus steal, and
-          // usage sonification — not USAGE_GAME / media — so SFX reads as UI
-          // sounds rather than competing primary playback.
-          android: AudioContextAndroid(
-            audioFocus: AndroidAudioFocus.none,
-            isSpeakerphoneOn: false,
-            audioMode: AndroidAudioMode.normal,
-            stayAwake: false,
-            contentType: AndroidContentType.sonification,
-            usageType: AndroidUsageType.assistanceSonification,
-          ),
-          iOS: AudioContextIOS(
-            category: AVAudioSessionCategory.ambient,
-            options: {AVAudioSessionOptions.mixWithOthers},
-          ),
-        ),
-      );
+      await AudioPlayer.global.setAudioContext(_sfxAudioContext);
     } catch (e) {
       if (kDebugMode) {
         debugPrint('AudioService: setAudioContext failed: $e');
       }
     }
 
-    try {
-      _turnPlayer = AudioPlayer();
-      _specialPlayer = AudioPlayer();
-      _uiPlayer = AudioPlayer();
-      for (var i = 0; i < _cardDrawPoolSize; i++) {
-        _cardDrawPlayers.add(AudioPlayer());
-      }
-      for (var i = 0; i < _timerTickPoolSize; i++) {
-        _timerTickPlayers.add(AudioPlayer());
-      }
-    } catch (_) {
-      // Fail silently: player creation should not crash gameplay.
-    }
+    await _warmTimerTickPool();
 
     _initialized = true;
+  }
+
+  Future<void> _warmTimerTickPool() async {
+    try {
+      _timerTickPool ??= await FlameAudio.createPool(
+        _assetRelativePath(GameSound.timerTick),
+        maxPlayers: 2,
+        minPlayers: 2,
+        audioContext: _sfxAudioContext,
+      );
+    } catch (_) {
+      _timerTickPool = null;
+    }
   }
 
   Future<void> setSoundEffectsEnabled(bool enabled) async {
@@ -162,16 +150,10 @@ class AudioService {
 
   void setVolume(double value) {
     _volume = value.clamp(0.0, 1.0);
-    _turnPlayer?.setVolume(_volume);
-    _specialPlayer?.setVolume(_volume);
-    _uiPlayer?.setVolume(_volume);
-    final tickVol = (_volume * _timerTickVolumeMul).clamp(0.0, 1.0);
-    for (final p in _timerTickPlayers) {
-      p.setVolume(tickVol);
-    }
-    for (final p in _cardDrawPlayers) {
-      p.setVolume(_volume);
-    }
+    void apply(AudioPlayer? p) => p?.setVolume(_volume);
+    apply(_laneTurn);
+    apply(_laneSpecial);
+    apply(_laneUi);
   }
 
   /// [value] is 0–1 (e.g. settings slider / 100). Persisted as 0–100.
@@ -181,27 +163,24 @@ class AudioService {
       _prefs ??= await SharedPreferences.getInstance();
       await _prefs?.setDouble(_prefsKeyTimerTickVolume, _timerTickVolumeMul * 100);
     } catch (_) {}
-    final tickVol = (_volume * _timerTickVolumeMul).clamp(0.0, 1.0);
-    for (final p in _timerTickPlayers) {
-      p.setVolume(tickVol);
-    }
+    // Tick volume applies on each pool.start via [_playTimerTickSound].
   }
 
   /// Stops all persistent players (e.g. between tournament rounds so prior
   /// table audio cannot bleed into the next round).
   Future<void> stopAll() async {
-    final players = <AudioPlayer?>[
-      _turnPlayer,
-      _specialPlayer,
-      _uiPlayer,
-      ..._timerTickPlayers,
-      ..._cardDrawPlayers,
-    ];
-    for (final player in players) {
+    Future<void> stopLane(AudioPlayer? p) async {
       try {
-        await player?.stop();
+        await p?.stop();
       } catch (_) {}
     }
+
+    await stopLane(_laneTurn);
+    await stopLane(_laneSpecial);
+    await stopLane(_laneUi);
+
+    await _disposeTimerTickPool();
+    await _disposeOverlapPools();
   }
 
   Future<void> playSound(GameSound sound) async {
@@ -217,17 +196,16 @@ class AudioService {
       }
     }
 
-    final assetSubpath = _assetSubpathFor(sound);
+    final relativePath = _assetRelativePath(sound);
 
     switch (sound) {
       // ── Turn-start: isolated so rapid skip-chains don't stack ──────────────
       case GameSound.turnStart:
-        await _playCategorySound(_turnPlayer, assetSubpath);
+        await _playCategoryLaneTurn(relativePath);
 
       case GameSound.timerTick:
         if (_timerTickVolumeMul <= 0) return;
         await _playTimerTickSound(
-          assetSubpath,
           (_volume * _timerTickVolumeMul).clamp(0.0, 1.0),
         );
 
@@ -240,7 +218,7 @@ class AudioService {
       case GameSound.specialQueen:
       case GameSound.specialEight:
       case GameSound.specialJoker:
-        await _playCategorySound(_specialPlayer, assetSubpath);
+        await _playCategoryLaneSpecial(relativePath);
 
       // ── UI / tournament sounds ──────────────────────────────────────────────
       case GameSound.tournamentQualify:
@@ -260,15 +238,15 @@ class AudioService {
       case GameSound.playerWin:
       case GameSound.playerLose:
       case GameSound.opponentOut:
-        await _playCategorySound(_uiPlayer, assetSubpath);
+        await _playCategoryLaneUi(relativePath);
 
       // ── Card draw: when player draws from deck (overlapping pool) ───────────
       case GameSound.cardDraw:
-        await _playOverlappingSound(assetSubpath);
+        await _playOverlappingSound(relativePath);
 
       // ── Deal card: dealer dealing at round start (overlapping pool) ──────────
       case GameSound.dealCard:
-        await _playOverlappingSound(assetSubpath);
+        await _playOverlappingSound(relativePath);
     }
   }
 
@@ -279,61 +257,123 @@ class AudioService {
     if (!_initialized) await init();
     if (!_soundEffectsEnabled) return;
     final slot = (playerIndex % 10) + 1;
-    await _playOverlappingSound('audio/sfx/deal_card_$slot.wav');
+    await _playOverlappingSound('sfx/deal_card_$slot.wav');
   }
 
-  Future<void> _playTimerTickSound(String assetSubpath, double volume) async {
-    if (_timerTickPlayers.isEmpty) return;
-    final player =
-        _timerTickPlayers[_timerTickPoolIndex % _timerTickPlayers.length];
-    _timerTickPoolIndex++;
+  Future<void> _disposeTimerTickPool() async {
     try {
-      await player.setVolume(volume);
-      // No stop(): let the clip finish; pool avoids clobbering a tick that
-      // overlaps rare double-fires, and keeps ticks independent of category SFX.
-      await player.play(AssetSource(assetSubpath));
+      await _timerTickPool?.dispose();
+    } catch (_) {}
+    _timerTickPool = null;
+  }
+
+  Future<void> _disposeOverlapPools() async {
+    for (final p in _overlapPoolsByPath.values) {
+      try {
+        await p.dispose();
+      } catch (_) {}
+    }
+    _overlapPoolsByPath.clear();
+  }
+
+  Future<void> _playTimerTickSound(double volume) async {
+    try {
+      _timerTickPool ??= await FlameAudio.createPool(
+        _assetRelativePath(GameSound.timerTick),
+        maxPlayers: 2,
+        minPlayers: 2,
+        audioContext: _sfxAudioContext,
+      );
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('AudioService._playTimerTickSound($assetSubpath) error: $e');
+        debugPrint('AudioService._playTimerTickSound pool error: $e');
+      }
+      return;
+    }
+    final pool = _timerTickPool;
+    if (pool == null) return;
+    try {
+      unawaited(pool.start(volume: volume));
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('AudioService._playTimerTickSound start error: $e');
       }
     }
   }
 
-  /// Plays a sound on a rotating pool, allowing overlapping playback.
-  /// Used for cardDraw and dealCard; rapid plays would otherwise stop each other.
-  Future<void> _playOverlappingSound(String assetSubpath) async {
-    if (_cardDrawPlayers.isEmpty) return;
-    final player = _cardDrawPlayers[_cardDrawPoolIndex % _cardDrawPlayers.length];
-    _cardDrawPoolIndex++;
+  Future<void> _playOverlappingSound(String relativePath) async {
     try {
-      await player.setVolume(_volume);
-      await player.play(AssetSource(assetSubpath));
+      var pool = _overlapPoolsByPath[relativePath];
+      pool ??= await FlameAudio.createPool(
+        relativePath,
+        maxPlayers: 3,
+        minPlayers: 1,
+        audioContext: _sfxAudioContext,
+      );
+      _overlapPoolsByPath[relativePath] = pool;
+      unawaited(pool.start(volume: _volume));
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('AudioService._playOverlappingSound($assetSubpath) error: $e');
+        debugPrint('AudioService._playOverlappingSound($relativePath) error: $e');
       }
     }
   }
 
-  /// Plays a sound on a shared, persistent [AudioPlayer].
-  ///
-  /// Calls [AudioPlayer.stop] first to cleanly cancel any in-progress playback
-  /// on that player before starting the new sound.  Within a category only
-  /// the latest sound matters, so earlier ones are cut.  Categories are kept
-  /// separate so that, e.g., a tournamentQualify sound is never cut by turnStart.
-  Future<void> _playCategorySound(
-    AudioPlayer? player,
-    String assetSubpath, {
-    double? volume,
-  }) async {
-    if (player == null) return;
+  Future<void> _releaseCategoryLane(AudioPlayer? Function() getRef) async {
+    final p = getRef();
     try {
-      await player.stop();
-      await player.setVolume(volume ?? _volume);
-      await player.play(AssetSource(assetSubpath));
+      await p?.stop();
+      await p?.dispose();
+    } catch (_) {}
+  }
+
+  Future<void> _playCategoryLaneTurn(String relativePath) async {
+    await _releaseCategoryLane(() => _laneTurn);
+    _laneTurn = null;
+    if (!_soundEffectsEnabled) return;
+    try {
+      _laneTurn = await FlameAudio.play(
+        relativePath,
+        volume: _volume,
+        audioContext: _sfxAudioContext,
+      );
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('AudioService._playCategorySound($assetSubpath) error: $e');
+        debugPrint('AudioService._playCategoryLaneTurn($relativePath) error: $e');
+      }
+    }
+  }
+
+  Future<void> _playCategoryLaneSpecial(String relativePath) async {
+    await _releaseCategoryLane(() => _laneSpecial);
+    _laneSpecial = null;
+    if (!_soundEffectsEnabled) return;
+    try {
+      _laneSpecial = await FlameAudio.play(
+        relativePath,
+        volume: _volume,
+        audioContext: _sfxAudioContext,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('AudioService._playCategoryLaneSpecial($relativePath) error: $e');
+      }
+    }
+  }
+
+  Future<void> _playCategoryLaneUi(String relativePath) async {
+    await _releaseCategoryLane(() => _laneUi);
+    _laneUi = null;
+    if (!_soundEffectsEnabled) return;
+    try {
+      _laneUi = await FlameAudio.play(
+        relativePath,
+        volume: _volume,
+        audioContext: _sfxAudioContext,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('AudioService._playCategoryLaneUi($relativePath) error: $e');
       }
     }
   }
@@ -342,25 +382,19 @@ class AudioService {
   /// torn down (e.g. in [State.dispose]).
   Future<void> dispose() async {
     try {
-      await _turnPlayer?.dispose();
-      await _specialPlayer?.dispose();
-      await _uiPlayer?.dispose();
-      for (final p in _timerTickPlayers) {
-        await p.dispose();
-      }
-      _timerTickPlayers.clear();
-      for (final p in _cardDrawPlayers) {
-        await p.dispose();
-      }
-      _cardDrawPlayers.clear();
+      await _releaseCategoryLane(() => _laneTurn);
+      await _releaseCategoryLane(() => _laneSpecial);
+      await _releaseCategoryLane(() => _laneUi);
+      _laneTurn = null;
+      _laneSpecial = null;
+      _laneUi = null;
+      await _disposeTimerTickPool();
+      await _disposeOverlapPools();
     } catch (e) {
       if (kDebugMode) {
         debugPrint('AudioService.dispose error: $e');
       }
     }
-    _turnPlayer = null;
-    _specialPlayer = null;
-    _uiPlayer = null;
     _initialized = false;
   }
 
@@ -396,5 +430,6 @@ class AudioService {
         p.toLowerCase().endsWith(name.toLowerCase()));
   }
 
-  String _assetSubpathFor(GameSound sound) => 'audio/sfx/${_soundFiles[sound]}';
+  /// Path under [FlameAudio.audioCache] prefix (`assets/audio/`), e.g. `sfx/card_place.wav`.
+  String _assetRelativePath(GameSound sound) => 'sfx/${_soundFiles[sound]}';
 }

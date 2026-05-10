@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app_route_observer.dart';
+import 'start_screen_bgm_navigator_observer.dart';
 import '../core/theme/app_theme_data.dart';
 import '../core/monetization/monetization_provider.dart';
 import '../core/providers/auth_profile_sync_provider.dart';
@@ -44,7 +45,7 @@ class _StackAndFlowAppState extends ConsumerState<StackAndFlowApp> {
       theme: buildThemeData(themeState.theme),
       initialRoute: AppRoutes.splash,
       routes: appRoutes,
-      navigatorObservers: [appRouteObserver],
+      navigatorObservers: [appRouteObserver, startScreenBgmNavigatorObserver],
       builder: (context, child) {
         final mq = MediaQuery.of(context);
         return MediaQuery(

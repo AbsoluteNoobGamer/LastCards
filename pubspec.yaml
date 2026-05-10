@@ -30,7 +30,6 @@ dependencies:
   collection: ^1.18.0
   uuid: ^4.4.2
   shared_preferences: ^2.5.3
-  audioplayers: ^6.6.0
 
   # Firebase
   firebase_core: ^3.12.1
@@ -45,14 +44,12 @@ dependencies:
   image_picker: ^1.1.2
   profanity_filter: ^2.0.0
   nsfw_detector_flutter: ^1.0.5
-  just_audio: ^0.10.5
-  # Aligns BGM with Android/iOS audio focus (used with just_audio interruption handling).
-  audio_session: ^0.2.3
   http: ^1.6.0
   share_plus: ^12.0.2
   # 8.x requires Dart SDK >=3.10 (CI may use Flutter with Dart 3.9.x).
   google_mobile_ads: ^7.0.0
   in_app_purchase: ^3.2.3
+  flame_audio: ^2.12.1
 
 dev_dependencies:
   async: ^2.11.0

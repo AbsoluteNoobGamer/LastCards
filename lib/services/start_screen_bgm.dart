@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:audio_session/audio_session.dart';
+import 'package:flame_audio/bgm.dart';
+import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:just_audio/just_audio.dart';
 
 bool _startScreenBgmLifecycleObserverRegistered = false;
 final _startScreenBgmLifecycleObserver = _StartScreenBgmLifecycleObserver();
@@ -24,13 +24,20 @@ class _StartScreenBgmLifecycleObserver with WidgetsBindingObserver {
 
 /// Looping background music for [LastCardsStartScreen].
 ///
-/// **App switch:** Playback is fully torn down (player disposed) whenever the app is no
-/// longer in the foreground, then restarted via [start] on [AppLifecycleState.resumed]
-/// when the start screen is visible (not covered by another route). This avoids relying
-/// on [AudioPlayer.pause] alone, which was unreliable on some Android devices.
+/// Uses [FlameAudio.bgm] for playback. We intentionally do **not** call
+/// [Bgm.initialize], so Flame's built-in lifecycle observer is not registered;
+/// this class keeps its own aggressive teardown (stop, not dispose of the
+/// global [Bgm]) when the app leaves the foreground.
 ///
-/// Paused when another route covers the start screen ([RouteAware.didPushNext]); when
-/// the route is shown again, [onRouteVisible] resumes or restarts playback.
+/// **App switch:** [FlameAudio.bgm.stop] whenever the app is no longer in the
+/// foreground, then [start] on [AppLifecycleState.resumed] when the start
+/// screen is visible (not covered by another route).
+///
+/// **Opaque routes:** A [NavigatorObserver] ([startScreenBgmNavigatorObserver]) stops
+/// BGM when a non-[PopupRoute] (e.g. table, profile) is pushed. Modal bottom sheets
+/// are [PopupRoute]s and do **not** stop BGM. When that overlay is popped, the start
+/// route’s [RouteAware.didPopNext] calls [notifyStartMenuExposedFromOpaqueChild] to
+/// resume BGM if needed.
 ///
 /// **Web:** [start] is a no-op until [notifyUserGesture]; we do not auto-restart BGM on
 /// tab focus (autoplay policy).
@@ -40,12 +47,15 @@ class StartScreenBgm {
   StartScreenBgm._();
   static final StartScreenBgm instance = StartScreenBgm._();
 
-  AudioPlayer? _player;
+  Bgm get _bgm => FlameAudio.bgm;
+
   bool _started = false;
   bool _starting = false;
-  bool _pausedByRoute = false;
+  /// True while a fullscreen navigator route (non-[PopupRoute]) may be above the
+  /// start menu—blocks [start] on app resume; see [notifyOpaqueNavigatorRoutePushed].
+  bool _coveredByOpaqueNavigatorRoute = false;
   Timer? _inactivePauseTimer;
-  /// Set when [_tearDownPlaybackForLeavingApp] actually disposed playback; used so
+  /// Set when [_tearDownPlaybackForLeavingApp] actually stopped playback; used so
   /// [AppLifecycleState.resumed] does not call [start] on cold launch / splash.
   bool _stoppedDueToAppBackground = false;
 
@@ -55,44 +65,51 @@ class StartScreenBgm {
   /// 0.0–1.0; driven by Settings → Music Volume.
   double _musicVolume = 0.55;
 
-  static const _assetPath = 'assets/audio/bgm/startscreen_bgm.mp3';
+  AudioContext _bgmPlaybackContext() {
+    return AudioContext(
+      android: const AudioContextAndroid(
+        contentType: AndroidContentType.music,
+        usageType: AndroidUsageType.media,
+        audioFocus: AndroidAudioFocus.gain,
+      ),
+      iOS: AudioContextIOS(
+        category: AVAudioSessionCategory.playback,
+      ),
+    );
+  }
 
   void _cancelInactivePauseTimer() {
     _inactivePauseTimer?.cancel();
     _inactivePauseTimer = null;
   }
 
-  Future<void> _disposePlayerAsync(AudioPlayer p) async {
-    try {
-      await p.stop();
-    } catch (_) {}
-    try {
-      await p.dispose();
-    } catch (_) {}
-  }
-
-  /// Stops and disposes the player whenever the user leaves the app (another activity / home).
+  /// Stops BGM when the user leaves the app (another activity / home).
   void _tearDownPlaybackForLeavingApp() {
     _cancelInactivePauseTimer();
-    if (_player == null && !_started && !_starting) return;
+    if (!_started && !_starting) return;
     _stoppedDueToAppBackground = true;
     _epoch++;
     _started = false;
     _starting = false;
-    final p = _player;
-    _player = null;
-    if (p != null) {
-      unawaited(_disposePlayerAsync(p));
-    }
+    unawaited(_bgmStopSafe());
+  }
+
+  Future<void> _bgmStopSafe() async {
+    try {
+      await _bgm.stop();
+    } catch (_) {}
   }
 
   void _maybeRestartAfterReturningToApp() {
-    if (!_stoppedDueToAppBackground || _pausedByRoute || kIsWeb) return;
+    if (!_stoppedDueToAppBackground ||
+        _coveredByOpaqueNavigatorRoute ||
+        kIsWeb) {
+      return;
+    }
     _stoppedDueToAppBackground = false;
     unawaited(start());
   }
 
-  /// Called from [_StartScreenBgmLifecycleObserver] for every app transition.
   /// Called from [_StartScreenBgmLifecycleObserver] for every app transition.
   void handleAppLifecycle(AppLifecycleState state) {
     if (kIsWeb) return;
@@ -122,10 +139,7 @@ class StartScreenBgm {
   /// Updates BGM loudness (0.0–1.0).
   void setMusicVolume(double normalized) {
     _musicVolume = normalized.clamp(0.0, 1.0);
-    final p = _player;
-    if (p != null) {
-      unawaited(p.setVolume(_musicVolume));
-    }
+    unawaited(_bgm.audioPlayer.setVolume(_musicVolume));
   }
 
   /// Starts looping BGM. On web, does nothing — use [notifyUserGesture] after the user touches the screen.
@@ -140,81 +154,53 @@ class StartScreenBgm {
     unawaited(_startImpl());
   }
 
-  Future<bool> _abortIfStale(int myEpoch, AudioPlayer? localPlayer) async {
-    if (_epoch == myEpoch) return false;
-    if (_player == localPlayer) {
-      _player = null;
-    }
-    try {
-      await localPlayer?.dispose();
-    } catch (_) {}
-    return true;
-  }
-
-  Future<void> _configureBgmAudioSession() async {
-    if (kIsWeb) return;
-    try {
-      final session = await AudioSession.instance;
-      await session.configure(const AudioSessionConfiguration.music());
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('StartScreenBgm: AudioSession.configure failed: $e');
-      }
-    }
-  }
-
   Future<void> _startImpl() async {
     if (_started || _starting) return;
     _starting = true;
     final myEpoch = _epoch;
-    AudioPlayer? localPlayer;
     try {
-      await _configureBgmAudioSession();
-      localPlayer = AudioPlayer();
-      await localPlayer.setAsset(_assetPath);
-      if (await _abortIfStale(myEpoch, localPlayer)) return;
+      final ap = _bgm.audioPlayer;
+      await ap.setAudioContext(_bgmPlaybackContext());
+      if (_epoch != myEpoch) return;
 
-      await localPlayer.setLoopMode(LoopMode.one);
-      if (await _abortIfStale(myEpoch, localPlayer)) return;
+      await ap.setPlayerMode(PlayerMode.mediaPlayer);
+      if (_epoch != myEpoch) return;
 
-      await localPlayer.setVolume(_musicVolume);
-      if (await _abortIfStale(myEpoch, localPlayer)) return;
-
-      _player = localPlayer;
-      await localPlayer.play();
-      if (await _abortIfStale(myEpoch, localPlayer)) return;
+      await _bgm.play('bgm/startscreen_bgm.mp3', volume: _musicVolume);
+      if (_epoch != myEpoch) {
+        await _bgmStopSafe();
+        return;
+      }
 
       _started = true;
       if (kDebugMode) {
-        debugPrint('StartScreenBgm: playing $_assetPath at volume $_musicVolume');
+        debugPrint(
+          'StartScreenBgm: FlameAudio.bgm playing bgm/startscreen_bgm.mp3 at volume $_musicVolume',
+        );
       }
     } catch (e, st) {
       if (kDebugMode) {
         debugPrint('StartScreenBgm._startImpl failed: $e\n$st');
       }
       _started = false;
-      if (_player == localPlayer) {
-        _player = null;
-      }
-      try {
-        await localPlayer?.dispose();
-      } catch (_) {}
+      await _bgmStopSafe();
     } finally {
       if (_epoch == myEpoch) _starting = false;
     }
   }
 
-  Future<void> onRouteCovered() async {
-    if (!_started || _player == null) return;
-    _pausedByRoute = true;
-    try {
-      await _player!.pause();
-    } catch (_) {}
+  /// [StartScreenBgmNavigatorObserver] calls this when e.g. [TableScreen] is pushed.
+  void notifyOpaqueNavigatorRoutePushed() {
+    _coveredByOpaqueNavigatorRoute = true;
+    _started = false;
+    _starting = false;
+    unawaited(_bgmStopSafe());
   }
 
-  Future<void> onRouteVisible() async {
-    if (!_pausedByRoute) return;
-    _pausedByRoute = false;
+  /// Start route’s [RouteAware.didPopNext]: a route pushed on top of [/start] was popped;
+  /// restart menu BGM when appropriate.
+  Future<void> notifyStartMenuExposedFromOpaqueChild() async {
+    _coveredByOpaqueNavigatorRoute = false;
     final life = WidgetsBinding.instance.lifecycleState;
     if (life != null &&
         (life == AppLifecycleState.paused ||
@@ -222,18 +208,8 @@ class StartScreenBgm {
             life == AppLifecycleState.detached)) {
       return;
     }
-    if (_player == null) {
-      if (!kIsWeb) {
-        await start();
-      }
-      return;
-    }
-    try {
-      await _player!.play();
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('StartScreenBgm.onRouteVisible play failed: $e');
-      }
+    if (!kIsWeb) {
+      await start();
     }
   }
 
@@ -241,16 +217,10 @@ class StartScreenBgm {
     _epoch++;
     _started = false;
     _starting = false;
-    _pausedByRoute = false;
+    _coveredByOpaqueNavigatorRoute = false;
     _stoppedDueToAppBackground = false;
     _cancelInactivePauseTimer();
 
-    final p = _player;
-    _player = null;
-    if (p != null) {
-      try {
-        await p.dispose();
-      } catch (_) {}
-    }
+    await _bgmStopSafe();
   }
 }
