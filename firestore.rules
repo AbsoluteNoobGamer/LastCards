@@ -1,6 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Client version hints (optional in-app “update available” banner). Admin-only writes via Console.
+    match /app_config/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Public aggregate: concurrent game-server WebSocket connections (written by server only).
     match /metadata/online_count {
       allow read: if true;
