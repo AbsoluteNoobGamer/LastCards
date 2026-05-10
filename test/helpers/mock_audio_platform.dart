@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Stubs audioplayers platform channels so [AudioService] can run in tests.
+/// Stubs audioplayers platform channels (used by flame_audio) so [AudioService] can run in tests.
 void mockAudioChannels() {
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(

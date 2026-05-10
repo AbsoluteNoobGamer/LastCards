@@ -136,13 +136,8 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
   }
 
   @override
-  void didPushNext() {
-    unawaited(StartScreenBgm.instance.onRouteCovered());
-  }
-
-  @override
   void didPopNext() {
-    unawaited(StartScreenBgm.instance.onRouteVisible());
+    unawaited(StartScreenBgm.instance.notifyStartMenuExposedFromOpaqueChild());
     // Post-game interstitial: only after a completed session (see
     // [PostGameInterstitialNotifier.markCompletedPlaySession]) and subject to
     // cooldown + remove-ads purchase.
