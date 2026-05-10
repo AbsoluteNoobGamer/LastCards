@@ -421,6 +421,24 @@ class RoomManager {
     }
   }
 
+  /// Final roster snapshot for players who just matched. Ensures everyone
+  /// (including the socket that filled the table) receives [playerCount] before
+  /// [player_joined] / room creation, since the partial-queue branch skips broadcast.
+  void _notifyMatchedQuickplayRoster(
+    List<_QueuedPlayer> matched,
+    int targetPlayerCount,
+  ) {
+    final names = matched.map((q) => q.displayName).toList();
+    for (var i = 0; i < matched.length; i++) {
+      matched[i].ws.sink.add(jsonEncode({
+        'type': 'quickplay_queue_update',
+        'playerCount': targetPlayerCount,
+        'displayNames': names,
+        'yourIndex': i,
+      }));
+    }
+  }
+
   void _handleQuickplay(dynamic ws, Map<String, dynamic> json) {
     final gameMode = json['gameMode'] as String?;
     final isBust = gameMode == 'bust';
@@ -496,6 +514,7 @@ class RoomManager {
 
     if (queue.length >= playerCount) {
       final matched = queue.sublist(0, playerCount);
+      _notifyMatchedQuickplayRoster(matched, playerCount);
       queue.removeRange(0, playerCount);
       if (queue.isEmpty) {
         _quickplayQueues.remove(queueKey);

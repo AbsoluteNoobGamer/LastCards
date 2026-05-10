@@ -250,6 +250,32 @@ void main() {
       );
     });
 
+    test('full quickplay table sends final quickplay_queue_update to every player',
+        () async {
+      final rm = RoomManager();
+      final sockets = List.generate(3, (_) => FakeWs());
+      for (final w in sockets) {
+        rm.handleConnection(w);
+      }
+      for (var i = 0; i < 3; i++) {
+        sockets[i].addIncoming(jsonEncode({
+          'type': 'quickplay',
+          'playerCount': 3,
+          'displayName': 'P${i + 1}',
+        }));
+        await _flushAsync();
+      }
+      for (final w in sockets) {
+        final qs = w.messages
+            .where((m) => m['type'] == 'quickplay_queue_update')
+            .toList();
+        expect(qs, isNotEmpty);
+        final last = qs.last;
+        expect(last['playerCount'], 3);
+        expect((last['displayNames'] as List).length, 3);
+      }
+    });
+
     test('quickplay ranked without verified uid returns auth_required', () async {
       final rm = RoomManager(
         verifyIdToken: (_) async => null,
