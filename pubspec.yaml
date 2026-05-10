@@ -49,7 +49,8 @@ dependencies:
   # 8.x requires Dart SDK >=3.10 (CI may use Flutter with Dart 3.9.x).
   google_mobile_ads: ^7.0.0
   in_app_purchase: ^3.2.3
-  flame_audio: ^2.12.1
+  # flame_audio >=2.12.0 requires Dart SDK >=3.11; keep <2.12 for Dart 3.9.x CI.
+  flame_audio: ">=2.11.14 <2.12.0"
 
 dev_dependencies:
   async: ^2.11.0

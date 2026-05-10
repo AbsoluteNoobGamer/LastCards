@@ -169,18 +169,20 @@ class AudioService {
   /// Stops all persistent players (e.g. between tournament rounds so prior
   /// table audio cannot bleed into the next round).
   Future<void> stopAll() async {
-    Future<void> stopLane(AudioPlayer? p) async {
-      try {
-        await p?.stop();
-      } catch (_) {}
-    }
-
-    await stopLane(_laneTurn);
-    await stopLane(_laneSpecial);
-    await stopLane(_laneUi);
-
+    await _disposeCategoryLanes();
     await _disposeTimerTickPool();
     await _disposeOverlapPools();
+  }
+
+  /// [FlameAudio.play] allocates a native [AudioPlayer] per lane play; dispose
+  /// stopped instances so [stopAll] does not leak until the next sound on that lane.
+  Future<void> _disposeCategoryLanes() async {
+    await _releaseCategoryLane(() => _laneTurn);
+    await _releaseCategoryLane(() => _laneSpecial);
+    await _releaseCategoryLane(() => _laneUi);
+    _laneTurn = null;
+    _laneSpecial = null;
+    _laneUi = null;
   }
 
   Future<void> playSound(GameSound sound) async {
@@ -382,12 +384,7 @@ class AudioService {
   /// torn down (e.g. in [State.dispose]).
   Future<void> dispose() async {
     try {
-      await _releaseCategoryLane(() => _laneTurn);
-      await _releaseCategoryLane(() => _laneSpecial);
-      await _releaseCategoryLane(() => _laneUi);
-      _laneTurn = null;
-      _laneSpecial = null;
-      _laneUi = null;
+      await _disposeCategoryLanes();
       await _disposeTimerTickPool();
       await _disposeOverlapPools();
     } catch (e) {
