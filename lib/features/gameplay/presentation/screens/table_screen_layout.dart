@@ -229,6 +229,7 @@ class _TableLayout extends StatelessWidget {
             onPenaltyIncreased: onPenaltyIncreased,
             skipHighlightPlayerIds: skipHighlightPlayerIds,
             opponentAvatarTap: opponentAvatarTap,
+            isRanked: isRanked,
           );
         }
 
@@ -242,6 +243,14 @@ class _TableLayout extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
           child: Column(
             children: [
+              if (isRanked)
+                Padding(
+                  padding: EdgeInsets.only(
+                    top: isMobile ? 2 : 4,
+                    bottom: isMobile ? 6 : 8,
+                  ),
+                  child: Center(child: _RankedBadge(isMobile: isMobile)),
+                ),
               // ── Top opponents: rail (5+ players) or 3-slot (2–4) ─────────
               Padding(
                 padding: const EdgeInsets.only(top: 0),
@@ -365,9 +374,6 @@ class _TableLayout extends StatelessWidget {
                       SizedBox(
                           height:
                               isMobile ? AppDimensions.sm : AppDimensions.md),
-                      if (isRanked)
-                        _RankedBadge(isMobile: isMobile),
-                      if (isRanked) const SizedBox(height: AppDimensions.xs),
                       Opacity(
                         opacity: 0.0,
                         child: Container(
@@ -629,7 +635,10 @@ class _LandscapeTableLayout extends StatelessWidget {
     this.onPenaltyIncreased,
     this.skipHighlightPlayerIds = const <String>{},
     required this.opponentAvatarTap,
+    this.isRanked = false,
   });
+
+  final bool isRanked;
 
   final VoidCallback? onPenaltyIncreased;
 
@@ -692,6 +701,11 @@ class _LandscapeTableLayout extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: AppDimensions.xs),
       child: Column(
         children: [
+          if (isRanked)
+            Padding(
+              padding: const EdgeInsets.only(top: 2, bottom: 4),
+              child: Center(child: _RankedBadge(isMobile: true)),
+            ),
           // ── Band 1: Compact opponents rail (taller when tournament badges) ─
           // When using the rail, let BustPlayerRail control its own height
           // (it adds extra space when chat bubbles are visible).

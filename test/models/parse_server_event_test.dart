@@ -50,6 +50,14 @@ void main() {
     expect((event as ReshuffleEvent).newDrawPileCount, 30);
   });
 
+  test('reshuffle without newDrawPileCount leaves field null', () {
+    final event = parseServerEvent(jsonEncode({
+      'type': 'reshuffle',
+    }));
+    expect(event, isA<ReshuffleEvent>());
+    expect((event as ReshuffleEvent).newDrawPileCount, isNull);
+  });
+
   test('player_socket_lost parses playerId', () {
     final event = parseServerEvent(jsonEncode({
       'type': 'player_socket_lost',
