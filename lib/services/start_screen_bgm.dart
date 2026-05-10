@@ -192,6 +192,8 @@ class StartScreenBgm {
   /// [StartScreenBgmNavigatorObserver] calls this when e.g. [TableScreen] is pushed.
   void notifyOpaqueNavigatorRoutePushed() {
     _coveredByOpaqueNavigatorRoute = true;
+    // Invalidate in-flight [_startImpl] awaits (matches [stop] and [_tearDownPlaybackForLeavingApp]).
+    _epoch++;
     _started = false;
     _starting = false;
     unawaited(_bgmStopSafe());
