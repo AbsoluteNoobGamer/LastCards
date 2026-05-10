@@ -41,7 +41,9 @@ import '../../../../features/social/widgets/pending_game_invites_banner.dart';
 import '../../../../core/monetization/monetization_config.dart';
 import '../../../../core/monetization/monetization_provider.dart';
 import '../../../../core/monetization/post_game_interstitial.dart';
+import '../../../../core/providers/app_update_provider.dart';
 import '../../../../core/widgets/monetization_banner_ad.dart';
+import '../widgets/optional_update_banner.dart';
 
 part 'start_screen_background.dart';
 part 'start_screen_buttons.dart';
@@ -66,6 +68,7 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
   final GlobalKey _stackKey = GlobalKey();
   Offset _parallaxNorm = Offset.zero;
   Offset? _shockwaveCenter;
+  bool _optionalUpdateBannerDismissed = false;
 
   @override
   void initState() {
@@ -381,6 +384,31 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
     );
   }
 
+  Widget _buildOptionalUpdateBanner(AppThemeData splashTheme) {
+    if (_optionalUpdateBannerDismissed) {
+      return const SizedBox.shrink();
+    }
+    final async = ref.watch(appUpdateSuggestionProvider);
+    return async.when(
+      data: (suggestion) {
+        if (suggestion == null) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+          child: OptionalUpdateBanner(
+            suggestion: suggestion,
+            accentColor: splashTheme.accentPrimary,
+            panelColor: splashTheme.surfacePanel,
+            onDismiss: () {
+              setState(() => _optionalUpdateBannerDismissed = true);
+            },
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final monetization = ref.watch(monetizationProvider);
@@ -521,6 +549,7 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                         BoxConstraints(minHeight: constraints.maxHeight),
                     child: Column(
                       children: [
+                        _buildOptionalUpdateBanner(splashTheme),
                         SizedBox(height: isMobile ? 24 : 40),
                         SizedBox(
                             height: constraints.maxHeight *

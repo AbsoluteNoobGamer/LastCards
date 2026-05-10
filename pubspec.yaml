@@ -1,7 +1,7 @@
 name: last_cards
 description: "Last Cards — Play It All. Leave Nothing."
 publish_to: "none"
-version: 1.0.0+14
+version: 1.0.0+15
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -45,6 +45,8 @@ dependencies:
   profanity_filter: ^2.0.0
   nsfw_detector_flutter: ^1.0.5
   http: ^1.6.0
+  package_info_plus: ^8.1.2
+  url_launcher: ^6.3.1
   share_plus: ^12.0.2
   # 8.x requires Dart SDK >=3.10 (CI may use Flutter with Dart 3.9.x).
   google_mobile_ads: ^7.0.0

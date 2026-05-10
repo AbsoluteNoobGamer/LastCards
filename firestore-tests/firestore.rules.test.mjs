@@ -247,6 +247,20 @@ const serverOnlyLeaderboardCollections = [
   'leaderboard_bust_online',
 ];
 
+describe('app_config/{docId}', () => {
+  it('allows unauthenticated read', async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertSucceeds(getDoc(doc(db, 'app_config', 'app_update')));
+  });
+
+  it('denies unauthenticated write', async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(
+      setDoc(doc(db, 'app_config', 'app_update'), { latestBuildAndroid: 99 }),
+    );
+  });
+});
+
 for (const collection of serverOnlyLeaderboardCollections) {
   describe(`${collection}/{uid} (server-only writes)`, () => {
     it('denies client write for own uid', async () => {
