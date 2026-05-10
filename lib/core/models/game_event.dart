@@ -329,9 +329,11 @@ final class TurnTimeoutEvent extends GameEvent {
 
 /// Server reshuffled the discard pile back into the draw pile.
 final class ReshuffleEvent extends GameEvent {
-  /// New draw pile size after reshuffle.
-  final int newDrawPileCount;
-  const ReshuffleEvent({required this.newDrawPileCount});
+  /// New draw pile size after reshuffle (before any cards are drawn from it
+  /// in the same server action). Null if the server omitted the field — keep
+  /// the client count until the next [StateSnapshotEvent] instead of assuming 0.
+  final int? newDrawPileCount;
+  const ReshuffleEvent({this.newDrawPileCount});
 
   @override
   String get type => 'reshuffle';
@@ -636,7 +638,7 @@ GameEvent parseServerEvent(String raw) {
           cardsDrawn: json['cardsDrawn'] as int? ?? 0,
         ),
       'reshuffle' => ReshuffleEvent(
-          newDrawPileCount: json['newDrawPileCount'] as int? ?? 0,
+          newDrawPileCount: (json['newDrawPileCount'] as num?)?.toInt(),
         ),
       'session_config' => SessionConfigEvent(
           roomCode: json['roomCode'] as String?,

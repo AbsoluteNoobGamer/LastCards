@@ -485,9 +485,10 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     _subs.add(
       _eventHandler.reshuffles.listen((e) {
         if (state.gameState == null) return;
+        final gs = state.gameState!;
         state = state.copyWith(
-          gameState: state.gameState!.copyWith(
-            drawPileCount: e.newDrawPileCount,
+          gameState: gs.copyWith(
+            drawPileCount: e.newDrawPileCount ?? gs.drawPileCount,
             discardPileHistory: [],
           ),
         );

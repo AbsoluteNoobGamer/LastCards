@@ -229,6 +229,7 @@ class _TableLayout extends StatelessWidget {
             onPenaltyIncreased: onPenaltyIncreased,
             skipHighlightPlayerIds: skipHighlightPlayerIds,
             opponentAvatarTap: opponentAvatarTap,
+            isRanked: isRanked,
           );
         }
 
@@ -365,9 +366,6 @@ class _TableLayout extends StatelessWidget {
                       SizedBox(
                           height:
                               isMobile ? AppDimensions.sm : AppDimensions.md),
-                      if (isRanked)
-                        _RankedBadge(isMobile: isMobile),
-                      if (isRanked) const SizedBox(height: AppDimensions.xs),
                       Opacity(
                         opacity: 0.0,
                         child: Container(
@@ -473,6 +471,8 @@ class _TableLayout extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (isRanked) const SizedBox(height: AppDimensions.xs),
+                      if (isRanked) _RankedBadge(isMobile: isMobile),
                     ],
                   ),
                 ),
@@ -629,7 +629,10 @@ class _LandscapeTableLayout extends StatelessWidget {
     this.onPenaltyIncreased,
     this.skipHighlightPlayerIds = const <String>{},
     required this.opponentAvatarTap,
+    this.isRanked = false,
   });
+
+  final bool isRanked;
 
   final VoidCallback? onPenaltyIncreased;
 
@@ -881,6 +884,12 @@ class _LandscapeTableLayout extends StatelessWidget {
               ],
             ),
           ),
+
+          if (isRanked)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Center(child: _RankedBadge(isMobile: true)),
+            ),
 
           // Turn timer + action bar (compact for landscape)
           TurnTimerBar(
