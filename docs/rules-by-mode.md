@@ -91,6 +91,7 @@ When multiple effects are active together, resolve in this order:
 - Intended to use the same core gameplay rules.
 - Uses lobby/room flow for multiplayer sessions.
 - **Disconnect (standard 54-card):** A disconnect removes that player immediately (no rejoin to the same seat). If **at least two** players remain, the leaver’s hand is shuffled into the draw pile and play continues; with only one player left, the session ends.
+- **Ranked (standard / hardcore quickplay):** Abandoning a match mid-game (disconnect after the grace window, or closing out so the lobby ends before a normal finish) applies **-35 MMR**, increments **leaves**, and counts as a **loss** (including per-bracket loss stats). A normal ranked loss without leaving is **-15 MMR**; a win remains **+25**.
 - **Leaderboards:** Firestore collections `leaderboard_online` and `leaderboard_bust_online` are **server-written only** (Admin SDK); the client may cache increments locally for instant UI. Casual quickplay standard wins update `leaderboard_online` when the session is trophy-eligible (`!isPrivate`); online Bust finals update `leaderboard_bust_online` the same way.
 
 ### Bust Mode
