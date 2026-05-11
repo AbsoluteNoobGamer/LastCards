@@ -42,12 +42,27 @@ void main() {
   });
 
   group('rankedLeavePenaltyStatMaps', () {
-    test('applies leave delta and counts', () {
+    test('applies severer rating delta than a normal ranked loss', () {
       final m = rankedLeavePenaltyStatMaps();
-      expect(m.increments['rating'], -20);
+      expect(m.increments['rating'], kRankedLeaveRatingDelta);
+      expect(m.increments['rating'],
+          lessThan(rankedResultStatMaps(isWinner: false, playerCount: 4)
+              .increments['rating']!));
+    });
+
+    test('counts leave, loss, and gamesPlayed for default bracket size', () {
+      final m = rankedLeavePenaltyStatMaps(playerCount: 4);
       expect(m.increments['leaves'], 1);
+      expect(m.increments['losses'], 1);
       expect(m.increments['gamesPlayed'], 1);
+      expect(m.increments['gamesPlayed_4'], 1);
+      expect(m.increments['losses_4'], 1);
       expect(m.defaultFields['leaves'], 0);
+    });
+
+    test('playerCount below 2 has no bracket keys', () {
+      final m = rankedLeavePenaltyStatMaps(playerCount: 1);
+      expect(m.increments.keys.every((k) => !k.contains('_')), isTrue);
     });
   });
 

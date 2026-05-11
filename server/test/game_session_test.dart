@@ -78,7 +78,9 @@ class _CapturingTrophyPersistence implements TrophyPersistence {
 
   @override
   void recordLeavePenalty(String uid,
-      {required String displayName, bool rankedHardcore = false}) {
+      {required String displayName,
+      bool rankedHardcore = false,
+      int playerCount = 4}) {
     leavePenaltyCalls++;
     lastRankedHardcore = rankedHardcore;
   }
@@ -2796,6 +2798,13 @@ void main() {
 
       // P1 disconnects — P2 should be recorded as the winner.
       session.handleSocketDisconnected(p1Id, p1ws, forceRemove: true);
+
+      final ended = p2ws.lastOfType('game_ended');
+      expect(ended, isNotNull);
+      final changes = ended!['ratingChanges'] as Map<String, dynamic>?;
+      expect(changes, isNotNull);
+      expect(changes![p1Id], kRankedLeaveRatingDelta);
+      expect(changes[p2Id], 25);
 
       // Leave penalty recorded for the leaver.
       expect(recorder.leavePenaltyCalls, 1);

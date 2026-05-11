@@ -11,7 +11,13 @@ import 'logger.dart';
 
 const _kWinDelta = 25;
 const _kLossDelta = -15;
-const _kLeaveDelta = -20;
+
+/// Rating change for disconnecting / abandoning a ranked match mid-game.
+///
+/// Severer than [_kLossDelta] (-15) so leaving is punished more than a normal loss.
+/// Kept in sync with [GameSession]'s disconnect `ratingChanges` broadcast.
+const kRankedLeaveRatingDelta = -35;
+
 const _kInitialRating = 1000;
 
 // ── Pure stat maps (unit-tested; used by [TrophyRecorder]) ───────────────────
@@ -49,13 +55,21 @@ const _kInitialRating = 1000;
 }
 
 /// Firestore increment + default-field maps for a ranked leave penalty.
+///
+/// Counts as a loss for global and per-bracket stats (same roster size as normal
+/// ranked games via [playerCount]).
 ({Map<String, int> increments, Map<String, dynamic> defaultFields})
-    rankedLeavePenaltyStatMaps() {
+    rankedLeavePenaltyStatMaps({int playerCount = 4}) {
+  final n = playerCount.clamp(2, 7);
+  final hasBracket = playerCount >= 2;
   return (
     increments: {
-      'rating': _kLeaveDelta,
+      'rating': kRankedLeaveRatingDelta,
       'leaves': 1,
+      'losses': 1,
       'gamesPlayed': 1,
+      if (hasBracket) 'gamesPlayed_$n': 1,
+      if (hasBracket) 'losses_$n': 1,
     },
     defaultFields: {
       'rating': _kInitialRating,
@@ -63,6 +77,9 @@ const _kInitialRating = 1000;
       'losses': 0,
       'leaves': 0,
       'gamesPlayed': 0,
+      if (hasBracket) 'wins_$n': 0,
+      if (hasBracket) 'losses_$n': 0,
+      if (hasBracket) 'gamesPlayed_$n': 0,
     },
   );
 }
@@ -449,7 +466,9 @@ abstract class TrophyPersistence {
   });
 
   void recordLeavePenalty(String uid,
-      {required String displayName, bool rankedHardcore = false});
+      {required String displayName,
+      bool rankedHardcore = false,
+      int playerCount = 4});
 
   void recordLeaderboardOnlineCasual({
     required String winnerPlayerId,
@@ -478,8 +497,8 @@ abstract class TrophyPersistence {
 /// displayName: string
 /// rating:      int   (starts at 1000, clamped to 0)
 /// wins:        int
-/// losses:      int
-/// leaves:      int
+/// losses:      int   (+1 on normal loss; ranked disconnect also increments)
+/// leaves:      int   (+1 on disconnect / abandon mid-match only)
 /// gamesPlayed: int
 /// ```
 ///
@@ -580,10 +599,13 @@ class TrophyRecorder implements TrophyPersistence {
 
   /// Records a leave penalty for a player who disconnected during a ranked game.
   void recordLeavePenalty(String uid,
-      {required String displayName, bool rankedHardcore = false}) {
+      {required String displayName,
+      bool rankedHardcore = false,
+      int playerCount = 4}) {
     unawaited(_persistLeavePenalty(uid,
         displayName: displayName,
-        collection: rankedHardcore ? _collectionHardcore : _collection));
+        collection: rankedHardcore ? _collectionHardcore : _collection,
+        playerCount: playerCount));
   }
 
   static const _leaderboardOnline = 'leaderboard_online';
@@ -678,9 +700,11 @@ class TrophyRecorder implements TrophyPersistence {
   }
 
   Future<void> _persistLeavePenalty(String uid,
-      {required String displayName, required String collection}) async {
+      {required String displayName,
+      required String collection,
+      int playerCount = 4}) async {
     _log.info('Recording leave penalty for $uid');
-    final maps = rankedLeavePenaltyStatMaps();
+    final maps = rankedLeavePenaltyStatMaps(playerCount: playerCount);
     final ok = await _firestoreClient.atomicUpdate(
       collection: collection,
       docId: uid,

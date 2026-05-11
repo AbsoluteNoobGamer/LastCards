@@ -280,6 +280,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   /// Cached for dispose — cannot use [ref] after widget is disposed.
   WebSocketClient? _wsClientToDisconnectOnDispose;
 
+  /// Cached for dispose — clears stale ranked / snapshot state when leaving an
+  /// online table without going through the Leave confirmation (e.g. nav pop).
+  GameNotifier? _gameNotifierToClearOnDispose;
+
   /// Toggled (not set) each time a reshuffle fires so DrawPileWidget can
   /// play the shuffle animation even on repeated reshuffles.
   final ValueNotifier<bool> _reshuffleNotifier = ValueNotifier<bool>(false);
@@ -776,6 +780,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   @override
   void dispose() {
+    // Drop online notifier state so the next matchmaking / lobby flow does not
+    // inherit ended-game snapshots or session flags (Leave dialog also clears).
+    if (!_isOfflineSession) {
+      _gameNotifierToClearOnDispose?.clearOnlineState();
+    }
     // Disconnect from online game so we don't receive stale state_snapshot
     // events when opening LobbyScreen for a private game.
     // Cannot use ref in dispose — use cached value from build.
@@ -924,7 +933,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   void _onBackPressed() {
-    final isOfflineMode = ref.read(gameStateProvider) == null;
+    final isOfflineMode = _isOfflineSession;
     final isRanked = ref.read(isRankedGameProvider);
     showDialog<void>(
       context: context,
@@ -937,7 +946,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               ? 'You will return to the menu and this match will end.\n\n'
                   'Are you sure you want to leave?'
               : 'You will be disconnected and the game will continue without you.'
-                  '${isRanked ? '\n\nIn ranked mode, leaving counts as a loss and you will lose MMR (-20).' : ''}'
+                  '${isRanked ? '\n\nIn ranked mode, abandoning a match counts as a loss with a larger MMR penalty than a normal defeat (-35).' : ''}'
                   '\n\nAre you sure you want to leave?',
           style: const TextStyle(color: Colors.white70),
         ),
@@ -1278,9 +1287,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final connState = ref.watch(connectionStateProvider).valueOrNull ??
         WsConnectionState.disconnected;
 
-    // Cache wsClient for dispose — ref is invalid during dispose.
-    if (liveState != null) {
+    // Cache for dispose — ref is invalid during dispose. Online sessions must
+    // always disconnect/clear even if the first build ran before a snapshot.
+    if (!_isOfflineSession) {
       _wsClientToDisconnectOnDispose = ref.read(wsClientProvider);
+      _gameNotifierToClearOnDispose = ref.read(gameNotifierProvider.notifier);
     }
 
     final isOfflineMode = liveState == null;

@@ -63,7 +63,6 @@ class _ConnectedPlayer {
 
 const _rankedWinDelta = 25;
 const _rankedLossDelta = -15;
-const _rankedLeaveDelta = -20;
 
 class GameSession {
   GameSession(
@@ -526,7 +525,9 @@ class GameSession {
     if (_trophyEligible && isRanked) {
       final uid = firebaseUid ?? playerId;
       _trophyRecorder.recordLeavePenalty(uid,
-          displayName: displayName, rankedHardcore: _rankedHardcoreRecords);
+          displayName: displayName,
+          rankedHardcore: _rankedHardcoreRecords,
+          playerCount: _startingPlayerCount.clamp(2, 7));
     }
 
     _drawPile.addAll(continueGame.handForDrawPile);
@@ -561,7 +562,9 @@ class GameSession {
     if (trophyPenaltyForLeaver && isRanked) {
       final uid = firebaseUid ?? disconnectedPlayerId;
       _trophyRecorder.recordLeavePenalty(uid,
-          displayName: displayName, rankedHardcore: _rankedHardcoreRecords);
+          displayName: displayName,
+          rankedHardcore: _rankedHardcoreRecords,
+          playerCount: _startingPlayerCount.clamp(2, 7));
 
       // Also record ranked wins for every player who is still connected.
       // The leaver's penalty is already handled by recordLeavePenalty above;
@@ -591,7 +594,7 @@ class GameSession {
     Map<String, int>? ratingChanges;
     if (trophyPenaltyForLeaver && isRanked) {
       ratingChanges = {
-        disconnectedPlayerId: _rankedLeaveDelta,
+        disconnectedPlayerId: kRankedLeaveRatingDelta,
         for (final p in _state.players)
           if (p.id != disconnectedPlayerId) p.id: _rankedWinDelta,
       };
