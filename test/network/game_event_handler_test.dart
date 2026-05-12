@@ -30,10 +30,12 @@ void main() {
         {'id': 'c1', 'rank': 'six', 'suit': 'spades'}
       ],
       'newDiscardTop': {'id': 'c1', 'rank': 'six', 'suit': 'spades'},
+      'cardsPlayedThisTurn': 4,
     }));
     final event = await future;
     expect(event.playerId, 'p1');
     expect(event.cards.length, 1);
+    expect(event.cardsPlayedThisTurnAfter, 4);
   });
 
   test('stateSnapshots filter only emits StateSnapshotEvent', () async {

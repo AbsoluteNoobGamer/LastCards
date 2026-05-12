@@ -429,6 +429,72 @@ void main() {
       expect(cp['skippedPlayers'], isA<List>());
       expect(cp['turnContinues'], isA<bool>());
       expect(cp['directionReversed'], isA<bool>());
+      expect(cp['cardsPlayedThisTurn'], equals(1));
+    });
+
+    test(
+        'multi-card play_cards broadcasts cardsPlayedThisTurn and card count',
+        () {
+      final (:session, :sockets, :ids) = _makeSession(2);
+      final p1ws = sockets[0];
+      final p2ws = sockets[1];
+      final p1Id = ids[0];
+      final p2Id = ids[1];
+
+      final s7 = _card(Rank.seven, Suit.spades);
+      final h7 = _card(Rank.seven, Suit.hearts);
+      final d7 = _card(Rank.seven, Suit.diamonds);
+      final c7 = _card(Rank.seven, Suit.clubs);
+      final filler = _card(Rank.three, Suit.spades);
+      final p1Hand = [s7, h7, d7, c7, filler];
+      final p2Hand = [
+        _card(Rank.four, Suit.hearts),
+        _card(Rank.five, Suit.hearts),
+      ];
+      final discardTop = _card(Rank.seven, Suit.hearts);
+      final drawPile = List.generate(
+          16, (i) => CardModel(id: 'filler_$i', rank: Rank.four, suit: Suit.clubs));
+
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+            id: p1Id,
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: p1Hand,
+            cardCount: p1Hand.length,
+          ),
+          PlayerModel(
+            id: p2Id,
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: p2Hand,
+            cardCount: p2Hand.length,
+          ),
+        ],
+        currentPlayerId: p1Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: discardTop,
+        drawPileCount: drawPile.length,
+        preTurnCentreSuit: Suit.hearts,
+      );
+
+      session.seedStateForTesting(state: state, drawPile: drawPile);
+
+      p1ws.clear();
+      p2ws.clear();
+      session.handleAction(p1Id, {
+        'type': 'play_cards',
+        'cardIds': [s7.id, h7.id, d7.id, c7.id],
+      });
+
+      expect(p1ws.ofType('error'), isEmpty);
+      final cp = p1ws.lastOfType('card_played');
+      expect(cp, isNotNull);
+      expect(cp!['cardsPlayedThisTurn'], equals(4));
+      expect((cp['cards'] as List).length, equals(4));
     });
 
     test(

@@ -35,6 +35,7 @@ import '../../../../core/models/move_log_merge.dart';
 import '../../../../core/models/game_event.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
+import '../widgets/multi_card_play_celebration.dart';
 import '../widgets/discard_pile_widget.dart';
 import '../widgets/draw_pile_widget.dart';
 import '../widgets/hud_overlay_widget.dart';
@@ -220,6 +221,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   StreamSubscription<LastCardsBluffEvent>? _lastCardsBluffSub;
   StreamSubscription<LastCardsPressedEvent>? _lastCardsPressedSub;
 
+  int _multiPlayCelebrationTrigger = 0;
+  int _multiPlayCelebrationTier = 0;
+
   /// Offline-only: players who falsely declared Last Cards.
   final Set<String> _offlineLastCardsBluffedBy = {};
 
@@ -355,6 +359,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         _flashSkipHighlight(
           _playerIdsForSkippedNames(state, e.skippedPlayers),
         );
+      }
+      final turnTotal = e.cardsPlayedThisTurnAfter;
+      if (turnTotal != null &&
+          turnTotal >= kMultiPlayCelebrationMinCards) {
+        _fireMultiPlayCelebrationIfNeeded(turnTotal);
       }
     });
 
@@ -860,6 +869,25 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     } else {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
+  }
+
+  void _fireMultiPlayCelebrationIfNeeded(int cardsPlayedThisTurn) {
+    if (cardsPlayedThisTurn < kMultiPlayCelebrationMinCards) return;
+    if (!mounted) return;
+    if (MediaQuery.disableAnimationsOf(context)) return;
+    final tier = multiPlayCelebrationTierIndex(cardsPlayedThisTurn);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (tier == 0) {
+        HapticFeedback.lightImpact();
+      } else {
+        HapticFeedback.mediumImpact();
+      }
+      setState(() {
+        _multiPlayCelebrationTrigger++;
+        _multiPlayCelebrationTier = tier;
+      });
+    });
   }
 
   Future<void> _animateDrawFlightsToPlayer(String playerId, int count) async {
@@ -1625,6 +1653,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 ),
               ),
 
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: MultiCardPlayCelebrationOverlay(
+                    trigger: _multiPlayCelebrationTrigger,
+                    tierIndex: _multiPlayCelebrationTier,
+                  ),
+                ),
+              ),
+
               SafeArea(
                 child: Column(
                   children: [
@@ -2382,6 +2419,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         // Win / tournament round-end may pop this route — run before any setState
         // so we never call setState after dispose (_dependents.isEmpty).
         _trackMatchPlay(playerId, [assignedJoker]);
+        _fireMultiPlayCelebrationIfNeeded(newState.cardsPlayedThisTurn);
         if (_checkWin(playerId, newState)) return;
 
         setState(() {
@@ -2460,6 +2498,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
       // Win / tournament round-end may pop this route — run before setState.
       _trackMatchPlay(playerId, played);
+      _fireMultiPlayCelebrationIfNeeded(newState.cardsPlayedThisTurn);
       if (_checkWin(playerId, newState)) return;
 
       setState(() {
@@ -3003,6 +3042,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             : 1;
         await _animateDrawFlightsToPlayer(aiId, drawN);
         if (mounted) HapticFeedback.lightImpact();
+      }
+
+      if (!offlineTournamentInstantPacing() &&
+          playedByAi.isNotEmpty &&
+          result.preTurnAdvanceState.cardsPlayedThisTurn >=
+              kMultiPlayCelebrationMinCards) {
+        _fireMultiPlayCelebrationIfNeeded(
+            result.preTurnAdvanceState.cardsPlayedThisTurn);
       }
 
       final aiPlayerName = _offlineState.playerById(aiId)?.displayName ?? aiId;

@@ -2241,6 +2241,8 @@ class GameSession {
       'playerId': playerId,
       'cards': cards.map((c) => c.toJson()).toList(),
       'newDiscardTop': _state.discardTopCard!.toJson(),
+      // Authoritative per-turn play count after this action (client celebrations).
+      'cardsPlayedThisTurn': _state.cardsPlayedThisTurn,
       'activeSkipCountBefore': activeSkipBefore,
       'activeSkipCountAfter': _state.activeSkipCount,
       'skippedPlayers': skippedPlayerDisplayNamesForSkipState(_state),
