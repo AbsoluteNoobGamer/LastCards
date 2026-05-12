@@ -26,6 +26,7 @@ import 'package:last_cards/features/gameplay/presentation/widgets/game_move_log_
     show GameMoveLogPanel;
 import 'package:last_cards/features/gameplay/presentation/widgets/hud_overlay_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/ace_suit_picker_sheet.dart';
+import 'package:last_cards/features/gameplay/presentation/widgets/multi_card_play_celebration.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/player_hand_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/player_zone_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/quick_chat_panel.dart'
@@ -160,6 +161,9 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   final Set<String> _skipHighlightPlayerIds = <String>{};
   Timer? _skipHighlightClearTimer;
 
+  int _multiPlayCelebrationTrigger = 0;
+  int _multiPlayCelebrationTier = 0;
+
   int get _clampedPlayers => widget.totalPlayers.clamp(2, 10);
 
   /// Standard bust rounds end after two turns each; the 1v1 finale ends on
@@ -185,6 +189,25 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     // cannot leave deal/AI audio overlapping the next session (lag, missing SFX).
     unawaited(game_audio.AudioService.instance.stopAll());
     super.dispose();
+  }
+
+  void _fireMultiPlayCelebrationIfNeeded(int cardsPlayedThisTurn) {
+    if (cardsPlayedThisTurn < kMultiPlayCelebrationMinCards) return;
+    if (!mounted) return;
+    if (MediaQuery.disableAnimationsOf(context)) return;
+    final tier = multiPlayCelebrationTierIndex(cardsPlayedThisTurn);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (tier == 0) {
+        HapticFeedback.lightImpact();
+      } else {
+        HapticFeedback.mediumImpact();
+      }
+      setState(() {
+        _multiPlayCelebrationTrigger++;
+        _multiPlayCelebrationTier = tier;
+      });
+    });
   }
 
   void _showSettingsSheet(BuildContext context) {
@@ -663,6 +686,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
         game_audio.AudioService.instance.playSound(GameSound.skipApplied);
         _flashSkipHighlight(skippedPlayerIdsForSkipState(newState));
       }
+      _fireMultiPlayCelebrationIfNeeded(newState.cardsPlayedThisTurn);
     } finally {
       _localActionInProgress = false;
       if (mounted && _flyingCardId != null) setState(() => _flyingCardId = null);
@@ -971,6 +995,13 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       );
     }
 
+    if (result.playedCards.isNotEmpty &&
+        result.preTurnAdvanceState.cardsPlayedThisTurn >=
+            kMultiPlayCelebrationMinCards) {
+      _fireMultiPlayCelebrationIfNeeded(
+          result.preTurnAdvanceState.cardsPlayedThisTurn);
+    }
+
     // Record any players that were skipped by an Eight effect this turn.
     _recordSkippedTurns(result.preTurnAdvanceState, nextId);
     _onTurnComplete(aiId);
@@ -1201,6 +1232,15 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                       radius: 1.2,
                       colors: [theme.backgroundMid, theme.backgroundDeep],
                     ),
+                  ),
+                ),
+              ),
+
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: MultiCardPlayCelebrationOverlay(
+                    trigger: _multiPlayCelebrationTrigger,
+                    tierIndex: _multiPlayCelebrationTier,
                   ),
                 ),
               ),

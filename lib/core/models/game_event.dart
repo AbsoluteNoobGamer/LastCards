@@ -54,6 +54,10 @@ final class CardPlayedEvent extends GameEvent {
   /// True if play direction flipped vs before this play (e.g. King).
   final bool directionReversed;
 
+  /// Server: total cards this player has played in the current turn after this
+  /// action (shared engine field). Null when omitted by older servers.
+  final int? cardsPlayedThisTurnAfter;
+
   const CardPlayedEvent({
     required this.playerId,
     required this.cards,
@@ -63,6 +67,7 @@ final class CardPlayedEvent extends GameEvent {
     this.skippedPlayers = const [],
     this.turnContinues = true,
     this.directionReversed = false,
+    this.cardsPlayedThisTurnAfter,
   });
 
   @override
@@ -534,6 +539,8 @@ GameEvent parseServerEvent(String raw) {
               const [],
           turnContinues: json['turnContinues'] as bool? ?? true,
           directionReversed: json['directionReversed'] as bool? ?? false,
+          cardsPlayedThisTurnAfter:
+              (json['cardsPlayedThisTurn'] as num?)?.toInt(),
         ),
       'card_drawn' => CardDrawnEvent(
           playerId: json['playerId'] as String,
