@@ -100,22 +100,6 @@ class _DrawPileWidgetState extends State<DrawPileWidget>
     _shuffleCtrl.forward(from: 0);
   }
 
-  /// Static ring — combined with [AnimatedOpacity] only when drawable toggles.
-  Widget _drawableRingDecoration() {
-    return IgnorePointer(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(11),
-          border: Border.all(
-            color: AppColors.goldPrimary.withValues(alpha: 0.55),
-            width: 2,
-          ),
-        ),
-        child: const SizedBox.expand(),
-      ),
-    );
-  }
-
   /// Returns the animated x-offset of the top card (oscillation phase).
   double _computeOffsetX(double t) {
     // Only oscillate during 25–75 % of the animation.
@@ -150,7 +134,6 @@ class _DrawPileWidgetState extends State<DrawPileWidget>
   Widget build(BuildContext context) {
     final double targetScale = (_isPressed || _isHovering) ? 0.95 : 1.0;
     final height = AppDimensions.cardHeight(widget.cardWidth);
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final drawable =
         widget.enabled && widget.onTap != null && widget.cardCount > 0;
 
@@ -200,21 +183,6 @@ class _DrawPileWidgetState extends State<DrawPileWidget>
                     scale: shuffleScale,
                     child: Stack(
                       children: [
-                        // Subtle gold frame when draw is available — opacity toggles
-                        // only when [drawable] changes (no per-frame ticker).
-                        Positioned.fill(
-                          child: reduceMotion
-                              ? Opacity(
-                                  opacity: drawable ? 1 : 0,
-                                  child: _drawableRingDecoration(),
-                                )
-                              : AnimatedOpacity(
-                                  opacity: drawable ? 1 : 0,
-                                  duration: const Duration(milliseconds: 280),
-                                  curve: Curves.easeOutCubic,
-                                  child: _drawableRingDecoration(),
-                                ),
-                        ),
                         // Dynamic stacked card backs (furthest layer first)
                         for (int i = layers; i > 0; i--)
                           Positioned(

@@ -1,9 +1,8 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import 'package:last_cards/core/models/move_log_entry.dart';
-import 'package:last_cards/core/theme/app_dimensions.dart';
+
+import 'package:last_cards/features/gameplay/presentation/layout/table_chrome_layout.dart';
 
 import 'last_move_panel_widget.dart';
 
@@ -38,8 +37,7 @@ class GameMoveLogPanel extends StatelessWidget {
 
 /// Floating move log — centred horizontally, anchored from the safe-area top.
 ///
-/// Previously used `+175` / `+72` below padding; nudged **down** slightly (`+200` / `+96`)
-/// so it sits a bit lower without overlapping the centre HUD on typical phones.
+/// Geometry matches offline Bust and [TableScreen] via [TableChromeLayout].
 /// [GameMoveLogPanel] applies the same fractional upward shift as centre piles
 /// (`FractionalTranslation` −0.5 of panel height).
 class GameMoveLogOverlay extends StatelessWidget {
@@ -47,24 +45,15 @@ class GameMoveLogOverlay extends StatelessWidget {
 
   final List<MoveLogEntry> entries;
 
-  static double _topOffsetPx(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final isLandscapeMobile =
-        math.min(size.width, size.height) < AppDimensions.breakpointMobile &&
-            size.width > size.height;
-    // Portrait: was 175 — a bit lower on screen.
-    // Landscape mobile: was 72 — same nudge.
-    return isLandscapeMobile ? 96 : 200;
-  }
-
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final size = media.size;
     return Positioned(
-      top: media.padding.top + _topOffsetPx(context),
-      left: size.width * 0.08,
-      right: size.width * 0.08,
+      top: media.padding.top +
+          TableChromeLayout.moveLogTopInsetBelowSafeAreaPx(context),
+      left: size.width * TableChromeLayout.moveLogHorizontalInsetFraction,
+      right: size.width * TableChromeLayout.moveLogHorizontalInsetFraction,
       child: GameMoveLogPanel(entries: entries),
     );
   }

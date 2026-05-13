@@ -427,8 +427,10 @@ class _TableLayout extends StatelessWidget {
                       const SizedBox(height: AppDimensions.sm),
                       Center(
                         child: Transform.translate(
-                          offset: isMobile
-                              ? const Offset(0, 0.5)
+                          offset: TableChromeLayout.isCompactPhone(
+                                  Size(constraints.maxWidth,
+                                      constraints.maxHeight))
+                              ? TableChromeLayout.drawDiscardClusterNudgeCompact
                               : Offset.zero,
                           child: FractionalTranslation(
                             translation: const Offset(0, -0.5),

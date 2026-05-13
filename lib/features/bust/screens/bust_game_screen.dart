@@ -22,8 +22,9 @@ import 'package:last_cards/features/gameplay/presentation/widgets/dealing_animat
 import 'package:last_cards/features/gameplay/presentation/widgets/discard_pile_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/draw_pile_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/floating_action_bar_widget.dart';
+import 'package:last_cards/features/gameplay/presentation/layout/table_chrome_layout.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/game_move_log_overlay.dart'
-    show GameMoveLogPanel;
+    show GameMoveLogOverlay;
 import 'package:last_cards/features/gameplay/presentation/widgets/hud_overlay_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/ace_suit_picker_sheet.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/multi_card_play_celebration.dart';
@@ -1221,6 +1222,8 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       extendBodyBehindAppBar: true,
       body: LayoutBuilder(
         builder: (context, constraints) {
+          final layoutSize =
+              Size(constraints.maxWidth, constraints.maxHeight);
           return Stack(
             children: [
               // Background
@@ -1269,23 +1272,6 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                     // 2. Round indicator
                     _RoundIndicator(roundState: rs),
 
-                    // Move log — fixed height reserved always so draw/discard do not jump
-                    // when the first entry appears; sits under round badge.
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        math.max(12.0, constraints.maxWidth * 0.06),
-                        6,
-                        math.max(12.0, constraints.maxWidth * 0.06),
-                        8,
-                      ),
-                      child: SizedBox(
-                        height: 140,
-                        child: _moveLogEntries.isNotEmpty
-                            ? GameMoveLogPanel(entries: _moveLogEntries)
-                            : null,
-                      ),
-                    ),
-
                     // 3. Centre board — top-aligned so the piles stay put (no vertical
                     // re-centering when the move log or other chrome changes).
                     Expanded(
@@ -1293,13 +1279,17 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                         alignment: Alignment.topCenter,
                         child: Padding(
                           padding: const EdgeInsets.only(top: 8),
-                          child: FractionalTranslation(
-                            translation: const Offset(0, -0.5),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
+                          child: Transform.translate(
+                            offset: TableChromeLayout.isCompactPhone(layoutSize)
+                                ? TableChromeLayout.drawDiscardClusterNudgeCompact
+                                : Offset.zero,
+                            child: FractionalTranslation(
+                              translation: const Offset(0, -0.5),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
                                 SizedBox(
                                   key: _drawPileKey,
                                   width: 100,
@@ -1342,6 +1332,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                         ),
                       ),
                     ),
+                  ),
 
                     // 4. End-turn bar
                     Padding(
@@ -1417,9 +1408,12 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                 ),
               ),
 
+              if (_moveLogEntries.isNotEmpty)
+                GameMoveLogOverlay(entries: _moveLogEntries),
+
               // HUD overlay
               Positioned(
-                top: constraints.maxHeight * 0.63 - 1,
+                top: TableChromeLayout.hudOverlayTopPx(context),
                 left: 0,
                 right: 0,
                 child: IgnorePointer(
@@ -1438,7 +1432,8 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                 child: IgnorePointer(
                   child: TurnIndicatorOverlay(
                     direction: _gameState.direction,
-                    bannerAlignment: const Alignment(0, 0.22),
+                    bannerAlignment:
+                        TableChromeLayout.directionBannerAlignment,
                   ),
                 ),
               ),
@@ -1461,7 +1456,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
 
               // Settings + back
               Positioned(
-                bottom: 210,
+                bottom: TableChromeLayout.cornerActionsBottom(layoutSize),
                 left: 0,
                 child: SafeArea(
                   top: false,
@@ -1513,7 +1508,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
               // Emoji reactions toggle and panel (bottom right, opposite back)
               if (!_isDealing && _gameState.phase != GamePhase.ended)
                 Positioned(
-                  bottom: 210,
+                  bottom: TableChromeLayout.cornerActionsBottom(layoutSize),
                   right: 0,
                   child: SafeArea(
                     top: false,

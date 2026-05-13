@@ -46,6 +46,7 @@ import '../widgets/card_widget.dart';
 import '../widgets/floating_action_bar_widget.dart';
 import '../widgets/last_cards_table_strip.dart';
 import '../widgets/turn_indicator_overlay.dart';
+import 'package:last_cards/features/gameplay/presentation/layout/table_chrome_layout.dart';
 import '../widgets/game_move_log_overlay.dart' show GameMoveLogOverlay;
 import '../widgets/quick_chat_panel.dart';
 
@@ -1621,10 +1622,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       backgroundColor: appTheme.backgroundDeep,
       body: LayoutBuilder(
         builder: (context, constraints) {
+          final layoutSize =
+              Size(constraints.maxWidth, constraints.maxHeight);
           final isLandscapeMobile =
-              math.min(constraints.maxWidth, constraints.maxHeight) <
-                      AppDimensions.breakpointMobile &&
-                  constraints.maxWidth > constraints.maxHeight;
+              TableChromeLayout.isLandscapeMobile(layoutSize);
 
           final stack = Stack(
             children: [
@@ -1767,7 +1768,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   !_tournamentRoundComplete &&
                   gameState.phase != GamePhase.ended)
                 Positioned(
-                  bottom: isLandscapeMobile ? 128 : 208,
+                  bottom: TableChromeLayout.tournamentSkipChipBottom(layoutSize),
                   left: 0,
                   right: 0,
                   child: SafeArea(
@@ -1847,7 +1848,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
               // ── Settings + back (single-player and online) ──────────────────
               Positioned(
-                bottom: isLandscapeMobile ? 130 : 210,
+                bottom: TableChromeLayout.cornerActionsBottom(layoutSize),
                 left: 0,
                 child: SafeArea(
                   top: false,
@@ -1898,7 +1899,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               // ── Emoji reactions toggle and panel (bottom right, opposite back)
               if (!_isDealing && gameState.phase != GamePhase.ended)
                 Positioned(
-                  bottom: isLandscapeMobile ? 130 : 210,
+                  bottom: TableChromeLayout.cornerActionsBottom(layoutSize),
                   right: 0,
                   child: SafeArea(
                     top: false,
@@ -2056,7 +2057,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               // In landscape mobile, HUD is rendered inline in _LandscapeTableLayout.
               if (!isLandscapeMobile)
                 Positioned(
-                  top: MediaQuery.of(context).size.height * 0.63 - 1,
+                  top: TableChromeLayout.hudOverlayTopPx(context),
                   left: 0,
                   right: 0,
                   child: IgnorePointer(
@@ -2099,7 +2100,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   children: [
                     TurnIndicatorOverlay(
                       direction: gameState.direction,
-                      bannerAlignment: const Alignment(0, 0.22),
+                      bannerAlignment:
+                          TableChromeLayout.directionBannerAlignment,
                     ),
                     LastCardsTableStrip(
                       players: gameState.players,
