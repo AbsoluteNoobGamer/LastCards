@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,6 +8,7 @@ import '../../domain/entities/player.dart';
 import '../controllers/game_provider.dart';
 import '../../../../core/models/ai_player_config.dart';
 import '../../../../core/utils/display_name_utils.dart';
+import '../../../../core/widgets/gameplay_circle_avatar.dart';
 import '../../../../widgets/marquee_name.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -114,6 +116,7 @@ class PlayerZoneWidget extends ConsumerWidget {
     this.isAiThinking = false,
     this.skipSeatHighlight = false,
     this.onOpponentAvatarTap,
+    this.localAvatarFilePath,
   });
 
   final PlayerModel player;
@@ -147,6 +150,9 @@ class PlayerZoneWidget extends ConsumerWidget {
 
   /// Opponent seats only: tap avatar (e.g. online profile / add friend).
   final VoidCallback? onOpponentAvatarTap;
+
+  /// Offline / signed-out local photo path when [avatarUrl] is not set.
+  final String? localAvatarFilePath;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -238,6 +244,7 @@ class PlayerZoneWidget extends ConsumerWidget {
               hasLastCardsDeclared: hasLastCardsDeclared,
               appTheme: appTheme,
               compact: compact,
+              localAvatarFilePath: localAvatarFilePath,
             ),
             if (chatBubble != null && onRemoveQuickChatBubble != null) ...[
               const SizedBox(height: 6),
@@ -427,10 +434,13 @@ class _OpponentAvatarZone extends StatelessWidget {
                       child: CircleAvatar(
                         radius: 30,
                         backgroundColor: Colors.transparent,
-                        child: Text(
-                          aiConfig?.initials ??
+                        child: GameplayCircleAvatar(
+                          radius: 30,
+                          displayName: player.displayName,
+                          avatarUrl: player.avatarUrl,
+                          initialsOverride: aiConfig?.initials ??
                               initialsFromDisplayName(player.displayName),
-                          style: TextStyle(
+                          foregroundTextStyle: TextStyle(
                             color: isActive
                                 ? Colors.white
                                 : Colors.white.withValues(alpha: 0.85),
@@ -594,6 +604,7 @@ class _PlayerLabel extends StatelessWidget {
     this.isLocalPlayer = false,
     this.hasLastCardsDeclared = false,
     this.compact = false,
+    this.localAvatarFilePath,
   });
 
   final PlayerModel player;
@@ -602,6 +613,7 @@ class _PlayerLabel extends StatelessWidget {
   final bool isLocalPlayer;
   final bool hasLastCardsDeclared;
   final bool compact;
+  final String? localAvatarFilePath;
 
   @override
   Widget build(BuildContext context) {
@@ -705,18 +717,35 @@ class _PlayerLabel extends StatelessWidget {
                           border: Border.all(color: accentLc, width: 2),
                         )
                       : null,
-                  child: CircleAvatar(
-                    radius: iconSize / 2,
-                    backgroundColor: positionColor.withValues(alpha: 0.25),
-                    child: Text(
-                      initialsFromDisplayName(player.displayName),
-                      style: TextStyle(
-                        color: positionColor,
-                        fontSize: iconSize * 0.45,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
+                  child: Builder(
+                    builder: (context) {
+                      final url = player.avatarUrl?.trim();
+                      final hasHttps = url != null &&
+                          url.isNotEmpty &&
+                          url.toLowerCase().startsWith('https://');
+                      final hasLocal = !kIsWeb &&
+                          (localAvatarFilePath != null &&
+                              localAvatarFilePath!.isNotEmpty);
+                      final hasPhoto = hasHttps || hasLocal;
+                      return CircleAvatar(
+                        radius: iconSize / 2,
+                        backgroundColor: hasPhoto
+                            ? Colors.transparent
+                            : positionColor.withValues(alpha: 0.25),
+                        child: GameplayCircleAvatar(
+                          radius: iconSize / 2,
+                          displayName: player.displayName,
+                          avatarUrl: player.avatarUrl,
+                          localFilePath: localAvatarFilePath,
+                          foregroundTextStyle: TextStyle(
+                            color: positionColor,
+                            fontSize: iconSize * 0.45,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),

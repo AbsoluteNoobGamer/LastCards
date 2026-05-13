@@ -44,6 +44,10 @@ class PlayerModel with _$PlayerModel {
     /// profile / friends. Omitted for offline AI and guests without auth.
     String? firebaseUid,
 
+    /// Profile photo (HTTPS URL). Echoed by the server from the join payload;
+    /// may be set client-side for offline play when the user has a Firestore avatar.
+    String? avatarUrl,
+
     /// Server-driven bot in a private online lobby (no WebSocket).
     @Default(false) bool isAi,
   }) = _PlayerModel;

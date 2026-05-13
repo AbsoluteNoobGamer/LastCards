@@ -7,6 +7,18 @@ import 'game_session.dart';
 import 'logger.dart';
 import 'trophy_recorder.dart';
 
+/// Optional profile image URL from the client. Only HTTPS with sane length.
+String? sanitizeAvatarUrl(dynamic raw) {
+  if (raw is! String) return null;
+  final s = raw.trim();
+  if (s.isEmpty || s.length > 2048) return null;
+  final lower = s.toLowerCase();
+  if (!lower.startsWith('https://')) return null;
+  final uri = Uri.tryParse(s);
+  if (uri == null || !uri.hasAuthority || uri.host.isEmpty) return null;
+  return s;
+}
+
 /// Sanitizes a display name: trims whitespace, limits to 20 characters,
 /// and strips HTML/special characters.
 String sanitizeDisplayName(String raw) {
@@ -180,6 +192,7 @@ class RoomManager {
     final displayName =
         sanitizeDisplayName(json['displayName'] as String? ?? 'Player');
     final firebaseUid = _playerUserIds[ws];
+    final avatarUrl = sanitizeAvatarUrl(json['avatarUrl']);
     final isHardcore = json['isHardcore'] == true;
     final gameVariant = json['gameVariant'] as String? ?? 'standard';
     final isBust = gameVariant == 'bust';
@@ -194,7 +207,12 @@ class RoomManager {
     );
     _rooms[roomCode] = session;
 
-    final playerId = session.addPlayer(ws, displayName, firebaseUid: firebaseUid);
+    final playerId = session.addPlayer(
+      ws,
+      displayName,
+      firebaseUid: firebaseUid,
+      avatarUrl: avatarUrl,
+    );
     _playerRooms[ws] = roomCode;
     _playerIds[ws] = playerId;
 
@@ -248,7 +266,13 @@ class RoomManager {
     }
 
     final firebaseUid = _playerUserIds[ws];
-    final playerId = session.addPlayer(ws, displayName, firebaseUid: firebaseUid);
+    final joinAvatar = sanitizeAvatarUrl(json['avatarUrl']);
+    final playerId = session.addPlayer(
+      ws,
+      displayName,
+      firebaseUid: firebaseUid,
+      avatarUrl: joinAvatar,
+    );
     if (playerId.isEmpty) return; // rejected (room full or game started)
     _playerRooms[ws] = code;
     _playerIds[ws] = playerId;
@@ -449,6 +473,7 @@ class RoomManager {
     final displayName =
         sanitizeDisplayName(json['displayName'] as String? ?? 'Player');
     final firebaseUid = _playerUserIds[ws];
+    final avatarUrl = sanitizeAvatarUrl(json['avatarUrl']);
 
     // Ranked games require a verified Firebase identity.
     if (isRanked && firebaseUid == null) {
@@ -508,7 +533,12 @@ class RoomManager {
 
     // Prevent duplicate entries for the same websocket.
     queue.removeWhere((q) => q.ws == ws);
-    queue.add(_QueuedPlayer(ws: ws, displayName: displayName, firebaseUid: firebaseUid));
+    queue.add(_QueuedPlayer(
+      ws: ws,
+      displayName: displayName,
+      firebaseUid: firebaseUid,
+      avatarUrl: avatarUrl,
+    ));
 
     _log.info('Queue($queueKey) size: ${queue.length}/$playerCount');
 
@@ -542,7 +572,12 @@ class RoomManager {
       // First pass: add all players to the session.
       final playerIds = <String>[];
       for (final qp in matched) {
-        final playerId = session.addPlayer(qp.ws, qp.displayName, firebaseUid: qp.firebaseUid);
+        final playerId = session.addPlayer(
+          qp.ws,
+          qp.displayName,
+          firebaseUid: qp.firebaseUid,
+          avatarUrl: qp.avatarUrl,
+        );
         playerIds.add(playerId);
         _playerRooms[qp.ws] = roomCode;
         _playerIds[qp.ws] = playerId;
@@ -602,8 +637,14 @@ class RoomManager {
 
 /// A player waiting in the quickplay matchmaking queue.
 class _QueuedPlayer {
-  _QueuedPlayer({required this.ws, required this.displayName, this.firebaseUid});
+  _QueuedPlayer({
+    required this.ws,
+    required this.displayName,
+    this.firebaseUid,
+    this.avatarUrl,
+  });
   final dynamic ws;
   final String displayName;
   final String? firebaseUid;
+  final String? avatarUrl;
 }

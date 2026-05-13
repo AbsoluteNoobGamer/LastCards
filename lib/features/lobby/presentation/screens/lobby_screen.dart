@@ -777,11 +777,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       return;
     }
     if (!mounted) return;
+    final avatarUrl = ref.read(userProfileProvider).valueOrNull?.avatarUrl;
     if (!wsClient.send(jsonEncode({
       'type': 'join_room',
       'roomCode': code,
       'displayName': ref.read(displayNameForGameProvider),
       if (idToken != null) 'idToken': idToken,
+      if (avatarUrl != null && avatarUrl.isNotEmpty) 'avatarUrl': avatarUrl,
     }))) {
       setState(() => _pendingJoin = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -825,12 +827,16 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       return;
     }
     if (!mounted) return;
+    final createAvatarUrl =
+        ref.read(userProfileProvider).valueOrNull?.avatarUrl;
     if (!wsClient.send(jsonEncode({
       'type': 'create_room',
       'displayName': ref.read(displayNameForGameProvider),
       'isHardcore': _privateLobbyHardcore,
       'gameVariant': _privateGameVariant.wireName,
       if (idToken != null) 'idToken': idToken,
+      if (createAvatarUrl != null && createAvatarUrl.isNotEmpty)
+        'avatarUrl': createAvatarUrl,
     }))) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

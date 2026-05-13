@@ -40,6 +40,10 @@ mixin _$PlayerModel {
   /// profile / friends. Omitted for offline AI and guests without auth.
   String? get firebaseUid => throw _privateConstructorUsedError;
 
+  /// Profile photo (HTTPS URL). Echoed by the server from the join payload;
+  /// may be set client-side for offline play when the user has a Firestore avatar.
+  String? get avatarUrl => throw _privateConstructorUsedError;
+
   /// Server-driven bot in a private online lobby (no WebSocket).
   bool get isAi => throw _privateConstructorUsedError;
 
@@ -67,6 +71,7 @@ abstract class $PlayerModelCopyWith<$Res> {
       int cardCount,
       bool lastCardsHandWasClearableAtTurnStart,
       String? firebaseUid,
+      String? avatarUrl,
       bool isAi});
 }
 
@@ -92,6 +97,7 @@ class _$PlayerModelCopyWithImpl<$Res, $Val extends PlayerModel>
     Object? cardCount = null,
     Object? lastCardsHandWasClearableAtTurnStart = null,
     Object? firebaseUid = freezed,
+    Object? avatarUrl = freezed,
     Object? isAi = null,
   }) {
     return _then(_value.copyWith(
@@ -124,6 +130,10 @@ class _$PlayerModelCopyWithImpl<$Res, $Val extends PlayerModel>
           ? _value.firebaseUid
           : firebaseUid // ignore: cast_nullable_to_non_nullable
               as String?,
+      avatarUrl: freezed == avatarUrl
+          ? _value.avatarUrl
+          : avatarUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
       isAi: null == isAi
           ? _value.isAi
           : isAi // ignore: cast_nullable_to_non_nullable
@@ -148,6 +158,7 @@ abstract class _$$PlayerModelImplCopyWith<$Res>
       int cardCount,
       bool lastCardsHandWasClearableAtTurnStart,
       String? firebaseUid,
+      String? avatarUrl,
       bool isAi});
 }
 
@@ -171,6 +182,7 @@ class __$$PlayerModelImplCopyWithImpl<$Res>
     Object? cardCount = null,
     Object? lastCardsHandWasClearableAtTurnStart = null,
     Object? firebaseUid = freezed,
+    Object? avatarUrl = freezed,
     Object? isAi = null,
   }) {
     return _then(_$PlayerModelImpl(
@@ -203,6 +215,10 @@ class __$$PlayerModelImplCopyWithImpl<$Res>
           ? _value.firebaseUid
           : firebaseUid // ignore: cast_nullable_to_non_nullable
               as String?,
+      avatarUrl: freezed == avatarUrl
+          ? _value.avatarUrl
+          : avatarUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
       isAi: null == isAi
           ? _value.isAi
           : isAi // ignore: cast_nullable_to_non_nullable
@@ -222,6 +238,7 @@ class _$PlayerModelImpl implements _PlayerModel {
       this.cardCount = 0,
       this.lastCardsHandWasClearableAtTurnStart = false,
       this.firebaseUid,
+      this.avatarUrl,
       this.isAi = false})
       : _hand = hand;
 
@@ -265,6 +282,11 @@ class _$PlayerModelImpl implements _PlayerModel {
   @override
   final String? firebaseUid;
 
+  /// Profile photo (HTTPS URL). Echoed by the server from the join payload;
+  /// may be set client-side for offline play when the user has a Firestore avatar.
+  @override
+  final String? avatarUrl;
+
   /// Server-driven bot in a private online lobby (no WebSocket).
   @override
   @JsonKey()
@@ -272,7 +294,7 @@ class _$PlayerModelImpl implements _PlayerModel {
 
   @override
   String toString() {
-    return 'PlayerModel(id: $id, displayName: $displayName, tablePosition: $tablePosition, hand: $hand, cardCount: $cardCount, lastCardsHandWasClearableAtTurnStart: $lastCardsHandWasClearableAtTurnStart, firebaseUid: $firebaseUid, isAi: $isAi)';
+    return 'PlayerModel(id: $id, displayName: $displayName, tablePosition: $tablePosition, hand: $hand, cardCount: $cardCount, lastCardsHandWasClearableAtTurnStart: $lastCardsHandWasClearableAtTurnStart, firebaseUid: $firebaseUid, avatarUrl: $avatarUrl, isAi: $isAi)';
   }
 
   @override
@@ -294,6 +316,8 @@ class _$PlayerModelImpl implements _PlayerModel {
                     lastCardsHandWasClearableAtTurnStart) &&
             (identical(other.firebaseUid, firebaseUid) ||
                 other.firebaseUid == firebaseUid) &&
+            (identical(other.avatarUrl, avatarUrl) ||
+                other.avatarUrl == avatarUrl) &&
             (identical(other.isAi, isAi) || other.isAi == isAi));
   }
 
@@ -308,6 +332,7 @@ class _$PlayerModelImpl implements _PlayerModel {
       cardCount,
       lastCardsHandWasClearableAtTurnStart,
       firebaseUid,
+      avatarUrl,
       isAi);
 
   /// Create a copy of PlayerModel
@@ -335,6 +360,7 @@ abstract class _PlayerModel implements PlayerModel {
       final int cardCount,
       final bool lastCardsHandWasClearableAtTurnStart,
       final String? firebaseUid,
+      final String? avatarUrl,
       final bool isAi}) = _$PlayerModelImpl;
 
   factory _PlayerModel.fromJson(Map<String, dynamic> json) =
@@ -365,6 +391,11 @@ abstract class _PlayerModel implements PlayerModel {
   /// profile / friends. Omitted for offline AI and guests without auth.
   @override
   String? get firebaseUid;
+
+  /// Profile photo (HTTPS URL). Echoed by the server from the join payload;
+  /// may be set client-side for offline play when the user has a Firestore avatar.
+  @override
+  String? get avatarUrl;
 
   /// Server-driven bot in a private online lobby (no WebSocket).
   @override

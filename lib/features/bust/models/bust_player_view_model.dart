@@ -12,10 +12,15 @@ class BustPlayerViewModel {
     this.colorIndex = 0,
     this.isTournamentFinished = false,
     this.isTournamentEliminated = false,
+    this.avatarUrl,
+    this.localAvatarFilePath,
   });
 
   final String id;
   final String displayName;
+  final String? avatarUrl;
+  /// Offline disk path for the local player's photo when [avatarUrl] is null.
+  final String? localAvatarFilePath;
   final int cardCount;
   final bool isActive;
   final bool isEliminated;
@@ -55,6 +60,7 @@ class BustPlayerViewModel {
     required bool isLocal,
     required int colorIndex,
     String? tournamentStatusBadge,
+    String? localAvatarFilePath,
   }) {
     final hasTournamentBadge = tournamentStatusBadge != null;
     final isTournamentEliminated =
@@ -63,6 +69,9 @@ class BustPlayerViewModel {
     return BustPlayerViewModel(
       id: player.id,
       displayName: player.displayName,
+      avatarUrl: player.avatarUrl,
+      localAvatarFilePath:
+          isLocal ? localAvatarFilePath : null,
       cardCount: player.cardCount,
       isActive: player.id == currentPlayerId,
       isEliminated: isEliminated,

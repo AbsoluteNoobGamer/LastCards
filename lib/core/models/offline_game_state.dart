@@ -29,10 +29,14 @@ abstract final class OfflineGameState {
   ///
   /// [localDisplayName] is the human-controlled seat label (e.g. profile name
   /// from the app layer).
+  ///
+  /// [localAvatarUrl] optional HTTPS profile image for the local seat (e.g.
+  /// Firestore avatar when signed in).
   static (GameState gameState, List<CardModel> drawPile) buildWithDeck({
     int totalPlayers = 2,
     Map<String, String> aiNames = const {},
     String localDisplayName = 'You',
+    String? localAvatarUrl,
   }) {
     assert(totalPlayers >= 2 && totalPlayers <= 7,
         'totalPlayers must be between 2 and 7');
@@ -59,6 +63,7 @@ abstract final class OfflineGameState {
         tablePosition: TablePosition.bottom,
         hand: localHand,
         cardCount: localHand.length,
+        avatarUrl: localAvatarUrl,
       ),
     ];
 
