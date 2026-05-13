@@ -1419,7 +1419,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
 
               // HUD overlay
               Positioned(
-                top: constraints.maxHeight * 0.63,
+                top: constraints.maxHeight * 0.63 - 1,
                 left: 0,
                 right: 0,
                 child: IgnorePointer(

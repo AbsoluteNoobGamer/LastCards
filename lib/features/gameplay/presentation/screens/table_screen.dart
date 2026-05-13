@@ -2056,7 +2056,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               // In landscape mobile, HUD is rendered inline in _LandscapeTableLayout.
               if (!isLandscapeMobile)
                 Positioned(
-                  top: MediaQuery.of(context).size.height * 0.63,
+                  top: MediaQuery.of(context).size.height * 0.63 - 1,
                   left: 0,
                   right: 0,
                   child: IgnorePointer(

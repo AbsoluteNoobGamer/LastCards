@@ -31,39 +31,42 @@ class LastCardsTableStrip extends StatelessWidget {
     }
 
     return IgnorePointer(
-      child: Align(
-        alignment: const Alignment(0, 0.31),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 340),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.goldDark.withValues(alpha: 0.88),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: AppColors.goldLight.withValues(alpha: 0.95),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.goldPrimary.withValues(alpha: 0.35),
-                  blurRadius: 18,
-                  spreadRadius: 0,
+      child: Transform.translate(
+        offset: const Offset(0, 1),
+        child: Align(
+          alignment: const Alignment(0, 0.31),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 340),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.goldDark.withValues(alpha: 0.88),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.goldLight.withValues(alpha: 0.95),
+                  width: 1.5,
                 ),
-              ],
-            ),
-            child: Text(
-              'Last cards: ${names.join(' · ')}',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.feltDeep,
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.4,
-                height: 1.2,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.goldPrimary.withValues(alpha: 0.35),
+                    blurRadius: 18,
+                    spreadRadius: 0,
+                  ),
+                ],
+              ),
+              child: Text(
+                'Last cards: ${names.join(' · ')}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.feltDeep,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.4,
+                  height: 1.2,
+                ),
               ),
             ),
           ),
