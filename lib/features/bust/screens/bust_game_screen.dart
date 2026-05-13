@@ -14,6 +14,7 @@ import 'package:last_cards/core/models/move_log_entry.dart';
 import 'package:last_cards/core/models/move_log_merge.dart';
 import 'package:last_cards/core/providers/theme_provider.dart';
 import 'package:last_cards/core/providers/user_profile_provider.dart';
+import 'package:last_cards/core/providers/profile_provider.dart';
 import 'package:last_cards/core/theme/app_colors.dart';
 import 'package:last_cards/core/theme/app_dimensions.dart';
 import 'package:flutter/services.dart';
@@ -228,6 +229,8 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     final seed = DateTime.now().millisecondsSinceEpoch;
     final resume = widget.resumeState;
     final localDisplayName = ref.read(displayNameForGameProvider);
+    final localAvatarUrl =
+        ref.read(userProfileProvider).valueOrNull?.avatarUrl;
 
     if (resume != null) {
       // ── Subsequent round: reuse existing AI configs + names
@@ -255,6 +258,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
         },
         seed: seed,
         localDisplayName: localDisplayName,
+        localAvatarUrl: localAvatarUrl,
       );
 
       _drawPile = drawPile;
@@ -290,6 +294,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
         aiNames: aiNameMap,
         seed: seed,
         localDisplayName: localDisplayName,
+        localAvatarUrl: localAvatarUrl,
       );
 
       _drawPile = drawPile;
@@ -417,6 +422,11 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
         return BustPlayerViewModel(
           id: p.id,
           displayName: p.displayName,
+          avatarUrl: p.avatarUrl,
+          localAvatarFilePath:
+              p.tablePosition == TablePosition.bottom
+                  ? ref.read(profileProvider).avatarPath
+                  : null,
           cardCount: cardCount,
           isActive: p.id == _gameState.currentPlayerId,
           isEliminated: _roundManager.state.eliminatedIds.contains(p.id),
@@ -1375,6 +1385,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                                         : localPlayer.cardCount,
                                   ),
                               isLocalPlayer: true,
+                              localAvatarFilePath: ref.watch(profileProvider.select((s) => s.avatarPath)),
                               isActiveTurn: isMyTurn,
                               skipSeatHighlight: _skipHighlightPlayerIds
                                   .contains(OfflineGameState.localId),

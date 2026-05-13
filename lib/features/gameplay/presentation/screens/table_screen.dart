@@ -35,6 +35,7 @@ import '../../../../core/models/move_log_merge.dart';
 import '../../../../core/models/game_event.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
+import '../../../../core/providers/profile_provider.dart';
 import '../widgets/multi_card_play_celebration.dart';
 import '../widgets/discard_pile_widget.dart';
 import '../widgets/draw_pile_widget.dart';
@@ -620,6 +621,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         totalPlayers: widget.totalPlayers,
         aiNames: aiNameMap,
         localDisplayName: ref.read(displayNameForGameProvider),
+        localAvatarUrl:
+            ref.read(userProfileProvider).valueOrNull?.avatarUrl,
       );
       state = seeded.$1;
       drawPile = seeded.$2;
@@ -1750,6 +1753,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         skipHighlightPlayerIds: _skipHighlightPlayerIds,
                         onOpponentProfileTap:
                             isOfflineMode ? null : _showOpponentProfileSheet,
+                        localAvatarFilePath:
+                            ref.watch(profileProvider.select((s) => s.avatarPath)),
                       ),
                     ),
                   ],

@@ -13,4 +13,17 @@ void main() {
     final back = PlayerModel.fromJson(json);
     expect(back.firebaseUid, 'test-uid-abc');
   });
+
+  test('PlayerModel roundtrips avatarUrl in snapshots', () {
+    const url = 'https://example.com/a.jpg';
+    final p = PlayerModel(
+      id: 'player-1',
+      displayName: 'A',
+      tablePosition: TablePosition.bottom,
+      avatarUrl: url,
+    );
+    final json = p.toJson();
+    final back = PlayerModel.fromJson(json);
+    expect(back.avatarUrl, url);
+  });
 }

@@ -256,6 +256,9 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
       gameMode = 'ranked';
     }
 
+    final qpAvatar =
+        ref.read(userProfileProvider).valueOrNull?.avatarUrl;
+
     if (!wsClient.send(jsonEncode({
       'type': 'quickplay',
       if (!effectiveJoinWaiting) 'playerCount': sizeForSelectPath,
@@ -263,6 +266,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
       if (gameMode != null) 'gameMode': gameMode,
       'displayName': displayName.isEmpty ? 'Player' : displayName,
       if (idToken != null) 'idToken': idToken,
+      if (qpAvatar != null && qpAvatar.isNotEmpty) 'avatarUrl': qpAvatar,
     }))) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:last_cards/core/providers/theme_provider.dart';
 import 'package:last_cards/core/theme/app_dimensions.dart';
 import 'package:last_cards/core/theme/app_typography.dart';
-import 'package:last_cards/core/utils/display_name_utils.dart';
+import 'package:last_cards/core/widgets/gameplay_circle_avatar.dart';
 import 'package:last_cards/widgets/marquee_name.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/player_zone_widget.dart'
     show QuickChatBubbleData, SkipSeatHighlightOverlay;
@@ -89,10 +89,15 @@ class BustPlayerSlot extends ConsumerWidget {
                   border: Border.all(color: borderColor, width: borderWidth),
                   boxShadow: shadows,
                 ),
-                child: Center(
-                  child: Text(
-                    initialsFromDisplayName(player.displayName),
-                    style: TextStyle(
+                child: CircleAvatar(
+                  radius: avatarSize / 2,
+                  backgroundColor: Colors.transparent,
+                  child: GameplayCircleAvatar(
+                    radius: avatarSize / 2,
+                    displayName: player.displayName,
+                    avatarUrl: player.avatarUrl,
+                    localFilePath: player.localAvatarFilePath,
+                    foregroundTextStyle: TextStyle(
                       color: player.isEliminated
                           ? player.color.withValues(alpha: 0.7)
                           : Colors.white.withValues(

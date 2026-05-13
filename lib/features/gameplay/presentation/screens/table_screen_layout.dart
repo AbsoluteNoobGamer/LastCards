@@ -53,10 +53,14 @@ class _TableLayout extends StatelessWidget {
     this.onPenaltyIncreased,
     this.skipHighlightPlayerIds = const <String>{},
     this.onOpponentProfileTap,
+    this.localAvatarFilePath,
   });
 
   /// Online: tap opponent avatar to open profile / friend actions.
   final void Function(PlayerModel player)? onOpponentProfileTap;
+
+  /// Local disk path for profile photo when not using HTTPS [PlayerModel.avatarUrl].
+  final String? localAvatarFilePath;
 
   /// Called when the pickup penalty count increases (visual feedback).
   final VoidCallback? onPenaltyIncreased;
@@ -230,6 +234,7 @@ class _TableLayout extends StatelessWidget {
             skipHighlightPlayerIds: skipHighlightPlayerIds,
             opponentAvatarTap: opponentAvatarTap,
             isRanked: isRanked,
+            localAvatarFilePath: localAvatarFilePath,
           );
         }
 
@@ -535,6 +540,7 @@ class _TableLayout extends StatelessWidget {
                 key: playerZoneKeys[localPlayer.id],
                 player: localPlayer,
                 isLocalPlayer: true,
+                localAvatarFilePath: localAvatarFilePath,
                 isActiveTurn: gameState.currentPlayerId == localPlayer.id,
                 compact: false,
                 hasLastCardsDeclared:
@@ -645,9 +651,12 @@ class _LandscapeTableLayout extends StatelessWidget {
     this.skipHighlightPlayerIds = const <String>{},
     required this.opponentAvatarTap,
     this.isRanked = false,
+    this.localAvatarFilePath,
   });
 
   final bool isRanked;
+
+  final String? localAvatarFilePath;
 
   final VoidCallback? onPenaltyIncreased;
 
@@ -940,6 +949,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                 key: playerZoneKeys[localPlayer.id],
                 player: localPlayer,
                 isLocalPlayer: true,
+                localAvatarFilePath: localAvatarFilePath,
                 isActiveTurn: gameState.currentPlayerId == localPlayer.id,
                 hasLastCardsDeclared:
                     gameState.lastCardsDeclaredBy.contains(localPlayer.id),

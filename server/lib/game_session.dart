@@ -34,12 +34,15 @@ class _ConnectedPlayer {
     required this.displayName,
     this.ws,
     this.firebaseUid,
+    this.avatarUrl,
     this.isAi = false,
     this.aiDifficulty = 'medium',
   });
   dynamic ws;
   final String displayName;
   final String? firebaseUid;
+  /// HTTPS URL from client join payload; echoed in snapshots.
+  final String? avatarUrl;
   bool isReady = false;
   final bool isAi;
   final String aiDifficulty;
@@ -220,7 +223,8 @@ class GameSession {
 
   // ── Lobby ─────────────────────────────────────────────────────────────────
 
-  String addPlayer(dynamic ws, String displayName, {String? firebaseUid}) {
+  String addPlayer(dynamic ws, String displayName,
+      {String? firebaseUid, String? avatarUrl}) {
     if (_started) {
       ws.sink.add(
           '{"type":"error","code":"game_started","message":"Game already in progress."}');
@@ -242,6 +246,7 @@ class GameSession {
       ws: ws,
       displayName: displayName,
       firebaseUid: firebaseUid,
+      avatarUrl: avatarUrl,
     );
 
     _broadcast({
@@ -252,6 +257,7 @@ class GameSession {
         tablePosition: _positionFor(_players.length - 1),
         cardCount: 0,
         firebaseUid: firebaseUid,
+        avatarUrl: avatarUrl,
         isAi: false,
       ).toJson(),
     });
@@ -448,6 +454,7 @@ class GameSession {
           tablePosition: _positionFor(index),
           cardCount: 0,
           firebaseUid: entry.value.firebaseUid,
+          avatarUrl: entry.value.avatarUrl,
           isAi: entry.value.isAi,
         ).toJson(),
       }));
@@ -814,6 +821,7 @@ class GameSession {
         hand: hand,
         cardCount: hand.length,
         firebaseUid: entries[i].value.firebaseUid,
+        avatarUrl: entries[i].value.avatarUrl,
         isAi: entries[i].value.isAi,
       ));
     }
@@ -1849,6 +1857,7 @@ class GameSession {
         hand: hand,
         cardCount: hand.length,
         firebaseUid: entries[i].value.firebaseUid,
+        avatarUrl: entries[i].value.avatarUrl,
         isAi: entries[i].value.isAi,
       ));
     }
