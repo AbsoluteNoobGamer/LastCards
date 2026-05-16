@@ -48,11 +48,12 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDwBkGrLFvO1a2OAB04Y0FAyleSD26vwVY',
-    appId: '1:941909760769:ios:6663b3d45f9c45e8ac9900',
+    appId: '1:941909760769:ios:06d5c14c2527400dac9900',
     messagingSenderId: '941909760769',
     projectId: 'lastcards-d4396',
     storageBucket: 'lastcards-d4396.firebasestorage.app',
-    iosClientId: '941909760769-72j3iqllj78rj81stoica21u7aeh3dak.apps.googleusercontent.com',
+    iosClientId:
+        '941909760769-bn0eet8po3ikvd1r9jfd4a67od1flsh7.apps.googleusercontent.com',
     iosBundleId: 'com.lastcards.app',
   );
 

@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
+import '../../firebase_options.dart';
+
 /// Result of a Google sign-in attempt.
 sealed class GoogleSignInResult {
   const GoogleSignInResult();
@@ -71,6 +73,30 @@ String _sha256ofString(String input) {
   return digest.toString();
 }
 
+bool _isApplePlatform() {
+  if (kIsWeb) return false;
+  return defaultTargetPlatform == TargetPlatform.iOS ||
+      defaultTargetPlatform == TargetPlatform.macOS;
+}
+
+String _firebaseAuthFailureMessage(
+  FirebaseAuthException e, {
+  required String providerLabel,
+}) {
+  switch (e.code) {
+    case 'invalid-credential':
+    case 'operation-not-allowed':
+      if (providerLabel == 'Apple') {
+        return 'Apple sign-in is not fully configured in Firebase. '
+            'In Firebase Console → Authentication → Sign-in method, enable Apple '
+            'and add your Apple Team ID, Services ID, Key ID, and .p8 private key.';
+      }
+      return 'Google sign-in is not enabled or misconfigured in Firebase.';
+    default:
+      return e.message ?? e.toString();
+  }
+}
+
 /// Service wrapping Firebase Auth for persistent user identity.
 ///
 /// Supports Google sign-in and anonymous sign-in. Both give a persistent
@@ -131,9 +157,11 @@ class AuthService {
       return GoogleSignInResult.failure('Firebase is not initialized');
     }
     try {
+      final iosClientId = DefaultFirebaseOptions.ios.iosClientId;
       final googleSignIn = GoogleSignIn(
         scopes: ['email'],
         serverClientId: _webClientId,
+        clientId: _isApplePlatform() ? iosClientId : null,
       );
       final account = await googleSignIn.signIn();
       if (account == null) {
@@ -154,6 +182,14 @@ class AuthService {
       );
       final userCredential = await auth.signInWithCredential(credential);
       return GoogleSignInResult.success(userCredential);
+    } on FirebaseAuthException catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('Google sign-in failed: $e');
+        debugPrint('StackTrace: $st');
+      }
+      return GoogleSignInResult.failure(
+        _firebaseAuthFailureMessage(e, providerLabel: 'Google'),
+      );
     } catch (e, st) {
       if (kDebugMode) {
         debugPrint('Google sign-in failed: $e');
@@ -202,9 +238,18 @@ class AuthService {
       final oauthCredential = OAuthProvider('apple.com').credential(
         idToken: idToken,
         rawNonce: rawNonce,
+        accessToken: appleCredential.authorizationCode,
       );
       final userCredential = await auth.signInWithCredential(oauthCredential);
       return AppleSignInResult.success(userCredential);
+    } on FirebaseAuthException catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('Apple sign-in failed: $e');
+        debugPrint('StackTrace: $st');
+      }
+      return AppleSignInResult.failure(
+        _firebaseAuthFailureMessage(e, providerLabel: 'Apple'),
+      );
     } catch (e, st) {
       if (kDebugMode) {
         debugPrint('Apple sign-in failed: $e');
