@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/services/auth_service.dart';
@@ -77,31 +76,29 @@ class SignInScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 48),
                     if (_showAppleSignIn()) ...[
-                      SizedBox(
-                        width: 280,
-                        child: SignInWithAppleButton(
-                          style: SignInWithAppleButtonStyle.whiteOutlined,
-                          onPressed: () {
-                            ref.read(authServiceProvider).signInWithApple().then(
-                              (result) {
-                                if (!context.mounted) return;
-                                switch (result) {
-                                  case AppleSignInSuccess():
-                                    break;
-                                  case AppleSignInCancelled():
-                                    break;
-                                  case AppleSignInFailure(:final message):
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(message),
-                                        duration: const Duration(seconds: 5),
-                                      ),
-                                    );
-                                }
-                              },
-                            );
-                          },
-                        ),
+                      _SignInButton(
+                        label: 'Sign in with Apple',
+                        icon: Icons.apple,
+                        onPressed: () {
+                          ref.read(authServiceProvider).signInWithApple().then(
+                            (result) {
+                              if (!context.mounted) return;
+                              switch (result) {
+                                case AppleSignInSuccess():
+                                  break;
+                                case AppleSignInCancelled():
+                                  break;
+                                case AppleSignInFailure(:final message):
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(message),
+                                      duration: const Duration(seconds: 5),
+                                    ),
+                                  );
+                              }
+                            },
+                          );
+                        },
                       ),
                       const SizedBox(height: 16),
                     ],

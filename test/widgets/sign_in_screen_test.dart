@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
-
 import 'package:last_cards/features/auth/presentation/screens/sign_in_screen.dart';
 
 void main() {
@@ -20,7 +18,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.byType(SignInWithAppleButton), findsOneWidget);
+    expect(find.text('Sign in with Apple'), findsOneWidget);
     expect(find.text('Sign in with Google'), findsOneWidget);
     debugDefaultTargetPlatformOverride = null;
   });
@@ -33,7 +31,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.byType(SignInWithAppleButton), findsNothing);
+    expect(find.text('Sign in with Apple'), findsNothing);
     debugDefaultTargetPlatformOverride = null;
   });
 }
