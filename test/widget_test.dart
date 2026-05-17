@@ -7,7 +7,7 @@ import 'package:last_cards/app/app.dart';
 void main() {
   testWidgets('App smoke test', (WidgetTester tester) async {
     // Seed SharedPreferences so ProfileService doesn't crash during init.
-    SharedPreferences.setMockInitialValues({'profile_name': 'Noob 1'});
+    SharedPreferences.setMockInitialValues({'profile_name': 'Player'});
 
     // Build our app wrapped in ProviderScope (same as main.dart).
     await tester.pumpWidget(

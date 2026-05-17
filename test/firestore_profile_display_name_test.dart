@@ -27,4 +27,39 @@ void main() {
       expect(resolvedPublicDisplayNameFromAuth(u), isNull);
     });
   });
+
+  group('shouldSyncDisplayNameFromAuth', () {
+    test('syncs when Firestore name is empty', () {
+      expect(
+        shouldSyncDisplayNameFromAuth(
+          existingName: '',
+          resolvedName: 'Jane Doe',
+          emailLocalPart: 'x7k2m9',
+        ),
+        isTrue,
+      );
+    });
+
+    test('syncs when Firestore only has relay email local part', () {
+      expect(
+        shouldSyncDisplayNameFromAuth(
+          existingName: 'x7k2m9',
+          resolvedName: 'Jane Doe',
+          emailLocalPart: 'x7k2m9',
+        ),
+        isTrue,
+      );
+    });
+
+    test('does not overwrite a custom Firestore name', () {
+      expect(
+        shouldSyncDisplayNameFromAuth(
+          existingName: 'CardShark',
+          resolvedName: 'Jane Doe',
+          emailLocalPart: 'x7k2m9',
+        ),
+        isFalse,
+      );
+    });
+  });
 }

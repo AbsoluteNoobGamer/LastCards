@@ -56,7 +56,7 @@ Future<void> main() async {
     FlutterError.presentError(details);
   };
 
-  // Initialise default profile ("Noob 1") on first launch.
+  // Initialise default local profile name on first launch.
   // This is a no-op on all subsequent launches.
   await const ProfileService().initDefaultIfNeeded();
   await CardBackService.instance.init();

@@ -16,6 +16,25 @@ String? resolvedPublicDisplayNameFromAuth(User user) {
   return null;
 }
 
+/// Whether Firestore [existingName] should be replaced with [resolvedName] from Auth.
+///
+/// Overwrites when empty or when [existingName] is only the email local part
+/// (e.g. Hide My Email relay prefix) and Auth now has a real display name.
+bool shouldSyncDisplayNameFromAuth({
+  required String existingName,
+  required String resolvedName,
+  String? emailLocalPart,
+}) {
+  if (resolvedName.isEmpty) return false;
+  if (existingName.isEmpty) return true;
+  if (emailLocalPart != null &&
+      emailLocalPart.isNotEmpty &&
+      existingName == emailLocalPart) {
+    return true;
+  }
+  return false;
+}
+
 /// Server-side user profile: displayName and avatarUrl stored in Firestore.
 /// Avatar images are uploaded to Firebase Storage.
 class FirestoreProfileService {
@@ -56,10 +75,15 @@ class FirestoreProfileService {
 
     final authPhoto = user.photoURL;
 
+    final emailLocal = user.email?.split('@').first;
+
     final updates = <String, dynamic>{};
-    if (existingName.isEmpty &&
-        resolvedName != null &&
-        resolvedName.isNotEmpty) {
+    if (resolvedName != null &&
+        shouldSyncDisplayNameFromAuth(
+          existingName: existingName,
+          resolvedName: resolvedName,
+          emailLocalPart: emailLocal,
+        )) {
       updates['displayName'] = resolvedName;
     }
     if ((existingAvatar == null || existingAvatar.isEmpty) &&

@@ -8,7 +8,7 @@ abstract final class _Keys {
 
 /// Default values for a new local player profile.
 abstract final class ProfileDefaults {
-  static const String name = 'Noob 1';
+  static const String name = 'Player';
 }
 
 /// Service layer for loading and saving the local player profile.
@@ -28,6 +28,8 @@ class ProfileService {
     if (!prefs.containsKey(_Keys.name)) {
       await prefs.setString(_Keys.name, ProfileDefaults.name);
       // Avatar path is intentionally not written — absence means default icon.
+    } else if (prefs.getString(_Keys.name) == 'Noob 1') {
+      await prefs.setString(_Keys.name, ProfileDefaults.name);
     }
   }
 

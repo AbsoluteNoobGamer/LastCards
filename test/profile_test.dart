@@ -50,7 +50,7 @@ Future<void> _pumpProfileScreen(
   WidgetTester tester, {
   NsfwScanService? nsfwMock,
   List<Override> extraOverrides = const [],
-  String profileDisplayName = 'Noob 1',
+  String profileDisplayName = 'Player',
 }) async {
   final overrides = <Override>[
     authStateProvider.overrideWith(
@@ -86,12 +86,12 @@ void main() {
   });
 
   group('1. Default profile', () {
-    test('default name initialises as "Noob 1" on first launch', () async {
+    test('default name initialises as "Player" on first launch', () async {
       SharedPreferences.setMockInitialValues({});
       final service = const ProfileService();
       await service.initDefaultIfNeeded();
       final profile = await service.loadProfile();
-      expect(profile.name, equals('Noob 1'));
+      expect(profile.name, equals('Player'));
     });
 
     test('default profile is saved to SharedPreferences on first launch',
@@ -101,7 +101,15 @@ void main() {
       await service.initDefaultIfNeeded();
 
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('profile_name'), equals('Noob 1'));
+      expect(prefs.getString('profile_name'), equals('Player'));
+    });
+
+    test('migrates legacy "Noob 1" default to Player', () async {
+      SharedPreferences.setMockInitialValues({'profile_name': 'Noob 1'});
+      final service = const ProfileService();
+      await service.initDefaultIfNeeded();
+      final profile = await service.loadProfile();
+      expect(profile.name, equals('Player'));
     });
 
     test('saved profile loads correctly on subsequent launches', () async {
@@ -126,7 +134,7 @@ void main() {
   group('2. Name validation', () {
     testWidgets('valid name passes profanity filter and accepts correctly',
         (tester) async {
-      SharedPreferences.setMockInitialValues({'profile_name': 'Noob 1'});
+      SharedPreferences.setMockInitialValues({'profile_name': 'Player'});
       await _pumpProfileScreen(tester);
 
       final field = find.byKey(const ValueKey('name-field'));
@@ -141,7 +149,7 @@ void main() {
 
     testWidgets('profane name is rejected with correct error message',
         (tester) async {
-      SharedPreferences.setMockInitialValues({'profile_name': 'Noob 1'});
+      SharedPreferences.setMockInitialValues({'profile_name': 'Player'});
       await _pumpProfileScreen(tester);
 
       final field = find.byKey(const ValueKey('name-field'));
@@ -156,7 +164,7 @@ void main() {
     });
 
     testWidgets('name over 17 characters is rejected', (tester) async {
-      SharedPreferences.setMockInitialValues({'profile_name': 'Noob 1'});
+      SharedPreferences.setMockInitialValues({'profile_name': 'Player'});
       await _pumpProfileScreen(tester);
       // Wait for the post-frame prefs load to complete.
       await tester.pumpAndSettle();
@@ -180,7 +188,7 @@ void main() {
 
 
     testWidgets('name exactly 17 characters is accepted', (tester) async {
-      SharedPreferences.setMockInitialValues({'profile_name': 'Noob 1'});
+      SharedPreferences.setMockInitialValues({'profile_name': 'Player'});
       await _pumpProfileScreen(tester);
 
       final field = find.byKey(const ValueKey('name-field'));
@@ -192,7 +200,7 @@ void main() {
     });
 
     testWidgets('name matching "Player 2" is rejected', (tester) async {
-      SharedPreferences.setMockInitialValues({'profile_name': 'Noob 1'});
+      SharedPreferences.setMockInitialValues({'profile_name': 'Player'});
       await _pumpProfileScreen(tester);
 
       await tester.enterText(
@@ -206,7 +214,7 @@ void main() {
     });
 
     testWidgets('name matching "Player 3" is rejected', (tester) async {
-      SharedPreferences.setMockInitialValues({'profile_name': 'Noob 1'});
+      SharedPreferences.setMockInitialValues({'profile_name': 'Player'});
       await _pumpProfileScreen(tester);
 
       await tester.enterText(
@@ -220,7 +228,7 @@ void main() {
     });
 
     testWidgets('name matching "Player 4" is rejected', (tester) async {
-      SharedPreferences.setMockInitialValues({'profile_name': 'Noob 1'});
+      SharedPreferences.setMockInitialValues({'profile_name': 'Player'});
       await _pumpProfileScreen(tester);
 
       await tester.enterText(
@@ -234,7 +242,7 @@ void main() {
     });
 
     testWidgets('empty name is rejected', (tester) async {
-      SharedPreferences.setMockInitialValues({'profile_name': 'Noob 1'});
+      SharedPreferences.setMockInitialValues({'profile_name': 'Player'});
       await _pumpProfileScreen(tester);
 
       await tester.enterText(find.byKey(const ValueKey('name-field')), '');
@@ -245,7 +253,7 @@ void main() {
 
     testWidgets('valid name shows green border (name-valid indicator)',
         (tester) async {
-      SharedPreferences.setMockInitialValues({'profile_name': 'Noob 1'});
+      SharedPreferences.setMockInitialValues({'profile_name': 'Player'});
       await _pumpProfileScreen(tester);
 
       await tester.enterText(
@@ -258,7 +266,7 @@ void main() {
 
     testWidgets('invalid name shows red border (name-error indicator)',
         (tester) async {
-      SharedPreferences.setMockInitialValues({'profile_name': 'Noob 1'});
+      SharedPreferences.setMockInitialValues({'profile_name': 'Player'});
       await _pumpProfileScreen(tester);
 
       await tester.enterText(
@@ -297,7 +305,7 @@ void main() {
     });
 
     test('rejected image is not saved to SharedPreferences', () async {
-      SharedPreferences.setMockInitialValues({'profile_name': 'Noob 1'});
+      SharedPreferences.setMockInitialValues({'profile_name': 'Player'});
 
       final nsfwMock = MockNsfwScanService();
       when(nsfwMock.isNsfw(any)).thenAnswer((_) async => true);
@@ -308,7 +316,7 @@ void main() {
         // Would have saved — but should not reach here.
         final service = const ProfileService();
         await service.saveProfile(
-            name: 'Noob 1', avatarPath: '/tmp/nsfw.jpg');
+            name: 'Player', avatarPath: '/tmp/nsfw.jpg');
       }
 
       final prefs = await SharedPreferences.getInstance();
@@ -321,7 +329,7 @@ void main() {
 
     test('accepted image path is saved to SharedPreferences correctly',
         () async {
-      SharedPreferences.setMockInitialValues({'profile_name': 'Noob 1'});
+      SharedPreferences.setMockInitialValues({'profile_name': 'Player'});
 
       final nsfwMock = MockNsfwScanService();
       when(nsfwMock.isNsfw(any)).thenAnswer((_) async => false);
@@ -331,7 +339,7 @@ void main() {
         // Safe → save the path.
         final service = const ProfileService();
         await service.saveProfile(
-            name: 'Noob 1', avatarPath: '/tmp/safe.jpg');
+            name: 'Player', avatarPath: '/tmp/safe.jpg');
       }
 
       final prefs = await SharedPreferences.getInstance();
@@ -344,7 +352,7 @@ void main() {
   group('4. Save button', () {
     testWidgets('Save button is disabled on screen open with no changes',
         (tester) async {
-      SharedPreferences.setMockInitialValues({'profile_name': 'Noob 1'});
+      SharedPreferences.setMockInitialValues({'profile_name': 'Player'});
       await _pumpProfileScreen(tester);
 
       final saveBtn = tester.widget<ElevatedButton>(
@@ -355,7 +363,7 @@ void main() {
     });
 
     testWidgets('Save button enables after valid name change', (tester) async {
-      SharedPreferences.setMockInitialValues({'profile_name': 'Noob 1'});
+      SharedPreferences.setMockInitialValues({'profile_name': 'Player'});
       await _pumpProfileScreen(tester);
 
       await tester.enterText(
@@ -371,7 +379,7 @@ void main() {
 
     testWidgets('Save button remains disabled if only invalid changes made',
         (tester) async {
-      SharedPreferences.setMockInitialValues({'profile_name': 'Noob 1'});
+      SharedPreferences.setMockInitialValues({'profile_name': 'Player'});
       await _pumpProfileScreen(tester);
 
       // Type an invalid name (reserved).

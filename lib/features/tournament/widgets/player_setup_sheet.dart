@@ -48,7 +48,7 @@ class _TournamentPlayerSetupSheetState
 
     for (int i = 0; i < names.length; i++) {
       if (names[i].isEmpty) {
-        names[i] = 'Noob ${i + 1}'; // Fallback if cleared
+        names[i] = 'Player ${i + 1}'; // Fallback if cleared
       } else if (names[i].length > 17) {
         setState(() => _errorMessage = 'Names cannot exceed 17 characters');
         return;

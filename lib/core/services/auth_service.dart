@@ -8,6 +8,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../firebase_options.dart';
+import 'firestore_profile_service.dart';
 
 /// Result of a Google sign-in attempt.
 sealed class GoogleSignInResult {
@@ -78,6 +79,26 @@ bool _isApplePlatform() {
   return defaultTargetPlatform == TargetPlatform.iOS ||
       defaultTargetPlatform == TargetPlatform.macOS;
 }
+
+/// Display name from Apple given/family name (only sent on first authorization).
+String? displayNameFromAppleNameParts({
+  String? givenName,
+  String? familyName,
+}) {
+  final given = givenName?.trim() ?? '';
+  final family = familyName?.trim() ?? '';
+  final name = [given, family].where((s) => s.isNotEmpty).join(' ');
+  return name.isEmpty ? null : name;
+}
+
+/// Display name from Apple ID credential (only provided on first authorization).
+String? displayNameFromAppleCredential(
+  AuthorizationCredentialAppleID credential,
+) =>
+    displayNameFromAppleNameParts(
+      givenName: credential.givenName,
+      familyName: credential.familyName,
+    );
 
 String _firebaseAuthFailureMessage(
   FirebaseAuthException e, {
@@ -241,6 +262,17 @@ class AuthService {
         accessToken: appleCredential.authorizationCode,
       );
       final userCredential = await auth.signInWithCredential(oauthCredential);
+      final user = userCredential.user;
+      if (user != null) {
+        final appleName = displayNameFromAppleCredential(appleCredential);
+        final authName = user.displayName?.trim();
+        if (appleName != null &&
+            (authName == null || authName.isEmpty)) {
+          await user.updateDisplayName(appleName);
+          await user.reload();
+        }
+        await FirestoreProfileService().syncAuthToPublicProfileIfNeeded(user);
+      }
       return AppleSignInResult.success(userCredential);
     } on FirebaseAuthException catch (e, st) {
       if (kDebugMode) {
