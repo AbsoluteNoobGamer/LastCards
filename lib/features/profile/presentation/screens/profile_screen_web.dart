@@ -70,12 +70,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       error = 'Name cannot be empty';
     } else if (trimmed.length > kMaxNameLength) {
       error = 'Name must be $kMaxNameLength characters or fewer';
-    } else if (isDefaultOrReservedDisplayName(trimmed)) {
-      error =
-          'Choose a unique name — Guest and Player cannot appear on leaderboards';
     } else if (kReservedNames
         .any((n) => n.toLowerCase() == trimmed.toLowerCase())) {
       error = 'That name is reserved for opponents';
+    } else if (isDefaultOrReservedDisplayName(trimmed)) {
+      error =
+          'Choose a unique name — Guest and Player cannot appear on leaderboards';
     } else if (_filter.hasProfanity(trimmed)) {
       error = 'Name contains inappropriate language';
     } else {
