@@ -24,6 +24,7 @@ import 'package:last_cards/features/gameplay/presentation/widgets/discard_pile_w
 import 'package:last_cards/features/gameplay/presentation/widgets/draw_pile_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/floating_action_bar_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/layout/table_chrome_layout.dart';
+import 'package:last_cards/features/gameplay/presentation/widgets/felt_table_background.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/game_move_log_overlay.dart'
     show GameMoveLogOverlay;
 import 'package:last_cards/features/gameplay/presentation/widgets/hud_overlay_widget.dart';
@@ -1209,6 +1210,294 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       ));
   }
 
+  String? get _thinkingOpponentId {
+    if (!_aiThinking) return null;
+    final id = _gameState.currentPlayerId;
+    if (id == OfflineGameState.localId) return null;
+    return id;
+  }
+
+  Map<String, QuickChatBubbleData> get _quickChatBubblesByPlayer => {
+        for (final b in _quickChatBubbles)
+          b.playerId: (
+            id: b.id,
+            playerName: b.playerName,
+            reactionWireIndex: b.reactionWireIndex,
+            isLocal: b.isLocal,
+          ),
+      };
+
+  Widget _buildDrawDiscardCluster({
+    required Size layoutSize,
+    required bool isLandscape,
+    required bool isMyTurn,
+  }) {
+    const portraitPileSize = 100.0;
+    const portraitPileHeight = 145.0;
+    const landscapePileSize = 56.0;
+    const landscapePileHeight = 78.0;
+    final pileSize = isLandscape ? landscapePileSize : portraitPileSize;
+    final pileHeight = isLandscape ? landscapePileHeight : portraitPileHeight;
+    final gap = isLandscape ? 8.0 : 24.0;
+
+    return Transform.translate(
+      offset: !isLandscape && TableChromeLayout.isCompactPhone(layoutSize)
+          ? TableChromeLayout.drawDiscardClusterNudgeCompact
+          : Offset.zero,
+      child: FractionalTranslation(
+        translation: const Offset(0, -0.5),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              key: _drawPileKey,
+              width: pileSize,
+              height: pileHeight,
+              child: OverflowBox(
+                maxWidth: double.infinity,
+                maxHeight: double.infinity,
+                child: DrawPileWidget(
+                  cardCount: _gameState.drawPileCount,
+                  cardWidth: pileSize,
+                  enabled: !_isDealing &&
+                      isMyTurn &&
+                      (_gameState.actionsThisTurn == 0 ||
+                          _gameState.queenSuitLock != null),
+                  onTap: isMyTurn ? _drawCard : null,
+                  reshuffleNotifier: _reshuffleNotifier,
+                ),
+              ),
+            ),
+            SizedBox(width: gap),
+            SizedBox(
+              key: _discardPileKey,
+              width: pileSize,
+              height: pileHeight,
+              child: OverflowBox(
+                maxWidth: double.infinity,
+                maxHeight: double.infinity,
+                child: DiscardPileWidget(
+                  topCard: _gameState.discardTopCard,
+                  secondCard: _gameState.discardPileHistory.isNotEmpty
+                      ? _gameState.discardPileHistory.first
+                      : null,
+                  discardPileHistory: _gameState.discardPileHistory,
+                  cardWidth: pileSize,
+                  discardPileCount: _discardPile.length,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFloatingActionBar({required bool compact}) {
+    final isMyTurn = !_aiThinking &&
+        _gameState.currentPlayerId == OfflineGameState.localId;
+    final canEndTurn = isMyTurn && canEndTurnButton(_gameState);
+    final nextTurnLabel = _gameState.phase == GamePhase.playing
+        ? nextPlayerAfterTurnLabel(
+            state: _gameState,
+            viewerPlayerId: OfflineGameState.localId,
+          )
+        : null;
+
+    return FloatingActionBarWidget(
+      activePlayerName:
+          _gameState.playerById(_gameState.currentPlayerId)?.displayName ?? '',
+      direction: _gameState.direction,
+      canEndTurn: canEndTurn,
+      onEndTurn: isMyTurn && !_isDealing ? _endTurn : null,
+      pulseLocalTurn: isMyTurn,
+      nextTurnLabel: nextTurnLabel,
+      isLocalTurn: isMyTurn,
+      hasAlreadyDeclared: false,
+      lastCardsEnabled: false,
+      localHandSize: _localPlayer?.hand.length ?? 0,
+      compact: compact,
+    );
+  }
+
+  Widget _buildLocalHand({
+    required PlayerModel localPlayer,
+    required double handCardWidth,
+    required bool isMyTurn,
+    required bool compact,
+  }) {
+    return KeyedSubtree(
+      key: _playerZoneKeys[OfflineGameState.localId],
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: compact ? AppDimensions.xs : AppDimensions.sm,
+        ),
+        child: SizedBox(
+          width: double.infinity,
+          child: PlayerZoneWidget(
+            player: localPlayer.copyWith(
+              cardCount: _isDealing
+                  ? (_visibleCardCounts[OfflineGameState.localId] ?? 0)
+                  : localPlayer.cardCount,
+            ),
+            isLocalPlayer: true,
+            localAvatarFilePath:
+                ref.watch(profileProvider.select((s) => s.avatarPath)),
+            isActiveTurn: isMyTurn,
+            compact: compact,
+            skipSeatHighlight:
+                _skipHighlightPlayerIds.contains(OfflineGameState.localId),
+            chatBubble: () {
+              final b = _quickChatBubbles
+                  .where((b) => b.playerId == OfflineGameState.localId)
+                  .lastOrNull;
+              return b != null
+                  ? (
+                      id: b.id,
+                      playerName: b.playerName,
+                      reactionWireIndex: b.reactionWireIndex,
+                      isLocal: b.isLocal,
+                    )
+                  : null;
+            }(),
+            onRemoveQuickChatBubble: _removeQuickChatBubble,
+            child: PlayerHandWidget(
+              cards: _orderedHand,
+              selectedCardId: _selectedCardId,
+              onCardTap: isMyTurn ? _onCardTap : null,
+              onReorder: _flyingCardId != null ? null : _onHandReorder,
+              enabled: isMyTurn && !_isDealing,
+              cardWidth: handCardWidth,
+              invalidPlayShakeTrigger: _handShakeNotifier,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBustPortraitTable({
+    required Size layoutSize,
+    required List<BustPlayerViewModel> opponents,
+    required PlayerModel localPlayer,
+    required bool isMyTurn,
+    required double handCardWidth,
+    required bool isMobile,
+  }) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? AppDimensions.xs : AppDimensions.md,
+      ),
+      child: Column(
+        children: [
+          BustPlayerRail(
+            players: opponents,
+            slotKeyBuilder: (p) => _playerZoneKeys[p.id],
+            height: 96,
+            thinkingPlayerId: _thinkingOpponentId,
+            skipHighlightPlayerIds: _skipHighlightPlayerIds,
+            quickChatBubblesByPlayer: _quickChatBubblesByPlayer,
+            onRemoveQuickChatBubble: _removeQuickChatBubble,
+          ),
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 72),
+                  SizedBox(
+                    height: isMobile ? AppDimensions.sm : AppDimensions.md,
+                  ),
+                  _buildDrawDiscardCluster(
+                    layoutSize: layoutSize,
+                    isLandscape: false,
+                    isMyTurn: isMyTurn,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: isMobile ? AppDimensions.sm : AppDimensions.md,
+            ),
+            child: _buildFloatingActionBar(compact: false),
+          ),
+          _buildLocalHand(
+            localPlayer: localPlayer,
+            handCardWidth: handCardWidth,
+            isMyTurn: isMyTurn,
+            compact: false,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBustLandscapeTable({
+    required Size layoutSize,
+    required List<BustPlayerViewModel> opponents,
+    required PlayerModel localPlayer,
+    required bool isMyTurn,
+  }) {
+    const handCardWidth = 40.0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppDimensions.xs),
+      child: Column(
+        children: [
+          BustPlayerRail(
+            players: opponents,
+            slotKeyBuilder: (p) => _playerZoneKeys[p.id],
+            height: 72,
+            compact: true,
+            thinkingPlayerId: _thinkingOpponentId,
+            skipHighlightPlayerIds: _skipHighlightPlayerIds,
+            quickChatBubblesByPlayer: _quickChatBubblesByPlayer,
+            onRemoveQuickChatBubble: _removeQuickChatBubble,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildDrawDiscardCluster(
+                  layoutSize: layoutSize,
+                  isLandscape: true,
+                  isMyTurn: isMyTurn,
+                ),
+                const SizedBox(width: 12),
+                Transform.translate(
+                  offset: const Offset(0, -1),
+                  child: HudOverlayWidget(
+                    activeSuit: _gameState.suitLock,
+                    queenSuitLock: _gameState.queenSuitLock,
+                    penaltyCount: _gameState.activePenaltyCount,
+                    compact: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 2),
+          _buildFloatingActionBar(compact: true),
+          const SizedBox(height: 2),
+          Expanded(
+            child: _buildLocalHand(
+              localPlayer: localPlayer,
+              handCardWidth: handCardWidth,
+              isMyTurn: isMyTurn,
+              compact: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
@@ -1218,14 +1507,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     final localPlayer = _localPlayer;
     final isMyTurn = !_aiThinking &&
         _gameState.currentPlayerId == OfflineGameState.localId;
-    final canEndTurn = isMyTurn && canEndTurnButton(_gameState);
     final rs = _roundManager.state;
-    final nextTurnLabel = _gameState.phase == GamePhase.playing
-        ? nextPlayerAfterTurnLabel(
-            state: _gameState,
-            viewerPlayerId: OfflineGameState.localId,
-          )
-        : null;
 
     return Scaffold(
       backgroundColor: theme.backgroundDeep,
@@ -1234,20 +1516,16 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
         builder: (context, constraints) {
           final layoutSize =
               Size(constraints.maxWidth, constraints.maxHeight);
+          final isMobile = math.min(layoutSize.width, layoutSize.height) <
+              AppDimensions.breakpointMobile;
+          final isLandscapeMobile =
+              TableChromeLayout.isLandscapeMobile(layoutSize);
+          final handCardWidth = (layoutSize.width * (isMobile ? 0.12 : 0.1))
+              .clamp(44.0, 82.0);
+
           return Stack(
             children: [
-              // Background
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: RadialGradient(
-                      center: Alignment.center,
-                      radius: 1.2,
-                      colors: [theme.backgroundMid, theme.backgroundDeep],
-                    ),
-                  ),
-                ),
-              ),
+              const FeltTableBackground(),
 
               Positioned.fill(
                 child: IgnorePointer(
@@ -1258,185 +1536,53 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                 ),
               ),
 
-              // Main column
-              SafeArea(
-                child: Column(
-                  children: [
-                    // 1. Opponent rail
-                    BustPlayerRail(
-                      players: opponents,
-                      slotKeyBuilder: (p) => _playerZoneKeys[p.id],
-                      skipHighlightPlayerIds: _skipHighlightPlayerIds,
-                      quickChatBubblesByPlayer: {
-                        for (final b in _quickChatBubbles)
-                          b.playerId: (
-                              id: b.id,
-                              playerName: b.playerName,
-                              reactionWireIndex: b.reactionWireIndex,
-                              isLocal: b.isLocal,
-                            ),
-                      },
-                      onRemoveQuickChatBubble: _removeQuickChatBubble,
-                    ),
-
-                    // 2. Round indicator
-                    _RoundIndicator(roundState: rs),
-
-                    // 3. Centre board — top-aligned so the piles stay put (no vertical
-                    // re-centering when the move log or other chrome changes).
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Transform.translate(
-                            offset: TableChromeLayout.isCompactPhone(layoutSize)
-                                ? TableChromeLayout.drawDiscardClusterNudgeCompact
-                                : Offset.zero,
-                            child: FractionalTranslation(
-                              translation: const Offset(0, -0.5),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                SizedBox(
-                                  key: _drawPileKey,
-                                  width: 100,
-                                  height: 145,
-                                  child: OverflowBox(
-                                    maxWidth: double.infinity,
-                                    maxHeight: double.infinity,
-                                    child: DrawPileWidget(
-                                      cardCount: _gameState.drawPileCount,
-                                      cardWidth: 100,
-                                      enabled: !_isDealing &&
-                                          isMyTurn &&
-                                          (_gameState.actionsThisTurn == 0 ||
-                                              _gameState.queenSuitLock != null),
-                                      onTap: isMyTurn ? _drawCard : null,
-                                      reshuffleNotifier: _reshuffleNotifier,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 24),
-                                SizedBox(
-                                  key: _discardPileKey,
-                                  width: 100,
-                                  height: 145,
-                                  child: OverflowBox(
-                                    maxWidth: double.infinity,
-                                    maxHeight: double.infinity,
-                                    child: DiscardPileWidget(
-                                      topCard: _gameState.discardTopCard,
-                                      secondCard: _gameState.discardPileHistory.isNotEmpty ? _gameState.discardPileHistory.first : null,
-                                      discardPileHistory: _gameState.discardPileHistory,
-                                      cardWidth: 100,
-                                      discardPileCount: _discardPile.length,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+              if (localPlayer != null)
+                SafeArea(
+                  child: isLandscapeMobile
+                      ? _buildBustLandscapeTable(
+                          layoutSize: layoutSize,
+                          opponents: opponents,
+                          localPlayer: localPlayer,
+                          isMyTurn: isMyTurn,
+                        )
+                      : _buildBustPortraitTable(
+                          layoutSize: layoutSize,
+                          opponents: opponents,
+                          localPlayer: localPlayer,
+                          isMyTurn: isMyTurn,
+                          handCardWidth: handCardWidth,
+                          isMobile: isMobile,
                         ),
-                      ),
-                    ),
-                  ),
+                ),
 
-                    // 4. End-turn bar
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        bottom: AppDimensions.sm,
-                        left: AppDimensions.xs,
-                        right: AppDimensions.xs,
-                      ),
-                      child: FloatingActionBarWidget(
-                        activePlayerName: _gameState
-                                .playerById(_gameState.currentPlayerId)
-                                ?.displayName ??
-                            '',
-                        direction: _gameState.direction,
-                        canEndTurn: canEndTurn,
-                        onEndTurn: isMyTurn && !_isDealing ? _endTurn : null,
-                        pulseLocalTurn: isMyTurn,
-                        nextTurnLabel: nextTurnLabel,
-                        isLocalTurn: isMyTurn,
-                        hasAlreadyDeclared: false,
-                        lastCardsEnabled: false,
-                        localHandSize: localPlayer?.hand.length ?? 0,
-                      ),
-                    ),
-
-                    // 5. Local player zone + hand
-                    if (localPlayer != null)
-                      KeyedSubtree(
-                        key: _playerZoneKeys[OfflineGameState.localId],
-                        child: Padding(
-                          padding:
-                              const EdgeInsets.only(bottom: AppDimensions.sm),
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: PlayerZoneWidget(
-                              player:
-                                  localPlayer.copyWith(
-                                    cardCount: _isDealing
-                                        ? (_visibleCardCounts[OfflineGameState.localId] ?? 0)
-                                        : localPlayer.cardCount,
-                                  ),
-                              isLocalPlayer: true,
-                              localAvatarFilePath: ref.watch(profileProvider.select((s) => s.avatarPath)),
-                              isActiveTurn: isMyTurn,
-                              skipSeatHighlight: _skipHighlightPlayerIds
-                                  .contains(OfflineGameState.localId),
-                              chatBubble: () {
-                                final b = _quickChatBubbles
-                                    .where((b) => b.playerId == OfflineGameState.localId)
-                                    .lastOrNull;
-                                return b != null
-                                    ? (
-                                        id: b.id,
-                                        playerName: b.playerName,
-                                        reactionWireIndex: b.reactionWireIndex,
-                                        isLocal: b.isLocal,
-                                      )
-                                    : null;
-                              }(),
-                              onRemoveQuickChatBubble: _removeQuickChatBubble,
-                              child: PlayerHandWidget(
-                                cards: _orderedHand,
-                                selectedCardId: _selectedCardId,
-                                onCardTap: isMyTurn ? _onCardTap : null,
-                                onReorder: _flyingCardId != null ? null : _onHandReorder,
-                                enabled: isMyTurn && !_isDealing,
-                                invalidPlayShakeTrigger: _handShakeNotifier,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
+              Positioned(
+                top: MediaQuery.paddingOf(context).top + 2,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  bottom: false,
+                  child: Center(child: _RoundIndicator(roundState: rs)),
                 ),
               ),
 
               if (_moveLogEntries.isNotEmpty)
                 GameMoveLogOverlay(entries: _moveLogEntries),
 
-              // HUD overlay
-              Positioned(
-                top: TableChromeLayout.hudOverlayTopPx(context),
-                left: 0,
-                right: 0,
-                child: IgnorePointer(
-                  child: Center(
-                    child: HudOverlayWidget(
-                      activeSuit: _gameState.suitLock,
-                      queenSuitLock: _gameState.queenSuitLock,
-                      penaltyCount: _gameState.activePenaltyCount,
+              if (!isLandscapeMobile)
+                Positioned(
+                  top: TableChromeLayout.hudOverlayTopPx(context),
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: Center(
+                      child: HudOverlayWidget(
+                        activeSuit: _gameState.suitLock,
+                        queenSuitLock: _gameState.queenSuitLock,
+                        penaltyCount: _gameState.activePenaltyCount,
+                      ),
                     ),
                   ),
                 ),
-              ),
 
               // Direction indicator
               Positioned.fill(

@@ -50,6 +50,7 @@ import '../widgets/turn_indicator_overlay.dart';
 import 'package:last_cards/features/gameplay/presentation/layout/table_chrome_layout.dart';
 import '../widgets/game_move_log_overlay.dart' show GameMoveLogOverlay;
 import '../widgets/quick_chat_panel.dart';
+import '../widgets/felt_table_background.dart';
 
 import '../../../../shared/reactions/reaction_catalog.dart';
 
@@ -1632,7 +1633,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
           final stack = Stack(
             children: [
-              const _FeltTableBackground(),
+              const FeltTableBackground(),
 
               Positioned.fill(
                 child: IgnorePointer(
