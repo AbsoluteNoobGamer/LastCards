@@ -5,7 +5,11 @@ import 'dart:io';
 import 'package:dart_jsonwebtoken/dart_jsonwebtoken.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:last_cards/shared/leaderboard/display_name_leaderboard_rules.dart';
+
 import 'logger.dart';
+
+part 'matchup_recorder.dart';
 
 // ── Rating constants ───────────────────────────────────────────────────────────
 
@@ -114,6 +118,10 @@ const _kInitialRating = 1000;
 /// Whether a participant should persist to mode leaderboards (Firestore doc id).
 bool modeLeaderboardUidEligible(String? firebaseUid) =>
     firebaseUid != null && firebaseUid.isNotEmpty;
+
+/// Whether [displayName] may be written to leaderboard / ranked stat docs.
+bool modeLeaderboardDisplayNameEligible(String displayName) =>
+    isLeaderboardEligibleDisplayName(displayName);
 
 // ── Firestore client ──────────────────────────────────────────────────────────
 
@@ -445,7 +453,111 @@ class _FirestoreClient {
     if (v is bool) return {'booleanValue': v};
     if (v is int) return {'integerValue': '$v'};
     if (v is double) return {'doubleValue': v};
+    if (v is List<String>) {
+      return {
+        'arrayValue': {
+          'values': [for (final s in v) {'stringValue': s}],
+        },
+      };
+    }
     return {'nullValue': null};
+  }
+
+  /// Reads a document and returns decoded field values, or null if missing.
+  Future<Map<String, dynamic>?> getDocumentFields({
+    required String collection,
+    required String docId,
+  }) async {
+    final token = await _getAccessToken();
+    if (token == null) return null;
+
+    final uri = Uri.parse(
+        'https://firestore.googleapis.com/v1/projects/$_projectId'
+        '/databases/(default)/documents/$collection/$docId');
+
+    try {
+      final response = await http.get(
+        uri,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 404) return null;
+      if (response.statusCode != 200) {
+        _log.error(
+            'Firestore getDocumentFields failed (${response.statusCode}): ${response.body}');
+        return null;
+      }
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final fields = json['fields'] as Map<String, dynamic>?;
+      if (fields == null) return {};
+      return {
+        for (final e in fields.entries) e.key: _decodeFirestoreValue(e.value),
+      };
+    } catch (e) {
+      _log.error('Firestore getDocumentFields error: $e');
+      return null;
+    }
+  }
+
+  dynamic _decodeFirestoreValue(Map<String, dynamic> v) {
+    if (v.containsKey('stringValue')) return v['stringValue'] as String;
+    if (v.containsKey('integerValue')) {
+      return int.parse(v['integerValue'] as String);
+    }
+    if (v.containsKey('booleanValue')) return v['booleanValue'] as bool;
+    if (v.containsKey('arrayValue')) {
+      final values =
+          (v['arrayValue'] as Map<String, dynamic>?)?['values'] as List?;
+      if (values == null) return <String>[];
+      return [
+        for (final item in values)
+          if (item is Map<String, dynamic> &&
+              item.containsKey('stringValue'))
+            item['stringValue'] as String,
+      ];
+    }
+    return null;
+  }
+
+  /// PATCH [fields] onto [collection]/[docId]. Returns false when skipped/failed.
+  Future<bool> setDocumentFields({
+    required String collection,
+    required String docId,
+    required Map<String, dynamic> fields,
+  }) async {
+    final token = await _getAccessToken();
+    if (token == null) return false;
+
+    final docPath =
+        'projects/$_projectId/databases/(default)/documents/$collection/$docId';
+    final query = fields.keys
+        .map((k) => 'updateMask.fieldPaths=${Uri.encodeComponent(k)}')
+        .join('&');
+    final uri = Uri.parse(
+        'https://firestore.googleapis.com/v1/$docPath?$query');
+
+    final body = jsonEncode({
+      'fields': {
+        for (final e in fields.entries) e.key: _firestoreValue(e.value),
+      },
+    });
+
+    try {
+      final response = await http.patch(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: body,
+      );
+      if (response.statusCode == 200) return true;
+      _log.error(
+          'Firestore setDocumentFields failed (${response.statusCode}): ${response.body}');
+      return false;
+    } catch (e) {
+      _log.error('Firestore setDocumentFields error: $e');
+      return false;
+    }
   }
 }
 
@@ -556,6 +668,13 @@ class TrophyRecorder implements TrophyPersistence {
 
     final futures = <Future<bool>>[];
     for (final entry in allPlayerUids) {
+      if (!modeLeaderboardDisplayNameEligible(entry.displayName)) {
+        _log.info(
+          'Skipping ranked write for ${entry.uid}: '
+          'display name "${entry.displayName}" is not leaderboard-eligible',
+        );
+        continue;
+      }
       final uid = entry.uid;
       final isWinner = uid == winnerUid;
       final maps = rankedResultStatMaps(
@@ -602,6 +721,7 @@ class TrophyRecorder implements TrophyPersistence {
       {required String displayName,
       bool rankedHardcore = false,
       int playerCount = 4}) {
+    if (!modeLeaderboardDisplayNameEligible(displayName)) return;
     unawaited(_persistLeavePenalty(uid,
         displayName: displayName,
         collection: rankedHardcore ? _collectionHardcore : _collection,
@@ -666,6 +786,13 @@ class TrophyRecorder implements TrophyPersistence {
     final futures = <Future<bool>>[];
     for (final p in players) {
       if (!modeLeaderboardUidEligible(p.firebaseUid)) continue;
+      if (!modeLeaderboardDisplayNameEligible(p.displayName)) {
+        _log.info(
+          'Skipping $collection write for ${p.firebaseUid}: '
+          'display name "${p.displayName}" is not leaderboard-eligible',
+        );
+        continue;
+      }
       final uid = p.firebaseUid!;
       final won = p.playerId == winnerPlayerId;
       final maps = modeLeaderboardStatMaps(won: won, playerCount: playerCount);

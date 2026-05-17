@@ -209,6 +209,103 @@ final class PlayerSocketRestoredEvent extends GameEvent {
   String get type => 'player_socket_restored';
 }
 
+/// Lifetime record vs one opponent (from server [game_ended.headToHead]).
+final class HeadToHeadRecord {
+  const HeadToHeadRecord({
+    required this.opponentUid,
+    required this.opponentName,
+    required this.yourWins,
+    required this.theirWins,
+    required this.recentResults,
+  });
+
+  final String opponentUid;
+  final String opponentName;
+  final int yourWins;
+  final int theirWins;
+
+  /// Most recent results from your perspective: `win` or `loss`.
+  final List<String> recentResults;
+
+  factory HeadToHeadRecord.fromJson(Map<String, dynamic> json) {
+    return HeadToHeadRecord(
+      opponentUid: json['opponentUid'] as String? ?? '',
+      opponentName: json['opponentName'] as String? ?? '',
+      yourWins: (json['yourWins'] as num?)?.toInt() ?? 0,
+      theirWins: (json['theirWins'] as num?)?.toInt() ?? 0,
+      recentResults: (json['recentResults'] as List?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
+    );
+  }
+}
+
+/// Server-authored post-game stats for one player (keyed by player id).
+final class OnlineMatchPlayerStat {
+  const OnlineMatchPlayerStat({
+    required this.playerId,
+    required this.displayName,
+    required this.cardsPlayed,
+    required this.drawsTaken,
+    required this.specialsPlayed,
+    this.penaltyCardsDrawn = 0,
+    this.stackBlocks = 0,
+  });
+
+  final String playerId;
+  final String displayName;
+  final int cardsPlayed;
+  final int drawsTaken;
+  final int specialsPlayed;
+  final int penaltyCardsDrawn;
+  final int stackBlocks;
+
+  factory OnlineMatchPlayerStat.fromJson(
+    String playerId,
+    Map<String, dynamic> json,
+  ) {
+    return OnlineMatchPlayerStat(
+      playerId: playerId,
+      displayName: json['displayName'] as String? ?? playerId,
+      cardsPlayed: (json['cardsPlayed'] as num?)?.toInt() ?? 0,
+      drawsTaken: (json['drawsTaken'] as num?)?.toInt() ?? 0,
+      specialsPlayed: (json['specialsPlayed'] as num?)?.toInt() ?? 0,
+      penaltyCardsDrawn: (json['penaltyCardsDrawn'] as num?)?.toInt() ?? 0,
+      stackBlocks: (json['stackBlocks'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+/// Lifetime H2H rows delivered after [GameEndedEvent] once Firestore updates.
+final class HeadToHeadEvent extends GameEvent {
+  const HeadToHeadEvent(this.records);
+
+  final List<HeadToHeadRecord> records;
+
+  @override
+  String get type => 'head_to_head';
+}
+
+/// Dramatic table moment (penalty stack, Last Cards, stack block).
+final class GameMomentEvent extends GameEvent {
+  const GameMomentEvent({
+    required this.kind,
+    required this.playerId,
+    this.playerName,
+    this.cardsDrawn,
+  });
+
+  /// `penalty_hit`, `last_cards`, or `stack_block`.
+  final String kind;
+  final String playerId;
+  final String? playerName;
+  final int? cardsDrawn;
+
+  @override
+  String get type => 'game_moment';
+}
+
 /// Game has concluded.
 final class GameEndedEvent extends GameEvent {
   final String winnerId;
@@ -219,7 +316,18 @@ final class GameEndedEvent extends GameEvent {
   /// Null when the game was not a ranked match.
   final Map<String, int>? ratingChanges;
 
-  const GameEndedEvent(this.winnerId, {this.ratingChanges});
+  /// Authoritative per-player stats from the server session.
+  final Map<String, OnlineMatchPlayerStat>? matchStats;
+
+  /// Lifetime head-to-head vs human opponents (Firebase accounts only).
+  final List<HeadToHeadRecord>? headToHead;
+
+  const GameEndedEvent(
+    this.winnerId, {
+    this.ratingChanges,
+    this.matchStats,
+    this.headToHead,
+  });
 
   @override
   String get type => 'game_ended';
@@ -571,6 +679,19 @@ GameEvent parseServerEvent(String raw) {
           playerName: json['playerName'] as String? ?? '',
           drawCount: (json['drawCount'] as num?)?.toInt() ?? 2,
         ),
+      'game_moment' => GameMomentEvent(
+          kind: json['kind'] as String? ?? '',
+          playerId: json['playerId'] as String? ?? '',
+          playerName: json['playerName'] as String?,
+          cardsDrawn: (json['cardsDrawn'] as num?)?.toInt(),
+        ),
+      'head_to_head' => HeadToHeadEvent(
+          (json['headToHead'] as List?)
+                  ?.map((e) =>
+                      HeadToHeadRecord.fromJson(Map<String, dynamic>.from(e as Map)))
+                  .toList() ??
+              const [],
+        ),
       'player_joined' => PlayerJoinedEvent(
           PlayerModel.fromJson(json['player'] as Map<String, dynamic>),
         ),
@@ -587,16 +708,8 @@ GameEvent parseServerEvent(String raw) {
         PlayerSocketLostEvent(json['playerId'] as String),
       'player_socket_restored' =>
         PlayerSocketRestoredEvent(json['playerId'] as String),
-      'game_ended' => GameEndedEvent(
-          (json['winnerId'] as String?) ?? '',
-          ratingChanges: (json['ratingChanges'] as Map<String, dynamic>?)
-              ?.map((k, v) => MapEntry(k, (v as num).toInt())),
-        ),
-      'bust_game_ended' => GameEndedEvent(
-          (json['winnerId'] as String?) ?? '',
-          ratingChanges: (json['ratingChanges'] as Map<String, dynamic>?)
-              ?.map((k, v) => MapEntry(k, (v as num).toInt())),
-        ),
+      'game_ended' => _parseGameEnded(json),
+      'bust_game_ended' => _parseGameEnded(json),
       'bust_round_over' => BustRoundOverEvent(
           roundNumber: json['roundNumber'] as int? ?? 0,
           standings: (json['standings'] as List?)
@@ -673,4 +786,30 @@ GameEvent parseServerEvent(String raw) {
       message: 'Failed to parse server message: $e',
     );
   }
+}
+
+GameEndedEvent _parseGameEnded(Map<String, dynamic> json) {
+  final rawStats = json['matchStats'] as Map<String, dynamic>?;
+  final matchStats = rawStats?.map(
+    (playerId, value) => MapEntry(
+      playerId,
+      OnlineMatchPlayerStat.fromJson(
+        playerId,
+        Map<String, dynamic>.from(value as Map),
+      ),
+    ),
+  );
+
+  final rawH2h = json['headToHead'] as List?;
+  final headToHead = rawH2h
+      ?.map((e) => HeadToHeadRecord.fromJson(Map<String, dynamic>.from(e as Map)))
+      .toList();
+
+  return GameEndedEvent(
+    (json['winnerId'] as String?) ?? '',
+    ratingChanges: (json['ratingChanges'] as Map<String, dynamic>?)
+        ?.map((k, v) => MapEntry(k, (v as num).toInt())),
+    matchStats: matchStats,
+    headToHead: headToHead,
+  );
 }

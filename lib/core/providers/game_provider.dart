@@ -27,6 +27,8 @@ class GameNotifierState {
     this.pendingJokerCardId,
     this.lastError,
     this.rankedRatingChanges,
+    this.onlineMatchStats,
+    this.headToHeadRecords,
     this.isRanked = false,
     this.isHardcoreSession = false,
     this.isPrivateSession = false,
@@ -66,6 +68,12 @@ class GameNotifierState {
   /// Key is server player ID. Null when the completed game was not ranked.
   final Map<String, int>? rankedRatingChanges;
 
+  /// Server match stats from the last [GameEndedEvent], keyed by player id.
+  final Map<String, OnlineMatchPlayerStat>? onlineMatchStats;
+
+  /// Lifetime head-to-head rows for the local player from [GameEndedEvent].
+  final List<HeadToHeadRecord>? headToHeadRecords;
+
   /// True when the current session is a ranked match (from session_config).
   final bool isRanked;
 
@@ -89,6 +97,8 @@ class GameNotifierState {
     String? pendingJokerCardId,
     String? lastError,
     Map<String, int>? rankedRatingChanges,
+    Map<String, OnlineMatchPlayerStat>? onlineMatchStats,
+    List<HeadToHeadRecord>? headToHeadRecords,
     bool? isRanked,
     bool? isHardcoreSession,
     bool? isPrivateSession,
@@ -115,6 +125,8 @@ class GameNotifierState {
           : (pendingJokerCardId ?? this.pendingJokerCardId),
       lastError: clearError ? null : (lastError ?? this.lastError),
       rankedRatingChanges: rankedRatingChanges ?? this.rankedRatingChanges,
+      onlineMatchStats: onlineMatchStats ?? this.onlineMatchStats,
+      headToHeadRecords: headToHeadRecords ?? this.headToHeadRecords,
       isRanked: isRanked ?? this.isRanked,
       isHardcoreSession: isHardcoreSession ?? this.isHardcoreSession,
       isPrivateSession: isPrivateSession ?? this.isPrivateSession,
@@ -373,6 +385,16 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
       }),
     );
 
+    _subs.add(
+      _eventHandler.events
+          .where((e) => e is HeadToHeadEvent)
+          .cast<HeadToHeadEvent>()
+          .listen((e) {
+        if (e.records.isEmpty) return;
+        state = state.copyWith(headToHeadRecords: e.records);
+      }),
+    );
+
     // ── game_ended ──────────────────────────────────────────────────────────
     _subs.add(
       _eventHandler.events
@@ -390,6 +412,8 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
             winnerId: e.winnerId,
           ),
           rankedRatingChanges: e.ratingChanges,
+          onlineMatchStats: e.matchStats,
+          headToHeadRecords: e.headToHead,
           clearSocketDisconnected: true,
         );
       }),
@@ -682,6 +706,15 @@ final gameErrorProvider = Provider<String?>((ref) {
 /// Key is server player ID; value is the rating delta (+25/-15).
 final rankedRatingChangesProvider = Provider<Map<String, int>?>((ref) {
   return ref.watch(gameNotifierProvider).rankedRatingChanges;
+});
+
+final onlineMatchStatsProvider =
+    Provider<Map<String, OnlineMatchPlayerStat>?>((ref) {
+  return ref.watch(gameNotifierProvider).onlineMatchStats;
+});
+
+final headToHeadRecordsProvider = Provider<List<HeadToHeadRecord>?>((ref) {
+  return ref.watch(gameNotifierProvider).headToHeadRecords;
 });
 
 /// True when the current online session is a ranked match (from session_config).

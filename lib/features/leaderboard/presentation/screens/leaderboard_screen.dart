@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:last_cards/shared/leaderboard/display_name_leaderboard_rules.dart';
+
 import '../../data/leaderboard_collections.dart';
 import '../../data/local_leaderboard_store.dart';
 
@@ -143,9 +145,12 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     // Drop players who have never played an N-player ranked game so the
     // bracket-filtered view only shows relevant entries.
     if (n != null) {
-      return entries.where((e) => e.gamesPlayed > 0).toList();
+      return filterLeaderboardEntriesForDisplay(
+        entries.where((e) => e.gamesPlayed > 0).toList(),
+        (e) => e.displayName,
+      );
     }
-    return entries;
+    return filterLeaderboardEntriesForDisplay(entries, (e) => e.displayName);
   }
 
   _RankedEntry? _findLocalEntry(List<_RankedEntry> entries) {
@@ -195,7 +200,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       if (remoteEntries.isEmpty) {
         // Fall back to local cache for global view; bracket view shows empty.
         if (n != null) return [];
-        return localEntries
+        final local = localEntries
             .map((e) => _ModeEntry(
                   uid: e.uid,
                   displayName: e.displayName,
@@ -205,6 +210,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                   rating: null,
                 ))
             .toList(growable: false);
+        return filterLeaderboardEntriesForDisplay(local, (e) => e.displayName);
       }
 
       final mergedByUid = <String, _ModeEntry>{
@@ -235,13 +241,13 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       // only for the global view where local-cache merging may have changed
       // the current player's position.
       merged.sort((a, b) => b.wins.compareTo(a.wins));
-      return merged;
+      return filterLeaderboardEntriesForDisplay(merged, (e) => e.displayName);
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Mode leaderboard fetch error for $collectionName: $e');
       }
       if (n != null) return [];
-      return localEntries
+      final local = localEntries
           .map((e) => _ModeEntry(
                 uid: e.uid,
                 displayName: e.displayName,
@@ -251,6 +257,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                 rating: null,
               ))
           .toList(growable: false);
+      return filterLeaderboardEntriesForDisplay(local, (e) => e.displayName);
     }
   }
 

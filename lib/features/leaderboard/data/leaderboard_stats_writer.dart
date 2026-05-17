@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'package:last_cards/shared/leaderboard/display_name_leaderboard_rules.dart';
+
 import 'local_leaderboard_store.dart';
 import 'package:flutter/foundation.dart';
 
@@ -33,6 +35,10 @@ class LeaderboardStatsWriter {
     required int deltaLosses,
     required int deltaGamesPlayed,
   }) async {
+    if (!isLeaderboardEligibleDisplayName(displayName)) {
+      return;
+    }
+
     // Always update local first for instant UI feedback.
     await LocalLeaderboardStore.instance.incrementEntry(
       collectionName: collectionName,

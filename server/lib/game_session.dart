@@ -18,6 +18,7 @@ import 'package:last_cards/shared/rules/win_condition_rules.dart'
 
 import 'logger.dart';
 import 'server_ai_turn.dart';
+import 'session_match_stats.dart';
 import 'trophy_recorder.dart';
 
 // Flutter-only: Ace suit sheet UI, table animations, draw-pile visuals, floating
@@ -77,8 +78,10 @@ class GameSession {
     this.isRanked = false,
     this.isHardcore = false,
     TrophyPersistence? trophyRecorder,
+    MatchupPersistence? matchupRecorder,
     this.onBecameEmpty,
-  }) : _trophyRecorder = trophyRecorder ?? TrophyRecorder.instance;
+  })  : _trophyRecorder = trophyRecorder ?? TrophyRecorder.instance,
+        _matchupRecorder = matchupRecorder ?? MatchupRecorder.instance;
 
   final String roomCode;
 
@@ -105,6 +108,8 @@ class GameSession {
   bool isHardcore;
 
   final TrophyPersistence _trophyRecorder;
+  final MatchupPersistence _matchupRecorder;
+  final SessionMatchStats _matchStats = SessionMatchStats();
   final _log = Logger('GameSession');
   final math.Random _aiRng = math.Random();
 
@@ -787,6 +792,7 @@ class GameSession {
   void _startGame() {
     _started = true;
     _gameOver = false;
+    _matchStats.reset();
     _wasFullRoster =
         maxPlayerCount == null || _players.length >= maxPlayerCount!;
     _startingPlayerCount = _players.length;
@@ -965,6 +971,7 @@ class GameSession {
       _pushDiscardUnderTop();
       _state = applyPlay(state: _state, playerId: playerId, cards: cards);
       _checkBustPlacementPileRule();
+      _matchStats.recordCardsPlayed(playerId, cards);
 
       _broadcastCardPlayed(
         playerId: playerId,
@@ -992,6 +999,10 @@ class GameSession {
       return;
     }
 
+    final penaltyBefore = _state.activePenaltyCount;
+    final stackBlock = penaltyBefore > 0 &&
+        cards.any((c) => c.effectiveRank == Rank.two);
+
     final skipBefore = _state.activeSkipCount;
     final dirBefore = _state.direction;
     _pushDiscardUnderTop();
@@ -1002,6 +1013,16 @@ class GameSession {
       declaredSuit: declaredSuit,
     );
     _checkBustPlacementPileRule();
+
+    _matchStats.recordCardsPlayed(playerId, cards);
+    if (stackBlock) {
+      _matchStats.recordStackBlock(playerId);
+      _broadcastGameMoment(
+        'stack_block',
+        playerId: playerId,
+        playerName: _players[playerId]?.displayName,
+      );
+    }
 
     _broadcastCardPlayed(
       playerId: playerId,
@@ -1099,13 +1120,13 @@ class GameSession {
       }
     }
 
+    _matchStats.recordDraw(playerId, drawnCards.length, isPenalty: count > 1);
     if (count > 1) {
-      _broadcast({
-        'type': 'penalty_applied',
-        'targetPlayerId': playerId,
-        'cardsDrawn': count,
-        'newPenaltyStack': 0,
-      });
+      _broadcastPenaltyApplied(
+        targetPlayerId: playerId,
+        cardsDrawn: count,
+        newPenaltyStack: 0,
+      );
     }
 
     _broadcastStateSnapshots();
@@ -1201,6 +1222,7 @@ class GameSession {
       resolvedJokerCard: resolvedCard,
     );
     _checkBustPlacementPileRule();
+    _matchStats.recordCardsPlayed(playerId, [resolvedCard]);
 
     _broadcastCardPlayed(
       playerId: playerId,
@@ -1254,6 +1276,12 @@ class GameSession {
     _state = _state.copyWith(
       lastCardsDeclaredBy: {..._state.lastCardsDeclaredBy, playerId},
     );
+    _matchStats.recordLastCardsDeclared(playerId);
+    _broadcastGameMoment(
+      'last_cards',
+      playerId: playerId,
+      playerName: _players[playerId]?.displayName,
+    );
 
     final hasJoker = player.hand.any((c) => c.isJoker);
     if (!hasJoker &&
@@ -1291,6 +1319,7 @@ class GameSession {
       },
     );
 
+    _matchStats.recordLastCardsBluff(nextPlayerId);
     _broadcast({
       'type': 'last_cards_bluff',
       'playerId': nextPlayerId,
@@ -1319,12 +1348,16 @@ class GameSession {
       }
     }
 
-    _broadcast({
-      'type': 'penalty_applied',
-      'targetPlayerId': nextPlayerId,
-      'cardsDrawn': drawnCards.length,
-      'newPenaltyStack': _state.activePenaltyCount,
-    });
+    _matchStats.recordDraw(
+      nextPlayerId,
+      drawnCards.length,
+      isPenalty: true,
+    );
+    _broadcastPenaltyApplied(
+      targetPlayerId: nextPlayerId,
+      cardsDrawn: drawnCards.length,
+      newPenaltyStack: _state.activePenaltyCount,
+    );
   }
 
   void _applyUndeclaredLastCardsDrawAndEndTurn(String playerId) {
@@ -1367,12 +1400,12 @@ class GameSession {
       }
     }
 
-    _broadcast({
-      'type': 'penalty_applied',
-      'targetPlayerId': playerId,
-      'cardsDrawn': drawn.length,
-      'newPenaltyStack': _state.activePenaltyCount,
-    });
+    _matchStats.recordDraw(playerId, drawn.length, isPenalty: true);
+    _broadcastPenaltyApplied(
+      targetPlayerId: playerId,
+      cardsDrawn: drawn.length,
+      newPenaltyStack: _state.activePenaltyCount,
+    );
 
     _broadcastStateSnapshots();
     _advanceTurn();
@@ -2004,13 +2037,13 @@ class GameSession {
       }
     }
 
+    _matchStats.recordDraw(timedOutPlayerId, drawnCards.length, isPenalty: count > 1);
     if (count > 1) {
-      _broadcast({
-        'type': 'penalty_applied',
-        'targetPlayerId': timedOutPlayerId,
-        'cardsDrawn': count,
-        'newPenaltyStack': 0,
-      });
+      _broadcastPenaltyApplied(
+        targetPlayerId: timedOutPlayerId,
+        cardsDrawn: count,
+        newPenaltyStack: 0,
+      );
     }
 
     _broadcast({
@@ -2072,12 +2105,12 @@ class GameSession {
     // Same contract as [_handleDrawCard] for multi-card penalty draws: clients
     // play one cardDraw + one penaltyDraw from [penalty_applied], not from
     // each [card_drawn].
-    _broadcast({
-      'type': 'penalty_applied',
-      'targetPlayerId': playerId,
-      'cardsDrawn': drawnCards.length,
-      'newPenaltyStack': _state.activePenaltyCount,
-    });
+    _matchStats.recordDraw(playerId, drawnCards.length, isPenalty: true);
+    _broadcastPenaltyApplied(
+      targetPlayerId: playerId,
+      cardsDrawn: drawnCards.length,
+      newPenaltyStack: _state.activePenaltyCount,
+    );
 
     _checkBustPlacementPileRule();
     _advanceTurn();
@@ -2173,12 +2206,11 @@ class GameSession {
       );
     }
 
-    _broadcast({
-      'type': 'game_ended',
-      'winnerId': winnerId,
-      'trophyEligible': trophyEligible,
-      if (ratingChanges != null) 'ratingChanges': ratingChanges,
-    });
+    _broadcastGameEnded(
+      winnerId: winnerId,
+      trophyEligible: trophyEligible,
+      ratingChanges: ratingChanges,
+    );
   }
 
   // ── Draw pile management ──────────────────────────────────────────────────
@@ -2325,6 +2357,96 @@ class GameSession {
       final w = p.ws;
       if (w != null) w.sink.add(encoded);
     }
+  }
+
+  void _broadcastGameMoment(
+    String kind, {
+    required String playerId,
+    String? playerName,
+    int? cardsDrawn,
+  }) {
+    _broadcast({
+      'type': 'game_moment',
+      'kind': kind,
+      'playerId': playerId,
+      if (playerName != null) 'playerName': playerName,
+      if (cardsDrawn != null) 'cardsDrawn': cardsDrawn,
+    });
+  }
+
+  void _broadcastPenaltyApplied({
+    required String targetPlayerId,
+    required int cardsDrawn,
+    required int newPenaltyStack,
+  }) {
+    _broadcast({
+      'type': 'penalty_applied',
+      'targetPlayerId': targetPlayerId,
+      'cardsDrawn': cardsDrawn,
+      'newPenaltyStack': newPenaltyStack,
+    });
+    if (cardsDrawn > 1) {
+      _broadcastGameMoment(
+        'penalty_hit',
+        playerId: targetPlayerId,
+        playerName: _players[targetPlayerId]?.displayName,
+        cardsDrawn: cardsDrawn,
+      );
+    }
+  }
+
+  void _broadcastGameEnded({
+    required String winnerId,
+    required bool trophyEligible,
+    Map<String, int>? ratingChanges,
+  }) {
+    final displayNames = {
+      for (final e in _players.entries) e.key: e.value.displayName,
+    };
+    final matchStats = _matchStats.toJsonByPlayerId(displayNames: displayNames);
+
+    for (final entry in _players.entries) {
+      final playerId = entry.key;
+      final ws = entry.value.ws;
+      if (ws == null) continue;
+      ws.sink.add(jsonEncode({
+        'type': 'game_ended',
+        'winnerId': winnerId,
+        'trophyEligible': trophyEligible,
+        if (ratingChanges != null) 'ratingChanges': ratingChanges,
+        'matchStats': matchStats,
+      }));
+    }
+
+    final players = _players.entries
+        .map((e) => (
+              playerId: e.key,
+              firebaseUid: e.value.firebaseUid,
+              displayName: e.value.displayName,
+            ))
+        .toList();
+
+    unawaited(() async {
+      try {
+        final headToHeadByPlayer = await _matchupRecorder.recordGameEnd(
+          winnerPlayerId: winnerId,
+          players: players,
+        );
+        if (headToHeadByPlayer.isEmpty) return;
+        for (final entry in _players.entries) {
+          final rows = headToHeadByPlayer[entry.key];
+          if (rows == null || rows.isEmpty) continue;
+          final ws = entry.value.ws;
+          if (ws == null) continue;
+          ws.sink.add(jsonEncode({
+            'type': 'head_to_head',
+            'headToHead': rows,
+          }));
+        }
+      } catch (e, st) {
+        _log.error('Matchup record failed: $e\n$st');
+      }
+    }());
   }
 
   void _sendTo(String playerId, Map<String, dynamic> event) {

@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 import '../../shared/reactions/reaction_catalog.dart';
+import '../../shared/leaderboard/display_name_leaderboard_rules.dart';
+import 'display_name_registry_service.dart';
 
 /// Display name from Firebase Auth for merging into Firestore public profile.
 /// Matches the merge logic in [userProfileProvider] (name, then email local part).
@@ -43,6 +45,7 @@ class FirestoreProfileService {
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
+  final DisplayNameRegistryService _nameRegistry = DisplayNameRegistryService();
 
   /// Streams the user profile from Firestore. Returns null when no user.
   Stream<FirestoreUserProfile?> profileStream(User? user) {
@@ -94,7 +97,25 @@ class FirestoreProfileService {
 
     if (updates.isEmpty) return;
 
+    final nameToSync = updates['displayName'] as String?;
+    if (nameToSync != null &&
+        isLeaderboardEligibleDisplayName(nameToSync)) {
+      final claimed = await _nameRegistry.tryClaimIfAvailable(
+        uid: user.uid,
+        displayName: nameToSync,
+      );
+      if (!claimed) {
+        updates.remove('displayName');
+      }
+    }
+
+    if (updates.isEmpty) return;
+
     updates['updatedAt'] = FieldValue.serverTimestamp();
+    if (updates.containsKey('displayName')) {
+      updates['displayNameKey'] =
+          normalizeLeaderboardDisplayNameKey(nameToSync!);
+    }
     try {
       await docRef.set(updates, SetOptions(merge: true));
     } catch (_) {
@@ -125,7 +146,24 @@ class FirestoreProfileService {
   }) async {
     final ref = _firestore.collection(_usersCollection).doc(uid);
     final updates = <String, dynamic>{};
-    if (displayName != null) updates['displayName'] = displayName;
+
+    String? previousName;
+    if (displayName != null) {
+      final trimmed = displayName.trim();
+      try {
+        final snap = await ref.get();
+        previousName = (snap.data()?['displayName'] as String?)?.trim();
+      } catch (_) {
+        previousName = null;
+      }
+      await _nameRegistry.claimDisplayName(
+        uid: uid,
+        displayName: trimmed,
+        previousDisplayName: previousName,
+      );
+      updates['displayName'] = trimmed;
+      updates['displayNameKey'] = normalizeLeaderboardDisplayNameKey(trimmed);
+    }
     if (avatarUrl != null) updates['avatarUrl'] = avatarUrl;
 
     if (updates.isEmpty) return;
