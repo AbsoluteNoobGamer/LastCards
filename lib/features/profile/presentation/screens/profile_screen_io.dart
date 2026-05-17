@@ -8,7 +8,9 @@ import 'package:profanity_filter/profanity_filter.dart';
 
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
+import '../../../../core/services/display_name_registry_service.dart';
 import '../../../../core/services/firestore_profile_service.dart';
+import '../../../../shared/leaderboard/display_name_leaderboard_rules.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/services/nsfw_scan_service.dart';
@@ -105,6 +107,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } else if (kReservedNames
         .any((n) => n.toLowerCase() == trimmed.toLowerCase())) {
       error = 'That name is reserved for opponents';
+    } else if (isDefaultOrReservedDisplayName(trimmed)) {
+      error =
+          'Choose a unique name — Guest and Player cannot appear on leaderboards';
     } else if (_filter.hasProfanity(trimmed)) {
       error = 'Name contains inappropriate language';
     } else {
@@ -178,11 +183,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         avatarUrl = await firestoreService.uploadAvatar(user.uid, _pendingAvatarBytes!);
       }
 
+      final taken = await DisplayNameRegistryService()
+          .validateNameForProfile(name: name, uid: user.uid);
+      if (taken != null) {
+        if (mounted) _showError(taken);
+        return;
+      }
+
       await firestoreService.updateProfile(
         uid: user.uid,
         displayName: name,
         avatarUrl: avatarUrl,
       );
+    } on DisplayNameTakenException catch (e) {
+      if (mounted) _showError(e.message);
+      return;
     } catch (e) {
       if (mounted) _showError('Could not save profile. Please try again.');
       return;

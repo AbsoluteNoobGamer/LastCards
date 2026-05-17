@@ -204,7 +204,9 @@ class _WinDialogState extends ConsumerState<_WinDialog>
                                 theme: theme,
                               ),
                             ],
-                            if (widget.matchStats != null &&
+                            if (widget.isOnlineMode) ...[
+                              _OnlinePostGameExtras(theme: theme),
+                            ] else if (widget.matchStats != null &&
                                 widget.matchStats!.isNotEmpty) ...[
                               const SizedBox(height: AppDimensions.md),
                               _MatchStatsSection(
@@ -543,6 +545,138 @@ class _MatchStatsSection extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Server match stats + head-to-head (may arrive shortly after [GameEndedEvent]).
+class _OnlinePostGameExtras extends ConsumerWidget {
+  const _OnlinePostGameExtras({required this.theme});
+
+  final AppThemeData theme;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rawStats = ref.watch(onlineMatchStatsProvider);
+    final headToHead = ref.watch(headToHeadRecordsProvider);
+    final gameState = ref.watch(gameStateProvider);
+    final localId = gameState?.localPlayer?.id;
+
+    List<MatchPlayerStat>? matchStats;
+    if (rawStats != null && rawStats.isNotEmpty) {
+      final list = rawStats.values
+          .map(
+            (s) => MatchPlayerStat(
+              displayName: s.displayName,
+              isLocal: s.playerId == localId,
+              cardsPlayed: s.cardsPlayed,
+              drawsTaken: s.drawsTaken,
+              specialsPlayed: s.specialsPlayed,
+            ),
+          )
+          .toList();
+      list.sort((a, b) => a.isLocal ? -1 : (b.isLocal ? 1 : 0));
+      matchStats = list;
+    }
+
+    if ((matchStats == null || matchStats.isEmpty) &&
+        (headToHead == null || headToHead.isEmpty)) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      children: [
+        if (matchStats != null && matchStats.isNotEmpty) ...[
+          const SizedBox(height: AppDimensions.md),
+          _MatchStatsSection(stats: matchStats, theme: theme),
+        ],
+        if (headToHead != null && headToHead.isNotEmpty) ...[
+          const SizedBox(height: AppDimensions.md),
+          _HeadToHeadSection(records: headToHead, theme: theme),
+        ],
+      ],
+    );
+  }
+}
+
+class _HeadToHeadSection extends StatelessWidget {
+  const _HeadToHeadSection({
+    required this.records,
+    required this.theme,
+  });
+
+  final List<HeadToHeadRecord> records;
+  final AppThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.surfaceDark.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.suitRed.withValues(alpha: 0.35),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'HEAD TO HEAD',
+            style: TextStyle(
+              color: theme.textSecondary,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.4,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          ...records.map((r) {
+            final recent = r.recentResults
+                .map((x) => x == 'win' ? 'W' : 'L')
+                .join(' · ');
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      r.opponentName.split(' ').first,
+                      style: TextStyle(
+                        color: theme.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '${r.yourWins}–${r.theirWins}',
+                    style: TextStyle(
+                      color: theme.accentPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (recent.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      recent,
+                      style: TextStyle(
+                        color: theme.textSecondary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );

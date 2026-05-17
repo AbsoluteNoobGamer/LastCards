@@ -4,6 +4,8 @@ import 'package:profanity_filter/profanity_filter.dart';
 
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
+import '../../../../core/services/display_name_registry_service.dart';
+import '../../../../shared/leaderboard/display_name_leaderboard_rules.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/utils/profile_cooldown_utils.dart';
@@ -71,6 +73,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } else if (kReservedNames
         .any((n) => n.toLowerCase() == trimmed.toLowerCase())) {
       error = 'That name is reserved for opponents';
+    } else if (isDefaultOrReservedDisplayName(trimmed)) {
+      error =
+          'Choose a unique name — Guest and Player cannot appear on leaderboards';
     } else if (_filter.hasProfanity(trimmed)) {
       error = 'Name contains inappropriate language';
     } else {
@@ -97,11 +102,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ));
       return;
     }
+    final name = _nameController.text.trim();
     try {
+      final taken = await DisplayNameRegistryService()
+          .validateNameForProfile(name: name, uid: user.uid);
+      if (taken != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(SnackBar(
+              content: Text(taken),
+              behavior: SnackBarBehavior.floating,
+            ));
+        }
+        return;
+      }
+
       await ref.read(firestoreProfileServiceProvider).updateProfile(
             uid: user.uid,
-            displayName: _nameController.text.trim(),
+            displayName: name,
           );
+    } on DisplayNameTakenException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(SnackBar(
+            content: Text(e.message),
+            behavior: SnackBarBehavior.floating,
+          ));
+      }
+      return;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)

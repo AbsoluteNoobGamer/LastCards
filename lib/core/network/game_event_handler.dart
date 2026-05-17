@@ -80,6 +80,9 @@ class GameEventHandler {
   Stream<LastCardsBluffEvent> get lastCardsBluffs =>
       events.where((e) => e is LastCardsBluffEvent).cast<LastCardsBluffEvent>();
 
+  Stream<GameMomentEvent> get gameMoments =>
+      events.where((e) => e is GameMomentEvent).cast<GameMomentEvent>();
+
   // ── Outgoing helpers ───────────────────────────────────────────────────────
 
   bool sendPlayCards(PlayCardsAction action) =>

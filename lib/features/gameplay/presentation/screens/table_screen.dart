@@ -227,6 +227,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   StreamSubscription<TurnChangedEvent>? _onlineTurnChangedSub;
   StreamSubscription<LastCardsBluffEvent>? _lastCardsBluffSub;
   StreamSubscription<LastCardsPressedEvent>? _lastCardsPressedSub;
+  StreamSubscription<GameMomentEvent>? _gameMomentSub;
+  String? _stackBlockBannerText;
 
   int _multiPlayCelebrationTrigger = 0;
   int _multiPlayCelebrationTier = 0;
@@ -267,6 +269,47 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (!mounted) return;
     if (MediaQuery.disableAnimationsOf(context)) return;
     setState(() => _penaltyFlashTrigger++);
+  }
+
+  bool _isLocalMomentPlayer(String playerId) {
+    if (_isOfflineSession) return playerId == OfflineGameState.localId;
+    return ref.read(gameStateProvider)?.localPlayer?.id == playerId;
+  }
+
+  void _momentPenaltyHit({required String playerId, required int cardsDrawn}) {
+    if (_tournamentSimulatingRest) return;
+    if (!_isLocalMomentPlayer(playerId) && cardsDrawn < 4) return;
+    _bumpPenaltyFlashForHud();
+    if (_isLocalMomentPlayer(playerId)) {
+      HapticFeedback.heavyImpact();
+    }
+  }
+
+  void _momentStackBlock({required String playerId, String? playerName}) {
+    if (_tournamentSimulatingRest) return;
+    _bumpPenaltyFlashForHud();
+    HapticFeedback.mediumImpact();
+    final isLocal = _isLocalMomentPlayer(playerId);
+    final name = playerName?.split(' ').first ?? 'Player';
+    setState(() {
+      _stackBlockBannerText = isLocal
+          ? 'You blocked the stack!'
+          : '$name blocked the stack!';
+      _multiPlayCelebrationTier = 1;
+      _multiPlayCelebrationTrigger++;
+    });
+    Future.delayed(const Duration(milliseconds: 2000), () {
+      if (mounted) setState(() => _stackBlockBannerText = null);
+    });
+  }
+
+  void _momentLastCardsPulse({required String playerId}) {
+    if (_tournamentSimulatingRest) return;
+    if (!mounted) return;
+    setState(() => _turnPulseTrigger++);
+    if (!_isLocalMomentPlayer(playerId)) {
+      HapticFeedback.mediumImpact();
+    }
   }
 
   /// Seconds remaining until next quick chat can be sent (10s cooldown).
@@ -526,6 +569,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         pushMoveLog: true,
       );
     });
+
+    _gameMomentSub = handler.gameMoments.listen(_onOnlineGameMoment);
 
     // Start turn timer when it's our turn in online mode (e.g. game just started)
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -819,6 +864,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _onlineTurnChangedSub?.cancel();
     _lastCardsBluffSub?.cancel();
     _lastCardsPressedSub?.cancel();
+    _gameMomentSub?.cancel();
     _quickChatCooldownTimer?.cancel();
     _skipHighlightClearTimer?.cancel();
     _engineTimer.dispose();
@@ -2032,6 +2078,38 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   ),
                 ),
 
+              if (_stackBlockBannerText != null)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Center(
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 32),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.feltDeep.withValues(alpha: 0.92),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: const Color(0xFFE53935).withValues(alpha: 0.95),
+                            width: 2,
+                          ),
+                        ),
+                        child: Text(
+                          _stackBlockBannerText!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
               if (_lastCardsBluffBannerText != null)
                 Positioned.fill(
                   child: IgnorePointer(
@@ -2470,6 +2548,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
       // Apply play + special effects
       final previousState = _offlineState;
+      final stackBlock = previousState.activePenaltyCount > 0 &&
+          played.any((c) => c.effectiveRank == Rank.two);
       clearSuitInferenceOnPlay(
         sessionId: previousState.sessionId,
         playerId: playerId,
@@ -2477,6 +2557,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       );
       var newState =
           applyPlay(state: _offlineState, playerId: playerId, cards: played);
+      if (stackBlock) {
+        _momentStackBlock(
+          playerId: playerId,
+          playerName: previousState.playerById(playerId)?.displayName,
+        );
+      }
       _engineTimer.cancel();
       final resumeMidTurn = _engineTimer.secondsRemaining;
 
@@ -2596,7 +2682,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     try {
       if (playerId == OfflineGameState.localId) {
         _handShakeNotifier.value++;
-        _bumpPenaltyFlashForHud();
+        _momentPenaltyHit(playerId: playerId, cardsDrawn: penaltyDrawCount);
         HapticFeedback.lightImpact();
         await _animateDrawFlightsToPlayer(playerId, penaltyDrawCount);
         if (!mounted) return;
@@ -2733,6 +2819,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final afterDraw = newState.copyWith(drawPileCount: _drawPile.length);
 
     _trackMatchDraw(playerId, drawCount);
+    if (drawCount > 1) {
+      _momentPenaltyHit(playerId: playerId, cardsDrawn: drawCount);
+    }
     setState(() {
       _offlineState = afterDraw;
       _selectedCardId = null;
@@ -2998,12 +3087,21 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     : null;
             final dirBefore = working.direction;
             final skipBefore = working.activeSkipCount;
+            final stackBlock =
+                working.activePenaltyCount > 0 && c.effectiveRank == Rank.two;
             working = applyPlay(
               state: working,
               playerId: aiId,
               cards: [c],
               declaredSuit: decl,
             );
+            if (stackBlock) {
+              _momentStackBlock(
+                playerId: aiId,
+                playerName:
+                    _offlineState.playerById(aiId)?.displayName ?? aiId,
+              );
+            }
             _discardPile.add(c);
             if (mounted) {
               setState(() {
@@ -3036,6 +3134,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           }
           if (mounted) HapticFeedback.mediumImpact();
           _discardPile.addAll(playedByAi);
+          if (stateBeforeAiTurn.activePenaltyCount > 0 &&
+              playedByAi.any((c) => c.effectiveRank == Rank.two)) {
+            _momentStackBlock(
+              playerId: aiId,
+              playerName:
+                  _offlineState.playerById(aiId)?.displayName ?? aiId,
+            );
+          }
           if (result.state.direction != stateBeforeAiTurn.direction) {
             game_audio.AudioService.instance
                 .playSound(GameSound.directionReversed);
@@ -3054,7 +3160,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             ? stateBeforeAiTurn.activePenaltyCount
             : 1;
         await _animateDrawFlightsToPlayer(aiId, drawN);
-        if (mounted) HapticFeedback.lightImpact();
+        if (mounted) {
+          HapticFeedback.lightImpact();
+          if (drawN > 1) {
+            _momentPenaltyHit(playerId: aiId, cardsDrawn: drawN);
+          }
+        }
       }
 
       if (!offlineTournamentInstantPacing() &&
@@ -3128,6 +3239,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           final aiDrawCount = stateBeforeAiTurn.activePenaltyCount > 0
               ? stateBeforeAiTurn.activePenaltyCount
               : 1;
+          if (aiDrawCount > 1) {
+            _momentPenaltyHit(playerId: aiId, cardsDrawn: aiDrawCount);
+          }
           _trackMatchDraw(aiId, aiDrawCount);
           _pushMoveLog(MoveLogEntry.draw(
             playerId: aiId,
@@ -3897,6 +4011,27 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
   }
 
+  void _onOnlineGameMoment(GameMomentEvent e) {
+    if (!mounted) return;
+    switch (e.kind) {
+      case 'penalty_hit':
+        _momentPenaltyHit(
+          playerId: e.playerId,
+          cardsDrawn: e.cardsDrawn ?? 0,
+        );
+        break;
+      case 'last_cards':
+        _momentLastCardsPulse(playerId: e.playerId);
+        break;
+      case 'stack_block':
+        _momentStackBlock(
+          playerId: e.playerId,
+          playerName: e.playerName,
+        );
+        break;
+    }
+  }
+
   void _showError(String msg) {
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -3914,6 +4049,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     required String playerName,
     required bool pushMoveLog,
   }) {
+    if (_isOfflineSession) {
+      _momentLastCardsPulse(playerId: playerId);
+    }
     HapticFeedback.mediumImpact();
     game_audio.AudioService.instance.playSound(GameSound.tournamentQualify);
     final seq = ++_lastCardsDeclaredBannerSeq;

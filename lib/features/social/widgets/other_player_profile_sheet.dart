@@ -10,9 +10,12 @@ import '../../../core/providers/user_profile_provider.dart';
 import '../../../core/services/firestore_profile_service.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../../../core/theme/app_theme_data.dart';
+import '../../../core/models/game_event.dart';
+import '../../../core/utils/matchup_reader.dart';
 import '../../../core/utils/public_player_stats.dart';
 import '../../../core/utils/ranked_stats_reader.dart';
 import '../../../core/utils/ranked_tier_utils.dart';
+import '../../../core/widgets/head_to_head_stats_block.dart';
 import '../../leaderboard/data/leaderboard_collections.dart';
 
 /// Bottom sheet: opponent public profile, stats, and friend actions.
@@ -40,6 +43,7 @@ class _OtherPlayerProfileSheetState
         RankedStatsSnapshot? rankedHardcore,
         Map<LeaderboardMode, PublicModeStats> modes,
         FriendRelation relation,
+        HeadToHeadRecord? headToHead,
       })> _load;
 
   @override
@@ -55,6 +59,7 @@ class _OtherPlayerProfileSheetState
         RankedStatsSnapshot? rankedHardcore,
         Map<LeaderboardMode, PublicModeStats> modes,
         FriendRelation relation,
+        HeadToHeadRecord? headToHead,
       })> _buildLoadFuture() {
     final service = ref.read(firestoreProfileServiceProvider);
     final friends = ref.read(friendsServiceProvider);
@@ -65,6 +70,10 @@ class _OtherPlayerProfileSheetState
       fetchRankedHardcoreStatsForUid(uid),
       fetchPublicModeStatsForUid(uid),
       friends.relationTo(uid),
+      fetchHeadToHeadForOpponent(
+        opponentUid: uid,
+        opponentName: widget.fallbackDisplayName,
+      ),
     ]).then(
       (results) => (
         profile: results[0] as FirestoreUserProfile?,
@@ -72,6 +81,7 @@ class _OtherPlayerProfileSheetState
         rankedHardcore: results[2] as RankedStatsSnapshot?,
         modes: results[3] as Map<LeaderboardMode, PublicModeStats>,
         relation: results[4] as FriendRelation,
+        headToHead: results[5] as HeadToHeadRecord?,
       ),
     );
   }
@@ -192,6 +202,7 @@ class _OtherPlayerProfileSheetState
               RankedStatsSnapshot? rankedHardcore,
               Map<LeaderboardMode, PublicModeStats> modes,
               FriendRelation relation,
+              HeadToHeadRecord? headToHead,
             })>(
           future: _load,
           builder: (context, snap) {
@@ -325,6 +336,15 @@ class _OtherPlayerProfileSheetState
                       stats: data.rankedHardcore!,
                       theme: theme,
                       title: 'RANKED (HARDCORE)',
+                    ),
+                  ],
+                  if (data.headToHead != null) ...[
+                    const SizedBox(height: 16),
+                    HeadToHeadStatsBlock(
+                      yourWins: data.headToHead!.yourWins,
+                      theirWins: data.headToHead!.theirWins,
+                      recentResults: data.headToHead!.recentResults,
+                      theme: theme,
                     ),
                   ],
                   const SizedBox(height: 16),
