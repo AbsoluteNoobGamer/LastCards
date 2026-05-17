@@ -31,6 +31,7 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/models/ai_player_config.dart';
+import '../../../gameplay/presentation/opponents_splash_helpers.dart';
 import '../../../gameplay/presentation/screens/table_screen.dart';
 import '../../../social/widgets/invite_friends_sheet.dart';
 import '../../../social/widgets/pending_friend_requests_banner.dart';
@@ -1039,14 +1040,47 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     if (!mounted) return;
     _syncTournamentSessionForPrivateTable();
     final isKnockout = _privateGameVariant == PrivateGameVariant.knockout;
-    Navigator.of(context).push(
-      AppPageRoutes.fadeSlide(
-        (_) => TableScreen(
-          totalPlayers: totalPlayers,
-          isTournamentMode:
-              isKnockout || widget.onlineMode == OnlineMode.tournament,
-        ),
-      ),
+    final gameState = ref.read(gameNotifierProvider).gameState;
+    final localName = ref.read(displayNameForGameProvider);
+    final localAvatarUrl =
+        ref.read(userProfileProvider).valueOrNull?.avatarUrl;
+
+    final participants = gameState != null && gameState.players.isNotEmpty
+        ? OpponentsSplashHelpers.fromGameState(
+            gameState,
+            localPlayerId: _localPlayerId,
+            localDisplayNameFallback: localName,
+            localAvatarUrl: localAvatarUrl,
+          )
+        : OpponentsSplashHelpers.fromDisplayNames(
+            List<String?>.generate(totalPlayers, (i) => i == 0 ? localName : null),
+            localSlotIndex: 0,
+            localAvatarUrl: localAvatarUrl,
+          );
+
+    final variantLabel = switch (_privateGameVariant) {
+      PrivateGameVariant.standard => 'Private Game',
+      PrivateGameVariant.knockout => 'Private Knockout',
+      PrivateGameVariant.bust => 'Private Bust',
+    };
+
+    OpponentsSplashHelpers.push(
+      context,
+      participants: participants,
+      modeLabel: '$variantLabel · $totalPlayers Players',
+      subtitle: 'Your table is ready',
+      onFinished: (splashContext) {
+        if (!splashContext.mounted) return;
+        Navigator.of(splashContext).pushReplacement(
+          AppPageRoutes.fadeSlide(
+            (_) => TableScreen(
+              totalPlayers: totalPlayers,
+              isTournamentMode:
+                  isKnockout || widget.onlineMode == OnlineMode.tournament,
+            ),
+          ),
+        );
+      },
     );
   }
 }

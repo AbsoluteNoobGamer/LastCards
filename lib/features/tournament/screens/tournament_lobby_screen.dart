@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../core/models/offline_game_state.dart';
 import '../../../../core/providers/theme_provider.dart';
-import '../../../../tournament/tournament_engine.dart';
 import '../providers/tournament_session_provider.dart';
-import 'tournament_coordinator.dart';
+import '../tournament_splash_launcher.dart';
 
+/// Play-again entry: launches opponents splash then the coordinator.
 class TournamentLobbyScreen extends ConsumerStatefulWidget {
   const TournamentLobbyScreen({super.key});
 
@@ -17,292 +16,31 @@ class TournamentLobbyScreen extends ConsumerStatefulWidget {
 }
 
 class _TournamentLobbyScreenState extends ConsumerState<TournamentLobbyScreen> {
-  late final TournamentEngine _engine;
-
   @override
   void initState() {
     super.initState();
-    final session = ref.read(tournamentSessionProvider);
-
-    _engine = TournamentEngine.offline(
-      players: [
-        const TournamentPlayer(
-          id: OfflineGameState.localId,
-          displayName: 'You',
-          isAi: false,
-        )
-      ],
-      requiredPlayers: session.playerCount ?? 4,
-    );
-  }
-
-  @override
-  void dispose() {
-    _engine.dispose();
-    super.dispose();
-  }
-
-  void _onBeginTournament() {
-    final session = ref.read(tournamentSessionProvider);
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => TournamentCoordinator(
-          isOnline: false,
-          playerCount: session.playerCount,
-          aiDifficulty: session.difficulty,
-        ),
-        transitionDuration: const Duration(milliseconds: 400),
-        transitionsBuilder: (_, animation, __, child) =>
-            FadeTransition(opacity: animation, child: child),
-      ),
-    );
-  }
-
-  Future<bool> _onWillPop() async {
-    final theme = ref.read(themeProvider).theme;
-    return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            backgroundColor: theme.surfacePanel,
-            title: Text(
-              'Leave Tournament?',
-              style: GoogleFonts.outfit(
-                color: theme.textPrimary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            content: Text(
-              'Are you sure? Tournament setup will be lost.',
-              style: GoogleFonts.inter(color: theme.textSecondary),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text('Cancel',
-                    style: GoogleFonts.inter(color: theme.accentPrimary)),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: Text('Leave',
-                    style: GoogleFonts.inter(color: Colors.redAccent)),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final count = ref.read(tournamentSessionProvider).playerCount ?? 4;
+      pushOfflineTournamentWithSplash(
+        navigator: Navigator.of(context),
+        ref: ref,
+        playerCount: count,
+      );
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = ref.watch(themeProvider).theme;
-    final session = ref.watch(tournamentSessionProvider);
-
-    final typeLabel = session.type?.displayName ?? 'Tournament';
-    final diffLabel = session.difficulty?.displayName;
-
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        final shouldPop = await _onWillPop();
-        if (!context.mounted) return;
-        if (shouldPop) {
-          Navigator.of(context).pop();
-        }
-      },
-      child: Scaffold(
-        backgroundColor: theme.backgroundDeep,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios_new_rounded,
-                color: theme.textPrimary),
-            onPressed: () async {
-              final shouldPop = await _onWillPop();
-              if (!context.mounted) return;
-              if (shouldPop) {
-                Navigator.of(context).pop();
-              }
-            },
-          ),
-        ),
-        body: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Logo/Title
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  children: [
-                    Text(
-                      'LAST CARDS',
-                      style: GoogleFonts.outfit(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w900,
-                        color: theme.accentPrimary,
-                        letterSpacing: 4.0,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (session.type == TournamentType.vsAi &&
-                            diffLabel != null) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color:
-                                  theme.accentPrimary.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                  color: theme.accentPrimary
-                                      .withValues(alpha: 0.3)),
-                            ),
-                            child: Text(
-                              diffLabel,
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: theme.accentPrimary,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                        Text(
-                          '$typeLabel • ${session.playerCount} Players',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: theme.textSecondary,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 48),
-
-              // Player Grid
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 1.2,
-                    ),
-                    itemCount: _engine.allPlayers.length,
-                    itemBuilder: (context, index) {
-                      final player = _engine.allPlayers[index];
-                      return Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: theme.surfacePanel,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: theme.accentDark.withValues(alpha: 0.3),
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircleAvatar(
-                              radius: 24,
-                              backgroundColor: theme.backgroundDeep,
-                              child: Icon(
-                                player.isAi
-                                    ? Icons.smart_toy_rounded
-                                    : Icons.person_rounded,
-                                color: theme.accentPrimary,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              player.displayName,
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.outfit(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: theme.textPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-
-              // CTA
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  width: double.infinity,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    gradient: LinearGradient(
-                      colors: [theme.accentLight, theme.accentPrimary],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: theme.accentPrimary.withValues(alpha: 0.30),
-                        blurRadius: 16,
-                        spreadRadius: 0,
-                      ),
-                    ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: _onBeginTournament,
-                      child: Center(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Begin Tournament',
-                              style: GoogleFonts.outfit(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: theme.backgroundDeep,
-                                letterSpacing: 1.0,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Icon(
-                              Icons.play_arrow_rounded,
-                              size: 24,
-                              color: theme.backgroundDeep,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+    return Scaffold(
+      backgroundColor: theme.backgroundDeep,
+      body: Center(
+        child: Text(
+          'Preparing tournament…',
+          style: GoogleFonts.inter(
+            color: theme.textSecondary,
+            fontSize: 14,
           ),
         ),
       ),

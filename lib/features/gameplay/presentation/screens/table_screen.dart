@@ -95,6 +95,9 @@ class TableScreen extends ConsumerStatefulWidget {
   final bool debugSkipDealAnimation;
   final AiDifficulty? aiDifficulty;
 
+  /// When set (e.g. from the opponents splash), reuses the same AI roster.
+  final List<AiPlayerConfig>? preloadedAiPlayerConfigs;
+
   const TableScreen({
     this.totalPlayers = 2,
     this.isTournamentMode = false,
@@ -104,6 +107,7 @@ class TableScreen extends ConsumerStatefulWidget {
     this.debugInitialDrawPile,
     this.debugSkipDealAnimation = false,
     this.aiDifficulty,
+    this.preloadedAiPlayerConfigs,
     super.key,
   });
 
@@ -610,10 +614,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       // Generate fresh AI player configs for this session (names, personalities,
       // avatar colours). Always generated — tournament mode uses them for
       // personality scoring, avatars, and chat bubbles.
-      _aiPlayerConfigs = AiPlayerConfig.generateForGame(
-        count: widget.totalPlayers - 1,
-        seed: DateTime.now().millisecondsSinceEpoch,
-      );
+      _aiPlayerConfigs = widget.preloadedAiPlayerConfigs ??
+          AiPlayerConfig.generateForGame(
+            count: widget.totalPlayers - 1,
+            seed: DateTime.now().millisecondsSinceEpoch,
+          );
       final aiNameMap = {
         for (final c in _aiPlayerConfigs) c.playerId: c.name,
       };

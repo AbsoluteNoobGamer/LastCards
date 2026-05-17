@@ -125,6 +125,17 @@ class TournamentEngine {
     return TournamentEngine._(players: players, mode: TournamentMode.online);
   }
 
+  /// Uses a fixed roster (e.g. after the opponents splash) without re-rolling AI.
+  factory TournamentEngine.withRoster({
+    required List<TournamentPlayer> players,
+    TournamentMode mode = TournamentMode.offline,
+  }) {
+    return TournamentEngine._(
+      players: List.unmodifiable(players),
+      mode: mode,
+    );
+  }
+
   final TournamentMode mode;
   final List<TournamentPlayer> _allPlayers;
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/models/ai_player_config.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../providers/single_player_session_provider.dart';
 import '../screens/game_loading_screen.dart';
@@ -10,8 +11,8 @@ import 'difficulty_selection_sheet.dart';
 /// Bottom Sheet 2 — Player Count Selection (Single Player)
 ///
 /// Shown after difficulty is selected in [DifficultySelectionSheet].
-/// Lets the player pick 2–7 players; then "Play" navigates
-/// to [GameLoadingScreen].
+/// Lets the player pick 2–7 players; then "Play" navigates to the opponents
+/// splash ([GameLoadingScreen]) before the table.
 class SPPlayerCountSheet extends ConsumerStatefulWidget {
   const SPPlayerCountSheet({super.key});
 
@@ -174,11 +175,18 @@ class _SPPlayerCountSheetState extends ConsumerState<SPPlayerCountSheet> {
 
   void _onPlay(BuildContext context) {
     if (_selectedCount == null) return;
-    ref
-        .read(singlePlayerSessionProvider.notifier)
-        .setPlayerCount(_selectedCount!);
-    Navigator.of(context).pop();
-    Navigator.of(context).push(
+    final count = _selectedCount!;
+    final seed = DateTime.now().millisecondsSinceEpoch;
+    final aiConfigs = AiPlayerConfig.generateForGame(
+      count: count - 1,
+      seed: seed,
+    );
+    final notifier = ref.read(singlePlayerSessionProvider.notifier);
+    notifier.setPlayerCount(count);
+    notifier.setAiPlayerConfigs(aiConfigs);
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    navigator.push(
       PageRouteBuilder(
         pageBuilder: (_, __, ___) => const GameLoadingScreen(),
         transitionDuration: const Duration(milliseconds: 400),

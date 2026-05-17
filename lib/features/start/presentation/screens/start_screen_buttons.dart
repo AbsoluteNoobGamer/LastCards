@@ -335,9 +335,11 @@ class _PlayAiButtonState extends ConsumerState<_PlayAiButton> {
           parentState._showAISelector(context);
         } else {
           ref.read(gameNotifierProvider.notifier).clearOnlineState();
-          Navigator.push(
-            context,
-            AppPageRoutes.fadeSlide((_) => const TableScreen()),
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => const DifficultySelectionSheet(),
           );
         }
       },

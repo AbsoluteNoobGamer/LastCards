@@ -60,6 +60,7 @@ class BustGameScreen extends ConsumerStatefulWidget {
     this.aiDifficulty = AiDifficulty.medium,
     this.isOnline = false,
     this.resumeState,
+    this.preloadedAiPlayerConfigs,
   });
 
   /// Total player count for this game session (5–10).
@@ -75,6 +76,9 @@ class BustGameScreen extends ConsumerStatefulWidget {
 
   /// If non-null, resumes a game already in progress (subsequent rounds).
   final BustResumeState? resumeState;
+
+  /// Roster from the pre-game splash (first round only).
+  final List<AiPlayerConfig>? preloadedAiPlayerConfigs;
 
   @override
   ConsumerState<BustGameScreen> createState() => _BustGameScreenState();
@@ -283,10 +287,11 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       );
     } else {
       // ── First round: generate fresh AI configs
-      _aiConfigs = AiPlayerConfig.generateForGame(
-        count: _clampedPlayers - 1,
-        seed: seed,
-      );
+      _aiConfigs = widget.preloadedAiPlayerConfigs ??
+          AiPlayerConfig.generateForGame(
+            count: _clampedPlayers - 1,
+            seed: seed,
+          );
 
       final aiNameMap = {for (final c in _aiConfigs) c.playerId: c.name};
 

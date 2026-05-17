@@ -7,7 +7,7 @@ import '../../online/providers/online_session_provider.dart';
 import '../../online/screens/matchmaking_screen.dart';
 import '../../single_player/providers/single_player_session_provider.dart';
 import '../providers/tournament_session_provider.dart';
-import '../screens/tournament_lobby_screen.dart';
+import '../tournament_splash_launcher.dart';
 import 'tournament_sub_mode_sheet.dart';
 
 /// Player Count (4–7) for Knockout. Start → lobby (vs AI) or matchmaking (Online).
@@ -180,27 +180,14 @@ class _TournamentPlayerCountSheetState
     notifier.setPlayerCount(count);
     notifier.setDifficulty(AiDifficulty.hard);
     notifier.setFormat(TournamentFormat.knockout);
-    Navigator.of(context).pop();
+    final navigator = Navigator.of(context);
+    navigator.pop();
 
     if (session.type == TournamentType.vsAi) {
-      Navigator.of(context).push(
-        PageRouteBuilder(
-          pageBuilder: (_, __, ___) => const TournamentLobbyScreen(),
-          transitionDuration: const Duration(milliseconds: 400),
-          transitionsBuilder: (_, animation, __, child) => FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.06),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-              )),
-              child: child,
-            ),
-          ),
-        ),
+      pushOfflineTournamentWithSplash(
+        navigator: navigator,
+        ref: ref,
+        playerCount: count,
       );
     } else {
       ref.read(onlineSessionProvider.notifier).setPlayerCount(count);

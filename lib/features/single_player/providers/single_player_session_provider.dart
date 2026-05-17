@@ -12,21 +12,30 @@ class SinglePlayerSessionState {
   const SinglePlayerSessionState({
     this.difficulty,
     this.playerCount,
+    this.aiPlayerConfigs = const [],
   });
 
   final AiDifficulty? difficulty;
   final int? playerCount;
 
+  /// AI opponents generated at setup so the splash and table share the same roster.
+  final List<AiPlayerConfig> aiPlayerConfigs;
+
   SinglePlayerSessionState copyWith({
     AiDifficulty? difficulty,
     int? playerCount,
+    List<AiPlayerConfig>? aiPlayerConfigs,
     bool clearDifficulty = false,
     bool clearPlayerCount = false,
+    bool clearAiPlayerConfigs = false,
   }) {
     return SinglePlayerSessionState(
       difficulty: clearDifficulty ? null : (difficulty ?? this.difficulty),
       playerCount:
           clearPlayerCount ? null : (playerCount ?? this.playerCount),
+      aiPlayerConfigs: clearAiPlayerConfigs
+          ? const []
+          : (aiPlayerConfigs ?? this.aiPlayerConfigs),
     );
   }
 }
@@ -43,6 +52,10 @@ class SinglePlayerSessionNotifier
 
   void setPlayerCount(int count) {
     state = state.copyWith(playerCount: count);
+  }
+
+  void setAiPlayerConfigs(List<AiPlayerConfig> configs) {
+    state = state.copyWith(aiPlayerConfigs: configs);
   }
 
   void reset() {

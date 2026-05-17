@@ -13,6 +13,7 @@ import '../../../../services/audio_service.dart';
 import '../../../../services/game_sound.dart';
 import '../../../../tournament/tournament_engine.dart';
 import '../../../../tournament/tournament_table_id_mapping.dart';
+import '../../gameplay/presentation/opponents_splash_helpers.dart';
 import '../../gameplay/presentation/screens/table_screen.dart';
 import '../../single_player/providers/single_player_session_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -21,7 +22,6 @@ import '../providers/tournament_session_provider.dart';
 import 'elimination_screen.dart';
 import 'round_summary_screen.dart';
 import 'tournament_lobby_screen.dart';
-import 'waiting_screen.dart';
 import 'winner_screen.dart';
 
 /// Builds the round game widget (default: [TableScreen]).
@@ -40,7 +40,7 @@ typedef TournamentRoundGameBuilder = Widget Function({
 /// Unified coordinator that runs the tournament loop.
 ///
 /// Single entry point for both offline (vs AI) and online flows.
-/// Flow: [WaitingScreen] → TableScreen → [EliminationScreen] → [RoundSummaryScreen] → repeat → [WinnerScreen].
+/// Flow: opponents splash → TableScreen → [EliminationScreen] → … → [WinnerScreen].
 class TournamentCoordinator extends ConsumerStatefulWidget {
   const TournamentCoordinator({
     this.roundGameBuilder = _defaultRoundGameBuilder,
@@ -50,6 +50,8 @@ class TournamentCoordinator extends ConsumerStatefulWidget {
     this.showStartButton = false,
     this.playerCount,
     this.aiDifficulty,
+    this.initialRoster,
+    this.skipOpeningSplash = false,
     super.key,
   });
 
@@ -74,6 +76,12 @@ class TournamentCoordinator extends ConsumerStatefulWidget {
 
   /// AI difficulty for vs AI. If null, uses [TournamentSessionState.difficulty].
   final AiDifficulty? aiDifficulty;
+
+  /// When set, the bracket uses this roster (from the pre-game splash).
+  final List<TournamentPlayer>? initialRoster;
+
+  /// If true, skips the opening splash (e.g. already shown before pushing this route).
+  final bool skipOpeningSplash;
 
   static Widget _defaultRoundGameBuilder({
     required int totalPlayers,
@@ -125,6 +133,12 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
   }
 
   TournamentEngine _buildEngine() {
+    if (widget.initialRoster != null) {
+      return TournamentEngine.withRoster(
+        players: widget.initialRoster!,
+        mode: widget.isOnline ? TournamentMode.online : TournamentMode.offline,
+      );
+    }
     if (widget.isOnline) {
       return TournamentEngine.online(
         players: [
@@ -175,11 +189,11 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
     super.dispose();
   }
 
-  void _onStartTournament() {
+  Future<void> _onStartTournament() async {
     if (_hasStarted) return;
     _hasStarted = true;
     _engine.startTournament();
-    _runTournamentLoop();
+    await _runTournamentLoop();
   }
 
   /// Waits for two frames so route disposal (summary → engine advance) cannot
@@ -201,20 +215,18 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
       final activeIdsAtRoundStart = List<String>.from(_engine.activePlayerIds);
       final nameByTableId = _buildTournamentNamesByTableId(_engine.activePlayerIds);
 
-      // Waiting screen before each round
-      await Navigator.push(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (_, __, ___) => TournamentWaitingScreen(
-            roundNumber: _engine.currentRound,
-            players: _engine.activePlayerIds.map(_displayName).toList(),
-          ),
-          transitionDuration: const Duration(milliseconds: 400),
-          transitionsBuilder: (_, animation, __, child) =>
-              FadeTransition(opacity: animation, child: child),
-        ),
-      );
-      if (!mounted || _isDisposed) return;
+      final skipRoundSplash =
+          widget.skipOpeningSplash && expectedRound == 1;
+      if (!skipRoundSplash) {
+        await _showRoundSplash(
+          roundNumber: _engine.currentRound,
+          playerIds: _engine.activePlayerIds,
+          subtitle: expectedRound == 1
+              ? 'Round 1 — play begins'
+              : 'Round ${_engine.currentRound}',
+        );
+        if (!mounted || _isDisposed) return;
+      }
 
       await AudioService.instance.stopAll();
       if (!mounted || _isDisposed) return;
@@ -475,6 +487,37 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
     final match =
         _engine.allPlayers.where((p) => p.id == playerId).firstOrNull;
     return match?.displayName ?? playerId;
+  }
+
+  Future<void> _showRoundSplash({
+    required int roundNumber,
+    required List<String> playerIds,
+    required String subtitle,
+  }) async {
+    final localName = widget.isOnline
+        ? widget.onlineLocalDisplayName
+        : ref.read(displayNameForGameProvider);
+    final localAvatarUrl =
+        ref.read(userProfileProvider).valueOrNull?.avatarUrl;
+    final names = playerIds.map(_displayName).toList();
+    final participants = OpponentsSplashHelpers.fromRoundNames(
+      names,
+      localDisplayName: localName,
+      localAvatarUrl: localAvatarUrl,
+    );
+    final diff = _aiDifficulty?.displayName;
+
+    await OpponentsSplashHelpers.push(
+      context,
+      participants: participants,
+      modeLabel: diff != null
+          ? 'Round $roundNumber · $diff'
+          : 'Round $roundNumber',
+      subtitle: subtitle,
+      onFinished: (splashContext) {
+        if (splashContext.mounted) Navigator.of(splashContext).pop();
+      },
+    );
   }
 
   @override

@@ -8,6 +8,8 @@ import 'package:last_cards/core/providers/theme_provider.dart';
 import 'package:last_cards/core/theme/app_colors.dart';
 import 'package:last_cards/core/theme/app_dimensions.dart';
 
+import '../../gameplay/presentation/opponents_splash_helpers.dart';
+import '../../../core/providers/user_profile_provider.dart';
 import '../models/bust_round_state.dart';
 import 'bust_game_screen.dart' show BustGameScreen, BustResumeState;
 import 'bust_winner_screen.dart';
@@ -238,7 +240,7 @@ class BustEliminationScreen extends ConsumerWidget {
               child: _CtaButton(
                 isGameOver: result.isGameOver,
                 localEliminated: localEliminated,
-                onTap: () => _onContinue(context, localEliminated),
+                onTap: () => _onContinue(context, ref, localEliminated),
                 theme: theme,
               ),
             ),
@@ -284,7 +286,7 @@ class BustEliminationScreen extends ConsumerWidget {
     return [...eliminationHistory, ...newRecords];
   }
 
-  void _onContinue(BuildContext context, bool localEliminated) {
+  void _onContinue(BuildContext context, WidgetRef ref, bool localEliminated) {
     if (result.isGameOver || localEliminated) {
       final updatedHistory = _buildUpdatedHistory(
         includeRunnerUp: result.isGameOver,
@@ -308,40 +310,69 @@ class BustEliminationScreen extends ConsumerWidget {
         ),
       ));
     } else {
-      // Local player survived — continue to the next round.
+      // Local player survived — splash for survivors, then next round.
       final updatedHistory = _buildUpdatedHistory();
+      final resumeState = BustResumeState(
+        roundNumber: result.roundNumber + 1,
+        survivorIds: result.survivorIds,
+        playerNames: playerNames,
+        allEliminatedIds: [
+          ...priorEliminatedIds,
+          ...result.eliminatedThisRound,
+        ],
+        cumulativePenaltyPoints: result.cumulativePenalties,
+        aiConfigs: aiConfigs,
+        eliminationHistory: updatedHistory,
+        localRoundStats: localRoundStats,
+      );
 
-      Navigator.of(context).pushReplacement(PageRouteBuilder(
-        pageBuilder: (_, __, ___) => BustGameScreen(
-          totalPlayers: result.survivorIds.length,
-          isOnline: isOnline,
-          resumeState: BustResumeState(
-            roundNumber: result.roundNumber + 1,
-            survivorIds: result.survivorIds,
-            playerNames: playerNames,
-            allEliminatedIds: [
-              ...priorEliminatedIds,
-              ...result.eliminatedThisRound,
-            ],
-            cumulativePenaltyPoints: result.cumulativePenalties,
-            aiConfigs: aiConfigs,
-            eliminationHistory: updatedHistory,
-            localRoundStats: localRoundStats,
-          ),
-        ),
-        transitionDuration: const Duration(milliseconds: 400),
-        transitionsBuilder: (_, animation, __, child) => FadeTransition(
-          opacity: animation,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 0.04),
-              end: Offset.zero,
-            ).animate(
-                CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
-            child: child,
-          ),
-        ),
-      ));
+      final localName = ref.read(displayNameForGameProvider);
+      final localAvatarUrl =
+          ref.read(userProfileProvider).valueOrNull?.avatarUrl;
+      final survivorConfigs = [
+        for (final id in result.survivorIds)
+          if (id != OfflineGameState.localId)
+            ...aiConfigs.where((c) => c.playerId == id),
+      ];
+      final participants = OpponentsSplashHelpers.fromAiConfigs(
+        localDisplayName: playerNames[OfflineGameState.localId] ?? localName,
+        localAvatarUrl: localAvatarUrl,
+        aiConfigs: survivorConfigs,
+      );
+
+      OpponentsSplashHelpers.push(
+        context,
+        participants: participants,
+        modeLabel: 'Bust · Round ${result.roundNumber + 1}',
+        subtitle: '${result.survivorIds.length} survivors remain',
+        onFinished: (splashContext) {
+          if (!splashContext.mounted) return;
+          Navigator.of(splashContext).pushReplacement(PageRouteBuilder(
+            pageBuilder: (_, __, ___) => BustGameScreen(
+              totalPlayers: result.survivorIds.length,
+              isOnline: isOnline,
+              resumeState: resumeState,
+              preloadedAiPlayerConfigs: aiConfigs,
+            ),
+            transitionDuration: const Duration(milliseconds: 400),
+            transitionsBuilder: (_, animation, __, child) => FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.04),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  ),
+                ),
+                child: child,
+              ),
+            ),
+          ));
+        },
+      );
     }
   }
 }

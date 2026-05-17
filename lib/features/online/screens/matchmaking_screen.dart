@@ -22,7 +22,7 @@ import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../tournament/providers/tournament_session_provider.dart';
 import '../providers/online_session_provider.dart';
-import 'lobby_ready_screen.dart';
+import 'online_opponents_splash_screen.dart';
 
 /// Full-screen matchmaking screen (all online quickplay entry points use this).
 ///
@@ -207,7 +207,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
       _navigatedForward = true;
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
-          pageBuilder: (_, __, ___) => const LobbyReadyScreen(),
+          pageBuilder: (_, __, ___) => const OnlineOpponentsSplashScreen(),
           transitionDuration: const Duration(milliseconds: 500),
           transitionsBuilder: (_, animation, __, child) => FadeTransition(
             opacity: animation,

@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/models/ai_player_config.dart';
 import '../../../core/providers/theme_provider.dart';
+import '../../../core/providers/user_profile_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../gameplay/presentation/opponents_splash_helpers.dart';
+import '../../gameplay/presentation/screens/opponents_splash_screen.dart';
 import '../../online/providers/online_session_provider.dart';
 import '../../online/screens/matchmaking_screen.dart';
-import '../../single_player/providers/single_player_session_provider.dart';
 import '../../tournament/providers/tournament_session_provider.dart';
 import '../../tournament/widgets/tournament_sub_mode_sheet.dart';
 import '../screens/bust_game_screen.dart';
@@ -28,11 +31,12 @@ class BustSetupSheet extends ConsumerWidget {
   }
 
   void _onStart(BuildContext context, WidgetRef ref) {
-    Navigator.of(context).pop();
+    final navigator = Navigator.of(context);
+    navigator.pop();
 
     if (isOnline) {
       ref.read(onlineSessionProvider.notifier).setPlayerCount(10);
-      Navigator.of(context).push(
+      navigator.push(
         PageRouteBuilder(
           pageBuilder: (_, __, ___) => const MatchmakingScreen(),
           transitionDuration: const Duration(milliseconds: 400),
@@ -54,29 +58,44 @@ class BustSetupSheet extends ConsumerWidget {
         ),
       );
     } else {
-      Navigator.of(context).push(
-        PageRouteBuilder(
-          pageBuilder: (_, __, ___) => BustGameScreen(
-            totalPlayers: 10,
-            aiDifficulty: AiDifficulty.hard,
-            isOnline: false,
-          ),
-          transitionDuration: const Duration(milliseconds: 400),
-          transitionsBuilder: (_, animation, __, child) {
-            return FadeTransition(
-              opacity: animation,
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, 0.06),
-                  end: Offset.zero,
-                ).animate(CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeOutCubic,
-                )),
-                child: child,
+      const totalPlayers = 10;
+      final seed = DateTime.now().millisecondsSinceEpoch;
+      final aiConfigs = AiPlayerConfig.generateForGame(
+        count: totalPlayers - 1,
+        seed: seed,
+      );
+      final localName = ref.read(displayNameForGameProvider);
+      final localAvatarUrl =
+          ref.read(userProfileProvider).valueOrNull?.avatarUrl;
+      final participants = OpponentsSplashHelpers.fromAiConfigs(
+        localDisplayName: localName,
+        localAvatarUrl: localAvatarUrl,
+        aiConfigs: aiConfigs,
+      );
+
+      navigator.push(
+        OpponentsSplashHelpers.splashRoute(
+          child: OpponentsSplashScreen(
+            participants: participants,
+            modeLabel: 'Bust Mode · $totalPlayers Players',
+            subtitle: 'Last one standing wins',
+            onFinished: (splashContext) {
+              if (!splashContext.mounted) return;
+              Navigator.of(splashContext).pushReplacement(
+            PageRouteBuilder(
+              pageBuilder: (_, __, ___) => BustGameScreen(
+                totalPlayers: totalPlayers,
+                aiDifficulty: AiDifficulty.hard,
+                isOnline: false,
+                preloadedAiPlayerConfigs: aiConfigs,
               ),
-            );
-          },
+              transitionDuration: const Duration(milliseconds: 600),
+              transitionsBuilder: (_, animation, __, child) =>
+                  FadeTransition(opacity: animation, child: child),
+            ),
+          );
+            },
+          ),
         ),
       );
     }
