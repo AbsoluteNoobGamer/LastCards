@@ -52,6 +52,7 @@ class TournamentCoordinator extends ConsumerStatefulWidget {
     this.aiDifficulty,
     this.initialRoster,
     this.skipOpeningSplash = false,
+    this.debugInstantSplash = false,
     super.key,
   });
 
@@ -82,6 +83,10 @@ class TournamentCoordinator extends ConsumerStatefulWidget {
 
   /// If true, skips the opening splash (e.g. already shown before pushing this route).
   final bool skipOpeningSplash;
+
+  /// Skips splash countdown in tests.
+  @visibleForTesting
+  final bool debugInstantSplash;
 
   static Widget _defaultRoundGameBuilder({
     required int totalPlayers,
@@ -514,6 +519,7 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
           ? 'Round $roundNumber · $diff'
           : 'Round $roundNumber',
       subtitle: subtitle,
+      debugInstantFinish: widget.debugInstantSplash,
       onFinished: (splashContext) {
         if (splashContext.mounted) Navigator.of(splashContext).pop();
       },

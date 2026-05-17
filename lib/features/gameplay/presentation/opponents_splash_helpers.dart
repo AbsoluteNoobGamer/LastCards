@@ -44,6 +44,7 @@ abstract final class OpponentsSplashHelpers {
     String subtitle = 'Meet your opponents',
     bool showCountdown = true,
     bool holdCountdown = false,
+    bool debugInstantFinish = false,
   }) {
     return Navigator.of(context).push(
       splashRoute(
@@ -53,6 +54,7 @@ abstract final class OpponentsSplashHelpers {
           subtitle: subtitle,
           showCountdown: showCountdown,
           holdCountdown: holdCountdown,
+          debugInstantFinish: debugInstantFinish,
           onFinished: onFinished,
         ),
       ),

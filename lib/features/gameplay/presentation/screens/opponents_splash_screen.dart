@@ -23,8 +23,13 @@ class OpponentsSplashScreen extends ConsumerStatefulWidget {
     this.duration = const Duration(milliseconds: 3200),
     this.showCountdown = true,
     this.holdCountdown = false,
+    this.debugInstantFinish = false,
     super.key,
   });
+
+  /// When true, skips intro/countdown and calls [onFinished] on the next frame.
+  @visibleForTesting
+  final bool debugInstantFinish;
 
   final List<OpponentSplashParticipant> participants;
   final OpponentsSplashOnFinished onFinished;
@@ -93,6 +98,11 @@ class _OpponentsSplashScreenState extends ConsumerState<OpponentsSplashScreen>
     _backdropIntensity = Tween<double>(begin: 0.6, end: 1.0).animate(
       CurvedAnimation(parent: _intro, curve: Curves.easeOutCubic),
     );
+
+    if (widget.debugInstantFinish) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _complete());
+      return;
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;

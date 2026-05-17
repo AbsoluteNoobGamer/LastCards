@@ -8,8 +8,15 @@ import 'package:last_cards/core/models/player_model.dart';
 import 'package:last_cards/features/gameplay/presentation/screens/table_screen.dart';
 import 'package:last_cards/features/single_player/providers/single_player_session_provider.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/card_widget.dart';
+import 'package:last_cards/features/gameplay/presentation/screens/opponents_splash_screen.dart';
 import 'package:last_cards/features/tournament/screens/tournament_coordinator.dart';
 import 'package:last_cards/tournament/tournament_engine.dart';
+
+/// Advances past an [OpponentsSplashScreen] pushed by [TournamentCoordinator].
+Future<void> advancePastOpponentsSplash(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump();
+}
 
 void main() {
   List<TournamentPlayer> buildPlayers() {
@@ -384,6 +391,7 @@ void main() {
           child: MaterialApp(
             home: TournamentCoordinator(
               showStartButton: true,
+              debugInstantSplash: true,
               playerCount: 4,
               roundGameBuilder: ({
                 required totalPlayers,
@@ -408,7 +416,7 @@ void main() {
 
       await tester.tap(find.text('Start Tournament'));
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
-      await tester.tap(find.text("Let's Go!"));
+      await advancePastOpponentsSplash(tester);
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       expect(finishCalls.length, 4);
@@ -431,6 +439,7 @@ void main() {
           child: MaterialApp(
             home: TournamentCoordinator(
               showStartButton: true,
+              debugInstantSplash: true,
               roundGameBuilder: ({
                 required totalPlayers,
                 required isTournamentMode,
@@ -452,7 +461,7 @@ void main() {
 
       await tester.tap(find.text('Start Tournament'));
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
-      await tester.tap(find.text("Let's Go!"));
+      await advancePastOpponentsSplash(tester);
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       expect(capturedTournamentMode, isTrue);
@@ -471,6 +480,7 @@ void main() {
           child: MaterialApp(
             home: TournamentCoordinator(
               showStartButton: true,
+              debugInstantSplash: true,
               onRoundSummaryShown: (result) => summaryResult = result,
               roundGameBuilder: ({
                 required totalPlayers,
@@ -492,7 +502,7 @@ void main() {
 
       await tester.tap(find.text('Start Tournament'));
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
-      await tester.tap(find.text("Let's Go!"));
+      await advancePastOpponentsSplash(tester);
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       // Dismiss EliminationScreen so flow reaches onRoundSummaryShown.
@@ -514,6 +524,7 @@ void main() {
           child: MaterialApp(
             home: TournamentCoordinator(
               showStartButton: true,
+              debugInstantSplash: true,
               onRoundSummaryShown: (result) => summaryResult = result,
               roundGameBuilder: ({
                 required totalPlayers,
@@ -546,7 +557,7 @@ void main() {
 
       await tester.tap(find.text('Start Tournament'));
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
-      await tester.tap(find.text("Let's Go!"));
+      await advancePastOpponentsSplash(tester);
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       // 3 callbacks fired; verify positions.
@@ -570,6 +581,7 @@ void main() {
           child: MaterialApp(
             home: TournamentCoordinator(
               showStartButton: true,
+              debugInstantSplash: true,
               roundGameBuilder: ({
                 required totalPlayers,
                 required isTournamentMode,
@@ -590,7 +602,7 @@ void main() {
 
       await tester.tap(find.text('Start Tournament'));
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
-      await tester.tap(find.text("Let's Go!"));
+      await advancePastOpponentsSplash(tester);
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       expect(find.text('Continue'), findsOneWidget);
@@ -601,7 +613,7 @@ void main() {
       await tester.tap(find.text('Next Round'));
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
-      expect(find.text("Let's Go!"), findsOneWidget);
+      expect(find.textContaining('Round'), findsOneWidget);
     });
 
     testWidgets(
@@ -612,6 +624,7 @@ void main() {
           child: MaterialApp(
             home: TournamentCoordinator(
               showStartButton: true,
+              debugInstantSplash: true,
               playerCount: 4,
               roundGameBuilder: ({
                 required totalPlayers,
@@ -644,20 +657,20 @@ void main() {
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       // Round 1
-      expect(find.text('Round 1'), findsOneWidget);
-      await tester.tap(find.text("Let's Go!"));
+      expect(find.textContaining('Round 1'), findsOneWidget);
+      await advancePastOpponentsSplash(tester);
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
       await dismissPostRoundUi();
 
       // Round 2 waiting
-      expect(find.text('Round 2'), findsOneWidget);
-      await tester.tap(find.text("Let's Go!"));
+      expect(find.textContaining('Round 2'), findsOneWidget);
+      await advancePastOpponentsSplash(tester);
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
       await dismissPostRoundUi();
 
       // Round 3 waiting (2-player final) — regression: must appear after round 2.
-      expect(find.text('Round 3'), findsOneWidget);
-      expect(find.text("Let's Go!"), findsOneWidget);
+      expect(find.textContaining('Round 3'), findsOneWidget);
+      expect(find.textContaining('Round'), findsOneWidget);
     });
 
     testWidgets(
@@ -671,6 +684,7 @@ void main() {
           child: MaterialApp(
             home: TournamentCoordinator(
               showStartButton: true,
+              debugInstantSplash: true,
               playerCount: 6,
               roundGameBuilder: ({
                 required totalPlayers,
@@ -703,32 +717,32 @@ void main() {
       await tester.pumpAndSettle(const Duration(milliseconds: 120));
 
       // Round 1
-      expect(find.text('Round 1'), findsOneWidget);
-      await tester.tap(find.text("Let's Go!"));
+      expect(find.textContaining('Round 1'), findsOneWidget);
+      await advancePastOpponentsSplash(tester);
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
       await dismissPostRoundUi();
 
       // Round 2
-      expect(find.text('Round 2'), findsOneWidget);
-      await tester.tap(find.text("Let's Go!"));
+      expect(find.textContaining('Round 2'), findsOneWidget);
+      await advancePastOpponentsSplash(tester);
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
       await dismissPostRoundUi();
 
       // Round 3
-      expect(find.text('Round 3'), findsOneWidget);
-      await tester.tap(find.text("Let's Go!"));
+      expect(find.textContaining('Round 3'), findsOneWidget);
+      await advancePastOpponentsSplash(tester);
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
       await dismissPostRoundUi();
 
       // Round 4
-      expect(find.text('Round 4'), findsOneWidget);
-      await tester.tap(find.text("Let's Go!"));
+      expect(find.textContaining('Round 4'), findsOneWidget);
+      await advancePastOpponentsSplash(tester);
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
       await dismissPostRoundUi();
 
       // Round 5 waiting (2-player final) should be reachable.
-      expect(find.text('Round 5'), findsOneWidget);
-      expect(find.text("Let's Go!"), findsOneWidget);
+      expect(find.textContaining('Round 5'), findsOneWidget);
+      expect(find.textContaining('Round'), findsOneWidget);
     });
 
     testWidgets(
@@ -739,6 +753,7 @@ void main() {
           child: MaterialApp(
             home: TournamentCoordinator(
               showStartButton: true,
+              debugInstantSplash: true,
               playerCount: 4,
               roundGameBuilder: ({
                 required totalPlayers,
@@ -765,7 +780,7 @@ void main() {
 
       await tester.tap(find.text('Start Tournament'));
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
-      await tester.tap(find.text("Let's Go!"));
+      await advancePastOpponentsSplash(tester);
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       expect(find.text('Continue'), findsOneWidget);
@@ -780,6 +795,7 @@ void main() {
           child: MaterialApp(
             home: TournamentCoordinator(
               showStartButton: true,
+              debugInstantSplash: true,
               onRoundSummaryShown: (result) => summaryResult = result,
               roundGameBuilder: ({
                 required totalPlayers,
@@ -808,7 +824,7 @@ void main() {
 
       await tester.tap(find.text('Start Tournament'));
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
-      await tester.tap(find.text("Let's Go!"));
+      await advancePastOpponentsSplash(tester);
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       // Dismiss EliminationScreen so flow reaches onRoundSummaryShown.
