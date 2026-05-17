@@ -1385,6 +1385,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     required bool isMyTurn,
     required double handCardWidth,
     required bool isMobile,
+    required BustRoundState roundState,
   }) {
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -1401,6 +1402,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
             quickChatBubblesByPlayer: _quickChatBubblesByPlayer,
             onRemoveQuickChatBubble: _removeQuickChatBubble,
           ),
+          _RoundIndicator(roundState: roundState),
           Expanded(
             child: Center(
               child: Column(
@@ -1441,6 +1443,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     required List<BustPlayerViewModel> opponents,
     required PlayerModel localPlayer,
     required bool isMyTurn,
+    required BustRoundState roundState,
   }) {
     const handCardWidth = 40.0;
 
@@ -1458,6 +1461,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
             quickChatBubblesByPlayer: _quickChatBubblesByPlayer,
             onRemoveQuickChatBubble: _removeQuickChatBubble,
           ),
+          _RoundIndicator(roundState: roundState),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 2),
             child: Row(
@@ -1544,6 +1548,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                           opponents: opponents,
                           localPlayer: localPlayer,
                           isMyTurn: isMyTurn,
+                          roundState: rs,
                         )
                       : _buildBustPortraitTable(
                           layoutSize: layoutSize,
@@ -1552,18 +1557,9 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                           isMyTurn: isMyTurn,
                           handCardWidth: handCardWidth,
                           isMobile: isMobile,
+                          roundState: rs,
                         ),
                 ),
-
-              Positioned(
-                top: MediaQuery.paddingOf(context).top + 2,
-                left: 0,
-                right: 0,
-                child: SafeArea(
-                  bottom: false,
-                  child: Center(child: _RoundIndicator(roundState: rs)),
-                ),
-              ),
 
               if (_moveLogEntries.isNotEmpty)
                 GameMoveLogOverlay(entries: _moveLogEntries),
@@ -1766,7 +1762,7 @@ class _RoundIndicator extends ConsumerWidget {
     final round = roundState.roundNumber;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.only(top: 2, bottom: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
