@@ -1,7 +1,7 @@
 name: last_cards
 description: "Last Cards — Play It All. Leave Nothing."
 publish_to: "none"
-version: 1.0.0+20
+version: 1.0.0+21
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -71,6 +71,10 @@ dev_dependencies:
   mockito: ^5.4.4
   flutter_launcher_icons: ^0.14.3
   firebase_auth_mocks: 0.14.1
+
+# Avoids iOS "Upload Symbols Failed" for objective_c.framework (dart-lang/native#3004).
+dependency_overrides:
+  objective_c: 9.1.0
 
 flutter:
   uses-material-design: true
