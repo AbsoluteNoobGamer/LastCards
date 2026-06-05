@@ -21,6 +21,7 @@ import '../../../../core/widgets/glass_frosted_panel.dart';
 import '../../../../core/widgets/themed_shimmer.dart';
 import '../../../../core/providers/game_provider.dart';
 import '../../../../core/providers/auth_provider.dart';
+import '../../../../core/services/auth_service.dart';
 import '../../../../core/providers/server_live_connections_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/theme/app_theme_data.dart';

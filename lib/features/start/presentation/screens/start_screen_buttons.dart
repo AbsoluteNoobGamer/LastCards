@@ -157,6 +157,123 @@ class _AuthProfileSheet extends ConsumerStatefulWidget {
 }
 
 class _AuthProfileSheetState extends ConsumerState<_AuthProfileSheet> {
+  bool _deleteInFlight = false;
+
+  Future<void> _confirmAndDeleteAccount(BuildContext context) async {
+    final theme = ref.read(themeProvider).theme;
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: theme.surfacePanel,
+          title: Text(
+            'Delete account?',
+            style: TextStyle(
+              color: theme.textPrimary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          content: Text(
+            'This permanently deletes your Last Cards account, profile, '
+            'friends list, display name reservation, and offline leaderboard '
+            'entries on this device. This cannot be undone.',
+            style: TextStyle(
+              color: theme.textSecondary,
+              fontSize: 14,
+              height: 1.35,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: theme.textSecondary),
+              ),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Continue'),
+            ),
+          ],
+        );
+      },
+    );
+    if (proceed != true || !context.mounted) return;
+
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: theme.surfacePanel,
+          title: Text(
+            'Delete permanently',
+            style: TextStyle(
+              color: theme.textPrimary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          content: Text(
+            'Your account will be removed immediately. You may need to '
+            'confirm with Apple or Google to verify it is you.',
+            style: TextStyle(
+              color: theme.textSecondary,
+              fontSize: 14,
+              height: 1.35,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: theme.textSecondary),
+              ),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red.shade800,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Delete account'),
+            ),
+          ],
+        );
+      },
+    );
+    if (sure != true || !context.mounted) return;
+
+    setState(() => _deleteInFlight = true);
+    final result = await ref.read(authServiceProvider).deleteAccount();
+    if (!context.mounted) return;
+    setState(() => _deleteInFlight = false);
+
+    switch (result) {
+      case AccountDeletionSuccess():
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Your account has been deleted.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      case AccountDeletionCancelled():
+        break;
+      case AccountDeletionFailure(:final message):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final userProfile = ref.watch(userProfileProvider).valueOrNull;
@@ -289,6 +406,37 @@ class _AuthProfileSheetState extends ConsumerState<_AuthProfileSheet> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: theme.accentPrimary,
                       side: BorderSide(color: theme.accentPrimary),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _deleteInFlight
+                        ? null
+                        : () => _confirmAndDeleteAccount(context),
+                    icon: _deleteInFlight
+                        ? SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.red.shade300,
+                            ),
+                          )
+                        : Icon(
+                            Icons.delete_forever_rounded,
+                            color: Colors.red.shade400,
+                          ),
+                    label: Text(
+                      _deleteInFlight ? 'Deleting account…' : 'Delete account',
+                      style: TextStyle(color: Colors.red.shade400),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red.shade400,
+                      side: BorderSide(color: Colors.red.shade400),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                   ),

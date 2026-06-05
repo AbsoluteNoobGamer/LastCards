@@ -37,5 +37,15 @@ void main() {
         );
       },
     );
+
+    test('deleteAccount returns failure when not signed in', () async {
+      final service = AuthService();
+      final result = await service.deleteAccount();
+      expect(result, isA<AccountDeletionFailure>());
+      expect(
+        (result as AccountDeletionFailure).message,
+        contains('Not signed in'),
+      );
+    });
   });
 }

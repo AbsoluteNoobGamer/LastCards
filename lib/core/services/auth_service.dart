@@ -8,6 +8,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../firebase_options.dart';
+import 'account_deletion_service.dart';
 import 'firestore_profile_service.dart';
 
 /// Result of a Google sign-in attempt.
@@ -56,6 +57,28 @@ class AppleSignInCancelled extends AppleSignInResult {
 class AppleSignInFailure extends AppleSignInResult {
   final String message;
   const AppleSignInFailure(this.message);
+}
+
+/// Result of permanently deleting the signed-in Firebase account.
+sealed class AccountDeletionResult {
+  const AccountDeletionResult();
+  const factory AccountDeletionResult.success() = AccountDeletionSuccess;
+  const factory AccountDeletionResult.cancelled() = AccountDeletionCancelled;
+  const factory AccountDeletionResult.failure(String message) =
+      AccountDeletionFailure;
+}
+
+class AccountDeletionSuccess extends AccountDeletionResult {
+  const AccountDeletionSuccess();
+}
+
+class AccountDeletionCancelled extends AccountDeletionResult {
+  const AccountDeletionCancelled();
+}
+
+class AccountDeletionFailure extends AccountDeletionResult {
+  final String message;
+  const AccountDeletionFailure(this.message);
 }
 
 String _generateNonce([int length = 32]) {
@@ -303,4 +326,131 @@ class AuthService {
     }
     await _auth?.signOut();
   }
+
+  /// Permanently deletes the signed-in account and associated app data.
+  ///
+  /// Re-authenticates when required (Google / Apple). Guest accounts skip reauth.
+  Future<AccountDeletionResult> deleteAccount({
+    AccountDeletionService? deletionService,
+  }) async {
+    final auth = _auth;
+    final user = auth?.currentUser;
+    if (auth == null || user == null) {
+      return const AccountDeletionResult.failure('Not signed in');
+    }
+
+    final reauth = await _reauthenticateForAccountDeletion(user);
+    if (reauth == _ReauthOutcome.cancelled) {
+      return const AccountDeletionResult.cancelled();
+    }
+    if (reauth == _ReauthOutcome.failed) {
+      return const AccountDeletionResult.failure(
+        'Could not verify your identity. Sign in again and retry.',
+      );
+    }
+
+    final purge = deletionService ?? AccountDeletionService();
+    try {
+      await purge.purgeUserData(user.uid);
+      await user.delete();
+    } on FirebaseAuthException catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('Account deletion failed: $e\n$st');
+      }
+      final msg = e.message ?? e.code;
+      if (e.code == 'requires-recent-login') {
+        return const AccountDeletionResult.failure(
+          'For security, sign in again and retry account deletion.',
+        );
+      }
+      return AccountDeletionResult.failure(msg);
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('Account deletion failed: $e\n$st');
+      }
+      return AccountDeletionResult.failure(e.toString());
+    }
+
+    await AccountDeletionService.clearLocalUserData();
+    await signOut();
+    return const AccountDeletionResult.success();
+  }
+
+  Future<_ReauthOutcome> _reauthenticateForAccountDeletion(User user) async {
+    if (user.isAnonymous) return _ReauthOutcome.ok;
+
+    final providers = user.providerData.map((p) => p.providerId).toSet();
+    if (providers.contains('google.com')) {
+      return _reauthenticateWithGoogle(user);
+    }
+    if (providers.contains('apple.com')) {
+      return _reauthenticateWithApple(user);
+    }
+    // Unknown provider — attempt delete without reauth (may fail with
+    // requires-recent-login).
+    return _ReauthOutcome.ok;
+  }
+
+  Future<_ReauthOutcome> _reauthenticateWithGoogle(User user) async {
+    try {
+      final iosClientId = DefaultFirebaseOptions.ios.iosClientId;
+      final googleSignIn = GoogleSignIn(
+        scopes: ['email'],
+        serverClientId: _webClientId,
+        clientId: _isApplePlatform() ? iosClientId : null,
+      );
+      final account = await googleSignIn.signIn();
+      if (account == null) return _ReauthOutcome.cancelled;
+      final authentication = await account.authentication;
+      final idToken = authentication.idToken;
+      if (idToken == null) return _ReauthOutcome.failed;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: authentication.accessToken,
+        idToken: idToken,
+      );
+      await user.reauthenticateWithCredential(credential);
+      return _ReauthOutcome.ok;
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('Google reauth failed: $e\n$st');
+      }
+      return _ReauthOutcome.failed;
+    }
+  }
+
+  Future<_ReauthOutcome> _reauthenticateWithApple(User user) async {
+    try {
+      final available = await SignInWithApple.isAvailable();
+      if (!available) return _ReauthOutcome.failed;
+      final rawNonce = _generateNonce();
+      final nonce = _sha256ofString(rawNonce);
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: nonce,
+      );
+      final idToken = appleCredential.identityToken;
+      if (idToken == null) return _ReauthOutcome.failed;
+      final oauthCredential = OAuthProvider('apple.com').credential(
+        idToken: idToken,
+        rawNonce: rawNonce,
+        accessToken: appleCredential.authorizationCode,
+      );
+      await user.reauthenticateWithCredential(oauthCredential);
+      return _ReauthOutcome.ok;
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('Apple reauth failed: $e\n$st');
+      }
+      final message = e.toString();
+      if (message.contains('canceled') || message.contains('cancelled')) {
+        return _ReauthOutcome.cancelled;
+      }
+      return _ReauthOutcome.failed;
+    }
+  }
 }
+
+enum _ReauthOutcome { ok, cancelled, failed }

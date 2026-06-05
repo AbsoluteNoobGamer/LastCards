@@ -140,11 +140,20 @@ describe('users/{uid}', () => {
     );
   });
 
-  it('denies delete of own profile (delete not allowed)', async () => {
+  it('allows delete of own profile', async () => {
     const db = testEnv.authenticatedContext('alice').firestore();
     const ref = doc(db, 'users', 'alice');
     await assertSucceeds(setDoc(ref, profilePayload({ displayName: 'Alice' })));
-    await assertFails(deleteDoc(ref));
+    await assertSucceeds(deleteDoc(ref));
+  });
+
+  it('denies delete of another user profile', async () => {
+    const bobDb = testEnv.authenticatedContext('bob').firestore();
+    await assertSucceeds(
+      setDoc(doc(bobDb, 'users', 'bob'), profilePayload({ displayName: 'Bob' })),
+    );
+    const aliceDb = testEnv.authenticatedContext('alice').firestore();
+    await assertFails(deleteDoc(doc(aliceDb, 'users', 'bob')));
   });
 });
 

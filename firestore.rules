@@ -32,6 +32,8 @@ service cloud.firestore {
           'cardFaceSet',
           'reactionWheel',
         ]);
+
+      allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
     // Unique public display names (one doc per normalized name).
