@@ -70,8 +70,6 @@
 	<string>Last Cards needs photo library access so you can choose a profile picture.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Last Cards needs camera access so you can take a photo for your profile picture.</string>
-	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-3940256099942544~1458002511</string>
 	<key>GIDClientID</key>
 	<string>941909760769-bn0eet8po3ikvd1r9jfd4a67od1flsh7.apps.googleusercontent.com</string>
 	<key>CFBundleURLTypes</key>

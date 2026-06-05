@@ -37,7 +37,7 @@ class PostGameInterstitialNotifier
   bool _disposed = false;
 
   void markCompletedPlaySession() {
-    if (!kSupportsStoreMonetization()) return;
+    if (!kShowsAdsOnPlatform()) return;
     if (kDebugMode) {
       debugPrint('Monetization: interstitial will be considered on next start screen.');
     }
@@ -51,7 +51,7 @@ class PostGameInterstitialNotifier
 
   /// Called when the start menu route becomes visible again (e.g. [RouteAware.didPopNext]).
   Future<void> maybeShowWhenStartVisible(WidgetRef ref, BuildContext context) async {
-    if (!kSupportsStoreMonetization() || _disposed) return;
+    if (!kShowsAdsOnPlatform() || _disposed) return;
     if (!state.hasPending) return;
     if (!context.mounted) return;
 

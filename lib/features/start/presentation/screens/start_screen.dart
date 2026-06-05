@@ -411,7 +411,7 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
   @override
   Widget build(BuildContext context) {
     final monetization = ref.watch(monetizationProvider);
-    final reserveScrollPaddingForAds = kSupportsStoreMonetization() &&
+    final reserveScrollPaddingForAds = kShowsAdsOnPlatform() &&
         monetization.ready &&
         !monetization.adsRemoved;
     ref.listen<SettingsState>(settingsProvider, (prev, next) {
@@ -823,7 +823,7 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
         Consumer(
           builder: (context, ref, _) {
             final m = ref.watch(monetizationProvider);
-            if (!kSupportsStoreMonetization() || !m.ready || m.adsRemoved) {
+            if (!kShowsAdsOnPlatform() || !m.ready || m.adsRemoved) {
               return const SizedBox.shrink();
             }
             final id = kBannerAdUnitIdForPlatform();

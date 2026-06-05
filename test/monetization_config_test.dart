@@ -22,8 +22,19 @@ void main() {
     );
   });
 
-  test('Android rewarded defaults to LastCards skip unit; iOS uses sample test ID', () {
+  test('Android rewarded defaults to LastCards skip unit', () {
     expect(kAdmobRewardedAndroid, 'ca-app-pub-4446209247875215/9319954415');
-    expect(kAdmobRewardedIos, contains('ca-app-pub-3940256099942544'));
+  });
+
+  test('ad unit helpers follow kShowsAdsOnPlatform', () {
+    if (kShowsAdsOnPlatform()) {
+      expect(kBannerAdUnitIdForPlatform(), isNotEmpty);
+      expect(kInterstitialAdUnitIdForPlatform(), isNotEmpty);
+      expect(kRewardedAdUnitIdForPlatform(), isNotEmpty);
+    } else {
+      expect(kBannerAdUnitIdForPlatform(), isEmpty);
+      expect(kInterstitialAdUnitIdForPlatform(), isEmpty);
+      expect(kRewardedAdUnitIdForPlatform(), isEmpty);
+    }
   });
 }

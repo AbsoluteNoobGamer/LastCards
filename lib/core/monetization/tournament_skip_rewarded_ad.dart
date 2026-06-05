@@ -24,7 +24,7 @@ Future<TournamentSkipAdOutcome> runTournamentSkipRewardedAdGate({
   required BuildContext context,
   required WidgetRef ref,
 }) async {
-  if (!kSupportsStoreMonetization()) {
+  if (!kShowsAdsOnPlatform()) {
     return TournamentSkipAdOutcome.startSimulation;
   }
   if (ref.read(monetizationProvider).adsRemoved) {

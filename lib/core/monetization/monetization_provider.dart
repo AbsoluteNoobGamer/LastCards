@@ -69,7 +69,7 @@ class MonetizationNotifier extends StateNotifier<MonetizationState> {
     final cached = prefs.getBool(_prefsKeyAdsRemoved) ?? false;
     _setStateIfNotDisposed(state.copyWith(adsRemoved: cached, ready: true));
 
-    if (!kSupportsStoreMonetization()) {
+    if (!kShowsAdsOnPlatform()) {
       return;
     }
 
@@ -97,7 +97,7 @@ class MonetizationNotifier extends StateNotifier<MonetizationState> {
   }
 
   Future<void> _refreshProductDetails() async {
-    if (!kSupportsStoreMonetization()) return;
+    if (!kShowsAdsOnPlatform()) return;
     final response = await InAppPurchase.instance
         .queryProductDetails({kRemoveAdsProductId});
     if (_disposed) return;
@@ -194,7 +194,7 @@ class MonetizationNotifier extends StateNotifier<MonetizationState> {
   }
 
   Future<void> restorePurchases() async {
-    if (!kSupportsStoreMonetization() || _disposed) return;
+    if (!kShowsAdsOnPlatform() || _disposed) return;
     _setStateIfNotDisposed(state.copyWith(clearError: true));
     try {
       await InAppPurchase.instance.restorePurchases();

@@ -209,7 +209,7 @@ class SettingsModal extends ConsumerWidget {
                           onChanged: notifier.updateMusic,
                         ),
                         const Divider(height: 40, color: Colors.grey),
-                        if (kSupportsStoreMonetization()) ...[
+                        if (kShowsAdsOnPlatform()) ...[
                           Consumer(
                             builder: (context, ref, _) {
                               final mono = ref.watch(monetizationProvider);
@@ -247,7 +247,7 @@ class SettingsModal extends ConsumerWidget {
                                     subtitle: Text(
                                       mono.removeAdsProduct != null
                                           ? '${mono.removeAdsProduct!.title} — ${mono.removeAdsProduct!.price} (one-time). Removes all ads, including optional videos (e.g. tournament skip).'
-                                          : 'Product not available yet. Add “remove_ads_lifetime” in Play Console and App Store Connect.',
+                                          : 'Product not available yet. Add “remove_ads_lifetime” in Play Console.',
                                       style: TextStyle(
                                         fontSize: isMobile ? 11 : 12,
                                         color: Colors.grey.shade500,
