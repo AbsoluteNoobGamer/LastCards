@@ -218,8 +218,8 @@ class _AuthProfileSheetState extends ConsumerState<_AuthProfileSheet> {
             ),
           ),
           content: Text(
-            'Your account will be removed immediately. You may need to '
-            'confirm with Apple or Google to verify it is you.',
+            'Your account will be deleted immediately. Previous stats and '
+            'progression cannot be restored.',
             style: TextStyle(
               color: theme.textSecondary,
               fontSize: 14,
