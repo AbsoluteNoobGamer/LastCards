@@ -70,6 +70,8 @@
 	<string>Last Cards needs photo library access so you can choose a profile picture.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Last Cards needs camera access so you can take a photo for your profile picture.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<!-- Required by google_mobile_ads native SDK on launch (iOS still has no in-app ads). -->
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-3940256099942544~1458002511</string>
