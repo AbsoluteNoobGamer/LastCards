@@ -192,6 +192,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           foregroundColor: AppColors.feltDeep,
           iconTheme: const IconThemeData(color: AppColors.feltDeep),
           elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
           title: const Text(
             'YOUR PROFILE',
             style: TextStyle(
@@ -225,6 +229,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         foregroundColor: AppColors.feltDeep,
         iconTheme: const IconThemeData(color: AppColors.feltDeep),
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text(
           'YOUR PROFILE',
           style: TextStyle(

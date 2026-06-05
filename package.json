@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "test:firestore-rules": "firebase emulators:exec --only firestore --project demo-cards-firestore-rules \"node --test firestore-tests/firestore.rules.test.mjs\"",
+    "login:firebase": "firebase login",
     "deploy:firestore-rules": "firebase deploy --only firestore:rules --project lastcards-d4396"
   },
   "devDependencies": {

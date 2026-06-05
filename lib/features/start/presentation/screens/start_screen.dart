@@ -848,6 +848,8 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => const ProviderScope(
         child: _AuthProfileSheet(),
