@@ -96,6 +96,7 @@ go.sum
 /*.json
 !/package.json
 !/package-lock.json
+!/firebase.json
 
 # Root-level scripts / one-off generators
 /*.js
