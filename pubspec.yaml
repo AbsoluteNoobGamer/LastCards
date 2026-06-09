@@ -94,6 +94,7 @@ flutter:
 
   shaders:
     - shaders/card_shimmer.frag
+    - shaders/felt_background.frag
 
 flutter_launcher_icons:
   android: true

@@ -1,9 +1,13 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart' show Ticker;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_shaders/flutter_shaders.dart';
 
 import 'package:last_cards/core/providers/theme_provider.dart';
+import 'package:last_cards/features/settings/presentation/widgets/settings_modal.dart';
 
 /// Animated casino felt table background shared by [TableScreen] and Bust.
 class FeltTableBackground extends ConsumerStatefulWidget {
@@ -49,18 +53,26 @@ class FeltTableBackgroundState extends ConsumerState<FeltTableBackground>
   @override
   Widget build(BuildContext context) {
     final theme = ref.watch(themeProvider).theme;
+    // Static (uTime frozen at 0) when reduce-motion or budget-device mode is on,
+    // so the premium felt look is preserved without per-frame shader cost.
+    final animateFelt = !MediaQuery.disableAnimationsOf(context) &&
+        !ref.watch(budgetDeviceModeProvider);
     return Positioned.fill(
       child: RepaintBoundary(
         child: Stack(
           fit: StackFit.expand,
           children: [
-            CustomPaint(
-              painter: TableBackgroundPainter(
-                themeId: theme.id,
-                baseColor: theme.backgroundDeep,
-                midColor: theme.backgroundMid,
-                accentColor: theme.accentPrimary,
-                accentDark: theme.accentDark,
+            _FeltShaderLayer(
+              feltColor: theme.backgroundDeep,
+              animate: animateFelt,
+              child: CustomPaint(
+                painter: TableBackgroundPainter(
+                  themeId: theme.id,
+                  baseColor: theme.backgroundDeep,
+                  midColor: theme.backgroundMid,
+                  accentColor: theme.accentPrimary,
+                  accentDark: theme.accentDark,
+                ),
               ),
             ),
             AnimatedBuilder(
@@ -101,6 +113,108 @@ class FeltTableBackgroundState extends ConsumerState<FeltTableBackground>
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Generative "premium casino felt" shader layer (`shaders/felt_background.frag`)
+/// drawn over the themed felt: a breathing centre spotlight, faint fabric grain
+/// and a slow vignette, tinted in the active theme's deep base colour.
+///
+/// When [animate] is false (reduce-motion or budget-device mode) the shader is
+/// rendered once with `uTime` frozen at 0 — a static version, not disabled — so
+/// no [Ticker] runs and there is no per-frame cost.
+class _FeltShaderLayer extends StatefulWidget {
+  const _FeltShaderLayer({
+    required this.feltColor,
+    required this.animate,
+    required this.child,
+  });
+
+  /// Base felt colour fed to `uFeltColor` (the active theme's deep background).
+  final Color feltColor;
+
+  /// When false, renders a single static frame with no [Ticker].
+  final bool animate;
+
+  /// The themed felt painted underneath; the shader composites over it.
+  final Widget child;
+
+  @override
+  State<_FeltShaderLayer> createState() => _FeltShaderLayerState();
+}
+
+class _FeltShaderLayerState extends State<_FeltShaderLayer>
+    with SingleTickerProviderStateMixin {
+  // How strongly the generative felt overlays the themed felt underneath.
+  // Tasteful and low-contrast: the spotlight/grain/vignette read clearly while
+  // the themed pattern still shows through.
+  static const double _overlayOpacity = 0.7;
+
+  /// Strength of the felt effect (`uIntensity`).
+  static const double _intensity = 1.0;
+
+  Ticker? _ticker;
+  double _timeSeconds = 0.0;
+
+  void _ensureTickerRunning() {
+    _ticker ??= createTicker((elapsed) {
+      setState(() {
+        _timeSeconds =
+            elapsed.inMicroseconds / Duration.microsecondsPerSecond;
+      });
+    });
+    if (!_ticker!.isActive) _ticker!.start();
+  }
+
+  void _stopTicker() {
+    if (_ticker?.isActive ?? false) _ticker!.stop();
+  }
+
+  @override
+  void dispose() {
+    _ticker?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.animate) {
+      _ensureTickerRunning();
+    } else {
+      _stopTicker();
+      _timeSeconds = 0.0;
+    }
+
+    final felt = widget.feltColor;
+
+    return ShaderBuilder(
+      (context, shader, child) {
+        return AnimatedSampler(
+          (ui.Image image, Size size, Canvas canvas) {
+            // Themed felt first, then the generative felt composited over it.
+            canvas.drawImage(image, Offset.zero, Paint());
+            shader
+              ..setFloat(0, size.width)
+              ..setFloat(1, size.height)
+              ..setFloat(2, _timeSeconds)
+              ..setFloat(3, _intensity)
+              ..setFloat(4, felt.r)
+              ..setFloat(5, felt.g)
+              ..setFloat(6, felt.b);
+            final rect = Offset.zero & size;
+            canvas.saveLayer(
+              rect,
+              Paint()..color = Colors.white.withValues(alpha: _overlayOpacity),
+            );
+            canvas.drawRect(rect, Paint()..shader = shader);
+            canvas.restore();
+          },
+          child: child!,
+        );
+      },
+      assetKey: 'shaders/felt_background.frag',
+      child: widget.child,
     );
   }
 }

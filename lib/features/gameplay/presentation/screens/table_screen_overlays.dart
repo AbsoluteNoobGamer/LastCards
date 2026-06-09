@@ -115,10 +115,11 @@ class _WinDialogState extends ConsumerState<_WinDialog>
         child: Stack(
           alignment: Alignment.center,
           children: [
-            if (!reduce && !_celebrationDone && widget.isLocalWin)
+            if (!_celebrationDone && widget.isLocalWin)
               Positioned.fill(
                 child: WinCelebrationOverlay(
                   theme: theme,
+                  budgetDevice: ref.watch(budgetDeviceModeProvider),
                   onFinished: () {
                     if (mounted) setState(() => _celebrationDone = true);
                   },
