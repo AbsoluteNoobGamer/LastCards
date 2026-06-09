@@ -145,6 +145,8 @@ class _DiscardPileWidgetState extends State<DiscardPileWidget> {
                         card: displayCard!,
                         width: widget.cardWidth,
                         faceUp: true,
+                        // Active special card on the table gets the gold shimmer.
+                        shimmer: displayCard.isSpecial,
                       ),
                     ),
                   ),

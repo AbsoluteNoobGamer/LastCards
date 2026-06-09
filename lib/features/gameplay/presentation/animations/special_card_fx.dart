@@ -1,5 +1,9 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart' show Ticker;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_shaders/flutter_shaders.dart';
 
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/theme/app_theme_data.dart';
@@ -7,6 +11,100 @@ import '../../../../core/theme/app_theme_data.dart';
 /// Special card visual effects — each one is a composable AnimatedWidget
 /// that wraps whatever content is passed and applies its effect.
 /// Effects here animate scale/opacity/gradients, not [BoxShadow] blur radii.
+
+// ── Gold shimmer (selected / active special cards) ────────────────────────────
+
+/// Sweeps an animated gold band across [child] using `shaders/card_shimmer.frag`.
+///
+/// Wrap only emphasized cards — the selected card in hand and the active special
+/// card on the table — never the whole hand. When [enabled] is false or
+/// reduce-motion is on, the [child] is returned untouched (no [Ticker], no
+/// shader) so it costs nothing. By default reduce-motion follows the app-wide
+/// setting ([MediaQuery.disableAnimationsOf]); pass [reduceMotion] to override.
+class GoldShimmer extends StatefulWidget {
+  const GoldShimmer({
+    super.key,
+    required this.child,
+    this.enabled = true,
+    this.reduceMotion,
+    this.intensity = 0.6,
+  });
+
+  final Widget child;
+
+  /// When false, renders [child] untouched with no shader/ticker cost.
+  final bool enabled;
+
+  /// Forces the no-cost passthrough. When null, the app-wide reduce-motion
+  /// setting ([MediaQuery.disableAnimationsOf]) is used.
+  final bool? reduceMotion;
+
+  /// Strength of the gold band (`uIntensity`), clamped to 0..1.
+  final double intensity;
+
+  @override
+  State<GoldShimmer> createState() => _GoldShimmerState();
+}
+
+class _GoldShimmerState extends State<GoldShimmer>
+    with SingleTickerProviderStateMixin {
+  Ticker? _ticker;
+  double _timeSeconds = 0.0;
+
+  void _ensureTickerRunning() {
+    _ticker ??= createTicker((elapsed) {
+      setState(() {
+        _timeSeconds =
+            elapsed.inMicroseconds / Duration.microsecondsPerSecond;
+      });
+    });
+    if (!_ticker!.isActive) _ticker!.start();
+  }
+
+  void _stopTicker() {
+    if (_ticker?.isActive ?? false) _ticker!.stop();
+  }
+
+  @override
+  void dispose() {
+    _ticker?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion =
+        widget.reduceMotion ?? MediaQuery.disableAnimationsOf(context);
+
+    // No-cost passthrough when disabled or reduce-motion is active.
+    if (!widget.enabled || reduceMotion) {
+      _stopTicker();
+      return widget.child;
+    }
+
+    _ensureTickerRunning();
+    final intensity = widget.intensity.clamp(0.0, 1.0);
+
+    return ShaderBuilder(
+      (context, shader, child) {
+        return AnimatedSampler(
+          (ui.Image image, Size size, Canvas canvas) {
+            shader
+              ..setFloat(0, size.width)
+              ..setFloat(1, size.height)
+              ..setFloat(2, _timeSeconds)
+              ..setFloat(3, intensity)
+              ..setImageSampler(0, image);
+            canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
+          },
+          child: child!,
+        );
+      },
+      assetKey: 'shaders/card_shimmer.frag',
+      child: widget.child,
+    );
+  }
+}
 
 // ── Slam effect (2 / Black Jack) ──────────────────────────────────────────────
 

@@ -11,6 +11,9 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/shadow_blur.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/services/card_back_service.dart';
+import '../../../settings/presentation/widgets/settings_modal.dart'
+    show budgetDeviceModeProvider;
+import '../animations/special_card_fx.dart';
 import 'card_back_widget.dart';
 import 'card_flip_widget.dart';
 import 'joker_card_widget.dart';
@@ -19,6 +22,9 @@ import 'joker_card_widget.dart';
 ///
 /// Pass [isSelected] to show the lifted + theme-accent selection state.
 /// Pass [onTap] to make the card interactive.
+/// Pass [shimmer] to force the gold shimmer (e.g. an active special card on the
+/// table); selected cards already shimmer. Both are gated by budget-device mode
+/// and reduce-motion.
 class CardWidget extends ConsumerStatefulWidget {
   const CardWidget({
     super.key,
@@ -28,6 +34,7 @@ class CardWidget extends ConsumerStatefulWidget {
     this.isSelected = false,
     this.onTap,
     this.animateFlip = true,
+    this.shimmer = false,
   });
 
   final CardModel card;
@@ -36,6 +43,7 @@ class CardWidget extends ConsumerStatefulWidget {
   final bool isSelected;
   final VoidCallback? onTap;
   final bool animateFlip;
+  final bool shimmer;
 
   @override
   ConsumerState<CardWidget> createState() => _CardWidgetState();
@@ -79,6 +87,12 @@ class _CardWidgetState extends ConsumerState<CardWidget> {
     final height = AppDimensions.cardHeight(width);
     final suitColor = card.suit.isRed ? AppColors.suitRed : AppColors.suitBlack;
     final theme = ref.watch(themeProvider).theme;
+
+    // Gold shimmer only on emphasized cards (selected, or an active special
+    // card flagged by [shimmer]) and never in budget-device mode. Reduce-motion
+    // is handled inside [GoldShimmer].
+    final budgetMode = ref.watch(budgetDeviceModeProvider);
+    final showShimmer = (widget.isSelected || widget.shimmer) && !budgetMode;
 
     // Use implicit Tweens to drive lift and shimmer over a fast 150ms bounce
     return TweenAnimationBuilder<double>(
@@ -161,42 +175,52 @@ class _CardWidgetState extends ConsumerState<CardWidget> {
           ),
         );
       },
-      child: ValueListenableBuilder<String>(
-        valueListenable: CardBackService.instance.selectedCardFaceSetId,
-        builder: (context, faceSetId, _) {
-          final assetPath = CardBackService.cardFaceAssetPathFor(
-              faceSetId, card.rank, card.suit);
-          if (assetPath != null) {
-            return RepaintBoundary(
-              child: ClipRRect(
-                borderRadius:
-                    BorderRadius.circular(AppDimensions.radiusCard),
-                child: Image.asset(
-                  assetPath,
-                  width: width,
-                  height: height,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => _CardFaceContent(
-                    card: card,
-                    suitColor: suitColor,
+      child: _maybeShimmer(
+        showShimmer,
+        widget.isSelected ? 0.75 : 0.5,
+        ValueListenableBuilder<String>(
+          valueListenable: CardBackService.instance.selectedCardFaceSetId,
+          builder: (context, faceSetId, _) {
+            final assetPath = CardBackService.cardFaceAssetPathFor(
+                faceSetId, card.rank, card.suit);
+            if (assetPath != null) {
+              return RepaintBoundary(
+                child: ClipRRect(
+                  borderRadius:
+                      BorderRadius.circular(AppDimensions.radiusCard),
+                  child: Image.asset(
+                    assetPath,
                     width: width,
                     height: height,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => _CardFaceContent(
+                      card: card,
+                      suitColor: suitColor,
+                      width: width,
+                      height: height,
+                    ),
                   ),
                 ),
+              );
+            }
+            return RepaintBoundary(
+              child: _CardFaceContent(
+                card: card,
+                suitColor: suitColor,
+                width: width,
+                height: height,
               ),
             );
-          }
-          return RepaintBoundary(
-            child: _CardFaceContent(
-              card: card,
-              suitColor: suitColor,
-              width: width,
-              height: height,
-            ),
-          );
-        },
+          },
+        ),
       ),
     );
+  }
+
+  /// Wraps [child] in a [GoldShimmer] when [enabled]; otherwise returns it as-is.
+  Widget _maybeShimmer(bool enabled, double intensity, Widget child) {
+    if (!enabled) return child;
+    return GoldShimmer(intensity: intensity, child: child);
   }
 }
 

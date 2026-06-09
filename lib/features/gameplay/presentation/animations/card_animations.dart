@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 /// Reusable animation controllers and helpers for card interactions.
@@ -36,20 +38,47 @@ abstract final class CardAnimations {
 
 // ── Card flip widget ──────────────────────────────────────────────────────────
 
-/// A 3D Y-axis flip that transitions from [back] to [front].
-/// Trigger the flip by setting [flipped] to true.
+/// A true 3D Y-axis perspective flip from [front] to [back].
+///
+/// The transform is built with a real perspective entry
+/// (`Matrix4..setEntry(3, 2, perspective)`) and rotates the card by an [angle]
+/// that runs from `0` to `pi` across the animation. Once `angle` passes
+/// `pi / 2` the [back] face is shown and counter-rotated by `pi` so its
+/// contents are not mirrored.
+///
+/// Drive the flip with [flipped]. When reduce-motion is active the flip snaps
+/// straight to its final face instead of animating; by default that follows the
+/// app-wide setting (folded into [MediaQuery.disableAnimationsOf]), but a
+/// [reduceMotion] override may be supplied.
+///
+/// This is the single perspective-flip implementation in the app —
+/// `widgets/card_flip_widget.dart` is a thin wrapper over it.
 class CardFlipWidget extends StatefulWidget {
   const CardFlipWidget({
     super.key,
     required this.front,
     required this.back,
     this.flipped = false,
+    this.perspective = 0.0015,
+    this.reduceMotion,
+    this.duration = CardAnimations.flipDuration,
     this.onFlipComplete,
   });
 
   final Widget front;
   final Widget back;
+
+  /// When true the card settles on [back]; when false it settles on [front].
   final bool flipped;
+
+  /// Perspective strength fed to `Matrix4..setEntry(3, 2, perspective)`.
+  final double perspective;
+
+  /// Snaps instantly to the final face instead of animating. When null, the
+  /// app-wide reduce-motion setting ([MediaQuery.disableAnimationsOf]) is used.
+  final bool? reduceMotion;
+
+  final Duration duration;
   final VoidCallback? onFlipComplete;
 
   @override
@@ -64,12 +93,10 @@ class _CardFlipWidgetState extends State<CardFlipWidget>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: CardAnimations.flipDuration,
-    );
-    _animation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: CardAnimations.flipCurve),
+    _controller = AnimationController(vsync: this, duration: widget.duration);
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: CardAnimations.flipCurve,
     );
 
     if (widget.flipped) _controller.value = 1.0;
@@ -78,6 +105,9 @@ class _CardFlipWidgetState extends State<CardFlipWidget>
   @override
   void didUpdateWidget(CardFlipWidget old) {
     super.didUpdateWidget(old);
+    if (old.duration != widget.duration) {
+      _controller.duration = widget.duration;
+    }
     if (widget.flipped && !old.flipped) {
       _controller.forward().whenComplete(() => widget.onFlipComplete?.call());
     } else if (!widget.flipped && old.flipped) {
@@ -91,26 +121,35 @@ class _CardFlipWidgetState extends State<CardFlipWidget>
     super.dispose();
   }
 
+  bool get _reduceMotion =>
+      widget.reduceMotion ?? MediaQuery.disableAnimationsOf(context);
+
   @override
   Widget build(BuildContext context) {
+    // Reduce motion: snap to the resolved face, no perspective animation.
+    if (_reduceMotion) {
+      return widget.flipped ? widget.back : widget.front;
+    }
+
     return AnimatedBuilder(
       animation: _animation,
       builder: (context, _) {
-        final angle = _animation.value * 3.14159;
-        final isShowingFront = _animation.value > 0.5;
+        final angle = _animation.value * math.pi;
+        final showBack = angle > math.pi / 2;
 
         return Transform(
           transform: Matrix4.identity()
-            ..setEntry(3, 2, 0.001) // perspective
+            ..setEntry(3, 2, widget.perspective)
             ..rotateY(angle),
           alignment: Alignment.center,
-          child: isShowingFront
+          child: showBack
               ? Transform(
-                  transform: Matrix4.identity()..rotateY(3.14159),
+                  // Counter-rotate so the back face reads correctly (not mirrored).
+                  transform: Matrix4.identity()..rotateY(math.pi),
                   alignment: Alignment.center,
-                  child: widget.front,
+                  child: widget.back,
                 )
-              : widget.back,
+              : widget.front,
         );
       },
     );
