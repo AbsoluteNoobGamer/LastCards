@@ -160,7 +160,7 @@ class _DrawPileWidgetState extends State<DrawPileWidget>
           onTapCancel: () => setState(() => _isPressed = false),
           splashColor: AppColors.goldPrimary.withValues(alpha: 0.35),
           highlightColor: AppColors.goldLight.withValues(alpha: 0.12),
-          // Reshuffle: scale/offset/glow opacity; [BoxShadow] on badge is static.
+          // Reshuffle: scale/offset/glow opacity.
           // Hover: [AnimatedScale]. Shuffle-only [AnimatedBuilder] — no per-frame
           // second ticker (avoids _debugRelayoutBoundaryAlreadyMarkedNeedsLayout).
           child: AnimatedScale(
@@ -256,39 +256,57 @@ class _DrawPileWidgetState extends State<DrawPileWidget>
 
                         // Card count badge
                         Positioned(
-                          top: 8,
-                          left: 8,
+                          top: 14,
+                          left: 12,
                           child: _CountBadge(count: widget.cardCount),
                         ),
 
-                        // "DRAW" label
+                        // "DRAW" label — engraved into the card back
                         Positioned(
-                          bottom: 12,
-                          left: 0,
-                          right: 0,
+                          bottom: 16,
+                          left: 8,
+                          right: 8,
                           child: Center(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceDark
-                                    .withValues(alpha: 0.8),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: drawable
-                                      ? AppColors.goldLight
-                                      : AppColors.goldDark,
-                                  width: drawable ? 1.5 : 1,
-                                ),
-                              ),
-                              child: Text(
-                                'DRAW',
-                                style: AppTypography.labelSmall.copyWith(
-                                  letterSpacing: 2,
-                                  color: AppColors.goldLight,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w900,
-                                ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: Stack(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black
+                                          .withValues(alpha: 0.55),
+                                      border: drawable
+                                          ? Border.all(
+                                              color: AppColors.goldPrimary
+                                                  .withValues(alpha: 0.4),
+                                              width: 1,
+                                            )
+                                          : null,
+                                    ),
+                                    child: Text(
+                                      'DRAW',
+                                      style:
+                                          AppTypography.labelSmall.copyWith(
+                                        letterSpacing: 2,
+                                        color: AppColors.goldPrimary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    child: Container(
+                                      height: 1,
+                                      color: Colors.white
+                                          .withValues(alpha: 0.08),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -314,33 +332,24 @@ class _CountBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(
-        minWidth: 32,
-        minHeight: 32,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: AppColors.surfacePanel,
-        border: Border.all(color: AppColors.goldPrimary, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 4,
-            offset: const Offset(2, 2),
-          ),
-        ],
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Center(
-        child: Text(
-          '$count',
-          style: AppTypography.labelSmall.copyWith(
-            color: AppColors.goldLight,
-            fontSize: 14,
-            fontWeight: FontWeight.w900,
-          ),
-          textAlign: TextAlign.center,
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: AppColors.goldPrimary.withValues(alpha: 0.45),
+          width: 1,
         ),
+      ),
+      child: Text(
+        '$count',
+        style: AppTypography.labelSmall.copyWith(
+          color: AppColors.goldPrimary.withValues(alpha: 0.85),
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
+        ),
+        textAlign: TextAlign.center,
       ),
     );
   }
