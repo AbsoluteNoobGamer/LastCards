@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,7 +31,6 @@ import '../../../../features/tournament/widgets/tournament_type_sheet.dart';
 import '../../../../core/widgets/player_progress_widgets.dart';
 import '../../../../core/widgets/prestige_avatar_frame.dart';
 import '../../../../app/app_route_observer.dart';
-import '../../../../app/router/app_routes.dart';
 import '../../../../services/start_screen_bgm.dart';
 import '../../../../features/social/widgets/friends_list_sheet.dart';
 import '../../../../features/reactions/reaction_wheel_customize_sheet.dart';
@@ -771,34 +769,6 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
               ),
             ),
           ),
-          if (kDebugMode)
-            Positioned(
-              right: 10,
-              bottom: MediaQuery.viewPaddingOf(context).bottom + 88,
-              child: Material(
-                color: Colors.black.withValues(alpha: 0.65),
-                borderRadius: BorderRadius.circular(10),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(10),
-                  onTap: () =>
-                      Navigator.pushNamed(context, AppRoutes.tableLayoutLab),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    child: Text(
-                      'Table lab',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: accentForVfx.withValues(alpha: 0.95),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
           // 5. Cinematic tap shockwave (tablet / desktop layout)
           if (cinematic && _shockwaveCenter != null)
             Positioned.fill(
