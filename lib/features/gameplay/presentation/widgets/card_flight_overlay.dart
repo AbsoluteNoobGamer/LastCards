@@ -154,6 +154,16 @@ class CardFlightOverlayState extends ConsumerState<CardFlightOverlay>
                 scale *= 1.0 + math.sin(u * math.pi) * 0.065;
               }
 
+              var rotation = 0.0;
+              if (!f.lastCardFromHand) {
+                final peakRotation = f.faceUp ? 0.18 : 0.10;
+                rotation = math.sin(t * math.pi) * peakRotation;
+                if (tRaw >= 0.95) {
+                  final settleU = (tRaw - 0.95) / 0.05;
+                  rotation += -0.03 * (1.0 - settleU);
+                }
+              }
+
               Widget child = f.faceUp
                   ? CardWidget(
                       card: f.card,
@@ -162,6 +172,26 @@ class CardFlightOverlayState extends ConsumerState<CardFlightOverlay>
                       animateFlip: false,
                     )
                   : CardBackWidget(width: w);
+
+              if (!f.lastCardFromHand) {
+                final shadowBlur = 8.0 + 16.0 * math.sin(t * math.pi);
+                final shadowOffset = 2.0 + 6.0 * math.sin(t * math.pi);
+                child = Transform.rotate(
+                  angle: rotation,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          blurRadius: shadowBlur,
+                          offset: Offset(0, shadowOffset),
+                        ),
+                      ],
+                    ),
+                    child: child,
+                  ),
+                );
+              }
 
               if (f.lastCardFromHand) {
                 final pulse = (math.sin(t * math.pi * 2) + 1) / 2;
