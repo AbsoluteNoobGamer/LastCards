@@ -288,7 +288,18 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
     _subs.add(
       _eventHandler.cardPlays.listen((e) {
         if (state.gameState == null) return;
-        final localId = state.gameState!.localPlayer?.id;
+        final gs = state.gameState!;
+        final previousTop = gs.discardTopCard;
+        state = state.copyWith(
+          gameState: gs.copyWith(
+            discardTopCard: e.newDiscardTop,
+            discardPileHistory: [
+              ...gs.discardPileHistory,
+              if (previousTop != null) previousTop,
+            ],
+          ),
+        );
+        final localId = gs.localPlayer?.id;
         if (localId != null && e.playerId != localId) {
           _opponentFlightsInFlight++;
           _armOpponentFlightWatchdog();
