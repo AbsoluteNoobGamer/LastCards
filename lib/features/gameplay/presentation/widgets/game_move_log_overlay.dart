@@ -8,26 +8,29 @@ import 'last_move_panel_widget.dart';
 
 /// Styled panel for recent moves (newest first, capped in [LastMovePanelWidget]).
 class GameMoveLogPanel extends StatelessWidget {
-  const GameMoveLogPanel({super.key, required this.entries});
+  const GameMoveLogPanel({
+    super.key,
+    required this.entries,
+    this.maxHeight = 140,
+  });
 
   final List<MoveLogEntry> entries;
+  final double maxHeight;
 
   @override
   Widget build(BuildContext context) {
-    return FractionalTranslation(
-      translation: const Offset(0, -0.5),
-      child: IgnorePointer(
-        child: Container(
-          width: double.infinity,
-          constraints: const BoxConstraints(maxHeight: 140),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 6,
-          ),
+    return IgnorePointer(
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: TablePortraitGrid.moveLogMaxWidth,
+          maxHeight: maxHeight,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 6,
+        ),
+        child: SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
           child: LastMovePanelWidget(entries: entries),
         ),
       ),
@@ -35,11 +38,7 @@ class GameMoveLogPanel extends StatelessWidget {
   }
 }
 
-/// Floating move log — centred horizontally, anchored from the safe-area top.
-///
-/// Geometry matches offline Bust and [TableScreen] via [TableChromeLayout].
-/// [GameMoveLogPanel] applies the same fractional upward shift as centre piles
-/// (`FractionalTranslation` −0.5 of panel height).
+/// Floating move log — legacy screen-fraction positioning (landscape / Bust).
 class GameMoveLogOverlay extends StatelessWidget {
   const GameMoveLogOverlay({super.key, required this.entries});
 
@@ -51,9 +50,9 @@ class GameMoveLogOverlay extends StatelessWidget {
     final size = media.size;
     return Positioned(
       top: media.padding.top +
-          TableChromeLayout.moveLogTopInsetBelowSafeAreaPx(context),
-      left: size.width * TableChromeLayout.moveLogHorizontalInsetFraction,
-      right: size.width * TableChromeLayout.moveLogHorizontalInsetFraction,
+          (TableChromeLayout.isLandscapeMobile(size) ? 96.0 : 200.0),
+      left: size.width * 0.08,
+      right: size.width * 0.08,
       child: GameMoveLogPanel(entries: entries),
     );
   }

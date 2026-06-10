@@ -85,7 +85,6 @@ class _MoveLabel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(themeProvider).theme;
     final actionText = GameLogFormatter.formatMove(entry);
-    final isSpecial = GameLogFormatter.isSpecialEntry(entry);
     final nameColor = _playerColor(entry.playerId);
 
     return Container(
@@ -99,7 +98,7 @@ class _MoveLabel extends ConsumerWidget {
         ),
       ),
       child: RichText(
-        maxLines: isSpecial ? 2 : 1,
+        maxLines: 1,
         overflow: TextOverflow.ellipsis,
         text: TextSpan(
           children: [

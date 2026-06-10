@@ -4,9 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:last_cards/core/theme/app_dimensions.dart';
 
-/// Shared table chrome geometry for [TableScreen], offline Bust, and any future
-/// full-table layouts — keeps HUD, floating move log, corner stacks, and pile
-/// nudges visually aligned across modes.
+/// Breakpoint helpers shared by all table layouts.
 abstract final class TableChromeLayout {
   static bool isLandscapeMobile(Size size) =>
       math.min(size.width, size.height) < AppDimensions.breakpointMobile &&
@@ -15,43 +13,129 @@ abstract final class TableChromeLayout {
   /// Shortest side below mobile breakpoint (typical phones, any orientation).
   static bool isCompactPhone(Size size) =>
       math.min(size.width, size.height) < AppDimensions.breakpointMobile;
+}
 
-  static const double hudTopFractionOfScreenHeight = 0.63;
-  static const double hudTopPixelAdjust = -1.0;
+/// Fixed portrait grid slot sizes — interactive content lives here; transient
+/// chrome is positioned in the overlay layer relative to these regions.
+abstract final class TablePortraitGrid {
+  /// Opponent row (3-slot layout): avatar + name only; chat is overlay-only.
+  static const double opponentSlotHeight = 108;
+  static const double opponentSlotHeightWithBadge = 124;
 
-  /// Matches main table HUD [Positioned.top] (full-screen height, not layout inset).
-  static double hudOverlayTopPx(BuildContext context) {
-    final h = MediaQuery.sizeOf(context).height;
-    return h * hudTopFractionOfScreenHeight + hudTopPixelAdjust;
+  /// [BustPlayerRail] base height (chat strip is reserved inside the rail).
+  static const double opponentRailBaseHeight = 96;
+  static const double opponentRailBaseHeightWithBadge = 112;
+
+  /// Turn timer + floating action bar band.
+  static const double actionBarHeight = 108;
+
+  /// Local [PlayerZoneWidget] + hand fan.
+  static const double handRegionHeight = 156;
+
+  /// Overlay move log geometry.
+  static const double moveLogHorizontalInset = 20;
+  static const double moveLogMaxWidth = 300;
+  static const double moveLogMaxHeight = 112;
+  static const double moveLogBottomClearance = 5;
+  /// Fixed gap below the opponent row / above the board region.
+  static const double moveLogTopGap = 4;
+  static const double moveLogTopNudge = 0;
+
+  /// Centre-board card width (passed to pile widgets).
+  static const double pileSlotWidth = 100;
+  static const double pileGap = AppDimensions.lg;
+
+  /// Draw pile [SizedBox] — fits max stack depth (5 layers × [pileStackOffset]).
+  static double drawPileFootprintWidth([double cardWidth = pileSlotWidth]) {
+    const maxLayers = 5;
+    return cardWidth + maxLayers * AppDimensions.pileStackOffset * 2;
   }
 
-  static const double cornerActionsBottomPortrait = 210;
-  static const double cornerActionsBottomLandscape = 130;
-
-  static double cornerActionsBottom(Size layoutSize) =>
-      isLandscapeMobile(layoutSize)
-          ? cornerActionsBottomLandscape
-          : cornerActionsBottomPortrait;
-
-  static const double tournamentSkipChipBottomPortrait = 208;
-  static const double tournamentSkipChipBottomLandscape = 128;
-
-  static double tournamentSkipChipBottom(Size layoutSize) =>
-      isLandscapeMobile(layoutSize)
-          ? tournamentSkipChipBottomLandscape
-          : tournamentSkipChipBottomPortrait;
-
-  static const Alignment directionBannerAlignment = Alignment(0, 0.22);
-
-  /// Portrait column layout: slight downward nudge for draw/discard cluster.
-  static const Offset drawDiscardClusterNudgeCompact = Offset(0, 0.5);
-
-  // ── Move log (floating overlay) ─────────────────────────────────────────
-  static const double moveLogHorizontalInsetFraction = 0.08;
-
-  static double moveLogTopInsetBelowSafeAreaPx(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    if (isLandscapeMobile(size)) return 96;
-    return 200;
+  static double drawPileFootprintHeight([double cardWidth = pileSlotWidth]) {
+    const maxLayers = 5;
+    return AppDimensions.cardHeight(cardWidth) +
+        maxLayers * AppDimensions.pileStackOffset * 2;
   }
+
+  /// Discard pile [SizedBox] — matches [DiscardPileWidget] (+16 padding).
+  static double discardPileFootprintWidth([double cardWidth = pileSlotWidth]) =>
+      cardWidth + 16;
+
+  static double discardPileFootprintHeight([double cardWidth = pileSlotWidth]) =>
+      AppDimensions.cardHeight(cardWidth) + 16;
+
+  /// Legacy alias used by overlay geometry (tallest pile footprint).
+  static const double pileSlotHeight = 156;
+
+  /// Overlay: corner settings / reactions — true screen edge via [SafeArea].
+  static const double cornerActionsInset = AppDimensions.sm;
+
+  /// Overlay: tournament skip chip sits above the hand region with clear gap.
+  static const double skipChipGapAboveHand = AppDimensions.md;
+
+  static double opponentRowHeight({required bool useRail, required bool hasBadges}) {
+    if (useRail) {
+      const chatReserve = 96.0;
+      return (hasBadges ? opponentRailBaseHeightWithBadge : opponentRailBaseHeight) +
+          chatReserve;
+    }
+    return hasBadges ? opponentSlotHeightWithBadge : opponentSlotHeight;
+  }
+
+  /// Y offset from safe-area top to the top of the board [Expanded] region.
+  static double boardRegionTopPx({
+    required double safeTop,
+    required bool hasRankedBadge,
+    required double opponentRowHeight,
+  }) {
+    final rankedBand = hasRankedBadge ? 28.0 : 0.0;
+    return safeTop + rankedBand + opponentRowHeight;
+  }
+
+  // ── Landscape mobile grid slots ───────────────────────────────────────────
+
+  static const double landscapeOpponentSlotHeight = 94;
+  static const double landscapeOpponentSlotHeightWithBadge = 106;
+  static const double landscapeOpponentRailBaseHeight = 94;
+  static const double landscapeOpponentRailBaseHeightWithBadge = 106;
+  static const double landscapeRankedBandHeight = 26;
+
+  /// Compact turn timer + [FloatingActionBarWidget] band.
+  static const double landscapeActionBarHeight = 72;
+
+  /// Local hand fan + avatar in landscape.
+  static const double landscapeHandRegionHeight = 106;
+
+  static const double landscapePileSlotWidth = 56;
+  static const double landscapePileGap = AppDimensions.sm;
+
+  static double landscapeOpponentRowHeight({
+    required bool useRail,
+    required bool hasBadges,
+  }) {
+    if (useRail) {
+      return hasBadges
+          ? landscapeOpponentRailBaseHeightWithBadge
+          : landscapeOpponentRailBaseHeight;
+    }
+    return hasBadges
+        ? landscapeOpponentSlotHeightWithBadge
+        : landscapeOpponentSlotHeight;
+  }
+
+  static double landscapeBoardRegionTopPx({
+    required double safeTop,
+    required bool hasRankedBadge,
+    required double opponentRowHeight,
+  }) {
+    final rankedBand = hasRankedBadge ? landscapeRankedBandHeight : 0.0;
+    return safeTop + rankedBand + opponentRowHeight;
+  }
+
+  /// Tournament skip chip — above hand region (landscape branch).
+  static double landscapeSkipChipBottom(double safeBottom) =>
+      safeBottom +
+      landscapeHandRegionHeight +
+      landscapeActionBarHeight +
+      skipChipGapAboveHand;
 }

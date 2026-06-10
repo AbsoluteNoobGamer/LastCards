@@ -13,6 +13,34 @@ String _activePlayerDisplayName(
   return gameState.playerById(id)?.displayName ?? '';
 }
 
+Widget _localHandRegionSlot({
+  required double height,
+  required double contentWidth,
+  required Widget child,
+}) {
+  return SizedBox(
+    height: height,
+    width: double.infinity,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: ClipRect(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: contentWidth,
+                child: child,
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 class _TableLayout extends StatelessWidget {
   const _TableLayout({
     required this.gameState,
@@ -243,11 +271,26 @@ class _TableLayout extends StatelessWidget {
         final effectiveWidth = constraints.maxWidth;
         final handCardWidth = (effectiveWidth * (isMobile ? 0.12 : 0.1))
             .clamp(44.0, 82.0);
+        final hasTournamentBadges = tournamentStatusBadges.isNotEmpty;
+        final opponentRowHeight = TablePortraitGrid.opponentRowHeight(
+          useRail: useRail,
+          hasBadges: hasTournamentBadges,
+        );
+        final rankedBand = isRanked ? 34.0 : 0.0;
+        final bottomPad = isMobile ? 0.0 : AppDimensions.md;
+        final handRegionHeight = math.min(
+          TablePortraitGrid.handRegionHeight,
+          constraints.maxHeight -
+              opponentRowHeight -
+              TablePortraitGrid.actionBarHeight -
+              rankedBand,
+        ).clamp(110.0, TablePortraitGrid.handRegionHeight);
 
-        final body = Padding(
+        return Padding(
           padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
           child: Column(
             children: [
+              // ── Region 1: Opponent seats (fixed height) ───────────────────
               if (isRanked)
                 Padding(
                   padding: EdgeInsets.only(
@@ -256,9 +299,8 @@ class _TableLayout extends StatelessWidget {
                   ),
                   child: Center(child: _RankedBadge(isMobile: isMobile)),
                 ),
-              // ── Top opponents: rail (5+ players) or 3-slot (2–4) ─────────
-              Padding(
-                padding: const EdgeInsets.only(top: 0),
+              SizedBox(
+                height: opponentRowHeight,
                 child: useRail
                     ? BustPlayerRail(
                         players: opponents.asMap().entries.map((e) {
@@ -274,244 +316,192 @@ class _TableLayout extends StatelessWidget {
                         }).toList(),
                         slotKeyBuilder: (player) =>
                             playerZoneKeys[player.id],
-                        height: tournamentStatusBadges.isNotEmpty ? 112 : 96,
+                        height: hasTournamentBadges
+                            ? TablePortraitGrid.opponentRailBaseHeightWithBadge
+                            : TablePortraitGrid.opponentRailBaseHeight,
                         thinkingPlayerId: thinkingOpponentId,
-                        quickChatBubblesByPlayer: quickChatBubblesByPlayer,
-                        onRemoveQuickChatBubble: onRemoveQuickChatBubble,
+                        quickChatBubblesByPlayer: const {},
+                        onRemoveQuickChatBubble: null,
                         skipHighlightPlayerIds: skipHighlightPlayerIds,
                       )
                     : Row(
                         children: [
                           Expanded(
-                              child: Align(
-                            alignment: Alignment.topLeft,
-                            child: leftOpp != null
-                                ? PlayerZoneWidget(
-                                    key: playerZoneKeys[leftOpp.id],
-                                    player: leftOpp,
-                                    isActiveTurn: gameState.currentPlayerId == leftOpp.id,
-                                    isAiThinking: thinkingOpponentId == leftOpp.id,
-                                    isTournamentFinished:
-                                        tournamentStatusBadges[leftOpp.id] !=
-                                            null,
-                                    isTournamentEliminated: _isEliminatedBadge(
-                                      tournamentStatusBadges[leftOpp.id],
-                                    ),
-                                    hasLastCardsDeclared: gameState
-                                        .lastCardsDeclaredBy
-                                        .contains(leftOpp.id),
-                                    aiConfig: aiConfigs[leftOpp.id],
-                                    chatBubble: quickChatBubblesByPlayer[leftOpp.id],
-                                    onRemoveQuickChatBubble: onRemoveQuickChatBubble,
-                                    skipSeatHighlight: skipHighlightPlayerIds.contains(leftOpp.id),
-                                    onOpponentAvatarTap: opponentAvatarTap(leftOpp),
-                                  )
-                                : const SizedBox(height: 96),
-                          )),
-                          Expanded(
-                            child: Align(
-                              alignment: Alignment.topCenter,
-                              child: topOpp != null
-                                  ? PlayerZoneWidget(
-                                      key: playerZoneKeys[topOpp.id],
-                                      player: topOpp,
-                                      isActiveTurn: gameState.currentPlayerId == topOpp.id,
-                                      isAiThinking: thinkingOpponentId == topOpp.id,
-                                      isTournamentFinished:
-                                          tournamentStatusBadges[topOpp.id] !=
-                                              null,
-                                      isTournamentEliminated: _isEliminatedBadge(
-                                        tournamentStatusBadges[topOpp.id],
-                                      ),
-                                      hasLastCardsDeclared: gameState
-                                          .lastCardsDeclaredBy
-                                          .contains(topOpp.id),
-                                      aiConfig: aiConfigs[topOpp.id],
-                                      chatBubble: quickChatBubblesByPlayer[topOpp.id],
-                                      onRemoveQuickChatBubble: onRemoveQuickChatBubble,
-                                      skipSeatHighlight: skipHighlightPlayerIds.contains(topOpp.id),
-                                      onOpponentAvatarTap: opponentAvatarTap(topOpp),
-                                    )
-                                  : const _EmptyOpponentZone(),
+                            child: _PortraitOpponentSlot(
+                              opponent: leftOpp,
+                              alignment: Alignment.topLeft,
+                              slotHeight: hasTournamentBadges
+                                  ? TablePortraitGrid
+                                      .opponentSlotHeightWithBadge
+                                  : TablePortraitGrid.opponentSlotHeight,
+                              playerZoneKey: leftOpp != null
+                                  ? playerZoneKeys[leftOpp.id]
+                                  : null,
+                              gameState: gameState,
+                              thinkingOpponentId: thinkingOpponentId,
+                              tournamentStatusBadges: tournamentStatusBadges,
+                              aiConfigs: aiConfigs,
+                              skipHighlightPlayerIds: skipHighlightPlayerIds,
+                              onOpponentAvatarTap: opponentAvatarTap(leftOpp),
                             ),
                           ),
                           Expanded(
-                            child: Align(
+                            child: _PortraitOpponentSlot(
+                              opponent: topOpp,
+                              alignment: Alignment.topCenter,
+                              slotHeight: hasTournamentBadges
+                                  ? TablePortraitGrid
+                                      .opponentSlotHeightWithBadge
+                                  : TablePortraitGrid.opponentSlotHeight,
+                              playerZoneKey: topOpp != null
+                                  ? playerZoneKeys[topOpp.id]
+                                  : null,
+                              gameState: gameState,
+                              thinkingOpponentId: thinkingOpponentId,
+                              tournamentStatusBadges: tournamentStatusBadges,
+                              aiConfigs: aiConfigs,
+                              skipHighlightPlayerIds: skipHighlightPlayerIds,
+                              onOpponentAvatarTap: opponentAvatarTap(topOpp),
+                              emptyPlaceholder: true,
+                            ),
+                          ),
+                          Expanded(
+                            child: _PortraitOpponentSlot(
+                              opponent: rightOpp,
                               alignment: Alignment.topRight,
-                              child: rightOpp != null
-                                  ? PlayerZoneWidget(
-                                      key: playerZoneKeys[rightOpp.id],
-                                      player: rightOpp,
-                                      isActiveTurn: gameState.currentPlayerId == rightOpp.id,
-                                      isAiThinking: thinkingOpponentId == rightOpp.id,
-                                      isTournamentFinished:
-                                          tournamentStatusBadges[rightOpp.id] !=
-                                              null,
-                                      isTournamentEliminated: _isEliminatedBadge(
-                                        tournamentStatusBadges[rightOpp.id],
-                                      ),
-                                      hasLastCardsDeclared: gameState
-                                          .lastCardsDeclaredBy
-                                          .contains(rightOpp.id),
-                                      aiConfig: aiConfigs[rightOpp.id],
-                                      chatBubble: quickChatBubblesByPlayer[rightOpp.id],
-                                      onRemoveQuickChatBubble: onRemoveQuickChatBubble,
-                                      skipSeatHighlight: skipHighlightPlayerIds.contains(rightOpp.id),
-                                      onOpponentAvatarTap: opponentAvatarTap(rightOpp),
-                                    )
-                                  : const SizedBox(height: 96),
+                              slotHeight: hasTournamentBadges
+                                  ? TablePortraitGrid
+                                      .opponentSlotHeightWithBadge
+                                  : TablePortraitGrid.opponentSlotHeight,
+                              playerZoneKey: rightOpp != null
+                                  ? playerZoneKeys[rightOpp.id]
+                                  : null,
+                              gameState: gameState,
+                              thinkingOpponentId: thinkingOpponentId,
+                              tournamentStatusBadges: tournamentStatusBadges,
+                              aiConfigs: aiConfigs,
+                              skipHighlightPlayerIds: skipHighlightPlayerIds,
+                              onOpponentAvatarTap: opponentAvatarTap(rightOpp),
                             ),
                           ),
                         ],
                       ),
               ),
 
-              // ── Centre board area (draw/discard/dealer) ────────────────────────
+              // ── Region 2: Board — HUD above piles (Expanded) ──────────────
               Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // HudOverlayWidget is rendered as a Positioned overlay
-                      // in the outer Stack. This SizedBox preserves vertical
-                      // spacing for the draw/discard piles.
-                      const SizedBox(height: 72),
-                      SizedBox(
-                          height:
-                              isMobile ? AppDimensions.sm : AppDimensions.md),
-                      Opacity(
-                        opacity: 0.0,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppDimensions.sm + 2,
-                            vertical: 3,
+                child: LayoutBuilder(
+                  builder: (context, boardConstraints) {
+                    return ClipRect(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.center,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: boardConstraints.maxWidth,
                           ),
-                          decoration: BoxDecoration(
-                            color: AppColors.goldDark.withValues(alpha: 0.25),
-                            borderRadius: BorderRadius.circular(
-                              AppDimensions.radiusButton,
-                            ),
-                            border: Border.all(
-                              color: AppColors.goldDark.withValues(alpha: 0.5),
-                            ),
-                          ),
-                          child: isDealing
-                              ? Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const ThemedShimmer(
-                                      width: 36,
-                                      height: 12,
-                                      borderRadius: 4,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'DEALING...',
-                                      key: ValueKey('dealer-status'),
-                                      style: TextStyle(
-                                        color: AppColors.goldPrimary,
-                                        fontSize: isMobile ? 8 : 9,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: 1.5,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : Text(
-                                  'DEALER',
-                                  key: ValueKey('dealer-status'),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Opacity(
+                                opacity: 0,
+                                child: Text(
+                                  isDealing ? 'DEALING...' : 'DEALER',
+                                  key: const ValueKey('dealer-status'),
                                   style: TextStyle(
-                                    color: AppColors.goldPrimary,
                                     fontSize: isMobile ? 8 : 9,
                                     fontWeight: FontWeight.w800,
-                                    letterSpacing: 1.5,
                                   ),
                                 ),
-                        ),
-                      ),
-                      const SizedBox(height: AppDimensions.sm),
-                      Center(
-                        child: Transform.translate(
-                          offset: TableChromeLayout.isCompactPhone(
-                                  Size(constraints.maxWidth,
-                                      constraints.maxHeight))
-                              ? TableChromeLayout.drawDiscardClusterNudgeCompact
-                              : Offset.zero,
-                          child: FractionalTranslation(
-                            translation: const Offset(0, -0.5),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SizedBox(
-                                  width: 100,
-                                  height: 145,
-                                  child: OverflowBox(
-                                    maxWidth: double.infinity,
-                                    maxHeight: double.infinity,
+                              ),
+                              const SizedBox(height: AppDimensions.xs),
+                              SizedBox(
+                                width: boardConstraints.maxWidth,
+                                child: Center(
+                                  child: HudOverlayWidget(
+                                    activeSuit: gameState.suitLock,
+                                    queenSuitLock: gameState.queenSuitLock,
+                                    penaltyCount: penaltyCount,
+                                    penaltyTargetPosition: penaltyCount > 0
+                                        ? gameState.players
+                                            .where((p) =>
+                                                p.id ==
+                                                nextPlayerId(state: gameState))
+                                            .firstOrNull
+                                            ?.tablePosition
+                                        : null,
+                                    compact: isMobile,
+                                    onPenaltyIncreased: onPenaltyIncreased,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: AppDimensions.sm),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width:
+                                        TablePortraitGrid.drawPileFootprintWidth(),
+                                    height: TablePortraitGrid
+                                        .drawPileFootprintHeight(),
                                     child: DrawPileWidget(
                                       key: drawPileKey,
                                       cardCount: gameState.drawPileCount,
                                       onTap: onDrawTap,
-                                      cardWidth: 100,
+                                      cardWidth: TablePortraitGrid.pileSlotWidth,
                                       enabled: isMyTurn &&
                                           (gameState.actionsThisTurn == 0 ||
-                                              gameState.queenSuitLock !=
-                                                  null) &&
+                                              gameState.queenSuitLock != null) &&
                                           selectedCardId == null &&
                                           !isDealing,
                                       reshuffleNotifier: reshuffleNotifier,
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 24),
-                                SizedBox(
-                                  width: 100,
-                                  height: 145,
-                                  child: OverflowBox(
-                                    maxWidth: double.infinity,
-                                    maxHeight: double.infinity,
+                                  const SizedBox(
+                                      width: TablePortraitGrid.pileGap),
+                                  SizedBox(
+                                    width: TablePortraitGrid
+                                        .discardPileFootprintWidth(),
+                                    height: TablePortraitGrid
+                                        .discardPileFootprintHeight(),
                                     child: DiscardPileWidget(
                                       key: discardPileKey,
                                       topCard: gameState.discardTopCard,
                                       secondCard: gameState
-                                                  .discardPileHistory
-                                                  .isNotEmpty
-                                              ? gameState
-                                                  .discardPileHistory.first
-                                              : null,
+                                              .discardPileHistory.isNotEmpty
+                                          ? gameState.discardPileHistory.first
+                                          : null,
                                       discardPileHistory:
                                           gameState.discardPileHistory,
-                                      cardWidth: 100,
+                                      cardWidth: TablePortraitGrid.pileSlotWidth,
                                       discardPileCount: discardPileCount,
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
 
-              // ── Floating Action Bar (Bottom HUD) ─────────────────────────
-              Padding(
-                padding: EdgeInsets.only(
-                  bottom: isMobile ? AppDimensions.sm : AppDimensions.md,
-                ),
+              // ── Region 3: Action bar (fixed height) ───────────────────────
+              SizedBox(
+                height: TablePortraitGrid.actionBarHeight,
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TurnTimerBar(
                       timeRemainingStream: timeRemainingStream,
                       totalDurationSeconds: turnTimerTotalSeconds,
                       isVisible: true,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppDimensions.sm),
                     FloatingActionBarWidget(
                       activePlayerName: activePlayerDisplayName,
                       direction: gameState.direction,
@@ -529,52 +519,49 @@ class _TableLayout extends StatelessWidget {
                 ),
               ),
 
-              // ── Local player hand ───────────────────────────────────────
-              Padding(
-                padding: EdgeInsets.only(
-                  bottom: isMobile ? AppDimensions.sm : AppDimensions.md,
-                ),
-                child: SizedBox(
-                  width: double.infinity,
-              child: PlayerZoneWidget(
-                key: playerZoneKeys[localPlayer.id],
-                player: localPlayer,
-                isLocalPlayer: true,
-                localAvatarFilePath: localAvatarFilePath,
-                isActiveTurn: gameState.currentPlayerId == localPlayer.id,
-                compact: false,
-                hasLastCardsDeclared:
-                    gameState.lastCardsDeclaredBy.contains(localPlayer.id),
-                chatBubble: quickChatBubblesByPlayer[localPlayer.id],
-                onRemoveQuickChatBubble: onRemoveQuickChatBubble,
-                skipSeatHighlight: skipHighlightPlayerIds.contains(localPlayer.id),
-                child: finishedPlayerIds.contains(localPlayer.id)
-                        ? _TournamentLocalStatusBanner(
-                            isEliminated: _isEliminatedBadge(
-                              tournamentStatusBadges[localPlayer.id],
-                            ),
-                          )
-                        : PlayerHandWidget(
-                            cards: isDealing
-                                ? orderedHand
-                                    .take(
-                                        visibleCardCounts[localPlayer.id] ?? 0)
-                                    .toList()
-                                : orderedHand,
-                            selectedCardId: selectedCardId,
-                            onCardTap: onCardTap,
-                            onReorder: onHandReorder,
-                            enabled: isMyTurn && !isDealing,
-                            cardWidth: handCardWidth,
-                            invalidPlayShakeTrigger: handShakeTrigger,
+              // ── Region 4: Local hand (fixed height) ───────────────────────
+              _localHandRegionSlot(
+                height: handRegionHeight,
+                contentWidth: effectiveWidth,
+                child: PlayerZoneWidget(
+                  key: playerZoneKeys[localPlayer.id],
+                  player: localPlayer,
+                  isLocalPlayer: true,
+                  localAvatarFilePath: localAvatarFilePath,
+                  isActiveTurn:
+                      gameState.currentPlayerId == localPlayer.id,
+                  compact: false,
+                  hasLastCardsDeclared: gameState.lastCardsDeclaredBy
+                      .contains(localPlayer.id),
+                  skipSeatHighlight:
+                      skipHighlightPlayerIds.contains(localPlayer.id),
+                  child: finishedPlayerIds.contains(localPlayer.id)
+                      ? _TournamentLocalStatusBanner(
+                          isEliminated: _isEliminatedBadge(
+                            tournamentStatusBadges[localPlayer.id],
                           ),
-                  ),
+                        )
+                      : PlayerHandWidget(
+                          cards: isDealing
+                              ? orderedHand
+                                  .take(visibleCardCounts[
+                                          localPlayer.id] ??
+                                      0)
+                                  .toList()
+                              : orderedHand,
+                          selectedCardId: selectedCardId,
+                          onCardTap: onCardTap,
+                          onReorder: onHandReorder,
+                          enabled: isMyTurn && !isDealing,
+                          cardWidth: handCardWidth,
+                          invalidPlayShakeTrigger: handShakeTrigger,
+                        ),
                 ),
               ),
+              SizedBox(height: bottomPad),
             ],
           ),
         );
-        return body;
       },
     );
   }
@@ -602,10 +589,73 @@ class _TableLayout extends StatelessWidget {
   }
 }
 
+/// Fixed-size opponent seat for portrait 3-slot layout — chat renders in overlay.
+class _PortraitOpponentSlot extends StatelessWidget {
+  const _PortraitOpponentSlot({
+    required this.opponent,
+    required this.alignment,
+    required this.slotHeight,
+    required this.playerZoneKey,
+    required this.gameState,
+    required this.thinkingOpponentId,
+    required this.tournamentStatusBadges,
+    required this.aiConfigs,
+    required this.skipHighlightPlayerIds,
+    this.onOpponentAvatarTap,
+    this.emptyPlaceholder = false,
+  });
+
+  final PlayerModel? opponent;
+  final Alignment alignment;
+  final double slotHeight;
+  final GlobalKey? playerZoneKey;
+  final GameState gameState;
+  final String? thinkingOpponentId;
+  final Map<String, String> tournamentStatusBadges;
+  final Map<String, AiPlayerConfig> aiConfigs;
+  final Set<String> skipHighlightPlayerIds;
+  final VoidCallback? onOpponentAvatarTap;
+  final bool emptyPlaceholder;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: alignment,
+      child: SizedBox(
+        height: slotHeight,
+        width: double.infinity,
+        child: ClipRect(
+          child: opponent != null
+            ? PlayerZoneWidget(
+                key: playerZoneKey,
+                player: opponent!,
+                isActiveTurn: gameState.currentPlayerId == opponent!.id,
+                isAiThinking: thinkingOpponentId == opponent!.id,
+                isTournamentFinished:
+                    tournamentStatusBadges[opponent!.id] != null,
+                isTournamentEliminated: tournamentStatusBadges[opponent!.id]
+                        ?.contains('Eliminated') ==
+                    true,
+                hasLastCardsDeclared:
+                    gameState.lastCardsDeclaredBy.contains(opponent!.id),
+                aiConfig: aiConfigs[opponent!.id],
+                skipSeatHighlight:
+                    skipHighlightPlayerIds.contains(opponent!.id),
+                onOpponentAvatarTap: onOpponentAvatarTap,
+              )
+            : (emptyPlaceholder
+                ? const _EmptyOpponentZone()
+                : SizedBox(height: slotHeight)),
+        ),
+      ),
+    );
+  }
+}
+
 // ── Dedicated landscape layout (mobile) ───────────────────────────────────────
 //
-// Purpose-built for landscape: 3 compact bands, HUD inline, no scrolling.
-// Opponents rail → Centre (draw/discard/HUD) + turn bar → Hand.
+// Fixed grid: opponent row → board (HUD + piles) → action bar → hand.
+// Transient chrome lives in [_LandscapeTransientOverlayLayer].
 
 class _LandscapeTableLayout extends StatelessWidget {
   const _LandscapeTableLayout({
@@ -712,276 +762,311 @@ class _LandscapeTableLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const handCardWidth = 40.0;
-    const pileSize = 56.0;
-    const pileHeight = 78.0;
+    const pileCardWidth = TablePortraitGrid.landscapePileSlotWidth;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppDimensions.xs),
-      child: Column(
-        children: [
-          if (isRanked)
-            Padding(
-              padding: const EdgeInsets.only(top: 2, bottom: 4),
-              child: Center(child: _RankedBadge(isMobile: true)),
-            ),
-          // ── Band 1: Compact opponents rail (taller when tournament badges) ─
-          // When using the rail, let BustPlayerRail control its own height
-          // (it adds extra space when chat bubbles are visible).
-          // The Row branch (≤4 players) keeps a fixed SizedBox.
-          if (useRail)
-            BustPlayerRail(
-              players: opponents.asMap().entries.map((e) {
-                return BustPlayerViewModel.fromPlayerModel(
-                  e.value,
-                  currentPlayerId: gameState.currentPlayerId,
-                  isEliminated: false,
-                  isLocal: false,
-                  colorIndex: e.key,
-                  tournamentStatusBadge:
-                      tournamentStatusBadges[e.value.id],
-                );
-              }).toList(),
-              slotKeyBuilder: (player) => playerZoneKeys[player.id],
-              height: tournamentStatusBadges.isNotEmpty ? 88 : 72,
-              compact: true,
-              thinkingPlayerId: thinkingOpponentId,
-              quickChatBubblesByPlayer: quickChatBubblesByPlayer,
-              onRemoveQuickChatBubble: onRemoveQuickChatBubble,
-              skipHighlightPlayerIds: skipHighlightPlayerIds,
-            )
-          else
-            SizedBox(
-              height: tournamentStatusBadges.isNotEmpty ? 88 : 72,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: leftOpp != null
-                          ? PlayerZoneWidget(
-                              key: playerZoneKeys[leftOpp!.id],
-                              player: leftOpp!,
-                              isActiveTurn: gameState.currentPlayerId == leftOpp!.id,
-                              isAiThinking: thinkingOpponentId == leftOpp!.id,
-                              isTournamentFinished:
-                                  tournamentStatusBadges[leftOpp!.id] !=
-                                      null,
-                              isTournamentEliminated: _isEliminatedBadge(
-                                tournamentStatusBadges[leftOpp!.id],
-                              ),
-                              hasLastCardsDeclared: gameState.lastCardsDeclaredBy
-                                  .contains(leftOpp!.id),
-                              aiConfig: aiConfigs[leftOpp!.id],
-                              chatBubble: quickChatBubblesByPlayer[leftOpp!.id],
-                              onRemoveQuickChatBubble: onRemoveQuickChatBubble,
-                              compact: true,
-                              skipSeatHighlight: skipHighlightPlayerIds.contains(leftOpp!.id),
-                              onOpponentAvatarTap: opponentAvatarTap(leftOpp),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                  ),
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: topOpp != null
-                          ? PlayerZoneWidget(
-                              key: playerZoneKeys[topOpp!.id],
-                              player: topOpp!,
-                              isActiveTurn: gameState.currentPlayerId == topOpp!.id,
-                              isAiThinking: thinkingOpponentId == topOpp!.id,
-                              isTournamentFinished:
-                                  tournamentStatusBadges[topOpp!.id] !=
-                                      null,
-                              isTournamentEliminated: _isEliminatedBadge(
-                                tournamentStatusBadges[topOpp!.id],
-                              ),
-                              hasLastCardsDeclared: gameState.lastCardsDeclaredBy
-                                  .contains(topOpp!.id),
-                              aiConfig: aiConfigs[topOpp!.id],
-                              chatBubble: quickChatBubblesByPlayer[topOpp!.id],
-                              onRemoveQuickChatBubble: onRemoveQuickChatBubble,
-                              compact: true,
-                              skipSeatHighlight: skipHighlightPlayerIds.contains(topOpp!.id),
-                              onOpponentAvatarTap: opponentAvatarTap(topOpp),
-                            )
-                          : const _EmptyOpponentZone(),
-                    ),
-                  ),
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: rightOpp != null
-                          ? PlayerZoneWidget(
-                              key: playerZoneKeys[rightOpp!.id],
-                              player: rightOpp!,
-                              isActiveTurn: gameState.currentPlayerId == rightOpp!.id,
-                              isAiThinking: thinkingOpponentId == rightOpp!.id,
-                              isTournamentFinished:
-                                  tournamentStatusBadges[rightOpp!.id] !=
-                                      null,
-                              isTournamentEliminated: _isEliminatedBadge(
-                                tournamentStatusBadges[rightOpp!.id],
-                              ),
-                              hasLastCardsDeclared: gameState.lastCardsDeclaredBy
-                                  .contains(rightOpp!.id),
-                              aiConfig: aiConfigs[rightOpp!.id],
-                              chatBubble: quickChatBubblesByPlayer[rightOpp!.id],
-                              onRemoveQuickChatBubble: onRemoveQuickChatBubble,
-                              compact: true,
-                              skipSeatHighlight: skipHighlightPlayerIds.contains(rightOpp!.id),
-                              onOpponentAvatarTap: opponentAvatarTap(rightOpp),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final hasTournamentBadges = tournamentStatusBadges.isNotEmpty;
+        final opponentRowHeight = TablePortraitGrid.landscapeOpponentRowHeight(
+          useRail: useRail,
+          hasBadges: hasTournamentBadges,
+        );
+        final rankedBand =
+            isRanked ? TablePortraitGrid.landscapeRankedBandHeight : 0.0;
+        final handRegionHeight = math.min(
+          TablePortraitGrid.landscapeHandRegionHeight,
+          constraints.maxHeight -
+              opponentRowHeight -
+              TablePortraitGrid.landscapeActionBarHeight -
+              rankedBand,
+        ).clamp(80.0, TablePortraitGrid.landscapeHandRegionHeight);
 
-          // ── Band 2: Centre strip — draw, discard, HUD inline, turn bar ───
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                FractionalTranslation(
-                  translation: const Offset(0, -0.5),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // Draw pile
-                      SizedBox(
-                        width: pileSize,
-                        height: pileHeight,
-                        child: OverflowBox(
-                          maxWidth: double.infinity,
-                          maxHeight: double.infinity,
-                          child: DrawPileWidget(
-                            key: drawPileKey,
-                            cardCount: gameState.drawPileCount,
-                            onTap: onDrawTap,
-                            cardWidth: pileSize,
-                            enabled: isMyTurn &&
-                                (gameState.actionsThisTurn == 0 ||
-                                    gameState.queenSuitLock != null) &&
-                                selectedCardId == null &&
-                                !isDealing,
-                            reshuffleNotifier: reshuffleNotifier,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Discard pile
-                      SizedBox(
-                        width: pileSize,
-                        height: pileHeight,
-                        child: OverflowBox(
-                          maxWidth: double.infinity,
-                          maxHeight: double.infinity,
-                          child: DiscardPileWidget(
-                            key: discardPileKey,
-                            topCard: gameState.discardTopCard,
-                            secondCard: gameState.discardPileHistory.isNotEmpty ? gameState.discardPileHistory.first : null,
-                            discardPileHistory: gameState.discardPileHistory,
-                            cardWidth: pileSize,
-                            discardPileCount: discardPileCount,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppDimensions.xs),
+          child: Column(
+            children: [
+              // ── Region 1: Opponent seats (fixed height) ───────────────────
+              if (isRanked)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2, bottom: 4),
+                  child: Center(child: _RankedBadge(isMobile: true)),
                 ),
-                const SizedBox(width: 12),
-                // HUD inline (suit badge, penalty, queen lock)
-                Transform.translate(
-                  offset: const Offset(0, -1),
-                  child: HudOverlayWidget(
-                    activeSuit: gameState.suitLock,
-                    queenSuitLock: gameState.queenSuitLock,
-                    penaltyCount: penaltyCount,
-                    penaltyTargetPosition: penaltyCount > 0
-                        ? gameState.players
-                            .where((p) =>
-                                p.id == nextPlayerId(state: gameState))
-                            .firstOrNull
-                            ?.tablePosition
-                        : null,
-                    compact: true,
-                    onPenaltyIncreased: onPenaltyIncreased,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Turn timer + action bar (compact for landscape)
-          TurnTimerBar(
-            timeRemainingStream: timeRemainingStream,
-            totalDurationSeconds: turnTimerTotalSeconds,
-            isVisible: true,
-            compact: true,
-          ),
-          const SizedBox(height: 2),
-          FloatingActionBarWidget(
-            activePlayerName: activePlayerDisplayName,
-            direction: gameState.direction,
-            canEndTurn: canEndTurn,
-            onEndTurn: onEndTurnTap,
-            compact: true,
-            pulseLocalTurn: isMyTurn,
-            nextTurnLabel: nextTurnLabel,
-            isLocalTurn: isLocalTurn,
-            hasAlreadyDeclared: hasAlreadyDeclaredLastCards,
-            lastCardsEnabled: true,
-            localHandSize: localHandSize,
-            onLastCards: onLastCardsTap,
-          ),
-          const SizedBox(height: 2),
-
-          // ── Band 3: Local player hand ────────────────────────────────────
-          Expanded(
-            child: SizedBox(
-              width: double.infinity,
-              child: PlayerZoneWidget(
-                key: playerZoneKeys[localPlayer.id],
-                player: localPlayer,
-                isLocalPlayer: true,
-                localAvatarFilePath: localAvatarFilePath,
-                isActiveTurn: gameState.currentPlayerId == localPlayer.id,
-                hasLastCardsDeclared:
-                    gameState.lastCardsDeclaredBy.contains(localPlayer.id),
-                chatBubble: quickChatBubblesByPlayer[localPlayer.id],
-                onRemoveQuickChatBubble: onRemoveQuickChatBubble,
-                compact: true,
-                skipSeatHighlight: skipHighlightPlayerIds.contains(localPlayer.id),
-                child: finishedPlayerIds.contains(localPlayer.id)
-                    ? _TournamentLocalStatusBanner(
-                        isEliminated: _isEliminatedBadge(
-                          tournamentStatusBadges[localPlayer.id],
-                        ),
+              SizedBox(
+                height: opponentRowHeight,
+                child: useRail
+                    ? BustPlayerRail(
+                        players: opponents.asMap().entries.map((e) {
+                          return BustPlayerViewModel.fromPlayerModel(
+                            e.value,
+                            currentPlayerId: gameState.currentPlayerId,
+                            isEliminated: false,
+                            isLocal: false,
+                            colorIndex: e.key,
+                            tournamentStatusBadge:
+                                tournamentStatusBadges[e.value.id],
+                          );
+                        }).toList(),
+                        slotKeyBuilder: (player) => playerZoneKeys[player.id],
+                        height: hasTournamentBadges
+                            ? TablePortraitGrid
+                                .landscapeOpponentRailBaseHeightWithBadge
+                            : TablePortraitGrid.landscapeOpponentRailBaseHeight,
+                        compact: true,
+                        thinkingPlayerId: thinkingOpponentId,
+                        quickChatBubblesByPlayer: const {},
+                        onRemoveQuickChatBubble: null,
+                        skipHighlightPlayerIds: skipHighlightPlayerIds,
                       )
-                    : PlayerHandWidget(
-                        cards: isDealing
-                            ? orderedHand
-                                .take(
-                                    visibleCardCounts[localPlayer.id] ?? 0)
-                                .toList()
-                            : orderedHand,
-                        selectedCardId: selectedCardId,
-                        onCardTap: onCardTap,
-                        onReorder: onHandReorder,
-                        enabled: isMyTurn && !isDealing,
-                        cardWidth: handCardWidth,
-                        invalidPlayShakeTrigger: handShakeTrigger,
+                    : Row(
+                        children: [
+                          Expanded(
+                            child: _PortraitOpponentSlot(
+                              opponent: leftOpp,
+                              alignment: Alignment.centerLeft,
+                              slotHeight: hasTournamentBadges
+                                  ? TablePortraitGrid
+                                      .landscapeOpponentSlotHeightWithBadge
+                                  : TablePortraitGrid.landscapeOpponentSlotHeight,
+                              playerZoneKey: leftOpp != null
+                                  ? playerZoneKeys[leftOpp!.id]
+                                  : null,
+                              gameState: gameState,
+                              thinkingOpponentId: thinkingOpponentId,
+                              tournamentStatusBadges: tournamentStatusBadges,
+                              aiConfigs: aiConfigs,
+                              skipHighlightPlayerIds: skipHighlightPlayerIds,
+                              onOpponentAvatarTap: opponentAvatarTap(leftOpp),
+                            ),
+                          ),
+                          Expanded(
+                            child: _PortraitOpponentSlot(
+                              opponent: topOpp,
+                              alignment: Alignment.topCenter,
+                              slotHeight: hasTournamentBadges
+                                  ? TablePortraitGrid
+                                      .landscapeOpponentSlotHeightWithBadge
+                                  : TablePortraitGrid.landscapeOpponentSlotHeight,
+                              playerZoneKey: topOpp != null
+                                  ? playerZoneKeys[topOpp!.id]
+                                  : null,
+                              gameState: gameState,
+                              thinkingOpponentId: thinkingOpponentId,
+                              tournamentStatusBadges: tournamentStatusBadges,
+                              aiConfigs: aiConfigs,
+                              skipHighlightPlayerIds: skipHighlightPlayerIds,
+                              onOpponentAvatarTap: opponentAvatarTap(topOpp),
+                              emptyPlaceholder: true,
+                            ),
+                          ),
+                          Expanded(
+                            child: _PortraitOpponentSlot(
+                              opponent: rightOpp,
+                              alignment: Alignment.centerRight,
+                              slotHeight: hasTournamentBadges
+                                  ? TablePortraitGrid
+                                      .landscapeOpponentSlotHeightWithBadge
+                                  : TablePortraitGrid.landscapeOpponentSlotHeight,
+                              playerZoneKey: rightOpp != null
+                                  ? playerZoneKeys[rightOpp!.id]
+                                  : null,
+                              gameState: gameState,
+                              thinkingOpponentId: thinkingOpponentId,
+                              tournamentStatusBadges: tournamentStatusBadges,
+                              aiConfigs: aiConfigs,
+                              skipHighlightPlayerIds: skipHighlightPlayerIds,
+                              onOpponentAvatarTap: opponentAvatarTap(rightOpp),
+                            ),
+                          ),
+                        ],
                       ),
               ),
-            ),
+
+              // ── Region 2: Board — HUD above piles (Expanded) ──────────────
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, boardConstraints) {
+                    return ClipRect(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.center,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: boardConstraints.maxWidth,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Opacity(
+                                opacity: 0,
+                                child: Text(
+                                  isDealing ? 'DEALING...' : 'DEALER',
+                                  key: const ValueKey('dealer-status'),
+                                  style: const TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: AppDimensions.xs),
+                              SizedBox(
+                                width: boardConstraints.maxWidth,
+                                child: Center(
+                                  child: HudOverlayWidget(
+                                    activeSuit: gameState.suitLock,
+                                    queenSuitLock: gameState.queenSuitLock,
+                                    penaltyCount: penaltyCount,
+                                    penaltyTargetPosition: penaltyCount > 0
+                                        ? gameState.players
+                                            .where((p) =>
+                                                p.id ==
+                                                nextPlayerId(state: gameState))
+                                            .firstOrNull
+                                            ?.tablePosition
+                                        : null,
+                                    compact: true,
+                                    onPenaltyIncreased: onPenaltyIncreased,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: AppDimensions.sm),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: TablePortraitGrid
+                                        .drawPileFootprintWidth(pileCardWidth),
+                                    height: TablePortraitGrid
+                                        .drawPileFootprintHeight(pileCardWidth),
+                                    child: DrawPileWidget(
+                                      key: drawPileKey,
+                                      cardCount: gameState.drawPileCount,
+                                      onTap: onDrawTap,
+                                      cardWidth: pileCardWidth,
+                                      enabled: isMyTurn &&
+                                          (gameState.actionsThisTurn == 0 ||
+                                              gameState.queenSuitLock != null) &&
+                                          selectedCardId == null &&
+                                          !isDealing,
+                                      reshuffleNotifier: reshuffleNotifier,
+                                    ),
+                                  ),
+                                  const SizedBox(
+                                      width: TablePortraitGrid.landscapePileGap),
+                                  SizedBox(
+                                    width: TablePortraitGrid
+                                        .discardPileFootprintWidth(pileCardWidth),
+                                    height: TablePortraitGrid
+                                        .discardPileFootprintHeight(
+                                            pileCardWidth),
+                                    child: DiscardPileWidget(
+                                      key: discardPileKey,
+                                      topCard: gameState.discardTopCard,
+                                      secondCard: gameState
+                                              .discardPileHistory.isNotEmpty
+                                          ? gameState.discardPileHistory.first
+                                          : null,
+                                      discardPileHistory:
+                                          gameState.discardPileHistory,
+                                      cardWidth: pileCardWidth,
+                                      discardPileCount: discardPileCount,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              // ── Region 3: Action bar (fixed height) ───────────────────────
+              SizedBox(
+                height: TablePortraitGrid.landscapeActionBarHeight,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TurnTimerBar(
+                      timeRemainingStream: timeRemainingStream,
+                      totalDurationSeconds: turnTimerTotalSeconds,
+                      isVisible: true,
+                      compact: true,
+                    ),
+                    const SizedBox(height: AppDimensions.xs),
+                    FloatingActionBarWidget(
+                      activePlayerName: activePlayerDisplayName,
+                      direction: gameState.direction,
+                      canEndTurn: canEndTurn,
+                      onEndTurn: onEndTurnTap,
+                      compact: true,
+                      pulseLocalTurn: isMyTurn,
+                      nextTurnLabel: nextTurnLabel,
+                      isLocalTurn: isLocalTurn,
+                      hasAlreadyDeclared: hasAlreadyDeclaredLastCards,
+                      lastCardsEnabled: true,
+                      localHandSize: localHandSize,
+                      onLastCards: onLastCardsTap,
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── Region 4: Local hand (fixed height) ───────────────────────
+              SizedBox(
+                height: handRegionHeight,
+                width: double.infinity,
+                child: ClipRect(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.bottomCenter,
+                    child: SizedBox(
+                      width: constraints.maxWidth,
+                      child: PlayerZoneWidget(
+                        key: playerZoneKeys[localPlayer.id],
+                        player: localPlayer,
+                        isLocalPlayer: true,
+                        localAvatarFilePath: localAvatarFilePath,
+                        isActiveTurn:
+                            gameState.currentPlayerId == localPlayer.id,
+                        hasLastCardsDeclared: gameState.lastCardsDeclaredBy
+                            .contains(localPlayer.id),
+                        compact: true,
+                        skipSeatHighlight:
+                            skipHighlightPlayerIds.contains(localPlayer.id),
+                        child: finishedPlayerIds.contains(localPlayer.id)
+                            ? _TournamentLocalStatusBanner(
+                                isEliminated: _isEliminatedBadge(
+                                  tournamentStatusBadges[localPlayer.id],
+                                ),
+                              )
+                            : PlayerHandWidget(
+                                cards: isDealing
+                                    ? orderedHand
+                                        .take(visibleCardCounts[
+                                                localPlayer.id] ??
+                                            0)
+                                        .toList()
+                                    : orderedHand,
+                                selectedCardId: selectedCardId,
+                                onCardTap: onCardTap,
+                                onReorder: onHandReorder,
+                                enabled: isMyTurn && !isDealing,
+                                cardWidth: handCardWidth,
+                                invalidPlayShakeTrigger: handShakeTrigger,
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

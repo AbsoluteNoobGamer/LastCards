@@ -1247,7 +1247,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
 
     return Transform.translate(
       offset: !isLandscape && TableChromeLayout.isCompactPhone(layoutSize)
-          ? TableChromeLayout.drawDiscardClusterNudgeCompact
+          ? const Offset(0, 0.5)
           : Offset.zero,
       child: FractionalTranslation(
         translation: const Offset(0, -0.5),
@@ -1571,7 +1571,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
 
               if (!isLandscapeMobile)
                 Positioned(
-                  top: TableChromeLayout.hudOverlayTopPx(context),
+                  top: MediaQuery.sizeOf(context).height * 0.63 - 1.0,
                   left: 0,
                   right: 0,
                   child: IgnorePointer(
@@ -1590,8 +1590,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                 child: IgnorePointer(
                   child: TurnIndicatorOverlay(
                     direction: _gameState.direction,
-                    bannerAlignment:
-                        TableChromeLayout.directionBannerAlignment,
+                    bannerAlignment: const Alignment(0, 0.22),
                   ),
                 ),
               ),
@@ -1614,7 +1613,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
 
               // Settings + back
               Positioned(
-                bottom: TableChromeLayout.cornerActionsBottom(layoutSize),
+                bottom: 0,
                 left: 0,
                 child: SafeArea(
                   top: false,
@@ -1666,7 +1665,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
               // Emoji reactions toggle and panel (bottom right, opposite back)
               if (!_isDealing && _gameState.phase != GamePhase.ended)
                 Positioned(
-                  bottom: TableChromeLayout.cornerActionsBottom(layoutSize),
+                  bottom: 0,
                   right: 0,
                   child: SafeArea(
                     top: false,

@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -48,8 +49,10 @@ import '../widgets/floating_action_bar_widget.dart';
 import '../widgets/last_cards_table_strip.dart';
 import '../widgets/turn_indicator_overlay.dart';
 import 'package:last_cards/features/gameplay/presentation/layout/table_chrome_layout.dart';
-import '../widgets/game_move_log_overlay.dart' show GameMoveLogOverlay;
+import '../widgets/game_move_log_overlay.dart'
+    show GameMoveLogPanel;
 import '../widgets/quick_chat_panel.dart';
+import '../widgets/quick_chat_bubble.dart';
 import '../widgets/felt_table_background.dart';
 
 import '../../../../shared/reactions/reaction_catalog.dart';
@@ -64,7 +67,6 @@ import '../../../../features/tournament/providers/tournament_session_provider.da
 import '../../../../features/social/widgets/other_player_profile_sheet.dart';
 import '../../../../features/social/widgets/pending_friend_requests_banner.dart';
 import '../../../../features/settings/presentation/widgets/settings_modal.dart';
-import '../../../../core/widgets/themed_shimmer.dart';
 import '../../../../core/monetization/post_game_interstitial.dart';
 import '../../../../core/monetization/tournament_skip_rewarded_ad.dart';
 
@@ -72,6 +74,7 @@ part 'table_screen_background.dart';
 part 'table_screen_layout.dart';
 part 'table_screen_overlays.dart';
 part 'table_screen_sheets.dart';
+part 'table_transient_overlays.dart';
 
 /// The main game table screen.
 ///
@@ -1681,6 +1684,36 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               Size(constraints.maxWidth, constraints.maxHeight);
           final isLandscapeMobile =
               TableChromeLayout.isLandscapeMobile(layoutSize);
+          final isPortraitGrid = !isLandscapeMobile;
+          final mediaPadding = MediaQuery.paddingOf(context);
+          final portraitSkipChipBottom = mediaPadding.bottom +
+              TablePortraitGrid.handRegionHeight +
+              TablePortraitGrid.actionBarHeight +
+              TablePortraitGrid.skipChipGapAboveHand;
+          final landscapeSkipChipBottom =
+              TablePortraitGrid.landscapeSkipChipBottom(mediaPadding.bottom);
+          final overlayQuickChatBubbles = {
+            for (final b in _quickChatBubbles)
+              b.playerId: (
+                id: b.id,
+                playerName: b.playerName,
+                reactionWireIndex: b.reactionWireIndex,
+                isLocal: b.isLocal
+              ),
+          };
+          final overlayUseRail = gameState.players.length > 4;
+          final overlayHasTournamentBadges =
+              _buildTournamentStatusBadges().isNotEmpty;
+          final overlayIsRanked = ref.watch(isRankedGameProvider);
+          final overlayOpponentRowHeight = isLandscapeMobile
+              ? TablePortraitGrid.landscapeOpponentRowHeight(
+                  useRail: overlayUseRail,
+                  hasBadges: overlayHasTournamentBadges,
+                )
+              : TablePortraitGrid.opponentRowHeight(
+                  useRail: overlayUseRail,
+                  hasBadges: overlayHasTournamentBadges,
+                );
 
           final stack = Stack(
             children: [
@@ -1813,9 +1846,35 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 ),
               ),
 
-              // ── Move log (floating — same as pre-column layout, slightly lower)
-              if (_moveLogEntries.isNotEmpty)
-                GameMoveLogOverlay(entries: _moveLogEntries),
+              // ── Portrait transient overlay (chat, direction) ─────────────
+              if (isPortraitGrid)
+                Positioned.fill(
+                  child: _PortraitTransientOverlayLayer(
+                    gameState: gameState,
+                    playerZoneKeys: _playerZoneKeys,
+                    discardPileKey: _discardPileKey,
+                    opponentRowHeight: overlayOpponentRowHeight,
+                    hasRankedBadge: overlayIsRanked,
+                    moveLogEntries: _moveLogEntries,
+                    quickChatBubblesByPlayer: overlayQuickChatBubbles,
+                    onRemoveQuickChatBubble: _removeQuickChatBubble,
+                  ),
+                ),
+
+              // ── Landscape transient overlay (chat, direction) ─────────────
+              if (isLandscapeMobile)
+                Positioned.fill(
+                  child: _LandscapeTransientOverlayLayer(
+                    gameState: gameState,
+                    playerZoneKeys: _playerZoneKeys,
+                    discardPileKey: _discardPileKey,
+                    opponentRowHeight: overlayOpponentRowHeight,
+                    hasRankedBadge: overlayIsRanked,
+                    moveLogEntries: _moveLogEntries,
+                    quickChatBubblesByPlayer: overlayQuickChatBubbles,
+                    onRemoveQuickChatBubble: _removeQuickChatBubble,
+                  ),
+                ),
 
               // ── Tournament Skip (offline, when qualified) ───────────────────
               if (widget.isTournamentMode &&
@@ -1825,7 +1884,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   !_tournamentRoundComplete &&
                   gameState.phase != GamePhase.ended)
                 Positioned(
-                  bottom: TableChromeLayout.tournamentSkipChipBottom(layoutSize),
+                  bottom: isLandscapeMobile
+                      ? landscapeSkipChipBottom
+                      : portraitSkipChipBottom,
                   left: 0,
                   right: 0,
                   child: SafeArea(
@@ -1905,7 +1966,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
               // ── Settings + back (single-player and online) ──────────────────
               Positioned(
-                bottom: TableChromeLayout.cornerActionsBottom(layoutSize),
+                bottom: 0,
                 left: 0,
                 child: SafeArea(
                   top: false,
@@ -1956,7 +2017,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               // ── Emoji reactions toggle and panel (bottom right, opposite back)
               if (!_isDealing && gameState.phase != GamePhase.ended)
                 Positioned(
-                  bottom: TableChromeLayout.cornerActionsBottom(layoutSize),
+                  bottom: 0,
                   right: 0,
                   child: SafeArea(
                     top: false,
@@ -2142,32 +2203,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   ),
                 ),
 
-              // ── HUD overlay (suit badge, penalty, queen lock) ───────────
-              // In landscape mobile, HUD is rendered inline in _LandscapeTableLayout.
-              if (!isLandscapeMobile)
-                Positioned(
-                  top: TableChromeLayout.hudOverlayTopPx(context),
-                  left: 0,
-                  right: 0,
-                  child: IgnorePointer(
-                    child: Center(
-                      child: HudOverlayWidget(
-                        activeSuit: gameState.suitLock,
-                        queenSuitLock: gameState.queenSuitLock,
-                        penaltyCount: penaltyCount,
-                        penaltyTargetPosition: penaltyCount > 0
-                            ? gameState.players
-                                .where((p) =>
-                                    p.id == nextPlayerId(state: gameState))
-                                .firstOrNull
-                                ?.tablePosition
-                            : null,
-                        onPenaltyIncreased: _bumpPenaltyFlashForHud,
-                      ),
-                    ),
-                  ),
-                ),
-
               // ── Card flight (play / draw arcs) ─────────────────────────
               Positioned.fill(
                 child: CardFlightOverlay(key: _playFlightKey),
@@ -2179,24 +2214,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   key: _overlayKey,
                   drawPileKey: _drawPileKey,
                   playerKeys: _playerZoneKeys,
-                ),
-              ),
-
-              // ── King / direction banner (below central piles, above flight reads)
-              Positioned.fill(
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    TurnIndicatorOverlay(
-                      direction: gameState.direction,
-                      bannerAlignment:
-                          TableChromeLayout.directionBannerAlignment,
-                    ),
-                    LastCardsTableStrip(
-                      players: gameState.players,
-                      lastCardsDeclaredBy: gameState.lastCardsDeclaredBy,
-                    ),
-                  ],
                 ),
               ),
 
