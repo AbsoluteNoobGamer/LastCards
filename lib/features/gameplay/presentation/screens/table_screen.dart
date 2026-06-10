@@ -1715,6 +1715,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   useRail: overlayUseRail,
                   hasBadges: overlayHasTournamentBadges,
                 );
+          final kingJustPlayed =
+              gameState.lastPlayedThisTurn?.effectiveRank == Rank.king;
 
           final stack = Stack(
             children: [
@@ -1853,6 +1855,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 Positioned.fill(
                   child: _PortraitTransientOverlayLayer(
                     gameState: gameState,
+                    kingJustPlayed: kingJustPlayed,
                     playerZoneKeys: _playerZoneKeys,
                     hudKey: _hudKey,
                     discardPileKey: _discardPileKey,
@@ -1869,6 +1872,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 Positioned.fill(
                   child: _LandscapeTransientOverlayLayer(
                     gameState: gameState,
+                    kingJustPlayed: kingJustPlayed,
                     playerZoneKeys: _playerZoneKeys,
                     hudKey: _hudKey,
                     discardPileKey: _discardPileKey,

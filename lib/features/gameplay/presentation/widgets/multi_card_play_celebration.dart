@@ -3,15 +3,15 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 
 /// Minimum cards played **this turn** (shared engine counter) to show feedback.
-const int kMultiPlayCelebrationMinCards = 4;
+const int kMultiPlayCelebrationMinCards = 3;
 
 /// Tier by cumulative cards played this turn: mild / medium / epic.
 ///
 /// Requires [cardsPlayedThisTurn] >= [kMultiPlayCelebrationMinCards].
 int multiPlayCelebrationTierIndex(int cardsPlayedThisTurn) {
   assert(cardsPlayedThisTurn >= kMultiPlayCelebrationMinCards);
-  if (cardsPlayedThisTurn <= 5) return 0;
-  if (cardsPlayedThisTurn <= 7) return 1;
+  if (cardsPlayedThisTurn <= 4) return 0;
+  if (cardsPlayedThisTurn <= 6) return 1;
   return 2;
 }
 

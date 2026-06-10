@@ -391,9 +391,6 @@ class _TableLayout extends StatelessWidget {
                       ),
               ),
 
-              // hudKey marker — top of board region, outside FittedBox
-              SizedBox(key: hudKey, height: 0, width: double.infinity),
-
               // ── Region 2: Board — piles above HUD (Expanded) ──────────────
               Expanded(
                 child: LayoutBuilder(
@@ -468,6 +465,7 @@ class _TableLayout extends StatelessWidget {
                               ),
                               const SizedBox(height: AppDimensions.sm),
                               SizedBox(
+                                key: hudKey,
                                 width: boardConstraints.maxWidth,
                                 child: Center(
                                   child: HudOverlayWidget(
@@ -889,9 +887,6 @@ class _LandscapeTableLayout extends StatelessWidget {
                       ),
               ),
 
-              // hudKey marker — top of board region, outside FittedBox
-              SizedBox(key: hudKey, height: 0, width: double.infinity),
-
               // ── Region 2: Board — piles above HUD (Expanded) ──────────────
               Expanded(
                 child: LayoutBuilder(
@@ -967,6 +962,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                               ),
                               const SizedBox(height: AppDimensions.sm),
                               SizedBox(
+                                key: hudKey,
                                 width: boardConstraints.maxWidth,
                                 child: Center(
                                   child: HudOverlayWidget(

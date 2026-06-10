@@ -159,6 +159,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   final Map<String, int> _visibleCardCounts = {};
   final GlobalKey _drawPileKey = GlobalKey();
   final GlobalKey _discardPileKey = GlobalKey();
+  final GlobalKey _hudOverlayKey = GlobalKey();
   final Map<String, GlobalKey> _playerZoneKeys = {};
   final GlobalKey<DealingAnimationOverlayState> _dealingOverlayKey =
       GlobalKey<DealingAnimationOverlayState>();
@@ -1480,6 +1481,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                 ),
                 const SizedBox(width: 12),
                 Transform.translate(
+                  key: _hudOverlayKey,
                   offset: const Offset(0, -1),
                   child: HudOverlayWidget(
                     activeSuit: _gameState.suitLock,
@@ -1577,6 +1579,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                   child: IgnorePointer(
                     child: Center(
                       child: HudOverlayWidget(
+                        key: _hudOverlayKey,
                         activeSuit: _gameState.suitLock,
                         queenSuitLock: _gameState.queenSuitLock,
                         penaltyCount: _gameState.activePenaltyCount,
@@ -1585,12 +1588,14 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                   ),
                 ),
 
-              // Direction indicator
+              // Direction indicator — suit-lock HUD slot, same as table play.
               Positioned.fill(
                 child: IgnorePointer(
-                  child: TurnIndicatorOverlay(
+                  child: DirectionBannerAtHud(
+                    hudKey: _hudOverlayKey,
                     direction: _gameState.direction,
-                    bannerAlignment: const Alignment(0, 0.22),
+                    kingJustPlayed: _gameState.lastPlayedThisTurn?.effectiveRank ==
+                        Rank.king,
                   ),
                 ),
               ),

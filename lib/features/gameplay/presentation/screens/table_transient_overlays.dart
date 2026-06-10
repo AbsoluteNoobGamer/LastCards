@@ -4,6 +4,57 @@ part of 'table_screen.dart';
 //
 // Positioned above the fixed grid; reads slot [GlobalKey]s — never affects layout.
 
+/// Bottom edge of the move-log band in overlay coordinates (null when empty).
+double? _moveLogBottomPx({
+  required BuildContext context,
+  required List<MoveLogEntry> entries,
+  required double opponentRowHeight,
+  required bool hasRankedBadge,
+  required bool useRail,
+  required bool landscape,
+}) {
+  if (entries.isEmpty) return null;
+
+  final safeTop = MediaQuery.paddingOf(context).top;
+  final boardTop = landscape
+      ? TablePortraitGrid.landscapeBoardRegionTopPx(
+          safeTop: safeTop,
+          hasRankedBadge: hasRankedBadge,
+          opponentRowHeight: opponentRowHeight,
+        )
+      : TablePortraitGrid.boardRegionTopPx(
+          safeTop: safeTop,
+          hasRankedBadge: hasRankedBadge,
+          opponentRowHeight: opponentRowHeight,
+        );
+  final railVisualHeight = hasRankedBadge
+      ? (landscape
+          ? TablePortraitGrid.landscapeOpponentRailBaseHeightWithBadge
+          : TablePortraitGrid.opponentRailBaseHeightWithBadge)
+      : (landscape
+          ? TablePortraitGrid.landscapeOpponentRailBaseHeight
+          : TablePortraitGrid.opponentRailBaseHeight);
+  final opponentVisualHeight = useRail ? railVisualHeight : opponentRowHeight;
+  final top = safeTop +
+      (hasRankedBadge ? 28.0 : 0.0) +
+      opponentVisualHeight +
+      TablePortraitGrid.moveLogTopGap +
+      TablePortraitGrid.moveLogTopNudge;
+  final maxHeight = math.min(
+    TablePortraitGrid.moveLogMaxHeight,
+    math.max(
+      0.0,
+      boardTop +
+          TablePortraitGrid.moveLogMaxHeight -
+          top -
+          TablePortraitGrid.moveLogBottomClearance,
+    ),
+  );
+  if (maxHeight <= 0) return null;
+
+  return top + maxHeight + AppDimensions.xs;
+}
+
 /// Positions [child] at [targetKey]'s [targetAnchor], aligned with [childAnchor].
 class _GlobalKeyFollower extends StatefulWidget {
   const _GlobalKeyFollower({
@@ -13,6 +64,7 @@ class _GlobalKeyFollower extends StatefulWidget {
     this.childAnchor = Alignment.center,
     this.offset = Offset.zero,
     this.maxTop,
+    this.minTop,
   });
 
   final GlobalKey targetKey;
@@ -23,6 +75,8 @@ class _GlobalKeyFollower extends StatefulWidget {
   /// When set, caps [Positioned.top] so followers (e.g. chat bubbles) stay above
   /// the move log band.
   final double? maxTop;
+  /// When set, floors [Positioned.top] so followers stay below the move log band.
+  final double? minTop;
 
   @override
   State<_GlobalKeyFollower> createState() => _GlobalKeyFollowerState();
@@ -60,7 +114,8 @@ class _GlobalKeyFollowerState extends State<_GlobalKeyFollower> {
         context.findAncestorRenderObjectOfType<RenderStack>();
     if (overlayBox == null || !overlayBox.hasSize) return;
 
-    final topLeft = targetBox.localToGlobal(Offset.zero, ancestor: overlayBox);
+    final globalTopLeft = targetBox.localToGlobal(Offset.zero);
+    final topLeft = overlayBox.globalToLocal(globalTopLeft);
     final size = targetBox.size;
     final rect = topLeft & size;
     if (_targetRect != rect) {
@@ -82,6 +137,9 @@ class _GlobalKeyFollowerState extends State<_GlobalKeyFollower> {
     var top = targetPoint.dy;
     if (widget.maxTop != null) {
       top = math.min(top, widget.maxTop!);
+    }
+    if (widget.minTop != null) {
+      top = math.max(top, widget.minTop!);
     }
 
     return Positioned(
@@ -226,35 +284,30 @@ class _PortraitMoveLogOverlay extends StatelessWidget {
   }
 }
 
-/// King direction-reversal banner — anchored below the discard pile.
+/// King direction-reversal banner — same slot as the suit-lock HUD row.
 class _PortraitDirectionBannerOverlay extends StatelessWidget {
   const _PortraitDirectionBannerOverlay({
     required this.direction,
-    required this.discardPileKey,
+    required this.kingJustPlayed,
+    required this.hudKey,
   });
 
   final PlayDirection direction;
-  final GlobalKey discardPileKey;
+  final bool kingJustPlayed;
+  final GlobalKey hudKey;
 
   @override
   Widget build(BuildContext context) {
-    final bannerWidth = math.min(
-      320.0,
-      MediaQuery.sizeOf(context).width - 48,
-    );
-
     return _GlobalKeyFollower(
-      targetKey: discardPileKey,
-      targetAnchor: Alignment.bottomCenter,
-      childAnchor: Alignment.topCenter,
-      offset: const Offset(0, AppDimensions.sm),
-      child: SizedBox(
-        width: bannerWidth,
-        height: 52,
-        child: TurnIndicatorOverlay(
-          direction: direction,
-          bannerAlignment: Alignment.center,
-        ),
+      targetKey: hudKey,
+      targetAnchor: Alignment.center,
+      childAnchor: Alignment.center,
+      offset: const Offset(0, kDirectionReversalBannerYOffset),
+      child: TurnIndicatorOverlay(
+        direction: direction,
+        kingJustPlayed: kingJustPlayed,
+        maxWidth: kDirectionReversalBannerMaxWidth,
+        bannerAlignment: Alignment.center,
       ),
     );
   }
@@ -264,6 +317,7 @@ class _PortraitDirectionBannerOverlay extends StatelessWidget {
 class _PortraitTransientOverlayLayer extends StatelessWidget {
   const _PortraitTransientOverlayLayer({
     required this.gameState,
+    required this.kingJustPlayed,
     required this.playerZoneKeys,
     required this.hudKey,
     required this.discardPileKey,
@@ -275,6 +329,7 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
   });
 
   final GameState gameState;
+  final bool kingJustPlayed;
   final Map<String, GlobalKey> playerZoneKeys;
   final GlobalKey hudKey;
   final GlobalKey discardPileKey;
@@ -324,12 +379,21 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
               ),
         _PortraitDirectionBannerOverlay(
           direction: gameState.direction,
-          discardPileKey: discardPileKey,
+          kingJustPlayed: kingJustPlayed,
+          hudKey: hudKey,
         ),
         _PortraitLastCardsStripOverlay(
           players: gameState.players,
           lastCardsDeclaredBy: gameState.lastCardsDeclaredBy,
-          hudKey: hudKey,
+          discardPileKey: discardPileKey,
+          minTop: _moveLogBottomPx(
+            context: context,
+            entries: moveLogEntries,
+            opponentRowHeight: opponentRowHeight,
+            hasRankedBadge: hasRankedBadge,
+            useRail: gameState.players.length > 4,
+            landscape: false,
+          ),
         ),
       ],
     );
@@ -340,6 +404,7 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
 class _LandscapeTransientOverlayLayer extends StatelessWidget {
   const _LandscapeTransientOverlayLayer({
     required this.gameState,
+    required this.kingJustPlayed,
     required this.playerZoneKeys,
     required this.hudKey,
     required this.discardPileKey,
@@ -351,6 +416,7 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
   });
 
   final GameState gameState;
+  final bool kingJustPlayed;
   final Map<String, GlobalKey> playerZoneKeys;
   final GlobalKey hudKey;
   final GlobalKey discardPileKey;
@@ -401,39 +467,51 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
               ),
         _PortraitDirectionBannerOverlay(
           direction: gameState.direction,
-          discardPileKey: discardPileKey,
+          kingJustPlayed: kingJustPlayed,
+          hudKey: hudKey,
         ),
         _PortraitLastCardsStripOverlay(
           players: gameState.players,
           lastCardsDeclaredBy: gameState.lastCardsDeclaredBy,
-          hudKey: hudKey,
+          discardPileKey: discardPileKey,
+          minTop: _moveLogBottomPx(
+            context: context,
+            entries: moveLogEntries,
+            opponentRowHeight: opponentRowHeight,
+            hasRankedBadge: hasRankedBadge,
+            useRail: gameState.players.length > 4,
+            landscape: true,
+          ),
         ),
       ],
     );
   }
 }
 
-/// Last Cards declaration strip — anchored just above the board region top.
+/// Last Cards strip — above centre piles, below the move log when present.
 class _PortraitLastCardsStripOverlay extends StatelessWidget {
   const _PortraitLastCardsStripOverlay({
     required this.players,
     required this.lastCardsDeclaredBy,
-    required this.hudKey,
+    required this.discardPileKey,
+    this.minTop,
   });
 
   final List<PlayerModel> players;
   final Set<String> lastCardsDeclaredBy;
-  final GlobalKey hudKey;
+  final GlobalKey discardPileKey;
+  final double? minTop;
 
   @override
   Widget build(BuildContext context) {
     if (lastCardsDeclaredBy.isEmpty) return const SizedBox.shrink();
 
     return _GlobalKeyFollower(
-      targetKey: hudKey,
+      targetKey: discardPileKey,
       targetAnchor: Alignment.topCenter,
       childAnchor: Alignment.bottomCenter,
       offset: const Offset(0, -AppDimensions.xs),
+      minTop: minTop,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 340),
         child: LastCardsTableStrip(
