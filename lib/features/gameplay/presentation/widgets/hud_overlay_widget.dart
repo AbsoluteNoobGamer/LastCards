@@ -8,14 +8,13 @@ import '../../../../core/models/player_model.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/utils/shadow_blur.dart';
 import '../../../../core/providers/theme_provider.dart';
 
 /// Floating HUD overlay displayed over the table.
 ///
 /// Shows:
 /// - Active suit badge (from Ace/Joker declaration) — premium theme-aware badge
-/// - Queen suit lock indicator
+/// - Queen suit lock — same badge as active suit
 /// - Draw penalty counter badge
 class HudOverlayWidget extends ConsumerWidget {
   const HudOverlayWidget({
@@ -76,9 +75,13 @@ class HudOverlayWidget extends ConsumerWidget {
           SizedBox(width: gap),
         ],
 
-        // Queen suit lock (distinct accent ring indicator)
+        // Queen suit lock — same premium badge as active suit (Ace/Joker)
         if (queenSuitLock != null) ...[
-          _QueenLockIndicator(suit: queenSuitLock!, theme: theme, compact: compact),
+          _AnimatedSuitBadge(
+            suit: queenSuitLock!,
+            theme: theme,
+            compact: compact,
+          ),
           SizedBox(width: gap),
         ],
 
@@ -339,142 +342,6 @@ class _AnimatedSuitBadgeState extends State<_AnimatedSuitBadge> {
           ],
         ),
       ),
-    );
-  }
-}
-
-// ── Queen lock indicator ──────────────────────────────────────────────────────
-
-/// Smaller indicator for Queen suit-lock — distinct from the Ace badge.
-/// Uses [theme.accentPrimary] for border and glow.
-class _QueenLockIndicator extends StatefulWidget {
-  const _QueenLockIndicator(
-      {required this.suit, required this.theme, this.compact = false});
-
-  final Suit suit;
-  final AppThemeData theme;
-  final bool compact;
-
-  @override
-  State<_QueenLockIndicator> createState() => _QueenLockIndicatorState();
-}
-
-class _QueenLockIndicatorState extends State<_QueenLockIndicator>
-    with TickerProviderStateMixin {
-  late final AnimationController _glow;
-  late final AnimationController _rotate;
-
-  @override
-  void initState() {
-    super.initState();
-    _glow = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    );
-    _rotate = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 16),
-    );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (MediaQuery.disableAnimationsOf(context)) return;
-      _glow.repeat(reverse: true);
-      _rotate.repeat();
-    });
-  }
-
-  @override
-  void dispose() {
-    _glow.dispose();
-    _rotate.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final suitColor = _suitSymbolColor(widget.suit);
-    final primaryColor = widget.theme.accentPrimary;
-    final bgColor = widget.theme.surfacePanel;
-    final size = widget.compact ? 32.0 : 40.0;
-    final fontSize = widget.compact ? 16.0 : 20.0;
-    final labelSize = widget.compact ? 7.0 : 8.0;
-    final disable = MediaQuery.disableAnimationsOf(context);
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AnimatedBuilder(
-          animation: Listenable.merge([_glow, _rotate]),
-          builder: (context, _) {
-            final blur = nonNegativeShadowBlur(
-              disable
-                  ? (widget.compact ? 6.0 : 10.0)
-                  : (6.0 + _glow.value.clamp(0.0, 1.0) * 10.0),
-            );
-            final angle = disable ? 0.0 : _rotate.value * 2 * math.pi;
-            return SizedBox(
-              width: size + 8,
-              height: size + 8,
-              child: Stack(
-                alignment: Alignment.center,
-                clipBehavior: Clip.none,
-                children: [
-                  Transform.rotate(
-                    angle: angle,
-                    child: Container(
-                      width: size + 6,
-                      height: size + 6,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: primaryColor.withValues(alpha: 0.2),
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Container(
-                    width: size,
-                    height: size,
-                    decoration: BoxDecoration(
-                      color: bgColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                          color: primaryColor,
-                          width: widget.compact ? 1.5 : 2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: primaryColor.withValues(alpha: 0.4),
-                          blurRadius: blur,
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Text(
-                        widget.suit.symbol,
-                        style: AppTypography.cardRank(
-                          color: suitColor,
-                          fontSize: fontSize,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-        SizedBox(height: widget.compact ? 2 : 4),
-        Text(
-          'QUEEN LOCK',
-          style: TextStyle(
-            fontSize: labelSize,
-            color: primaryColor.withValues(alpha: 0.7),
-            letterSpacing: 1.2,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
     );
   }
 }

@@ -385,7 +385,7 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
         _PortraitLastCardsStripOverlay(
           players: gameState.players,
           lastCardsDeclaredBy: gameState.lastCardsDeclaredBy,
-          discardPileKey: discardPileKey,
+          hudKey: hudKey,
           minTop: _moveLogBottomPx(
             context: context,
             entries: moveLogEntries,
@@ -473,7 +473,7 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
         _PortraitLastCardsStripOverlay(
           players: gameState.players,
           lastCardsDeclaredBy: gameState.lastCardsDeclaredBy,
-          discardPileKey: discardPileKey,
+          hudKey: hudKey,
           minTop: _moveLogBottomPx(
             context: context,
             entries: moveLogEntries,
@@ -488,18 +488,18 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
   }
 }
 
-/// Last Cards strip — above centre piles, below the move log when present.
+/// Last Cards strip — below the suit-lock HUD row.
 class _PortraitLastCardsStripOverlay extends StatelessWidget {
   const _PortraitLastCardsStripOverlay({
     required this.players,
     required this.lastCardsDeclaredBy,
-    required this.discardPileKey,
+    required this.hudKey,
     this.minTop,
   });
 
   final List<PlayerModel> players;
   final Set<String> lastCardsDeclaredBy;
-  final GlobalKey discardPileKey;
+  final GlobalKey hudKey;
   final double? minTop;
 
   @override
@@ -507,10 +507,10 @@ class _PortraitLastCardsStripOverlay extends StatelessWidget {
     if (lastCardsDeclaredBy.isEmpty) return const SizedBox.shrink();
 
     return _GlobalKeyFollower(
-      targetKey: discardPileKey,
-      targetAnchor: Alignment.topCenter,
-      childAnchor: Alignment.bottomCenter,
-      offset: const Offset(0, -AppDimensions.xs),
+      targetKey: hudKey,
+      targetAnchor: Alignment.bottomCenter,
+      childAnchor: Alignment.topCenter,
+      offset: const Offset(0, AppDimensions.xs),
       minTop: minTop,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 340),

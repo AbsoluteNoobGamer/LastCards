@@ -143,7 +143,14 @@ class _CardWidgetState extends ConsumerState<CardWidget> {
                   width: width,
                   height: height,
                   decoration: BoxDecoration(
-                    color: AppColors.cardFace,
+                    gradient: const RadialGradient(
+                      center: Alignment.topLeft,
+                      radius: 1.8,
+                      colors: [
+                        Color(0xFFFFFDF8),
+                        AppColors.cardFace,
+                      ],
+                    ),
                     borderRadius:
                         BorderRadius.circular(AppDimensions.radiusCard),
                     boxShadow: [
@@ -164,11 +171,23 @@ class _CardWidgetState extends ConsumerState<CardWidget> {
                     border: Border.all(
                       color: widget.isSelected
                           ? theme.accentLight.withValues(alpha: v)
-                          : Colors.black.withValues(alpha: 0.08),
-                      width: widget.isSelected ? 2.0 : 0.5,
+                          : Colors.black.withValues(alpha: 0.18),
+                      width: widget.isSelected ? 2.0 : 1.0,
                     ),
                   ),
-                  child: innerChild,
+                  child: Container(
+                    margin: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: suitColor.withValues(alpha: 0.12),
+                        width: 0.5,
+                      ),
+                      borderRadius: BorderRadius.circular(
+                        AppDimensions.radiusCard - 2,
+                      ),
+                    ),
+                    child: innerChild,
+                  ),
                 ),
               ),
             ),
@@ -269,6 +288,14 @@ class _CardFaceContent extends StatelessWidget {
             style: AppTypography.cardRank(
               color: suitColor,
               fontSize: centerFontSize,
+            ).copyWith(
+              shadows: [
+                Shadow(
+                  color: suitColor.withValues(alpha: 0.15),
+                  blurRadius: 4,
+                  offset: const Offset(1, 1),
+                ),
+              ],
             ),
             textAlign: TextAlign.center,
           ),
@@ -318,11 +345,12 @@ class _CornerPip extends StatelessWidget {
           rank,
           style: AppTypography.cardRank(color: color, fontSize: fontSize),
         ),
+        const SizedBox(height: 1),
         Text(
           suit,
           style: AppTypography.cardRank(
             color: color,
-            fontSize: fontSize * 0.75,
+            fontSize: fontSize * 0.80,
           ),
         ),
       ],
