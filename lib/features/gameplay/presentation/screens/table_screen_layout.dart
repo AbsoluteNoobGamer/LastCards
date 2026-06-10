@@ -55,6 +55,7 @@ class _TableLayout extends StatelessWidget {
     required this.visibleCardCounts,
     required this.drawPileKey,
     required this.discardPileKey,
+    required this.hudKey,
     this.thinkingOpponentId,
     required this.playerZoneKeys,
     required this.onCardTap,
@@ -131,6 +132,7 @@ class _TableLayout extends StatelessWidget {
   final Map<String, int> visibleCardCounts;
   final GlobalKey drawPileKey;
   final GlobalKey discardPileKey;
+  final GlobalKey hudKey;
   final String? thinkingOpponentId;
   final Map<String, GlobalKey> playerZoneKeys;
   final ValueChanged<String> onCardTap;
@@ -231,6 +233,7 @@ class _TableLayout extends StatelessWidget {
             visibleCardCounts: visibleCardCounts,
             drawPileKey: drawPileKey,
             discardPileKey: discardPileKey,
+            hudKey: hudKey,
             thinkingOpponentId: thinkingOpponentId,
             nextTurnLabel: nextTurnLabel,
             playerZoneKeys: playerZoneKeys,
@@ -388,7 +391,10 @@ class _TableLayout extends StatelessWidget {
                       ),
               ),
 
-              // ── Region 2: Board — HUD above piles (Expanded) ──────────────
+              // hudKey marker — top of board region, outside FittedBox
+              SizedBox(key: hudKey, height: 0, width: double.infinity),
+
+              // ── Region 2: Board — piles above HUD (Expanded) ──────────────
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, boardConstraints) {
@@ -415,27 +421,6 @@ class _TableLayout extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: AppDimensions.xs),
-                              SizedBox(
-                                width: boardConstraints.maxWidth,
-                                child: Center(
-                                  child: HudOverlayWidget(
-                                    activeSuit: gameState.suitLock,
-                                    queenSuitLock: gameState.queenSuitLock,
-                                    penaltyCount: penaltyCount,
-                                    penaltyTargetPosition: penaltyCount > 0
-                                        ? gameState.players
-                                            .where((p) =>
-                                                p.id ==
-                                                nextPlayerId(state: gameState))
-                                            .firstOrNull
-                                            ?.tablePosition
-                                        : null,
-                                    compact: isMobile,
-                                    onPenaltyIncreased: onPenaltyIncreased,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: AppDimensions.sm),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -480,6 +465,27 @@ class _TableLayout extends StatelessWidget {
                                     ),
                                   ),
                                 ],
+                              ),
+                              const SizedBox(height: AppDimensions.sm),
+                              SizedBox(
+                                width: boardConstraints.maxWidth,
+                                child: Center(
+                                  child: HudOverlayWidget(
+                                    activeSuit: gameState.suitLock,
+                                    queenSuitLock: gameState.queenSuitLock,
+                                    penaltyCount: penaltyCount,
+                                    penaltyTargetPosition: penaltyCount > 0
+                                        ? gameState.players
+                                            .where((p) =>
+                                                p.id ==
+                                                nextPlayerId(state: gameState))
+                                            .firstOrNull
+                                            ?.tablePosition
+                                        : null,
+                                    compact: isMobile,
+                                    onPenaltyIncreased: onPenaltyIncreased,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -670,6 +676,7 @@ class _LandscapeTableLayout extends StatelessWidget {
     required this.visibleCardCounts,
     required this.drawPileKey,
     required this.discardPileKey,
+    required this.hudKey,
     this.thinkingOpponentId,
     required this.playerZoneKeys,
     required this.localPlayer,
@@ -739,6 +746,7 @@ class _LandscapeTableLayout extends StatelessWidget {
   final Map<String, int> visibleCardCounts;
   final GlobalKey drawPileKey;
   final GlobalKey discardPileKey;
+  final GlobalKey hudKey;
   final String? thinkingOpponentId;
   final Map<String, GlobalKey> playerZoneKeys;
   final PlayerModel localPlayer;
@@ -881,7 +889,10 @@ class _LandscapeTableLayout extends StatelessWidget {
                       ),
               ),
 
-              // ── Region 2: Board — HUD above piles (Expanded) ──────────────
+              // hudKey marker — top of board region, outside FittedBox
+              SizedBox(key: hudKey, height: 0, width: double.infinity),
+
+              // ── Region 2: Board — piles above HUD (Expanded) ──────────────
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, boardConstraints) {
@@ -908,27 +919,6 @@ class _LandscapeTableLayout extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: AppDimensions.xs),
-                              SizedBox(
-                                width: boardConstraints.maxWidth,
-                                child: Center(
-                                  child: HudOverlayWidget(
-                                    activeSuit: gameState.suitLock,
-                                    queenSuitLock: gameState.queenSuitLock,
-                                    penaltyCount: penaltyCount,
-                                    penaltyTargetPosition: penaltyCount > 0
-                                        ? gameState.players
-                                            .where((p) =>
-                                                p.id ==
-                                                nextPlayerId(state: gameState))
-                                            .firstOrNull
-                                            ?.tablePosition
-                                        : null,
-                                    compact: true,
-                                    onPenaltyIncreased: onPenaltyIncreased,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: AppDimensions.sm),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -974,6 +964,27 @@ class _LandscapeTableLayout extends StatelessWidget {
                                     ),
                                   ),
                                 ],
+                              ),
+                              const SizedBox(height: AppDimensions.sm),
+                              SizedBox(
+                                width: boardConstraints.maxWidth,
+                                child: Center(
+                                  child: HudOverlayWidget(
+                                    activeSuit: gameState.suitLock,
+                                    queenSuitLock: gameState.queenSuitLock,
+                                    penaltyCount: penaltyCount,
+                                    penaltyTargetPosition: penaltyCount > 0
+                                        ? gameState.players
+                                            .where((p) =>
+                                                p.id ==
+                                                nextPlayerId(state: gameState))
+                                            .firstOrNull
+                                            ?.tablePosition
+                                        : null,
+                                    compact: true,
+                                    onPenaltyIncreased: onPenaltyIncreased,
+                                  ),
+                                ),
                               ),
                             ],
                           ),

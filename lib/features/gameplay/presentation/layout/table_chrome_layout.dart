@@ -43,7 +43,7 @@ abstract final class TablePortraitGrid {
 
   /// Centre-board card width (passed to pile widgets).
   static const double pileSlotWidth = 100;
-  static const double pileGap = AppDimensions.lg;
+  static const double pileGap = AppDimensions.md;
 
   /// Draw pile [SizedBox] — fits max stack depth (5 layers × [pileStackOffset]).
   static double drawPileFootprintWidth([double cardWidth = pileSlotWidth]) {
@@ -57,12 +57,17 @@ abstract final class TablePortraitGrid {
         maxLayers * AppDimensions.pileStackOffset * 2;
   }
 
-  /// Discard pile [SizedBox] — matches [DiscardPileWidget] (+16 padding).
-  static double discardPileFootprintWidth([double cardWidth = pileSlotWidth]) =>
-      cardWidth + 16;
+  /// Discard pile [SizedBox] — same stack-depth padding as draw pile.
+  static double discardPileFootprintWidth([double cardWidth = pileSlotWidth]) {
+    const maxLayers = 5;
+    return cardWidth + maxLayers * AppDimensions.pileStackOffset * 2;
+  }
 
-  static double discardPileFootprintHeight([double cardWidth = pileSlotWidth]) =>
-      AppDimensions.cardHeight(cardWidth) + 16;
+  static double discardPileFootprintHeight([double cardWidth = pileSlotWidth]) {
+    const maxLayers = 5;
+    return AppDimensions.cardHeight(cardWidth) +
+        maxLayers * AppDimensions.pileStackOffset * 2;
+  }
 
   /// Legacy alias used by overlay geometry (tallest pile footprint).
   static const double pileSlotHeight = 156;

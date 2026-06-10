@@ -265,6 +265,7 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
   const _PortraitTransientOverlayLayer({
     required this.gameState,
     required this.playerZoneKeys,
+    required this.hudKey,
     required this.discardPileKey,
     required this.opponentRowHeight,
     required this.hasRankedBadge,
@@ -275,6 +276,7 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
 
   final GameState gameState;
   final Map<String, GlobalKey> playerZoneKeys;
+  final GlobalKey hudKey;
   final GlobalKey discardPileKey;
   final double opponentRowHeight;
   final bool hasRankedBadge;
@@ -327,7 +329,7 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
         _PortraitLastCardsStripOverlay(
           players: gameState.players,
           lastCardsDeclaredBy: gameState.lastCardsDeclaredBy,
-          discardPileKey: discardPileKey,
+          hudKey: hudKey,
         ),
       ],
     );
@@ -339,6 +341,7 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
   const _LandscapeTransientOverlayLayer({
     required this.gameState,
     required this.playerZoneKeys,
+    required this.hudKey,
     required this.discardPileKey,
     required this.opponentRowHeight,
     required this.hasRankedBadge,
@@ -349,6 +352,7 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
 
   final GameState gameState;
   final Map<String, GlobalKey> playerZoneKeys;
+  final GlobalKey hudKey;
   final GlobalKey discardPileKey;
   final double opponentRowHeight;
   final bool hasRankedBadge;
@@ -402,31 +406,31 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
         _PortraitLastCardsStripOverlay(
           players: gameState.players,
           lastCardsDeclaredBy: gameState.lastCardsDeclaredBy,
-          discardPileKey: discardPileKey,
+          hudKey: hudKey,
         ),
       ],
     );
   }
 }
 
-/// Last Cards declaration strip — anchored above the discard pile.
+/// Last Cards declaration strip — anchored just above the board region top.
 class _PortraitLastCardsStripOverlay extends StatelessWidget {
   const _PortraitLastCardsStripOverlay({
     required this.players,
     required this.lastCardsDeclaredBy,
-    required this.discardPileKey,
+    required this.hudKey,
   });
 
   final List<PlayerModel> players;
   final Set<String> lastCardsDeclaredBy;
-  final GlobalKey discardPileKey;
+  final GlobalKey hudKey;
 
   @override
   Widget build(BuildContext context) {
     if (lastCardsDeclaredBy.isEmpty) return const SizedBox.shrink();
 
     return _GlobalKeyFollower(
-      targetKey: discardPileKey,
+      targetKey: hudKey,
       targetAnchor: Alignment.topCenter,
       childAnchor: Alignment.bottomCenter,
       offset: const Offset(0, -AppDimensions.xs),

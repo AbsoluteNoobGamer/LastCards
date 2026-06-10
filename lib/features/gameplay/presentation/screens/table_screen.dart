@@ -168,6 +168,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       GlobalKey<CardFlightOverlayState>();
   final GlobalKey _drawPileKey = GlobalKey();
   final GlobalKey _discardPileKey = GlobalKey();
+  final GlobalKey _hudKey = GlobalKey();
   final Map<String, GlobalKey> _playerZoneKeys = {};
   final Set<String> _skipHighlightPlayerIds = <String>{};
   Timer? _skipHighlightClearTimer;
@@ -1781,6 +1782,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         visibleCardCounts: _visibleCardCounts,
                         drawPileKey: _drawPileKey,
                         discardPileKey: _discardPileKey,
+                        hudKey: _hudKey,
                         thinkingOpponentId: isOfflineMode && _aiThinking
                             ? _offlineState.currentPlayerId
                             : (!isOfflineMode &&
@@ -1852,6 +1854,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   child: _PortraitTransientOverlayLayer(
                     gameState: gameState,
                     playerZoneKeys: _playerZoneKeys,
+                    hudKey: _hudKey,
                     discardPileKey: _discardPileKey,
                     opponentRowHeight: overlayOpponentRowHeight,
                     hasRankedBadge: overlayIsRanked,
@@ -1867,6 +1870,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   child: _LandscapeTransientOverlayLayer(
                     gameState: gameState,
                     playerZoneKeys: _playerZoneKeys,
+                    hudKey: _hudKey,
                     discardPileKey: _discardPileKey,
                     opponentRowHeight: overlayOpponentRowHeight,
                     hasRankedBadge: overlayIsRanked,

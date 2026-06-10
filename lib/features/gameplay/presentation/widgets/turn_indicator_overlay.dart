@@ -39,7 +39,7 @@ class _TurnIndicatorOverlayState extends State<TurnIndicatorOverlay> {
 
     return IgnorePointer(
       child: Stack(
-        fit: StackFit.expand,
+        fit: StackFit.loose,
         children: [
           Align(
             alignment: widget.bannerAlignment,
