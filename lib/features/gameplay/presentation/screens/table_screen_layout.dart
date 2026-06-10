@@ -189,18 +189,13 @@ class _TableLayout extends StatelessWidget {
       orElse: () => players.isNotEmpty ? players.first : _emptyLocal,
     );
 
-    // Classify opponents by table position (2–4 players) or use rail (5+ players)
-    final topOpp = _opponentAt(players, TablePosition.top);
-    final leftOpp = _opponentAt(players, TablePosition.left);
-    final rightOpp = _opponentAt(players, TablePosition.right);
-
-    // For 5+ players, use rail layout; otherwise use 3-slot layout
-    final useRail = players.length > 4;
-    final opponents = useRail
-        ? players
-            .where((p) => p.tablePosition != TablePosition.bottom)
-            .toList()
-        : <PlayerModel>[];
+    // Fixed 6-slot opponent rail — same geometry as a 7-player table; empty
+    // slots stay in place when fewer players are seated.
+    final opponentRailSlots = _fixedOpponentRailSlots(
+      players: players,
+      gameState: gameState,
+      tournamentStatusBadges: tournamentStatusBadges,
+    );
 
     VoidCallback? opponentAvatarTap(PlayerModel? p) {
       if (p == null || isOffline) return null;
@@ -238,11 +233,7 @@ class _TableLayout extends StatelessWidget {
             nextTurnLabel: nextTurnLabel,
             playerZoneKeys: playerZoneKeys,
             localPlayer: localPlayer,
-            useRail: useRail,
-            opponents: opponents,
-            leftOpp: leftOpp,
-            topOpp: topOpp,
-            rightOpp: rightOpp,
+            opponentRailSlots: opponentRailSlots,
             onCardTap: onCardTap,
             onDrawTap: onDrawTap,
             onHandReorder: onHandReorder,
@@ -276,7 +267,7 @@ class _TableLayout extends StatelessWidget {
             .clamp(44.0, 82.0);
         final hasTournamentBadges = tournamentStatusBadges.isNotEmpty;
         final opponentRowHeight = TablePortraitGrid.opponentRowHeight(
-          useRail: useRail,
+          useRail: true,
           hasBadges: hasTournamentBadges,
         );
         final rankedBand = isRanked ? 34.0 : 0.0;
@@ -304,91 +295,17 @@ class _TableLayout extends StatelessWidget {
                 ),
               SizedBox(
                 height: opponentRowHeight,
-                child: useRail
-                    ? BustPlayerRail(
-                        players: opponents.asMap().entries.map((e) {
-                          return BustPlayerViewModel.fromPlayerModel(
-                            e.value,
-                            currentPlayerId: gameState.currentPlayerId,
-                            isEliminated: false,
-                            isLocal: false,
-                            colorIndex: e.key,
-                            tournamentStatusBadge:
-                                tournamentStatusBadges[e.value.id],
-                          );
-                        }).toList(),
-                        slotKeyBuilder: (player) =>
-                            playerZoneKeys[player.id],
-                        height: hasTournamentBadges
-                            ? TablePortraitGrid.opponentRailBaseHeightWithBadge
-                            : TablePortraitGrid.opponentRailBaseHeight,
-                        thinkingPlayerId: thinkingOpponentId,
-                        quickChatBubblesByPlayer: const {},
-                        onRemoveQuickChatBubble: null,
-                        skipHighlightPlayerIds: skipHighlightPlayerIds,
-                      )
-                    : Row(
-                        children: [
-                          Expanded(
-                            child: _PortraitOpponentSlot(
-                              opponent: leftOpp,
-                              alignment: Alignment.topLeft,
-                              slotHeight: hasTournamentBadges
-                                  ? TablePortraitGrid
-                                      .opponentSlotHeightWithBadge
-                                  : TablePortraitGrid.opponentSlotHeight,
-                              playerZoneKey: leftOpp != null
-                                  ? playerZoneKeys[leftOpp.id]
-                                  : null,
-                              gameState: gameState,
-                              thinkingOpponentId: thinkingOpponentId,
-                              tournamentStatusBadges: tournamentStatusBadges,
-                              aiConfigs: aiConfigs,
-                              skipHighlightPlayerIds: skipHighlightPlayerIds,
-                              onOpponentAvatarTap: opponentAvatarTap(leftOpp),
-                            ),
-                          ),
-                          Expanded(
-                            child: _PortraitOpponentSlot(
-                              opponent: topOpp,
-                              alignment: Alignment.topCenter,
-                              slotHeight: hasTournamentBadges
-                                  ? TablePortraitGrid
-                                      .opponentSlotHeightWithBadge
-                                  : TablePortraitGrid.opponentSlotHeight,
-                              playerZoneKey: topOpp != null
-                                  ? playerZoneKeys[topOpp.id]
-                                  : null,
-                              gameState: gameState,
-                              thinkingOpponentId: thinkingOpponentId,
-                              tournamentStatusBadges: tournamentStatusBadges,
-                              aiConfigs: aiConfigs,
-                              skipHighlightPlayerIds: skipHighlightPlayerIds,
-                              onOpponentAvatarTap: opponentAvatarTap(topOpp),
-                              emptyPlaceholder: true,
-                            ),
-                          ),
-                          Expanded(
-                            child: _PortraitOpponentSlot(
-                              opponent: rightOpp,
-                              alignment: Alignment.topRight,
-                              slotHeight: hasTournamentBadges
-                                  ? TablePortraitGrid
-                                      .opponentSlotHeightWithBadge
-                                  : TablePortraitGrid.opponentSlotHeight,
-                              playerZoneKey: rightOpp != null
-                                  ? playerZoneKeys[rightOpp.id]
-                                  : null,
-                              gameState: gameState,
-                              thinkingOpponentId: thinkingOpponentId,
-                              tournamentStatusBadges: tournamentStatusBadges,
-                              aiConfigs: aiConfigs,
-                              skipHighlightPlayerIds: skipHighlightPlayerIds,
-                              onOpponentAvatarTap: opponentAvatarTap(rightOpp),
-                            ),
-                          ),
-                        ],
-                      ),
+                child: BustPlayerRail(
+                  slots: opponentRailSlots,
+                  slotKeyBuilder: (player) => playerZoneKeys[player.id],
+                  height: hasTournamentBadges
+                      ? TablePortraitGrid.opponentRailBaseHeightWithBadge
+                      : TablePortraitGrid.opponentRailBaseHeight,
+                  thinkingPlayerId: thinkingOpponentId,
+                  quickChatBubblesByPlayer: const {},
+                  onRemoveQuickChatBubble: null,
+                  skipHighlightPlayerIds: skipHighlightPlayerIds,
+                ),
               ),
 
               // ── Region 2: Board — piles above HUD (Expanded) ──────────────
@@ -579,6 +496,9 @@ class _TableLayout extends StatelessWidget {
     cardCount: 0,
   );
 
+  /// Opponent seats for a full 7-player table (local is bottom; six rail slots).
+  static const int _kFixedOpponentSlotCount = 6;
+
   PlayerModel? _opponentAt(List<PlayerModel> players, TablePosition pos) {
     try {
       return players.firstWhere((p) => p.tablePosition == pos);
@@ -587,72 +507,29 @@ class _TableLayout extends StatelessWidget {
     }
   }
 
+  List<BustPlayerViewModel?> _fixedOpponentRailSlots({
+    required List<PlayerModel> players,
+    required GameState gameState,
+    required Map<String, String> tournamentStatusBadges,
+  }) {
+    return List.generate(_kFixedOpponentSlotCount, (slotIndex) {
+      final pos = kOpponentTablePositionCycle[slotIndex];
+      final player = _opponentAt(players, pos);
+      if (player == null) return null;
+      return BustPlayerViewModel.fromPlayerModel(
+        player,
+        currentPlayerId: gameState.currentPlayerId,
+        isEliminated: false,
+        isLocal: false,
+        colorIndex: slotIndex,
+        tournamentStatusBadge: tournamentStatusBadges[player.id],
+      );
+    });
+  }
+
   bool _isEliminatedBadge(String? badgeText) {
     if (badgeText == null) return false;
     return badgeText.contains('Eliminated');
-  }
-}
-
-/// Fixed-size opponent seat for portrait 3-slot layout — chat renders in overlay.
-class _PortraitOpponentSlot extends StatelessWidget {
-  const _PortraitOpponentSlot({
-    required this.opponent,
-    required this.alignment,
-    required this.slotHeight,
-    required this.playerZoneKey,
-    required this.gameState,
-    required this.thinkingOpponentId,
-    required this.tournamentStatusBadges,
-    required this.aiConfigs,
-    required this.skipHighlightPlayerIds,
-    this.onOpponentAvatarTap,
-    this.emptyPlaceholder = false,
-  });
-
-  final PlayerModel? opponent;
-  final Alignment alignment;
-  final double slotHeight;
-  final GlobalKey? playerZoneKey;
-  final GameState gameState;
-  final String? thinkingOpponentId;
-  final Map<String, String> tournamentStatusBadges;
-  final Map<String, AiPlayerConfig> aiConfigs;
-  final Set<String> skipHighlightPlayerIds;
-  final VoidCallback? onOpponentAvatarTap;
-  final bool emptyPlaceholder;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: alignment,
-      child: SizedBox(
-        height: slotHeight,
-        width: double.infinity,
-        child: ClipRect(
-          child: opponent != null
-            ? PlayerZoneWidget(
-                key: playerZoneKey,
-                player: opponent!,
-                isActiveTurn: gameState.currentPlayerId == opponent!.id,
-                isAiThinking: thinkingOpponentId == opponent!.id,
-                isTournamentFinished:
-                    tournamentStatusBadges[opponent!.id] != null,
-                isTournamentEliminated: tournamentStatusBadges[opponent!.id]
-                        ?.contains('Eliminated') ==
-                    true,
-                hasLastCardsDeclared:
-                    gameState.lastCardsDeclaredBy.contains(opponent!.id),
-                aiConfig: aiConfigs[opponent!.id],
-                skipSeatHighlight:
-                    skipHighlightPlayerIds.contains(opponent!.id),
-                onOpponentAvatarTap: onOpponentAvatarTap,
-              )
-            : (emptyPlaceholder
-                ? const _EmptyOpponentZone()
-                : SizedBox(height: slotHeight)),
-        ),
-      ),
-    );
   }
 }
 
@@ -678,11 +555,7 @@ class _LandscapeTableLayout extends StatelessWidget {
     this.thinkingOpponentId,
     required this.playerZoneKeys,
     required this.localPlayer,
-    required this.useRail,
-    required this.opponents,
-    required this.leftOpp,
-    required this.topOpp,
-    required this.rightOpp,
+    required this.opponentRailSlots,
     required this.onCardTap,
     required this.onDrawTap,
     required this.onHandReorder,
@@ -748,11 +621,7 @@ class _LandscapeTableLayout extends StatelessWidget {
   final String? thinkingOpponentId;
   final Map<String, GlobalKey> playerZoneKeys;
   final PlayerModel localPlayer;
-  final bool useRail;
-  final List<PlayerModel> opponents;
-  final PlayerModel? leftOpp;
-  final PlayerModel? topOpp;
-  final PlayerModel? rightOpp;
+  final List<BustPlayerViewModel?> opponentRailSlots;
   final ValueChanged<String> onCardTap;
   final VoidCallback onDrawTap;
   final void Function(int oldIndex, int newIndex)? onHandReorder;
@@ -774,7 +643,7 @@ class _LandscapeTableLayout extends StatelessWidget {
       builder: (context, constraints) {
         final hasTournamentBadges = tournamentStatusBadges.isNotEmpty;
         final opponentRowHeight = TablePortraitGrid.landscapeOpponentRowHeight(
-          useRail: useRail,
+          useRail: true,
           hasBadges: hasTournamentBadges,
         );
         final rankedBand =
@@ -799,92 +668,18 @@ class _LandscapeTableLayout extends StatelessWidget {
                 ),
               SizedBox(
                 height: opponentRowHeight,
-                child: useRail
-                    ? BustPlayerRail(
-                        players: opponents.asMap().entries.map((e) {
-                          return BustPlayerViewModel.fromPlayerModel(
-                            e.value,
-                            currentPlayerId: gameState.currentPlayerId,
-                            isEliminated: false,
-                            isLocal: false,
-                            colorIndex: e.key,
-                            tournamentStatusBadge:
-                                tournamentStatusBadges[e.value.id],
-                          );
-                        }).toList(),
-                        slotKeyBuilder: (player) => playerZoneKeys[player.id],
-                        height: hasTournamentBadges
-                            ? TablePortraitGrid
-                                .landscapeOpponentRailBaseHeightWithBadge
-                            : TablePortraitGrid.landscapeOpponentRailBaseHeight,
-                        compact: true,
-                        thinkingPlayerId: thinkingOpponentId,
-                        quickChatBubblesByPlayer: const {},
-                        onRemoveQuickChatBubble: null,
-                        skipHighlightPlayerIds: skipHighlightPlayerIds,
-                      )
-                    : Row(
-                        children: [
-                          Expanded(
-                            child: _PortraitOpponentSlot(
-                              opponent: leftOpp,
-                              alignment: Alignment.centerLeft,
-                              slotHeight: hasTournamentBadges
-                                  ? TablePortraitGrid
-                                      .landscapeOpponentSlotHeightWithBadge
-                                  : TablePortraitGrid.landscapeOpponentSlotHeight,
-                              playerZoneKey: leftOpp != null
-                                  ? playerZoneKeys[leftOpp!.id]
-                                  : null,
-                              gameState: gameState,
-                              thinkingOpponentId: thinkingOpponentId,
-                              tournamentStatusBadges: tournamentStatusBadges,
-                              aiConfigs: aiConfigs,
-                              skipHighlightPlayerIds: skipHighlightPlayerIds,
-                              onOpponentAvatarTap: opponentAvatarTap(leftOpp),
-                            ),
-                          ),
-                          Expanded(
-                            child: _PortraitOpponentSlot(
-                              opponent: topOpp,
-                              alignment: Alignment.topCenter,
-                              slotHeight: hasTournamentBadges
-                                  ? TablePortraitGrid
-                                      .landscapeOpponentSlotHeightWithBadge
-                                  : TablePortraitGrid.landscapeOpponentSlotHeight,
-                              playerZoneKey: topOpp != null
-                                  ? playerZoneKeys[topOpp!.id]
-                                  : null,
-                              gameState: gameState,
-                              thinkingOpponentId: thinkingOpponentId,
-                              tournamentStatusBadges: tournamentStatusBadges,
-                              aiConfigs: aiConfigs,
-                              skipHighlightPlayerIds: skipHighlightPlayerIds,
-                              onOpponentAvatarTap: opponentAvatarTap(topOpp),
-                              emptyPlaceholder: true,
-                            ),
-                          ),
-                          Expanded(
-                            child: _PortraitOpponentSlot(
-                              opponent: rightOpp,
-                              alignment: Alignment.centerRight,
-                              slotHeight: hasTournamentBadges
-                                  ? TablePortraitGrid
-                                      .landscapeOpponentSlotHeightWithBadge
-                                  : TablePortraitGrid.landscapeOpponentSlotHeight,
-                              playerZoneKey: rightOpp != null
-                                  ? playerZoneKeys[rightOpp!.id]
-                                  : null,
-                              gameState: gameState,
-                              thinkingOpponentId: thinkingOpponentId,
-                              tournamentStatusBadges: tournamentStatusBadges,
-                              aiConfigs: aiConfigs,
-                              skipHighlightPlayerIds: skipHighlightPlayerIds,
-                              onOpponentAvatarTap: opponentAvatarTap(rightOpp),
-                            ),
-                          ),
-                        ],
-                      ),
+                child: BustPlayerRail(
+                  slots: opponentRailSlots,
+                  slotKeyBuilder: (player) => playerZoneKeys[player.id],
+                  height: hasTournamentBadges
+                      ? TablePortraitGrid.landscapeOpponentRailBaseHeightWithBadge
+                      : TablePortraitGrid.landscapeOpponentRailBaseHeight,
+                  compact: true,
+                  thinkingPlayerId: thinkingOpponentId,
+                  quickChatBubblesByPlayer: const {},
+                  onRemoveQuickChatBubble: null,
+                  skipHighlightPlayerIds: skipHighlightPlayerIds,
+                ),
               ),
 
               // ── Region 2: Board — piles above HUD (Expanded) ──────────────

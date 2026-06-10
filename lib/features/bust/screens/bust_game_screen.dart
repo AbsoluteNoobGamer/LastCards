@@ -1400,7 +1400,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       child: Column(
         children: [
           BustPlayerRail(
-            players: opponents,
+            slots: List<BustPlayerViewModel?>.from(opponents),
             slotKeyBuilder: (p) => _playerZoneKeys[p.id],
             height: 96,
             thinkingPlayerId: _thinkingOpponentId,
@@ -1458,7 +1458,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       child: Column(
         children: [
           BustPlayerRail(
-            players: opponents,
+            slots: List<BustPlayerViewModel?>.from(opponents),
             slotKeyBuilder: (p) => _playerZoneKeys[p.id],
             height: 72,
             compact: true,

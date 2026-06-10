@@ -353,49 +353,35 @@ class _OpponentAvatarZone extends StatelessWidget {
     final ringColor = hasLastCardsDeclared
         ? accent
         : isActive
-            ? accent
+            ? Colors.transparent
             : (appTheme.textSecondary as Color).withValues(alpha: 0.35);
-    final ringWidth = hasLastCardsDeclared
-        ? 3.2
-        : (isActive ? 3.5 : 1.5);
+    final ringWidth =
+        hasLastCardsDeclared ? 3.2 : (isActive ? 0.0 : 1.5);
 
     // Aggressive AI gets a subtle persistent red glow even when idle.
     final isAggressive = aiConfig?.personality == AiPersonality.aggressive;
-    final List<BoxShadow>? boxShadows = isActive
+    final List<BoxShadow>? innerBoxShadows = hasLastCardsDeclared
         ? [
             BoxShadow(
-              color: ringColor.withValues(alpha: 0.62),
-              blurRadius: 18 + (isAiThinking ? 6 : 0),
-              spreadRadius: 2 + (isAiThinking ? 1 : 0),
+              color: accent.withValues(alpha: 0.45),
+              blurRadius: 14,
+              spreadRadius: 1,
             ),
             BoxShadow(
-              color: ringColor.withValues(alpha: isAiThinking ? 0.35 : 0.2),
-              blurRadius: 28,
+              color: accent.withValues(alpha: 0.22),
+              blurRadius: 22,
               spreadRadius: 0,
             ),
           ]
-        : hasLastCardsDeclared
+        : isAggressive
             ? [
                 BoxShadow(
-                  color: accent.withValues(alpha: 0.45),
-                  blurRadius: 14,
-                  spreadRadius: 1,
-                ),
-                BoxShadow(
-                  color: accent.withValues(alpha: 0.22),
-                  blurRadius: 22,
+                  color: const Color(0xFFFF5252).withValues(alpha: 0.30),
+                  blurRadius: 8,
                   spreadRadius: 0,
                 ),
               ]
-            : isAggressive
-                ? [
-                    BoxShadow(
-                      color: const Color(0xFFFF5252).withValues(alpha: 0.30),
-                      blurRadius: 8,
-                      spreadRadius: 0,
-                    ),
-                  ]
-                : null;
+            : null;
 
     final avatarCircle = Material(
       color: Colors.transparent,
@@ -407,9 +393,26 @@ class _OpponentAvatarZone extends StatelessWidget {
             minWidth: AppDimensions.minTouchTarget,
             minHeight: AppDimensions.minTouchTarget,
           ),
-          child: SizedBox(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
             width: _kOpponentAvatarSize,
             height: _kOpponentAvatarSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isActive ? accent : Colors.transparent,
+                width: isActive ? 2.5 : 0,
+              ),
+              boxShadow: isActive
+                  ? [
+                      BoxShadow(
+                        color: accent.withValues(alpha: 0.6),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      ),
+                    ]
+                  : null,
+            ),
             child: Stack(
               clipBehavior: Clip.none,
               children: [
@@ -422,14 +425,12 @@ class _OpponentAvatarZone extends StatelessWidget {
                       duration: const Duration(milliseconds: 220),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: isActive
-                            ? accent.withValues(alpha: 0.22)
-                            : hasLastCardsDeclared
-                                ? accent.withValues(alpha: 0.14)
-                                : avatarBaseColor.withValues(
-                                    alpha: aiConfig != null ? 0.35 : 0.20),
+                        color: hasLastCardsDeclared
+                            ? accent.withValues(alpha: 0.14)
+                            : avatarBaseColor.withValues(
+                                alpha: aiConfig != null ? 0.35 : 0.20),
                         border: Border.all(color: ringColor, width: ringWidth),
-                        boxShadow: boxShadows,
+                        boxShadow: innerBoxShadows,
                       ),
                       child: CircleAvatar(
                         radius: 30,
@@ -786,9 +787,11 @@ class _PlayerLabel extends StatelessWidget {
             color: appTheme.surfacePanel as Color,
             borderRadius: BorderRadius.circular(compact ? 6 : 8),
             border: Border.all(
-                color: PlayerStyles.getColor(player.tablePosition)
-                    .withValues(alpha: 0.6),
-                width: 0.5),
+              color: player.cardCount <= 2
+                  ? appTheme.secondaryAccent as Color
+                  : appTheme.accentDark as Color,
+              width: 1.0,
+            ),
           ),
           child: Text(
             '${player.cardCount}',
@@ -812,40 +815,77 @@ class _ThinkingEllipsis extends StatefulWidget {
 }
 
 class _ThinkingEllipsisState extends State<_ThinkingEllipsis>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
+    with TickerProviderStateMixin {
+  static const _dotSize = 5.0;
+  static const _staggerMs = 180;
+  static const _pulseMs = 600;
+
+  late final List<AnimationController> _controllers;
+  late final List<Animation<double>> _scales;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    )..repeat(reverse: true);
+    _controllers = List.generate(
+      3,
+      (_) => AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: _pulseMs),
+      ),
+    );
+    _scales = _controllers
+        .map(
+          (c) => Tween<double>(begin: 0.6, end: 1.0).animate(
+            CurvedAnimation(parent: c, curve: Curves.easeInOut),
+          ),
+        )
+        .toList();
+
+    for (var i = 0; i < _controllers.length; i++) {
+      final controller = _controllers[i];
+      Future.delayed(Duration(milliseconds: i * _staggerMs), () {
+        if (mounted) controller.repeat(reverse: true);
+      });
+    }
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    for (final c in _controllers) {
+      c.dispose();
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, __) => Opacity(
-        opacity: 0.4 + 0.6 * _ctrl.value,
-        child: const Text(
-          '···',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-            shadows: [Shadow(blurRadius: 6, color: Colors.black87)],
+    final dotColor = ProviderScope.containerOf(context)
+        .read(themeProvider)
+        .theme
+        .accentPrimary;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(3, (i) {
+        return Padding(
+          padding: EdgeInsets.only(left: i == 0 ? 0 : 3),
+          child: AnimatedBuilder(
+            animation: _scales[i],
+            builder: (_, child) => Transform.scale(
+              scale: _scales[i].value,
+              child: child,
+            ),
+            child: Container(
+              width: _dotSize,
+              height: _dotSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: dotColor,
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      }),
     );
   }
 }

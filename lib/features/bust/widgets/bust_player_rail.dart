@@ -7,7 +7,7 @@ import 'bust_player_slot.dart';
 class BustPlayerRail extends StatefulWidget {
   const BustPlayerRail({
     super.key,
-    required this.players,
+    required this.slots,
     this.autoScrollDuration = const Duration(milliseconds: 350),
     this.autoScrollCurve = Curves.easeOutCubic,
     this.slotKeyBuilder,
@@ -19,7 +19,8 @@ class BustPlayerRail extends StatefulWidget {
     this.skipHighlightPlayerIds = const <String>{},
   });
 
-  final List<BustPlayerViewModel> players;
+  /// One entry per table seat; `null` keeps fixed-slot spacing when empty.
+  final List<BustPlayerViewModel?> slots;
 
   /// When non-null, that player's slot shows a thinking indicator.
   final String? thinkingPlayerId;
@@ -67,11 +68,11 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
   void didUpdateWidget(BustPlayerRail oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (widget.players.isEmpty) return;
+    if (widget.slots.isEmpty) return;
     if (!_scrollController.hasClients) return;
 
     final activeIndex =
-        widget.players.indexWhere((p) => p.isActive);
+        widget.slots.indexWhere((p) => p != null && p.isActive);
     if (activeIndex == -1) return;
     if (activeIndex == _lastActiveIndex) return;
 
@@ -111,6 +112,13 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
     final railHeight = baseHeight + _chatBubbleReservedHeight;
     final slotPadding = AppDimensions.xs;
 
+    Widget buildEmptySlot(double itemW) {
+      return SizedBox(
+        width: itemW + slotPadding * 2,
+        child: const SizedBox.shrink(),
+      );
+    }
+
     Widget buildSlot(BustPlayerViewModel player) {
       final slotKey = widget.slotKeyBuilder?.call(player);
       final chatBubble = widget.quickChatBubblesByPlayer[player.id];
@@ -134,6 +142,8 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
       );
     }
 
+    final itemW = widget.compact ? _itemWidthCompact : _itemWidth;
+
     // When compact (landscape), center the rail; when content fits, it stays centred.
     if (widget.compact) {
       return SizedBox(
@@ -150,7 +160,10 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (final player in widget.players) buildSlot(player),
+                    for (final player in widget.slots)
+                      player == null
+                          ? buildEmptySlot(itemW)
+                          : buildSlot(player),
                   ],
                 ),
               ),
@@ -167,8 +180,12 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
         controller: _scrollController,
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: AppDimensions.sm),
-        itemCount: widget.players.length,
-        itemBuilder: (context, index) => buildSlot(widget.players[index]),
+        itemCount: widget.slots.length,
+        itemBuilder: (context, index) {
+          final player = widget.slots[index];
+          if (player == null) return buildEmptySlot(itemW);
+          return buildSlot(player);
+        },
       ),
     );
   }

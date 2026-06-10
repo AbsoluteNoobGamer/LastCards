@@ -31,6 +31,7 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/services/player_level_service.dart';
 import '../../../../core/utils/ranked_tier_utils.dart';
+import '../../../../core/models/table_position_layout.dart';
 import '../../../../core/models/move_log_entry.dart';
 import '../../../../core/models/move_log_merge.dart';
 import '../../../../core/models/game_event.dart';
