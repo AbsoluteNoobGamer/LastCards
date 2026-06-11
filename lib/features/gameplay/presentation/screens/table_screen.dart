@@ -228,6 +228,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   StreamSubscription<LastCardsPressedEvent>? _lastCardsPressedSub;
   StreamSubscription<GameMomentEvent>? _gameMomentSub;
   String? _stackBlockBannerText;
+  Color? _stackBlockBannerColor;
 
   int _multiPlayCelebrationTrigger = 0;
   int _multiPlayCelebrationTier = 0;
@@ -284,22 +285,93 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
   }
 
-  void _momentStackBlock({required String playerId, String? playerName}) {
+  void _announcePenaltyChainAction({
+    required GameState beforeState,
+    required GameState afterState,
+    required CardModel playedCard,
+    required String playerId,
+    String? playerName,
+  }) {
     if (_tournamentSimulatingRest) return;
-    _bumpPenaltyFlashForHud();
-    HapticFeedback.mediumImpact();
+
+    final chainWasActive = beforeState.activePenaltyCount > 0 ||
+        beforeState.penaltyChainLive;
     final isLocal = _isLocalMomentPlayer(playerId);
     final name = playerName?.split(' ').first ?? 'Player';
+
+    final String bannerText;
+    final Color bannerColor;
+    if (playedCard.effectiveRank == Rank.two) {
+      bannerText = isLocal
+          ? '+2 added to the stack!'
+          : '$name added +2 to the stack!';
+      bannerColor = const Color(0xFFE53935);
+    } else if (playedCard.effectiveRank == Rank.jack &&
+        !playedCard.suit.isRed) {
+      bannerText = isLocal
+          ? '+5 added to the stack!'
+          : '$name added +5 to the stack!';
+      bannerColor = const Color(0xFFE53935);
+    } else if (playedCard.effectiveRank == Rank.jack &&
+        playedCard.suit.isRed) {
+      bannerText = isLocal
+          ? 'Pick up cancelled!'
+          : '$name cancelled the pick up!';
+      bannerColor = AppColors.goldPrimary;
+    } else if (chainWasActive &&
+        afterState.activePenaltyCount == 0 &&
+        !afterState.penaltyChainLive) {
+      bannerText =
+          isLocal ? 'Stack cancelled!' : '$name cancelled the stack!';
+      bannerColor = AppColors.goldPrimary;
+    } else {
+      return;
+    }
+
+    _bumpPenaltyFlashForHud();
+    HapticFeedback.mediumImpact();
     setState(() {
-      _stackBlockBannerText = isLocal
-          ? 'You blocked the stack!'
-          : '$name blocked the stack!';
+      _stackBlockBannerText = bannerText;
+      _stackBlockBannerColor = bannerColor;
       _multiPlayCelebrationTier = 1;
       _multiPlayCelebrationTrigger++;
     });
     Future.delayed(const Duration(milliseconds: 2000), () {
-      if (mounted) setState(() => _stackBlockBannerText = null);
+      if (mounted) {
+        setState(() {
+          _stackBlockBannerText = null;
+          _stackBlockBannerColor = null;
+        });
+      }
     });
+  }
+
+  void _announceOnlinePenaltyChainFromCardPlay(CardPlayedEvent e) {
+    if (e.cards.isEmpty) return;
+    final gs = ref.read(gameStateProvider);
+    if (gs == null) return;
+
+    // [GameNotifier] may have already patched discard top onto [gs].
+    final previousTop =
+        gs.discardPileHistory.isNotEmpty ? gs.discardPileHistory.last : null;
+    final beforeState = gs.copyWith(
+      discardTopCard: previousTop,
+      discardPileHistory: gs.discardPileHistory.length > 1
+          ? gs.discardPileHistory.sublist(0, gs.discardPileHistory.length - 1)
+          : [],
+    );
+    final afterState = applyPlay(
+      state: beforeState,
+      playerId: e.playerId,
+      cards: e.cards,
+    );
+    _announcePenaltyChainAction(
+      beforeState: beforeState,
+      afterState: afterState,
+      playedCard: e.cards.first,
+      playerId: e.playerId,
+      playerName: gs.playerById(e.playerId)?.displayName,
+    );
   }
 
   void _momentLastCardsPulse({required String playerId}) {
@@ -373,6 +445,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     // via the provider-driven rebuild (ref.watch(gameStateProvider)).
 
     _onlineCardPlaysSub = handler.cardPlays.listen((e) async {
+      if (!_isOfflineSession) {
+        _announceOnlinePenaltyChainFromCardPlay(e);
+      }
       final localId = ref.read(gameStateProvider)?.localPlayer?.id;
       final isOpponent = localId != null && e.playerId != localId;
       if (isOpponent) {
@@ -1682,6 +1757,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               TablePortraitGrid.skipChipGapAboveHand;
           final landscapeSkipChipBottom =
               TablePortraitGrid.landscapeSkipChipBottom(mediaPadding.bottom);
+          final buttonBottom = isLandscapeMobile
+              ? mediaPadding.bottom +
+                  TablePortraitGrid.landscapeHandRegionHeight +
+                  TablePortraitGrid.landscapeActionBarHeight +
+                  AppDimensions.sm
+              : mediaPadding.bottom +
+                  TablePortraitGrid.handRegionHeight +
+                  TablePortraitGrid.actionBarHeight +
+                  AppDimensions.sm;
           final overlayQuickChatBubbles = {
             for (final b in _quickChatBubbles)
               b.playerId: (
@@ -1956,50 +2040,47 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
               // ── Settings + back (single-player and online) ──────────────────
               Positioned(
-                bottom: 0,
+                bottom: buttonBottom,
                 left: 0,
-                child: SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppDimensions.xs),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.30),
-                            shape: BoxShape.circle,
-                          ),
-                          child: IconButton(
-                            tooltip: 'Settings',
-                            icon: const Icon(
-                              Icons.settings_rounded,
-                              size: 20,
-                              color: Colors.white,
-                            ),
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () => _showSettingsSheet(context),
-                          ),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppDimensions.xs),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.30),
+                          shape: BoxShape.circle,
                         ),
-                        const SizedBox(height: 8),
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.30),
-                            shape: BoxShape.circle,
+                        child: IconButton(
+                          tooltip: 'Settings',
+                          icon: const Icon(
+                            Icons.settings_rounded,
+                            size: 20,
+                            color: Colors.white,
                           ),
-                          child: IconButton(
-                            tooltip: isOfflineMode ? 'Exit game' : 'Leave game',
-                            icon: const Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              size: 18,
-                              color: Colors.white,
-                            ),
-                            visualDensity: VisualDensity.compact,
-                            onPressed: _onBackPressed,
-                          ),
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () => _showSettingsSheet(context),
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 8),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.30),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          tooltip: isOfflineMode ? 'Exit game' : 'Leave game',
+                          icon: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            size: 18,
+                            color: Colors.white,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          onPressed: _onBackPressed,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -2007,16 +2088,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               // ── Emoji reactions toggle and panel (bottom right, opposite back)
               if (!_isDealing && gameState.phase != GamePhase.ended)
                 Positioned(
-                  bottom: 0,
+                  bottom: buttonBottom,
                   right: 0,
-                  child: SafeArea(
-                    top: false,
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppDimensions.xs),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppDimensions.xs),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
                           if (_showQuickChatPanel)
                             Padding(
                               padding: const EdgeInsets.only(bottom: 8),
@@ -2086,7 +2165,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         ],
                       ),
                     ),
-                  ),
                 ),
 
               if (_lastCardsDeclaredBannerText != null)
@@ -2143,7 +2221,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                           color: AppColors.feltDeep.withValues(alpha: 0.92),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: const Color(0xFFE53935).withValues(alpha: 0.95),
+                            color: _stackBlockBannerColor!,
                             width: 2,
                           ),
                         ),
@@ -2534,6 +2612,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
         _reshuffleCentrePileIntoDrawPile();
 
+        _announcePenaltyChainAction(
+          beforeState: previousState,
+          afterState: newState,
+          playedCard: assignedJoker,
+          playerId: playerId,
+          playerName: previousState.playerById(playerId)?.displayName,
+        );
+
         // Allow the player to continue their turn (stack more cards if they want).
         if (newState.currentPlayerId == playerId) {
           _startTimer(
@@ -2555,8 +2641,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
       // Apply play + special effects
       final previousState = _offlineState;
-      final stackBlock = previousState.activePenaltyCount > 0 &&
-          played.any((c) => c.effectiveRank == Rank.two);
       clearSuitInferenceOnPlay(
         sessionId: previousState.sessionId,
         playerId: playerId,
@@ -2564,12 +2648,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       );
       var newState =
           applyPlay(state: _offlineState, playerId: playerId, cards: played);
-      if (stackBlock) {
-        _momentStackBlock(
-          playerId: playerId,
-          playerName: previousState.playerById(playerId)?.displayName,
-        );
-      }
+      _announcePenaltyChainAction(
+        beforeState: previousState,
+        afterState: newState,
+        playedCard: newState.discardTopCard!,
+        playerId: playerId,
+        playerName: previousState.playerById(playerId)?.displayName,
+      );
       _engineTimer.cancel();
       final resumeMidTurn = _engineTimer.secondsRemaining;
 
@@ -3094,21 +3179,21 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     : null;
             final dirBefore = working.direction;
             final skipBefore = working.activeSkipCount;
-            final stackBlock =
-                working.activePenaltyCount > 0 && c.effectiveRank == Rank.two;
+            final beforeCard = working;
             working = applyPlay(
               state: working,
               playerId: aiId,
               cards: [c],
               declaredSuit: decl,
             );
-            if (stackBlock) {
-              _momentStackBlock(
-                playerId: aiId,
-                playerName:
-                    _offlineState.playerById(aiId)?.displayName ?? aiId,
-              );
-            }
+            _announcePenaltyChainAction(
+              beforeState: beforeCard,
+              afterState: working,
+              playedCard: c,
+              playerId: aiId,
+              playerName:
+                  _offlineState.playerById(aiId)?.displayName ?? aiId,
+            );
             _discardPile.add(c);
             if (mounted) {
               setState(() {
@@ -3141,14 +3226,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           }
           if (mounted) HapticFeedback.mediumImpact();
           _discardPile.addAll(playedByAi);
-          if (stateBeforeAiTurn.activePenaltyCount > 0 &&
-              playedByAi.any((c) => c.effectiveRank == Rank.two)) {
-            _momentStackBlock(
-              playerId: aiId,
-              playerName:
-                  _offlineState.playerById(aiId)?.displayName ?? aiId,
-            );
-          }
+          _announcePenaltyChainAction(
+            beforeState: stateBeforeAiTurn,
+            afterState: result.preTurnAdvanceState,
+            playedCard: playedByAi.first,
+            playerId: aiId,
+            playerName: _offlineState.playerById(aiId)?.displayName ?? aiId,
+          );
           if (result.state.direction != stateBeforeAiTurn.direction) {
             game_audio.AudioService.instance
                 .playSound(GameSound.directionReversed);
@@ -3991,10 +4075,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         _momentLastCardsPulse(playerId: e.playerId);
         break;
       case 'stack_block':
-        _momentStackBlock(
-          playerId: e.playerId,
-          playerName: e.playerName,
-        );
+        // Penalty chain banners are derived from card_played + applyPlay replay
+        // in [_announceOnlinePenaltyChainFromCardPlay] so all scenarios work.
         break;
     }
   }
