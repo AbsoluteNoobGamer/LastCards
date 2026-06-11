@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'app_theme_data.dart';
 
-/// All 10 built-in Stack & Flow themes.
+/// All 13 built-in Stack & Flow themes.
 ///
 /// Index 0 is the default (Classic Felt). Order here determines the display
 /// order in [ThemeSelectorModal] and maps to the persisted index integer.
@@ -16,6 +16,9 @@ const List<AppThemeData> kAppThemes = [
   _sapphire,
   _copperNoir,
   _arctic,
+  _volcanic,
+  _neonGrid,
+  _monteCarlo,
 ];
 
 // ── 1. Classic Felt (default) ────────────────────────────────────────────────
@@ -276,4 +279,84 @@ const _arctic = AppThemeData(
   jokerBackgroundColors: [Color(0xFF0A0E14), Color(0xFF060A10)],
   jokerBorderColor: Color(0xFFA08840),
   jokerAccentColor: Color(0xFFE8CC7A),
+);
+
+// ── 11. Volcanic ─────────────────────────────────────────────────────────────
+
+const _volcanic = AppThemeData(
+  id: 'volcanic',
+  name: 'Volcanic',
+  backgroundDeep: Color(0xFF0D0500),
+  backgroundMid: Color(0xFF1A0800),
+  accentPrimary: Color(0xFFFF5722),    // molten orange
+  accentLight: Color(0xFFFF8A50),      // lava glow
+  accentDark: Color(0xFFBF360C),       // deep ember
+  secondaryAccent: Color(0xFFFFD600),  // sulphur yellow
+  surfaceDark: Color(0xFF080200),
+  surfacePanel: Color(0xFF1E0A02),
+  textPrimary: Color(0xFFFFF3E0),
+  textSecondary: Color(0xFFBF6030),
+  cardFace: Color(0xFFFFF8F5),
+  suitRed: Color(0xFFD32F2F),
+  suitBlack: Color(0xFF0D0500),
+  overlayTop: Color(0x990D0000),
+  overlayBottom: Color(0xCC080000),
+  swatchPreview: [Color(0xFF0D0500), Color(0xFF1A0800), Color(0xFFFF5722)],
+  jokerBackgroundColors: [Color(0xFF1A0800), Color(0xFF0D0500)],
+  jokerBorderColor: Color(0xFFBF360C),
+  jokerAccentColor: Color(0xFFFF5722),
+);
+
+// ── 12. Neon Grid ────────────────────────────────────────────────────────────
+
+const _neonGrid = AppThemeData(
+  id: 'neon_grid',
+  name: 'Neon Grid',
+  backgroundDeep: Color(0xFF020008),
+  backgroundMid: Color(0xFF080018),
+  accentPrimary: Color(0xFF00E5FF),    // electric cyan
+  accentLight: Color(0xFF80F0FF),
+  accentDark: Color(0xFF0088AA),
+  secondaryAccent: Color(0xFFFF00FF),  // hot magenta
+  surfaceDark: Color(0xFF000005),
+  surfacePanel: Color(0xFF0A0020),
+  textPrimary: Color(0xFFE0F8FF),
+  textSecondary: Color(0xFF4080A0),
+  cardFace: Color(0xFFF0FEFF),
+  suitRed: Color(0xFFFF1744),
+  suitBlack: Color(0xFF020008),
+  overlayTop: Color(0x99000010),
+  overlayBottom: Color(0xCC000008),
+  swatchPreview: [Color(0xFF020008), Color(0xFF080018), Color(0xFF00E5FF)],
+  headingFontFamily: 'cinzel',
+  jokerBackgroundColors: [Color(0xFF020008), Color(0xFF000005)],
+  jokerBorderColor: Color(0xFF0088AA),
+  jokerAccentColor: Color(0xFF00E5FF),
+);
+
+// ── 13. Monte Carlo ──────────────────────────────────────────────────────────
+
+const _monteCarlo = AppThemeData(
+  id: 'monte_carlo',
+  name: 'Monte Carlo',
+  backgroundDeep: Color(0xFF12020A),
+  backgroundMid: Color(0xFF200510),
+  accentPrimary: Color(0xFFE8C87A),    // champagne gold
+  accentLight: Color(0xFFF5DFA0),
+  accentDark: Color(0xFFA88A40),
+  secondaryAccent: Color(0xFFCC2244),  // casino red
+  surfaceDark: Color(0xFF0A0105),
+  surfacePanel: Color(0xFF1E0810),
+  textPrimary: Color(0xFFF8EEE8),
+  textSecondary: Color(0xFFA08060),
+  cardFace: Color(0xFFFDF8F0),
+  suitRed: Color(0xFFCC2244),
+  suitBlack: Color(0xFF12020A),
+  overlayTop: Color(0x9912000A),
+  overlayBottom: Color(0xCC0A0005),
+  swatchPreview: [Color(0xFF12020A), Color(0xFF200510), Color(0xFFE8C87A)],
+  headingFontFamily: 'cinzel',
+  jokerBackgroundColors: [Color(0xFF12020A), Color(0xFF0A0105)],
+  jokerBorderColor: Color(0xFFA88A40),
+  jokerAccentColor: Color(0xFFE8C87A),
 );

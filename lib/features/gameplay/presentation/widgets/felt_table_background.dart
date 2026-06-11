@@ -310,6 +310,12 @@ class TableBackgroundPainter extends CustomPainter {
         _paintCopperNoir(canvas, size);
       case 'arctic':
         _paintArctic(canvas, size);
+      case 'volcanic':
+        _paintVolcanic(canvas, size);
+      case 'neon_grid':
+        _paintNeonGrid(canvas, size);
+      case 'monte_carlo':
+        _paintMonteCarlo(canvas, size);
       default:
         _paintGeneric(canvas, size);
     }
@@ -822,6 +828,219 @@ class TableBackgroundPainter extends CustomPainter {
         ).createShader(
           Rect.fromCircle(center: centre, radius: size.shortestSide * 0.55),
         ),
+    );
+  }
+
+  // ── Volcanic ────────────────────────────────────────────────────────────────
+  void _paintVolcanic(Canvas canvas, Size size) {
+    // 1. Deep near-black base
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height),
+        Paint()..color = const Color(0xFF0D0500));
+
+    // 2. Lava crack network — irregular diagonal lines in glowing orange
+    final crackPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..color = const Color(0xFFFF5722).withValues(alpha: 0.22);
+
+    // Main cracks — deterministic positions using golden ratio offsets
+    final crackStarts = [
+      Offset(size.width * 0.15, 0),
+      Offset(size.width * 0.45, 0),
+      Offset(size.width * 0.72, 0),
+      Offset(0, size.height * 0.30),
+      Offset(0, size.height * 0.65),
+      Offset(size.width, size.height * 0.20),
+      Offset(size.width, size.height * 0.55),
+      Offset(size.width * 0.28, size.height),
+      Offset(size.width * 0.60, size.height),
+    ];
+    final crackEnds = [
+      Offset(size.width * 0.38, size.height * 0.55),
+      Offset(size.width * 0.60, size.height * 0.42),
+      Offset(size.width * 0.55, size.height * 0.70),
+      Offset(size.width * 0.50, size.height * 0.40),
+      Offset(size.width * 0.42, size.height * 0.72),
+      Offset(size.width * 0.52, size.height * 0.35),
+      Offset(size.width * 0.48, size.height * 0.60),
+      Offset(size.width * 0.50, size.height * 0.55),
+      Offset(size.width * 0.55, size.height * 0.45),
+    ];
+    for (int i = 0; i < crackStarts.length; i++) {
+      canvas.drawLine(crackStarts[i], crackEnds[i], crackPaint);
+    }
+
+    // Glowing core at crack intersections — orange radial
+    final glowPaint = Paint()
+      ..color = const Color(0xFFFF5722).withValues(alpha: 0.35)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18);
+    canvas.drawCircle(Offset(size.width * 0.50, size.height * 0.50),
+        size.shortestSide * 0.18, glowPaint);
+
+    // 3. Ember glow from bottom (heat rising effect)
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: [
+            const Color(0xFFBF360C).withValues(alpha: 0.50),
+            const Color(0xFFFF5722).withValues(alpha: 0.15),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.35, 0.7],
+        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
+    );
+  }
+
+  // ── Neon Grid ───────────────────────────────────────────────────────────────
+  void _paintNeonGrid(Canvas canvas, Size size) {
+    // 1. True black base
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height),
+        Paint()..color = const Color(0xFF020008));
+
+    // 2. Perspective grid — horizontal lines converging toward horizon
+    final gridPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.6
+      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.18);
+
+    const horizon = 0.45; // horizon line at 45% down
+    final vanishX = size.width / 2;
+    final vanishY = size.height * horizon;
+
+    // Horizontal grid lines (evenly spaced below horizon)
+    const lineCount = 10;
+    for (int i = 1; i <= lineCount; i++) {
+      final y = vanishY + (size.height - vanishY) * (i / lineCount);
+      final alpha = 0.08 + 0.14 * (i / lineCount);
+      gridPaint.color = const Color(0xFF00E5FF).withValues(alpha: alpha);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    // Vertical grid lines converging to vanishing point
+    const vLineCount = 12;
+    for (int i = 0; i <= vLineCount; i++) {
+      final x = size.width * (i / vLineCount);
+      final alpha = 0.06 + 0.10 * (1 - (x - vanishX).abs() / (size.width / 2));
+      gridPaint.color = const Color(0xFF00E5FF).withValues(alpha: alpha.clamp(0.06, 0.18));
+      canvas.drawLine(Offset(vanishX, vanishY), Offset(x, size.height), gridPaint);
+    }
+
+    // 3. Horizon glow line
+    final horizonPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..color = const Color(0xFFFF00FF).withValues(alpha: 0.55)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+    canvas.drawLine(
+      Offset(0, vanishY),
+      Offset(size.width, vanishY),
+      horizonPaint,
+    );
+
+    // 4. Magenta corner glows
+    final cornerGlow = Paint()
+      ..color = const Color(0xFFFF00FF).withValues(alpha: 0.08)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 40);
+    canvas.drawCircle(Offset(0, size.height), size.shortestSide * 0.5, cornerGlow);
+    canvas.drawCircle(Offset(size.width, size.height), size.shortestSide * 0.5, cornerGlow);
+
+    // 5. Cyan centre bloom
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()
+        ..shader = RadialGradient(
+          center: Alignment(0, -0.1),
+          radius: 0.65,
+          colors: [
+            const Color(0xFF001A20).withValues(alpha: 0.72),
+            Colors.transparent,
+          ],
+        ).createShader(Rect.fromCircle(
+          center: Offset(size.width / 2, vanishY),
+          radius: size.shortestSide * 0.6,
+        )),
+    );
+  }
+
+  // ── Monte Carlo ─────────────────────────────────────────────────────────────
+  void _paintMonteCarlo(Canvas canvas, Size size) {
+    // 1. Deep burgundy base
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height),
+        Paint()..color = const Color(0xFF12020A));
+
+    // 2. Roulette wheel outline — concentric rings centred in background
+    final centre = Offset(size.width / 2, size.height / 2);
+    final ringPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8;
+
+    final ringRadii = [0.18, 0.28, 0.36, 0.44, 0.52];
+    for (int i = 0; i < ringRadii.length; i++) {
+      final alpha = 0.06 + (i * 0.02);
+      ringPaint.color = const Color(0xFFE8C87A).withValues(alpha: alpha);
+      canvas.drawCircle(centre, size.shortestSide * ringRadii[i], ringPaint);
+    }
+
+    // Wheel spokes — 18 radial lines
+    final spokePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.5
+      ..color = const Color(0xFFE8C87A).withValues(alpha: 0.05);
+    for (int i = 0; i < 18; i++) {
+      final angle = (i * 20) * math.pi / 180;
+      final innerR = size.shortestSide * 0.18;
+      final outerR = size.shortestSide * 0.52;
+      canvas.drawLine(
+        Offset(centre.dx + innerR * math.cos(angle),
+            centre.dy + innerR * math.sin(angle)),
+        Offset(centre.dx + outerR * math.cos(angle),
+            centre.dy + outerR * math.sin(angle)),
+        spokePaint,
+      );
+    }
+
+    // Alternating red/black segments hint between spokes (very faint fills)
+    for (int i = 0; i < 18; i++) {
+      final angle1 = (i * 20) * math.pi / 180;
+      final angle2 = ((i + 1) * 20) * math.pi / 180;
+      final segPath = Path()
+        ..moveTo(centre.dx + size.shortestSide * 0.18 * math.cos(angle1),
+            centre.dy + size.shortestSide * 0.18 * math.sin(angle1))
+        ..arcTo(
+          Rect.fromCircle(center: centre, radius: size.shortestSide * 0.36),
+          angle1, 20 * math.pi / 180, false,
+        )
+        ..arcTo(
+          Rect.fromCircle(center: centre, radius: size.shortestSide * 0.18),
+          angle2, -20 * math.pi / 180, false,
+        )
+        ..close();
+      canvas.drawPath(
+        segPath,
+        Paint()
+          ..color = (i % 2 == 0
+              ? const Color(0xFFCC2244)
+              : const Color(0xFF0A0105))
+              .withValues(alpha: 0.08),
+      );
+    }
+
+    // 3. Gold radial bloom over wheel
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()
+        ..shader = RadialGradient(
+          center: Alignment.center,
+          radius: 0.65,
+          colors: [
+            const Color(0xFF2A1008).withValues(alpha: 0.68),
+            Colors.transparent,
+          ],
+        ).createShader(
+            Rect.fromCircle(center: centre, radius: size.shortestSide * 0.55)),
     );
   }
 
