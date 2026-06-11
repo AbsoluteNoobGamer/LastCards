@@ -74,7 +74,6 @@ class AccountDeletionService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('profile_name', ProfileDefaults.name);
     await prefs.remove('profile_avatar_path');
-    await prefs.remove('monetization_ads_removed');
     await prefs.remove('reaction_wheel_slots_v1');
     await prefs.remove('player_total_xp');
   }

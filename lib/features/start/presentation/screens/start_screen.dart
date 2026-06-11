@@ -36,11 +36,7 @@ import '../../../../features/social/widgets/friends_list_sheet.dart';
 import '../../../../features/reactions/reaction_wheel_customize_sheet.dart';
 import '../../../../features/social/widgets/pending_friend_requests_banner.dart';
 import '../../../../features/social/widgets/pending_game_invites_banner.dart';
-import '../../../../core/monetization/monetization_config.dart';
-import '../../../../core/monetization/monetization_provider.dart';
-import '../../../../core/monetization/post_game_interstitial.dart';
 import '../../../../core/providers/app_update_provider.dart';
-import '../../../../core/widgets/monetization_banner_ad.dart';
 import '../widgets/optional_update_banner.dart';
 
 part 'start_screen_background.dart';
@@ -139,17 +135,6 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
   @override
   void didPopNext() {
     unawaited(StartScreenBgm.instance.notifyStartMenuExposedFromOpaqueChild());
-    // Post-game interstitial: only after a completed session (see
-    // [PostGameInterstitialNotifier.markCompletedPlaySession]) and subject to
-    // cooldown + remove-ads purchase.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      unawaited(
-        ref
-            .read(postGameInterstitialProvider.notifier)
-            .maybeShowWhenStartVisible(ref, context),
-      );
-    });
   }
 
   @override
@@ -409,10 +394,6 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
 
   @override
   Widget build(BuildContext context) {
-    final monetization = ref.watch(monetizationProvider);
-    final reserveScrollPaddingForAds = kShowsAdsOnPlatform() &&
-        monetization.ready &&
-        !monetization.adsRemoved;
     ref.listen<SettingsState>(settingsProvider, (prev, next) {
       if (prev?.budgetDeviceMode == next.budgetDeviceMode) return;
       _syncGodRayWithCinematic();
@@ -722,10 +703,8 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                             ],
                           ),
                         ),
-                        // Extra bottom inset when a banner may show so the icon row
-                        // stays above the ad slot and remains scrollable/tappable.
-                        SizedBox(
-                          height: reserveScrollPaddingForAds ? 120 : 32,
+                        const SizedBox(
+                          height: 32,
                         ),
                       ],
                     ),
@@ -788,25 +767,6 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
             ),
           ],
         ),
-        ),
-        // Banner sits in layout flow (not stacked over content) so the icon row
-        // and Settings remain tappable and reachable for "Remove ads".
-        Consumer(
-          builder: (context, ref, _) {
-            final m = ref.watch(monetizationProvider);
-            if (!kShowsAdsOnPlatform() || !m.ready || m.adsRemoved) {
-              return const SizedBox.shrink();
-            }
-            final id = kBannerAdUnitIdForPlatform();
-            if (id.isEmpty) return const SizedBox.shrink();
-            return SafeArea(
-              top: false,
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: MonetizationBannerAd(adUnitId: id),
-              ),
-            );
-          },
         ),
           ],
         ),

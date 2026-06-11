@@ -10,7 +10,6 @@ import 'package:last_cards/core/providers/user_profile_provider.dart';
 import 'package:last_cards/core/theme/app_colors.dart';
 import 'package:last_cards/core/theme/app_dimensions.dart';
 import 'package:last_cards/core/theme/app_typography.dart';
-import 'package:last_cards/core/monetization/post_game_interstitial.dart';
 
 import '../../leaderboard/data/leaderboard_stats_writer.dart';
 
@@ -236,9 +235,6 @@ class _BustWinnerScreenState extends ConsumerState<BustWinnerScreen> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () {
-                        ref
-                            .read(postGameInterstitialProvider.notifier)
-                            .markCompletedPlaySession();
                         Navigator.of(context)
                             .popUntil((route) => route.isFirst);
                       },
@@ -262,9 +258,6 @@ class _BustWinnerScreenState extends ConsumerState<BustWinnerScreen> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        ref
-                            .read(postGameInterstitialProvider.notifier)
-                            .markCompletedPlaySession();
                         Navigator.of(context)
                             .popUntil((route) => route.isFirst);
                       },

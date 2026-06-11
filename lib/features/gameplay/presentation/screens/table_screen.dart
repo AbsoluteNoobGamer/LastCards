@@ -68,9 +68,6 @@ import '../../../../features/tournament/providers/tournament_session_provider.da
 import '../../../../features/social/widgets/other_player_profile_sheet.dart';
 import '../../../../features/social/widgets/pending_friend_requests_banner.dart';
 import '../../../../features/settings/presentation/widgets/settings_modal.dart';
-import '../../../../core/monetization/post_game_interstitial.dart';
-import '../../../../core/monetization/tournament_skip_rewarded_ad.dart';
-
 part 'table_screen_background.dart';
 part 'table_screen_layout.dart';
 part 'table_screen_overlays.dart';
@@ -216,9 +213,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   /// When true, we're fast-forwarding the rest of the round after user tapped Skip.
   bool _tournamentSimulatingRest = false;
-
-  /// While the rewarded-ad dialog is open or an ad is loading/showing (offline tournament skip).
-  bool _tournamentSkipAdInFlight = false;
   // ── Turn timer ────────────────────────────────────────────────────
   late final GameTurnTimer _engineTimer = GameTurnTimer();
   StreamSubscription<int>? _timerWarningSub;
@@ -1508,9 +1502,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               winnerName: winner.displayName,
               isLocalWin: isLocalWin,
               onPlayAgain: () {
-                ref
-                    .read(postGameInterstitialProvider.notifier)
-                    .markCompletedPlaySession();
                 ref.read(gameNotifierProvider.notifier).clearOnlineState();
                 ref.read(wsClientProvider).disconnect();
                 navigator.pop(); // close dialog
@@ -1549,9 +1540,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               actions: [
                 TextButton(
                   onPressed: () {
-                    ref
-                        .read(postGameInterstitialProvider.notifier)
-                        .markCompletedPlaySession();
                     ref.read(gameNotifierProvider.notifier).clearOnlineState();
                     ref.read(wsClientProvider).disconnect();
                     navigator.pop(); // close dialog
@@ -1904,8 +1892,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          onTap: (_tournamentSimulatingRest ||
-                                  _tournamentSkipAdInFlight)
+                          onTap: _tournamentSimulatingRest
                               ? null
                               : () {
                                   unawaited(_onTournamentSkipTapped());
@@ -1915,15 +1902,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 10),
                             decoration: BoxDecoration(
-                              color: (_tournamentSimulatingRest ||
-                                      _tournamentSkipAdInFlight)
+                              color: _tournamentSimulatingRest
                                   ? Colors.white24
                                   : AppColors.goldPrimary
                                       .withValues(alpha: 0.9),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: (_tournamentSimulatingRest ||
-                                        _tournamentSkipAdInFlight)
+                                color: _tournamentSimulatingRest
                                     ? Colors.white38
                                     : AppColors.goldDark,
                                 width: 1.5,
@@ -1932,8 +1917,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                if (_tournamentSimulatingRest ||
-                                    _tournamentSkipAdInFlight)
+                                if (_tournamentSimulatingRest)
                                   SizedBox(
                                     width: 18,
                                     height: 18,
@@ -1952,14 +1936,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                 Text(
                                   _tournamentSimulatingRest
                                       ? 'Simulating…'
-                                      : _tournamentSkipAdInFlight
-                                          ? 'Loading…'
-                                          : 'Skip to result',
+                                      : 'Skip to result',
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w700,
-                                    color: (_tournamentSimulatingRest ||
-                                            _tournamentSkipAdInFlight)
+                                    color: _tournamentSimulatingRest
                                         ? Colors.white70
                                         : Colors.black87,
                                   ),
@@ -3333,7 +3314,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
   }
 
-  /// Rewarded ad (or remove-ads entitlement) before [_startTournamentSimulation].
   Future<void> _onTournamentSkipTapped() async {
     if (!widget.isTournamentMode ||
         !_isOfflineSession ||
@@ -3344,36 +3324,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (!_tournamentFinishedPlayerIds.contains(OfflineGameState.localId)) {
       return;
     }
-    if (_tournamentSkipAdInFlight) return;
-
-    setState(() => _tournamentSkipAdInFlight = true);
-    try {
-      final outcome = await runTournamentSkipRewardedAdGate(
-        context: context,
-        ref: ref,
-      );
-      if (!mounted) return;
-      switch (outcome) {
-        case TournamentSkipAdOutcome.startSimulation:
-          _startTournamentSimulation();
-        case TournamentSkipAdOutcome.userCancelled:
-          break;
-        case TournamentSkipAdOutcome.adDidNotComplete:
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Video not available. Try again in a moment to fast-forward.',
-              ),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-          break;
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _tournamentSkipAdInFlight = false);
-      }
-    }
+    _startTournamentSimulation();
   }
 
   /// Starts fast-forward simulation of the rest of the round when the local
@@ -3504,11 +3455,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   /// this route is removed. Synchronous [Navigator.pop] here caused
   /// `'_dependents.isEmpty': is not true` when leaving the table after round 1.
   void _scheduleTournamentTablePop(TournamentRoundGameResult result) {
-    if (!result.isAbandoned) {
-      ref
-          .read(postGameInterstitialProvider.notifier)
-          .markCompletedPlaySession();
-    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final nav = Navigator.maybeOf(context);
@@ -3769,11 +3715,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         builder: (_) => _WinDialog(
           winnerName: winner.displayName,
           isLocalWin: winner.id == OfflineGameState.localId,
-          onReturnToMenu: () {
-            ref
-                .read(postGameInterstitialProvider.notifier)
-                .markCompletedPlaySession();
-          },
           onPlayAgain: () {
             Navigator.of(context).pop();
             setState(() {

@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
-import 'core/monetization/mobile_ads_bootstrap.dart';
 import 'core/services/card_back_service.dart';
 import 'core/services/profile_service.dart';
 import 'firebase_options.dart';
@@ -61,7 +60,6 @@ Future<void> main() async {
   await const ProfileService().initDefaultIfNeeded();
   await CardBackService.instance.init();
   await AudioService.instance.init();
-  await initMobileAdsIfSupported();
 
   runApp(
     // Riverpod root scope

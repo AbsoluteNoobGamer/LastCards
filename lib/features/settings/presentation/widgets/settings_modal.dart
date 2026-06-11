@@ -9,8 +9,6 @@ import '../../../../core/services/card_back_service.dart';
 import '../../../gameplay/presentation/controllers/audio_service.dart';
 import '../../../../services/audio_service.dart' as game_audio;
 import '../../../../services/start_screen_bgm.dart';
-import '../../../../core/monetization/monetization_config.dart';
-import '../../../../core/monetization/monetization_provider.dart';
 
 // Create a simple provider to manage SharedPreferences settings globally
 final settingsProvider =
@@ -209,93 +207,6 @@ class SettingsModal extends ConsumerWidget {
                           onChanged: notifier.updateMusic,
                         ),
                         const Divider(height: 40, color: Colors.grey),
-                        if (kShowsAdsOnPlatform()) ...[
-                          Consumer(
-                            builder: (context, ref, _) {
-                              final mono = ref.watch(monetizationProvider);
-                              final notifier =
-                                  ref.read(monetizationProvider.notifier);
-                              if (mono.adsRemoved) {
-                                return ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  dense: isMobile,
-                                  leading: Icon(
-                                    Icons.block_flipped,
-                                    color: Colors.green.shade400,
-                                  ),
-                                  title: const Text('Ads removed'),
-                                  subtitle: Text(
-                                    'Thanks for supporting Last Cards.',
-                                    style: TextStyle(
-                                      fontSize: isMobile ? 11 : 12,
-                                      color: Colors.grey.shade500,
-                                    ),
-                                  ),
-                                );
-                              }
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  ListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    dense: isMobile,
-                                    leading: const Icon(
-                                      Icons.ads_click_rounded,
-                                      color: Colors.amber,
-                                    ),
-                                    title: const Text('Remove ads'),
-                                    subtitle: Text(
-                                      mono.removeAdsProduct != null
-                                          ? '${mono.removeAdsProduct!.title} — ${mono.removeAdsProduct!.price} (one-time). Removes all ads, including optional videos (e.g. tournament skip).'
-                                          : 'Product not available yet. Add “remove_ads_lifetime” in Play Console.',
-                                      style: TextStyle(
-                                        fontSize: isMobile ? 11 : 12,
-                                        color: Colors.grey.shade500,
-                                      ),
-                                    ),
-                                    trailing: mono.purchaseInFlight
-                                        ? const SizedBox(
-                                            width: 28,
-                                            height: 28,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        : FilledButton(
-                                            onPressed: mono.removeAdsProduct ==
-                                                    null
-                                                ? null
-                                                : () => notifier
-                                                    .purchaseRemoveAds(),
-                                            child: const Text('Buy'),
-                                          ),
-                                  ),
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: TextButton(
-                                      onPressed: mono.purchaseInFlight
-                                          ? null
-                                          : () => notifier.restorePurchases(),
-                                      child: const Text('Restore purchases'),
-                                    ),
-                                  ),
-                                  if (mono.lastError != null)
-                                    Padding(
-                                      padding: const EdgeInsets.only(bottom: 8),
-                                      child: Text(
-                                        mono.lastError!,
-                                        style: TextStyle(
-                                          color: Colors.red.shade300,
-                                          fontSize: isMobile ? 12 : 13,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              );
-                            },
-                          ),
-                          const Divider(height: 40, color: Colors.grey),
-                        ],
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
                           dense: isMobile,
