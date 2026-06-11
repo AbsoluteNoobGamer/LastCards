@@ -28,7 +28,7 @@ class FeltTableBackgroundState extends ConsumerState<FeltTableBackground>
     super.initState();
     _breath = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 9),
+      duration: const Duration(seconds: 6),
     );
     _particles = AnimationController(
       vsync: this,
@@ -81,14 +81,21 @@ class FeltTableBackgroundState extends ConsumerState<FeltTableBackground>
                 // Animate opacity only — changing [RadialGradient.radius] every
                 // frame can contribute to relayout-boundary assertions on some GPUs.
                 final v = 0.5 + 0.5 * math.sin(_breath.value * 2 * math.pi);
+                final spotlightY = theme.id == 'gold'
+                    ? -0.25
+                    : theme.id == 'crimson_velvet'
+                        ? -0.05
+                        : theme.id == 'arctic'
+                            ? -0.30
+                            : -0.15;
                 return IgnorePointer(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: RadialGradient(
-                        center: const Alignment(0, -0.15),
+                        center: Alignment(0, spotlightY),
                         radius: 0.89,
                         colors: [
-                          theme.accentPrimary.withValues(alpha: 0.10 * v),
+                          theme.accentPrimary.withValues(alpha: 0.16 * v),
                           Colors.transparent,
                         ],
                         stops: const [0.0, 1.0],
@@ -219,7 +226,7 @@ class _FeltShaderLayerState extends State<_FeltShaderLayer>
   }
 }
 
-/// Subtle drifting particles (~40) for ambient depth; max opacity capped at 0.15.
+/// Subtle drifting particles (~55) for ambient depth; max opacity capped at 0.20.
 class TableAmbientParticlesPainter extends CustomPainter {
   TableAmbientParticlesPainter({
     required this.progress,
@@ -229,7 +236,7 @@ class TableAmbientParticlesPainter extends CustomPainter {
   final double progress;
   final Color accentColor;
 
-  static const int _count = 40;
+  static const int _count = 55;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -243,7 +250,7 @@ class TableAmbientParticlesPainter extends CustomPainter {
       final ny = ((i + 1) * phi2) % 1.0;
       final baseX = nx * size.width;
       final baseY = ny * size.height;
-      final driftY = progress * 0.22 * size.height;
+      final driftY = progress * 0.30 * size.height;
       final y = (baseY + driftY) % size.height;
       final wobbleX =
           math.sin(progress * math.pi * 2 + i * 0.41) * (3.0 + (i % 4));
@@ -251,7 +258,7 @@ class TableAmbientParticlesPainter extends CustomPainter {
       final twinkle =
           (0.5 + 0.5 * math.sin(progress * math.pi * 2 * 0.7 + i * 0.35))
               .clamp(0.0, 1.0);
-      final alpha = (0.06 + 0.09 * twinkle).clamp(0.0, 0.15);
+      final alpha = (0.08 + 0.12 * twinkle).clamp(0.0, 0.20);
       paint.color = accentColor.withValues(alpha: alpha);
       final r = 1.2 + (i % 5) * 0.35;
       canvas.drawCircle(Offset(x, y), r, paint);
@@ -328,7 +335,7 @@ class TableBackgroundPainter extends CustomPainter {
       ..strokeWidth = 0.8;
 
     // Set A: top-left to bottom-right diagonals
-    weavePaint.color = midColor.withValues(alpha: 0.55);
+    weavePaint.color = midColor.withValues(alpha: 0.75);
     for (double d = -size.height; d < size.width + size.height; d += cell) {
       canvas.drawLine(
         Offset(d, 0),
@@ -338,7 +345,7 @@ class TableBackgroundPainter extends CustomPainter {
     }
 
     // Set B: top-right to bottom-left diagonals
-    weavePaint.color = const Color(0xFF080808).withValues(alpha: 0.7);
+    weavePaint.color = const Color(0xFF080808).withValues(alpha: 0.85);
     for (double d = size.width + size.height; d > -size.height; d -= cell) {
       canvas.drawLine(
         Offset(d, 0),
@@ -349,7 +356,7 @@ class TableBackgroundPainter extends CustomPainter {
 
     // 3. Subtle highlight squares at weave intersections (every other cell)
     final dotPaint = Paint()
-      ..color = const Color(0xFFB0B8C1).withValues(alpha: 0.07)
+      ..color = const Color(0xFFB0B8C1).withValues(alpha: 0.14)
       ..style = PaintingStyle.fill;
     for (double x = 0; x < size.width; x += cell * 2) {
       for (double y = 0; y < size.height; y += cell * 2) {
@@ -369,7 +376,7 @@ class TableBackgroundPainter extends CustomPainter {
           center: Alignment.center,
           radius: 0.75,
           colors: [
-            const Color(0xFF2A2A2E).withValues(alpha: 0.5),
+            const Color(0xFF2A2A2E).withValues(alpha: 0.65),
             Colors.transparent,
           ],
         ).createShader(
@@ -390,7 +397,7 @@ class TableBackgroundPainter extends CustomPainter {
     final hatch = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.6
-      ..color = midColor.withValues(alpha: 0.25);
+      ..color = midColor.withValues(alpha: 0.40);
 
     const gap = 8.0;
     for (double d = -size.height; d < size.width + size.height; d += gap) {
@@ -402,7 +409,7 @@ class TableBackgroundPainter extends CustomPainter {
 
     // Small felt dots at every other intersection
     final dot = Paint()
-      ..color = midColor.withValues(alpha: 0.12)
+      ..color = midColor.withValues(alpha: 0.20)
       ..style = PaintingStyle.fill;
     for (double x = 0; x < size.width; x += gap * 2) {
       for (double y = 0; y < size.height; y += gap * 2) {
@@ -419,7 +426,7 @@ class TableBackgroundPainter extends CustomPainter {
           center: Alignment.center,
           radius: 0.55,
           colors: [
-            const Color(0xFF2A6040).withValues(alpha: 0.45),
+            const Color(0xFF2A6040).withValues(alpha: 0.60),
             Colors.transparent,
           ],
         ).createShader(
@@ -439,7 +446,7 @@ class TableBackgroundPainter extends CustomPainter {
     final lattice = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.5
-      ..color = const Color(0xFFFFD700).withValues(alpha: 0.06);
+      ..color = const Color(0xFFFFD700).withValues(alpha: 0.12);
     const gap = 20.0;
     for (double d = -size.height; d < size.width + size.height; d += gap) {
       canvas.drawLine(Offset(d, 0), Offset(d + size.height, size.height), lattice);
@@ -452,10 +459,10 @@ class TableBackgroundPainter extends CustomPainter {
       Rect.fromLTWH(0, 0, size.width, size.height),
       Paint()
         ..shader = RadialGradient(
-          center: Alignment(0, -0.4),
+          center: Alignment(0, -0.55),
           radius: 0.85,
           colors: [
-            const Color(0xFF3A2800).withValues(alpha: 0.65),
+            const Color(0xFF3A2800).withValues(alpha: 0.75),
             Colors.transparent,
           ],
         ).createShader(
@@ -465,7 +472,7 @@ class TableBackgroundPainter extends CustomPainter {
 
     // Faint gold corner accents
     final cornerPaint = Paint()
-      ..color = const Color(0xFFFFD700).withValues(alpha: 0.04)
+      ..color = const Color(0xFFFFD700).withValues(alpha: 0.09)
       ..style = PaintingStyle.fill;
     canvas.drawCircle(Offset(0, 0), size.shortestSide * 0.4, cornerPaint);
     canvas.drawCircle(Offset(size.width, 0), size.shortestSide * 0.4, cornerPaint);
@@ -482,7 +489,7 @@ class TableBackgroundPainter extends CustomPainter {
 
     // Star field — tiny dots
     final starPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.55)
+      ..color = Colors.white.withValues(alpha: 0.75)
       ..style = PaintingStyle.fill;
     final rng = _seededPoints(size, seed: 42);
     for (final pt in rng) {
@@ -498,6 +505,15 @@ class TableBackgroundPainter extends CustomPainter {
       canvas.drawCircle(pt, 1.2, brightStar);
     }
 
+    // Extra-bright accent stars
+    final extraBrightStar = Paint()
+      ..color = Colors.white.withValues(alpha: 1.0)
+      ..style = PaintingStyle.fill;
+    final extraBright = _seededPoints(size, seed: 19, count: 5);
+    for (final pt in extraBright) {
+      canvas.drawCircle(pt, 1.8, extraBrightStar);
+    }
+
     // Deep space radial gradient — midnight blue bloom
     final centre = Offset(size.width / 2, size.height / 2);
     canvas.drawRect(
@@ -507,7 +523,7 @@ class TableBackgroundPainter extends CustomPainter {
           center: Alignment.center,
           radius: 0.7,
           colors: [
-            const Color(0xFF0D1A38).withValues(alpha: 0.7),
+            const Color(0xFF0D1A38).withValues(alpha: 0.80),
             Colors.transparent,
           ],
         ).createShader(
@@ -530,7 +546,7 @@ class TableBackgroundPainter extends CustomPainter {
     const gap = 5.0;
     for (double y = 0; y < size.height; y += gap) {
       stroke.color = midColor.withValues(
-        alpha: ((y / size.height) * 0.12 + 0.04),
+        alpha: ((y / size.height) * 0.14 + 0.08),
       );
       canvas.drawLine(Offset(0, y), Offset(size.width, y + 4), stroke);
     }
@@ -544,7 +560,7 @@ class TableBackgroundPainter extends CustomPainter {
           center: const Alignment(0.4, -0.7),
           radius: 0.9,
           colors: [
-            const Color(0xFF5A1020).withValues(alpha: 0.45),
+            const Color(0xFF5A1020).withValues(alpha: 0.62),
             Colors.transparent,
           ],
         ).createShader(
@@ -571,7 +587,7 @@ class TableBackgroundPainter extends CustomPainter {
             radius: i * 0.4,
             colors: [
               Colors.transparent,
-              midColor.withValues(alpha: 0.06),
+              midColor.withValues(alpha: 0.12),
             ],
           ).createShader(
             Rect.fromCircle(center: centre, radius: size.longestSide * i * 0.35),
@@ -583,7 +599,7 @@ class TableBackgroundPainter extends CustomPainter {
     final chevron = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.5
-      ..color = const Color(0xFFC0C0C0).withValues(alpha: 0.04);
+      ..color = const Color(0xFFC0C0C0).withValues(alpha: 0.09);
     const gap = 14.0;
     for (double y = 0; y < size.height + gap; y += gap) {
       final path = Path()
@@ -601,7 +617,7 @@ class TableBackgroundPainter extends CustomPainter {
           center: Alignment.center,
           radius: 0.6,
           colors: [
-            const Color(0xFF303038).withValues(alpha: 0.5),
+            const Color(0xFF303038).withValues(alpha: 0.65),
             Colors.transparent,
           ],
         ).createShader(
@@ -621,7 +637,7 @@ class TableBackgroundPainter extends CustomPainter {
     final grid = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.6
-      ..color = const Color(0xFF50C878).withValues(alpha: 0.07);
+      ..color = const Color(0xFF50C878).withValues(alpha: 0.14);
     const cell = 28.0;
     for (double x = 0; x < size.width + cell; x += cell) {
       for (double y = 0; y < size.height + cell; y += cell) {
@@ -644,7 +660,7 @@ class TableBackgroundPainter extends CustomPainter {
           center: Alignment.center,
           radius: 0.65,
           colors: [
-            const Color(0xFF1A4A28).withValues(alpha: 0.55),
+            const Color(0xFF1A4A28).withValues(alpha: 0.68),
             Colors.transparent,
           ],
         ).createShader(
@@ -664,7 +680,7 @@ class TableBackgroundPainter extends CustomPainter {
     final hex = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.5
-      ..color = const Color(0xFF2979FF).withValues(alpha: 0.09);
+      ..color = const Color(0xFF2979FF).withValues(alpha: 0.18);
     const r = 18.0;
     final dx = r * 1.732; // sqrt(3) * r
     final dy = r * 1.5;
@@ -684,7 +700,7 @@ class TableBackgroundPainter extends CustomPainter {
           center: Alignment.center,
           radius: 0.7,
           colors: [
-            const Color(0xFF0A1060).withValues(alpha: 0.6),
+            const Color(0xFF0A1060).withValues(alpha: 0.72),
             Colors.transparent,
           ],
         ).createShader(
@@ -720,7 +736,7 @@ class TableBackgroundPainter extends CustomPainter {
     final arc = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.6
-      ..color = accentColor.withValues(alpha: 0.06);
+      ..color = accentColor.withValues(alpha: 0.12);
     const fanR = 60.0;
     for (double x = 0; x < size.width + fanR; x += fanR) {
       for (double y = 0; y < size.height + fanR; y += fanR) {
@@ -742,7 +758,7 @@ class TableBackgroundPainter extends CustomPainter {
           center: Alignment.center,
           radius: 0.7,
           colors: [
-            const Color(0xFF2A1008).withValues(alpha: 0.6),
+            const Color(0xFF2A1008).withValues(alpha: 0.72),
             Colors.transparent,
           ],
         ).createShader(
@@ -762,7 +778,7 @@ class TableBackgroundPainter extends CustomPainter {
     final crystal = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.5
-      ..color = Colors.white.withValues(alpha: 0.05);
+      ..color = Colors.white.withValues(alpha: 0.11);
     final centres = [
       Offset(size.width * 0.2, size.height * 0.2),
       Offset(size.width * 0.8, size.height * 0.15),
@@ -800,7 +816,7 @@ class TableBackgroundPainter extends CustomPainter {
           center: Alignment.center,
           radius: 0.65,
           colors: [
-            const Color(0xFF1A2030).withValues(alpha: 0.55),
+            const Color(0xFF1A2030).withValues(alpha: 0.68),
             Colors.transparent,
           ],
         ).createShader(
