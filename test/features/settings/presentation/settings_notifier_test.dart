@@ -158,7 +158,7 @@ void main() {
       final audio = container.read(audioServiceProvider);
       expect(audio.soundEffectsEnabled, isTrue);
 
-      await audio.toggleMute();
+      await audio.setSoundEffectsEnabled(false);
       await _waitForAsyncInit();
 
       expect(audio.soundEffectsEnabled, isFalse);
