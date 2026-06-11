@@ -47,6 +47,9 @@ class CardBackService {
     'obsidian.gif',
     'ruby.gif',
     'royal.gif',
+    'aurora.gif',
+    'lava_flow.gif',
+    'hologram.gif',
   };
 
   /// Assign custom display names for cardbackcover files (filename → label).
@@ -62,6 +65,22 @@ class CardBackService {
     CardBackDesign(id: 'obsidian', label: 'Obsidian', unlockLevel: 3),
     CardBackDesign(id: 'ruby', label: 'Ruby', unlockLevel: 7),
     CardBackDesign(id: 'royal', label: 'Royal', unlockLevel: 12),
+    // New backs
+    CardBackDesign(id: 'midas', label: 'Midas', unlockLevel: 5),
+    CardBackDesign(id: 'ivory_onyx', label: 'Ivory & Onyx', unlockLevel: 4),
+    CardBackDesign(id: 'platinum', label: 'Platinum', unlockLevel: 6),
+    CardBackDesign(id: 'midnight_forest', label: 'Midnight Forest', unlockLevel: 8),
+    CardBackDesign(id: 'ocean_depths', label: 'Ocean Depths', unlockLevel: 9),
+    CardBackDesign(id: 'inferno', label: 'Inferno', unlockLevel: 10),
+    CardBackDesign(id: 'circuit_board', label: 'Circuit Board', unlockLevel: 8),
+    CardBackDesign(id: 'mosaic', label: 'Mosaic', unlockLevel: 11),
+    CardBackDesign(id: 'labyrinth', label: 'Labyrinth', unlockLevel: 13),
+    CardBackDesign(id: 'aurora', label: 'Aurora', unlockLevel: 15),
+    CardBackDesign(id: 'lava_flow', label: 'Lava Flow', unlockLevel: 14),
+    CardBackDesign(id: 'hologram', label: 'Hologram', unlockLevel: 18),
+    CardBackDesign(id: 'galaxy', label: 'Galaxy', unlockLevel: 20),
+    CardBackDesign(id: 'vintage_casino', label: 'Vintage Casino', unlockLevel: 2),
+    CardBackDesign(id: 'zodiac', label: 'Zodiac', unlockLevel: 16),
   ];
 
   final ValueNotifier<String> selectedDesignId =
