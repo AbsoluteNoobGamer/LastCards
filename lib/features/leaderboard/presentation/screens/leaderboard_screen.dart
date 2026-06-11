@@ -87,6 +87,53 @@ class _ModeEntry {
   }
 }
 
+enum _LeaderboardTab { ranked, online, bust, other }
+
+const _otherLeaderboardModes = [
+  LeaderboardMode.singlePlayer,
+  LeaderboardMode.tournamentVsAi,
+  LeaderboardMode.bustOffline,
+];
+
+class _TierInfo {
+  const _TierInfo(this.label, this.color);
+
+  final String label;
+  final Color color;
+}
+
+_TierInfo _rankedTier(int mmr) {
+  if (mmr >= 1600) return const _TierInfo('Master', Color(0xFFFF5722));
+  if (mmr >= 1400) return const _TierInfo('Diamond', Color(0xFF7C4DFF));
+  if (mmr >= 1200) return const _TierInfo('Platinum', Color(0xFF00E5FF));
+  if (mmr >= 1100) return const _TierInfo('Gold', Color(0xFFFFD700));
+  if (mmr >= 1000) return const _TierInfo('Silver', Color(0xFFB0BEC5));
+  return const _TierInfo('Bronze', Color(0xFFBF8970));
+}
+
+_TierInfo _winsTier(int wins) {
+  if (wins >= 50) return const _TierInfo('Legend', Color(0xFFFF5722));
+  if (wins >= 30) return const _TierInfo('Elite', Color(0xFF00E5FF));
+  if (wins >= 15) return const _TierInfo('Veteran', Color(0xFFFFD700));
+  if (wins >= 5) return const _TierInfo('Regular', Color(0xFFB0BEC5));
+  return const _TierInfo('Rookie', Color(0xFF8D6E63));
+}
+
+String _initialsFromName(String name) {
+  final parts = name.trim().split(RegExp(r'\s+'));
+  if (parts.isEmpty || parts.first.isEmpty) return '?';
+  if (parts.length == 1) {
+    return parts.first.substring(0, 1).toUpperCase();
+  }
+  return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+}
+
+int _winRatePercent(int wins, int losses) {
+  final total = wins + losses;
+  if (total == 0) return 0;
+  return ((wins / total) * 100).round();
+}
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 class LeaderboardScreen extends ConsumerStatefulWidget {
@@ -98,6 +145,8 @@ class LeaderboardScreen extends ConsumerStatefulWidget {
 
 class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   LeaderboardMode _selectedMode = LeaderboardMode.ranked;
+  _LeaderboardTab _selectedTab = _LeaderboardTab.ranked;
+  bool _rankedHardcore = false;
 
   /// null = "All" (global totals); 2–7 = bracket-specific filter.
   int? _playerCountFilter;
@@ -113,6 +162,35 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   /// Every [LeaderboardMode] (ranked boards use [_RankedLeaderboard]; others [_ModeLeaderboard]).
   static final List<LeaderboardMode> _screenModes =
       List<LeaderboardMode>.unmodifiable(LeaderboardMode.values);
+
+  void _selectTab(_LeaderboardTab tab) {
+    setState(() {
+      _selectedTab = tab;
+      _playerCountFilter = null;
+      switch (tab) {
+        case _LeaderboardTab.ranked:
+          _selectedMode =
+              _rankedHardcore ? LeaderboardMode.rankedHardcore : LeaderboardMode.ranked;
+        case _LeaderboardTab.online:
+          _selectedMode = LeaderboardMode.online;
+        case _LeaderboardTab.bust:
+          _selectedMode = LeaderboardMode.bustOnline;
+        case _LeaderboardTab.other:
+          if (!_otherLeaderboardModes.contains(_selectedMode)) {
+            _selectedMode = _otherLeaderboardModes.first;
+          }
+      }
+    });
+  }
+
+  void _selectRankedVariant({required bool hardcore}) {
+    setState(() {
+      _rankedHardcore = hardcore;
+      _selectedMode =
+          hardcore ? LeaderboardMode.rankedHardcore : LeaderboardMode.ranked;
+      _playerCountFilter = null;
+    });
+  }
 
   // ── Ranked Firestore data ─────────────────────────────────────────────────
 
@@ -282,6 +360,8 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
         if (!mounted) return;
         setState(() {
           _selectedMode = LeaderboardMode.ranked;
+          _selectedTab = _LeaderboardTab.ranked;
+          _rankedHardcore = false;
           _playerCountFilter = null;
         });
       });
@@ -291,93 +371,110 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       appBar: AppBar(
         backgroundColor: theme.backgroundMid,
         elevation: 0,
-        title: Text(
-          '${_selectedMode.label} Leaderboard',
-          style: GoogleFonts.cinzel(
-            color: theme.accentPrimary,
-            fontWeight: FontWeight.w700,
-            fontSize: 17,
-            letterSpacing: 1.5,
-          ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Leaderboard',
+              style: GoogleFonts.cinzel(
+                color: theme.accentPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+                letterSpacing: 1.2,
+              ),
+            ),
+            Text(
+              _selectedMode.label,
+              style: GoogleFonts.inter(
+                color: theme.textSecondary,
+                fontSize: 11,
+              ),
+            ),
+          ],
         ),
         iconTheme: IconThemeData(color: theme.accentPrimary),
       ),
       body: Column(
         children: [
-          // ── Mode chips ───────────────────────────────────────────────────
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: _screenModes.map((mode) {
-                final isSelected = _selectedMode == mode;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    selected: isSelected,
-                    backgroundColor: theme.surfacePanel,
-                    selectedColor: theme.accentPrimary,
-                    checkmarkColor: theme.backgroundDeep,
-                    label: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          mode.icon,
-                          size: 15,
-                          color: isSelected
-                              ? theme.backgroundDeep
-                              : theme.accentPrimary,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          mode.label,
-                          style: TextStyle(
-                            color: isSelected
-                                ? theme.backgroundDeep
-                                : theme.textSecondary.withValues(alpha: 0.9),
-                            fontWeight: isSelected
-                                ? FontWeight.w700
-                                : FontWeight.normal,
-                          ),
-                        ),
-                      ],
-                    ),
-                    onSelected: (_) => setState(() {
-                      _selectedMode = mode;
-                      // Reset bracket filter when switching modes.
-                      _playerCountFilter = null;
-                    }),
-                  ),
-                );
-              }).toList(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: _LeaderboardTabBar(
+              selectedTab: _selectedTab,
+              theme: theme,
+              onTabSelected: _selectTab,
             ),
           ),
-
-          // ── Player-count filter (only for filterable modes) ───────────────
-          if (_filterableModes.contains(_selectedMode))
+          if (_selectedTab == _LeaderboardTab.ranked)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: _RankedVariantToggle(
+                hardcore: _rankedHardcore,
+                theme: theme,
+                onStandard: () => _selectRankedVariant(hardcore: false),
+                onHardcore: () => _selectRankedVariant(hardcore: true),
+              ),
+            ),
+          if (_selectedTab == _LeaderboardTab.other)
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Row(
+                children: _otherLeaderboardModes.map((mode) {
+                  final isSelected = _selectedMode == mode;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: _SmallModeChip(
+                      label: mode.label,
+                      selected: isSelected,
+                      theme: theme,
+                      onTap: () => setState(() {
+                        _selectedMode = mode;
+                        _playerCountFilter = null;
+                      }),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          if (_filterableModes.contains(_selectedMode))
+            Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
               child: Row(
                 children: [
-                  _CountChip(
-                    label: 'All',
-                    selected: _playerCountFilter == null,
-                    theme: theme,
-                    onTap: () => setState(() => _playerCountFilter = null),
-                  ),
-                  for (final n in [2, 3, 4, 5, 6, 7])
-                    _CountChip(
-                      label: '$n players',
-                      selected: _playerCountFilter == n,
-                      theme: theme,
-                      onTap: () => setState(() => _playerCountFilter = n),
+                  Text(
+                    'Players:',
+                    style: GoogleFonts.inter(
+                      color: theme.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _CountChip(
+                            label: 'All',
+                            selected: _playerCountFilter == null,
+                            theme: theme,
+                            onTap: () => setState(() => _playerCountFilter = null),
+                          ),
+                          for (final n in [2, 3, 4, 5, 6, 7])
+                            _CountChip(
+                              label: '$n',
+                              selected: _playerCountFilter == n,
+                              theme: theme,
+                              onTap: () => setState(() => _playerCountFilter = n),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-
-          // ── Body ─────────────────────────────────────────────────────────
           Expanded(
             child: (_selectedMode == LeaderboardMode.ranked ||
                     _selectedMode == LeaderboardMode.rankedHardcore)
@@ -405,7 +502,189 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   }
 }
 
-// ── Small bracket-filter chip ─────────────────────────────────────────────────
+// ── Tab bar & filters ─────────────────────────────────────────────────────────
+
+class _LeaderboardTabBar extends StatelessWidget {
+  const _LeaderboardTabBar({
+    required this.selectedTab,
+    required this.theme,
+    required this.onTabSelected,
+  });
+
+  final _LeaderboardTab selectedTab;
+  final AppThemeData theme;
+  final ValueChanged<_LeaderboardTab> onTabSelected;
+
+  static const _tabs = [
+    (_LeaderboardTab.ranked, 'Ranked'),
+    (_LeaderboardTab.online, 'Online'),
+    (_LeaderboardTab.bust, 'Bust'),
+    (_LeaderboardTab.other, 'Offline'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 40,
+      decoration: BoxDecoration(
+        color: theme.surfacePanel,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      padding: const EdgeInsets.all(3),
+      child: Row(
+        children: _tabs.map((tab) {
+          final isSelected = selectedTab == tab.$1;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => onTabSelected(tab.$1),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isSelected ? theme.accentPrimary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  tab.$2,
+                  style: GoogleFonts.inter(
+                    color: isSelected
+                        ? theme.backgroundDeep
+                        : theme.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _RankedVariantToggle extends StatelessWidget {
+  const _RankedVariantToggle({
+    required this.hardcore,
+    required this.theme,
+    required this.onStandard,
+    required this.onHardcore,
+  });
+
+  final bool hardcore;
+  final AppThemeData theme;
+  final VoidCallback onStandard;
+  final VoidCallback onHardcore;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _VariantPill(
+          label: 'Standard',
+          selected: !hardcore,
+          theme: theme,
+          onTap: onStandard,
+        ),
+        const SizedBox(width: 8),
+        _VariantPill(
+          label: 'Hardcore',
+          selected: hardcore,
+          theme: theme,
+          onTap: onHardcore,
+        ),
+      ],
+    );
+  }
+}
+
+class _VariantPill extends StatelessWidget {
+  const _VariantPill({
+    required this.label,
+    required this.selected,
+    required this.theme,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final AppThemeData theme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.accentPrimary.withValues(alpha: 0.18)
+              : theme.surfacePanel,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected
+                ? theme.accentPrimary
+                : theme.textSecondary.withValues(alpha: 0.25),
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            color: selected ? theme.accentPrimary : theme.textSecondary,
+            fontSize: 11,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SmallModeChip extends StatelessWidget {
+  const _SmallModeChip({
+    required this.label,
+    required this.selected,
+    required this.theme,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final AppThemeData theme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.accentPrimary.withValues(alpha: 0.18)
+              : theme.surfacePanel,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected
+                ? theme.accentPrimary
+                : theme.textSecondary.withValues(alpha: 0.25),
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            color: selected ? theme.accentPrimary : theme.textSecondary,
+            fontSize: 11,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _CountChip extends StatelessWidget {
   const _CountChip({
@@ -428,12 +707,14 @@ class _CountChip extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          height: 30,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          alignment: Alignment.center,
           decoration: BoxDecoration(
             color: selected
                 ? theme.accentPrimary.withValues(alpha: 0.18)
                 : theme.surfacePanel,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(15),
             border: Border.all(
               color: selected
                   ? theme.accentPrimary
@@ -447,7 +728,7 @@ class _CountChip extends StatelessWidget {
               color: selected
                   ? theme.accentPrimary
                   : theme.textSecondary.withValues(alpha: 0.7),
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
             ),
           ),
@@ -623,6 +904,44 @@ class _RankedLeaderboardState extends State<_RankedLeaderboard> {
   }
 }
 
+// ── Tier badge ────────────────────────────────────────────────────────────────
+
+class _TierBadge extends StatelessWidget {
+  const _TierBadge({
+    required this.label,
+    required this.color,
+    this.large = false,
+  });
+
+  final String label;
+  final Color color;
+  final bool large;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: large ? 8 : 6,
+        vertical: large ? 4 : 2,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.6)),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: GoogleFonts.inter(
+          color: color,
+          fontSize: large ? 11 : 9,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+}
+
 // ── Your Rank Banner ──────────────────────────────────────────────────────────
 
 class _YourRankBanner extends StatelessWidget {
@@ -636,79 +955,330 @@ class _YourRankBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasData = entry != null && rank > 0;
+    final tier = hasData ? _rankedTier(entry!.rating) : null;
+    final winRate = hasData
+        ? _winRatePercent(entry!.wins, entry!.losses)
+        : 0;
+
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       decoration: BoxDecoration(
-        color: theme.surfacePanel,
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            theme.accentPrimary.withValues(alpha: 0.08),
+            Colors.transparent,
+          ],
+        ),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: theme.accentPrimary.withValues(alpha: 0.4),
           width: 1.5,
         ),
       ),
-      child: hasData
-          ? Row(
-              children: [
-                const Text('🏅', style: TextStyle(fontSize: 20)),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Your Rank: #$rank',
-                        style: GoogleFonts.outfit(
-                          color: theme.accentPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      Text(
-                        'W ${entry!.wins}  ·  L ${entry!.losses}  ·  '
-                        '${entry!.gamesPlayed} games',
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Row(
+          children: [
+            Container(width: 3, color: theme.accentPrimary),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: hasData
+                    ? Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Your Rank: #$rank',
+                                      style: GoogleFonts.outfit(
+                                        color: theme.accentPrimary,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    if (tier != null) ...[
+                                      const SizedBox(width: 8),
+                                      _TierBadge(
+                                        label: tier.label,
+                                        color: tier.color,
+                                        large: true,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'W ${entry!.wins}  ·  L ${entry!.losses}  ·  '
+                                  '${entry!.gamesPlayed} games',
+                                  style: GoogleFonts.inter(
+                                    color: theme.textSecondary.withValues(alpha: 0.8),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  'Win rate: $winRate%',
+                                  style: GoogleFonts.inter(
+                                    color: theme.textSecondary.withValues(alpha: 0.7),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                if (rank == 1)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      '👑 #1 on this leaderboard',
+                                      style: GoogleFonts.inter(
+                                        color: theme.accentPrimary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  )
+                                else if (rank <= 10)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      '🔥 Top 10',
+                                      style: GoogleFonts.inter(
+                                        color: theme.accentPrimary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '${entry!.rating}',
+                                style: GoogleFonts.outfit(
+                                  color: theme.accentPrimary,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              Text(
+                                'MMR',
+                                style: GoogleFonts.inter(
+                                  color: theme.textSecondary.withValues(alpha: 0.6),
+                                  fontSize: 10,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    : Text(
+                        'Play a ranked game to appear on the leaderboard.',
                         style: GoogleFonts.inter(
-                          color: theme.textSecondary.withValues(alpha: 0.8),
-                          fontSize: 12,
+                          color: theme.textSecondary.withValues(alpha: 0.6),
+                          fontSize: 13,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '${entry!.rating}',
-                      style: GoogleFonts.outfit(
-                        color: theme.accentPrimary,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    Text(
-                      'MMR',
-                      style: GoogleFonts.inter(
-                        color: theme.textSecondary.withValues(alpha: 0.6),
-                        fontSize: 10,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            )
-          : Text(
-              'Play a ranked game to appear on the leaderboard.',
-              style: GoogleFonts.inter(
-                  color: theme.textSecondary.withValues(alpha: 0.6),
-                  fontSize: 13),
+              ),
             ),
+          ],
+        ),
+      ),
     );
   }
 }
 
 // ── Podium ────────────────────────────────────────────────────────────────────
+
+class _PodiumSlotData {
+  const _PodiumSlotData({
+    required this.displayName,
+    required this.statText,
+  });
+
+  final String displayName;
+  final String statText;
+}
+
+class _PremiumPodium extends StatelessWidget {
+  const _PremiumPodium({required this.slots, required this.theme});
+
+  final List<_PodiumSlotData> slots;
+  final AppThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    const medalColors = [
+      Color(0xFFFFD700),
+      Color(0xFFB0BEC5),
+      Color(0xFFBF8970),
+    ];
+    const gradientStops = [
+      [Color(0xFFFFD700), Color(0xFFB8960C)],
+      [Color(0xFFB0BEC5), Color(0xFF78909C)],
+      [Color(0xFFBF8970), Color(0xFF795548)],
+    ];
+    const gradientAlphas = [
+      [0.20, 0.08],
+      [0.15, 0.06],
+      [0.12, 0.05],
+    ];
+    const podiumLabels = ['1st', '2nd', '3rd'];
+    const avatarSizes = [52.0, 44.0, 44.0];
+    const heights = [115.0, 85.0, 65.0];
+
+    final ordered = [slots[1], slots[0], slots[2]];
+    final orderedMedals = [1, 0, 2];
+    final orderedHeights = [heights[1], heights[0], heights[2]];
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+      decoration: BoxDecoration(
+        color: theme.surfacePanel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.accentPrimary.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: List.generate(3, (i) {
+          final slot = ordered[i];
+          final medalIdx = orderedMedals[i];
+          final color = medalColors[medalIdx];
+          final isFirst = medalIdx == 0;
+          final avatarSize = avatarSizes[medalIdx];
+          final initials = _initialsFromName(slot.displayName);
+
+          return Expanded(
+            child: Column(
+              children: [
+                if (isFirst)
+                  Icon(
+                    Icons.emoji_events_rounded,
+                    color: color,
+                    size: 20,
+                  )
+                else
+                  const SizedBox(height: 20),
+                const SizedBox(height: 6),
+                Container(
+                  width: avatarSize,
+                  height: avatarSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: color.withValues(alpha: 0.15),
+                    border: Border.all(color: color, width: isFirst ? 2 : 1.5),
+                    boxShadow: isFirst
+                        ? [
+                            BoxShadow(
+                              color: color.withValues(alpha: 0.45),
+                              blurRadius: 10,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : null,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    initials,
+                    style: GoogleFonts.outfit(
+                      color: color,
+                      fontWeight: FontWeight.w800,
+                      fontSize: isFirst ? 16 : 14,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  slot.displayName,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  style: GoogleFonts.outfit(
+                    color: theme.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+                Text(
+                  slot.statText,
+                  style: GoogleFonts.inter(
+                    color: theme.textSecondary.withValues(alpha: 0.8),
+                    fontSize: 10,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      height: orderedHeights[i],
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            gradientStops[medalIdx][0]
+                                .withValues(alpha: gradientAlphas[medalIdx][0]),
+                            gradientStops[medalIdx][1]
+                                .withValues(alpha: gradientAlphas[medalIdx][1]),
+                          ],
+                        ),
+                        borderRadius:
+                            const BorderRadius.vertical(top: Radius.circular(8)),
+                        border: Border.all(
+                          color: color.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          podiumLabels[medalIdx],
+                          style: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 0,
+                      left: 4,
+                      right: 4,
+                      child: Container(
+                        height: 2,
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.55),
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(8),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: color.withValues(alpha: 0.35),
+                              blurRadius: 6,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
 
 class _Podium extends StatelessWidget {
   const _Podium({required this.top3, required this.theme});
@@ -718,77 +1288,130 @@ class _Podium extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const podiumColors = [
-      Color(0xFFFFD700), // gold
-      Color(0xFFB0BEC5), // silver
-      Color(0xFFBF8970), // bronze
-    ];
-    const podiumLabels = ['1st', '2nd', '3rd'];
-    const podiumEmojis = ['🥇', '🥈', '🥉'];
-
-    // Reorder to podium layout: 2nd | 1st | 3rd
-    final ordered = [top3[1], top3[0], top3[2]];
-    final orderedColors = [podiumColors[1], podiumColors[0], podiumColors[2]];
-    final orderedLabels = [podiumLabels[1], podiumLabels[0], podiumLabels[2]];
-    final orderedEmojis = [podiumEmojis[1], podiumEmojis[0], podiumEmojis[2]];
-    final heights = [80.0, 110.0, 60.0];
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: List.generate(3, (i) {
-          final e = ordered[i];
-          return Expanded(
-            child: Column(
-              children: [
-                Text(orderedEmojis[i], style: const TextStyle(fontSize: 24)),
-                const SizedBox(height: 4),
-                Text(
-                  e.displayName,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
-                    color: orderedColors[i],
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                  ),
-                ),
-                Text(
-                  '${e.rating} MMR',
-                  style: GoogleFonts.inter(
-                    color: theme.textSecondary.withValues(alpha: 0.8),
-                    fontSize: 11,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  height: heights[i],
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: orderedColors[i].withValues(alpha: 0.15),
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(8)),
-                    border: Border.all(
-                      color: orderedColors[i].withValues(alpha: 0.5),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      orderedLabels[i],
-                      style: TextStyle(
-                        color: orderedColors[i],
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+    return _PremiumPodium(
+      theme: theme,
+      slots: top3
+          .map(
+            (e) => _PodiumSlotData(
+              displayName: e.displayName,
+              statText: '${e.rating} MMR',
             ),
-          );
-        }),
+          )
+          .toList(),
+    );
+  }
+}
+
+// ── Shared tile helpers ───────────────────────────────────────────────────────
+
+class _RankCircle extends StatelessWidget {
+  const _RankCircle({required this.rank, required this.theme});
+
+  final int rank;
+  final AppThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    const medalColors = [
+      Color(0xFFFFD700),
+      Color(0xFFB0BEC5),
+      Color(0xFFBF8970),
+    ];
+    final isTop3 = rank <= 3;
+    final color = isTop3
+        ? medalColors[rank - 1]
+        : theme.textSecondary;
+
+    return Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isTop3
+            ? color.withValues(alpha: 0.15)
+            : theme.surfacePanel,
       ),
+      alignment: Alignment.center,
+      child: Text(
+        '$rank',
+        style: GoogleFonts.outfit(
+          color: color,
+          fontWeight: FontWeight.w800,
+          fontSize: 13,
+        ),
+      ),
+    );
+  }
+}
+
+class _YouBadge extends StatelessWidget {
+  const _YouBadge({required this.theme});
+
+  final AppThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: theme.accentPrimary.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        'YOU',
+        style: GoogleFonts.inter(
+          color: theme.accentPrimary,
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+}
+
+class _StatPillsRow extends StatelessWidget {
+  const _StatPillsRow({
+    required this.wins,
+    required this.losses,
+    required this.theme,
+  });
+
+  final int wins;
+  final int losses;
+  final AppThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final rate = _winRatePercent(wins, losses);
+    final rateColor =
+        rate >= 50 ? const Color(0xFF4CAF50) : const Color(0xFFE53935);
+
+    Widget pill(String text, {Color? textColor}) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+        decoration: BoxDecoration(
+          color: theme.surfacePanel,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          text,
+          style: GoogleFonts.inter(
+            color: textColor ?? theme.textSecondary,
+            fontSize: 10,
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        pill('W: $wins'),
+        const SizedBox(width: 4),
+        pill('L: $losses'),
+        const SizedBox(width: 4),
+        pill('$rate%', textColor: rateColor),
+      ],
     );
   }
 }
@@ -811,99 +1434,100 @@ class _RankedTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rank = index + 1;
-    final isTop3 = rank <= 3;
+    final isTop3 = rank <= 3 && !isLocal;
     const medalColors = [
       Color(0xFFFFD700),
       Color(0xFFB0BEC5),
       Color(0xFFBF8970),
     ];
-    final rankColor = isTop3
-        ? medalColors[rank - 1]
-        : theme.textSecondary.withValues(alpha: 0.6);
+    final tier = _rankedTier(entry.rating);
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: isLocal
-            ? theme.accentPrimary.withValues(alpha: 0.08)
-            : theme.backgroundMid,
-        borderRadius: BorderRadius.circular(12),
+            ? theme.accentPrimary.withValues(alpha: 0.10)
+            : isTop3
+                ? medalColors[rank - 1].withValues(alpha: 0.06)
+                : theme.backgroundMid,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isLocal
-              ? theme.accentPrimary.withValues(alpha: 0.4)
-              : theme.textPrimary.withValues(alpha: 0.05),
+              ? theme.accentPrimary.withValues(alpha: 0.5)
+              : theme.textPrimary.withValues(alpha: 0.06),
           width: isLocal ? 1.5 : 1,
         ),
+        boxShadow: isLocal
+            ? [
+                BoxShadow(
+                  color: theme.accentPrimary.withValues(alpha: 0.12),
+                  blurRadius: 8,
+                ),
+              ]
+            : null,
       ),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: rankColor.withValues(alpha: 0.15),
-          child: Text(
-            '#$rank',
-            style: TextStyle(
-              color: rankColor,
-              fontWeight: FontWeight.w800,
-              fontSize: 13,
+      child: Row(
+        children: [
+          _RankCircle(rank: rank, theme: theme),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        entry.displayName,
+                        style: GoogleFonts.outfit(
+                          color: isLocal ? theme.accentPrimary : theme.textPrimary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (isLocal) ...[
+                      const SizedBox(width: 6),
+                      _YouBadge(theme: theme),
+                    ],
+                    const SizedBox(width: 6),
+                    _TierBadge(label: tier.label, color: tier.color),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                _StatPillsRow(
+                  wins: entry.wins,
+                  losses: entry.losses,
+                  theme: theme,
+                ),
+              ],
             ),
           ),
-        ),
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                entry.displayName,
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${entry.rating}',
                 style: GoogleFonts.outfit(
-                  color: isLocal ? theme.accentPrimary : theme.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (isLocal)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: theme.accentPrimary.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  'YOU',
-                  style: GoogleFonts.inter(
-                    color: theme.accentPrimary,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                  ),
+                  color: theme.accentPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-          ],
-        ),
-        subtitle: Text(
-          'W ${entry.wins}  ·  L ${entry.losses}  ·  ${entry.gamesPlayed} games',
-          style: GoogleFonts.inter(
-              color: theme.textSecondary.withValues(alpha: 0.6), fontSize: 11),
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              '${entry.rating}',
-              style: GoogleFonts.outfit(
-                color: theme.accentPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
+              Text(
+                tier.label,
+                style: GoogleFonts.inter(
+                  color: tier.color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            Text(
-              'MMR',
-              style: GoogleFonts.inter(
-                  color: theme.textSecondary.withValues(alpha: 0.6),
-                  fontSize: 9),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1017,10 +1641,10 @@ class _ModeLeaderboardState extends State<_ModeLeaderboard> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('🏅', style: TextStyle(fontSize: 48)),
+                const Text('🏆', style: TextStyle(fontSize: 48)),
                 const SizedBox(height: 12),
                 Text(
-                  'Leaderboard coming soon for this mode.',
+                  'No ${widget.mode.label} games recorded yet.\nBe the first to compete!',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
                     color: theme.textSecondary.withValues(alpha: 0.8),
@@ -1091,53 +1715,114 @@ class _ModeYourRankBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasData = entry != null && rank > 0;
+    final tier = hasData ? _winsTier(entry!.wins) : null;
+    final winRate = hasData
+        ? _winRatePercent(entry!.wins, entry!.losses)
+        : 0;
+
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       decoration: BoxDecoration(
-        color: theme.surfacePanel,
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            theme.accentPrimary.withValues(alpha: 0.08),
+            Colors.transparent,
+          ],
+        ),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: theme.accentPrimary.withValues(alpha: 0.4),
           width: 1.5,
         ),
       ),
-      child: hasData
-          ? Row(
-              children: [
-                const Text('🏅', style: TextStyle(fontSize: 20)),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Your Rank: #$rank',
-                        style: GoogleFonts.outfit(
-                          color: theme.accentPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      Text(
-                        'W ${entry!.wins}  ·  L ${entry!.losses}  ·  ${entry!.gamesPlayed} games',
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Row(
+          children: [
+            Container(width: 3, color: theme.accentPrimary),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: hasData
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Your Rank: #$rank',
+                                style: GoogleFonts.outfit(
+                                  color: theme.accentPrimary,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              if (tier != null) ...[
+                                const SizedBox(width: 8),
+                                _TierBadge(
+                                  label: tier.label,
+                                  color: tier.color,
+                                  large: true,
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'W ${entry!.wins}  ·  L ${entry!.losses}  ·  '
+                            '${entry!.gamesPlayed} games',
+                            style: GoogleFonts.inter(
+                              color: theme.textSecondary.withValues(alpha: 0.8),
+                              fontSize: 12,
+                            ),
+                          ),
+                          Text(
+                            'Win rate: $winRate%',
+                            style: GoogleFonts.inter(
+                              color: theme.textSecondary.withValues(alpha: 0.7),
+                              fontSize: 11,
+                            ),
+                          ),
+                          if (rank == 1)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                '👑 #1 on this leaderboard',
+                                style: GoogleFonts.inter(
+                                  color: theme.accentPrimary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            )
+                          else if (rank <= 10)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                '🔥 Top 10',
+                                style: GoogleFonts.inter(
+                                  color: theme.accentPrimary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                        ],
+                      )
+                    : Text(
+                        'Play ${mode.label} games to appear on the leaderboard.',
                         style: GoogleFonts.inter(
-                          color: theme.textSecondary.withValues(alpha: 0.8),
-                          fontSize: 12,
+                          color: theme.textSecondary.withValues(alpha: 0.6),
+                          fontSize: 13,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ],
-            )
-          : Text(
-              'Play ${mode.label} games to appear on the leaderboard.',
-              style: GoogleFonts.inter(
-                color: theme.textSecondary.withValues(alpha: 0.6),
-                fontSize: 13,
               ),
             ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1150,76 +1835,16 @@ class _ModePodium extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const podiumColors = [
-      Color(0xFFFFD700), // gold
-      Color(0xFFB0BEC5), // silver
-      Color(0xFFBF8970), // bronze
-    ];
-    const podiumLabels = ['1st', '2nd', '3rd'];
-    const podiumEmojis = ['🥇', '🥈', '🥉'];
-
-    final ordered = [top3[1], top3[0], top3[2]];
-    final orderedColors = [podiumColors[1], podiumColors[0], podiumColors[2]];
-    final orderedLabels = [podiumLabels[1], podiumLabels[0], podiumLabels[2]];
-    final orderedEmojis = [podiumEmojis[1], podiumEmojis[0], podiumEmojis[2]];
-    final heights = [80.0, 110.0, 60.0];
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: List.generate(3, (i) {
-          final e = ordered[i];
-          return Expanded(
-            child: Column(
-              children: [
-                Text(orderedEmojis[i], style: const TextStyle(fontSize: 24)),
-                const SizedBox(height: 4),
-                Text(
-                  e.displayName,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
-                    color: orderedColors[i],
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                  ),
-                ),
-                Text(
-                  'W ${e.wins}',
-                  style: GoogleFonts.inter(
-                    color: theme.textSecondary.withValues(alpha: 0.8),
-                    fontSize: 11,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  height: heights[i],
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: orderedColors[i].withValues(alpha: 0.15),
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(8)),
-                    border: Border.all(
-                      color: orderedColors[i].withValues(alpha: 0.5),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      orderedLabels[i],
-                      style: TextStyle(
-                        color: orderedColors[i],
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+    return _PremiumPodium(
+      theme: theme,
+      slots: top3
+          .map(
+            (e) => _PodiumSlotData(
+              displayName: e.displayName,
+              statText: 'W ${e.wins}',
             ),
-          );
-        }),
-      ),
+          )
+          .toList(),
     );
   }
 }
@@ -1240,100 +1865,100 @@ class _ModeTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rank = index + 1;
-    final isTop3 = rank <= 3;
+    final isTop3 = rank <= 3 && !isLocal;
     const medalColors = [
       Color(0xFFFFD700),
       Color(0xFFB0BEC5),
       Color(0xFFBF8970),
     ];
-    final rankColor = isTop3
-        ? medalColors[rank - 1]
-        : theme.textSecondary.withValues(alpha: 0.6);
+    final tier = _winsTier(entry.wins);
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: isLocal
-            ? theme.accentPrimary.withValues(alpha: 0.08)
-            : theme.backgroundMid,
-        borderRadius: BorderRadius.circular(12),
+            ? theme.accentPrimary.withValues(alpha: 0.10)
+            : isTop3
+                ? medalColors[rank - 1].withValues(alpha: 0.06)
+                : theme.backgroundMid,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isLocal
-              ? theme.accentPrimary.withValues(alpha: 0.4)
-              : theme.textPrimary.withValues(alpha: 0.05),
+              ? theme.accentPrimary.withValues(alpha: 0.5)
+              : theme.textPrimary.withValues(alpha: 0.06),
           width: isLocal ? 1.5 : 1,
         ),
+        boxShadow: isLocal
+            ? [
+                BoxShadow(
+                  color: theme.accentPrimary.withValues(alpha: 0.12),
+                  blurRadius: 8,
+                ),
+              ]
+            : null,
       ),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: rankColor.withValues(alpha: 0.15),
-          child: Text(
-            '#$rank',
-            style: TextStyle(
-              color: rankColor,
-              fontWeight: FontWeight.w800,
-              fontSize: 13,
+      child: Row(
+        children: [
+          _RankCircle(rank: rank, theme: theme),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        entry.displayName,
+                        style: GoogleFonts.outfit(
+                          color: isLocal ? theme.accentPrimary : theme.textPrimary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (isLocal) ...[
+                      const SizedBox(width: 6),
+                      _YouBadge(theme: theme),
+                    ],
+                    const SizedBox(width: 6),
+                    _TierBadge(label: tier.label, color: tier.color),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                _StatPillsRow(
+                  wins: entry.wins,
+                  losses: entry.losses,
+                  theme: theme,
+                ),
+              ],
             ),
           ),
-        ),
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                entry.displayName,
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${entry.wins}',
                 style: GoogleFonts.outfit(
-                  color: isLocal ? theme.accentPrimary : theme.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (isLocal)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: theme.accentPrimary.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  'YOU',
-                  style: GoogleFonts.inter(
-                    color: theme.accentPrimary,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                  ),
+                  color: theme.accentPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-          ],
-        ),
-        subtitle: Text(
-          'W ${entry.wins}  ·  L ${entry.losses}  ·  ${entry.gamesPlayed} games',
-          style: GoogleFonts.inter(
-              color: theme.textSecondary.withValues(alpha: 0.6), fontSize: 11),
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              '${entry.wins}',
-              style: GoogleFonts.outfit(
-                color: theme.accentPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
+              Text(
+                tier.label,
+                style: GoogleFonts.inter(
+                  color: tier.color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            Text(
-              'Wins',
-              style: GoogleFonts.inter(
-                color: theme.textSecondary.withValues(alpha: 0.6),
-                fontSize: 9,
-              ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }
