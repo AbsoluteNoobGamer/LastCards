@@ -2,11 +2,14 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/services/card_back_service.dart';
 import '../../../../core/services/player_level_service.dart';
 import '../../../../core/theme/app_dimensions.dart';
+import '../../../../core/theme/app_theme_data.dart';
 
 /// Defines the supported style sections so we can add more tabs/sections later.
 enum CardStyleSection {
@@ -17,7 +20,7 @@ enum CardStyleSection {
 ///
 /// This widget intentionally reuses [CardBackService] listeners and
 /// [CardBackService.selectDesign] so selection behavior stays centralized.
-class CardBackSelectionMenu extends StatefulWidget {
+class CardBackSelectionMenu extends ConsumerStatefulWidget {
   const CardBackSelectionMenu({
     super.key,
     this.section = CardStyleSection.backCover,
@@ -30,7 +33,8 @@ class CardBackSelectionMenu extends StatefulWidget {
   final bool showSectionTitle;
 
   @override
-  State<CardBackSelectionMenu> createState() => _CardBackSelectionMenuState();
+  ConsumerState<CardBackSelectionMenu> createState() =>
+      _CardBackSelectionMenuState();
 }
 
 enum _CardStyleMenuView {
@@ -41,11 +45,12 @@ enum _CardStyleMenuView {
   cardFaces,
 }
 
-class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
+class _CardBackSelectionMenuState extends ConsumerState<CardBackSelectionMenu> {
   _CardStyleMenuView _view = _CardStyleMenuView.root;
 
   @override
   Widget build(BuildContext context) {
+    final theme = ref.watch(themeProvider).theme;
     CardBackService.instance.init();
 
     if (widget.section != CardStyleSection.backCover) {
@@ -56,7 +61,7 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
       valueListenable: CardBackService.instance.selectedDesignId,
       builder: (context, selectedDesignId, _) {
         final content = switch (_view) {
-          _CardStyleMenuView.root => _buildRootMenu(selectedDesignId),
+          _CardStyleMenuView.root => _buildRootMenu(selectedDesignId, theme),
           _CardStyleMenuView.animatedBacks =>
             _buildAnimatedStylesMenu(selectedDesignId),
           _CardStyleMenuView.coverBacks =>
@@ -71,14 +76,15 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
           children: [
             if (widget.showSectionTitle &&
                 _view == _CardStyleMenuView.root) ...[
-              const Text(
+              Text(
                 'Card Back',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
+                  color: theme.textPrimary,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
             ],
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 180),
@@ -95,13 +101,25 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
     );
   }
 
-  Widget _buildRootMenu(String selectedDesignId) {
+  Widget _buildRootMenu(String selectedDesignId, AppThemeData theme) {
     final isAnimatedSelected = _isAnimatedSelection(selectedDesignId);
     final isCoverSelected = !isAnimatedSelected;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text(
+            'CUSTOMISE',
+            style: TextStyle(
+              fontSize: 10,
+              letterSpacing: 2,
+              fontWeight: FontWeight.w600,
+              color: theme.textSecondary,
+            ),
+          ),
+        ),
         _CardStyleTile(
           option: const _CardStyleOption(
             id: 'animated_root',
@@ -110,11 +128,13 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
             icon: Icons.auto_awesome_rounded,
           ),
           isSelected: isAnimatedSelected,
-          trailing:
-              const Icon(Icons.chevron_right_rounded, color: Colors.white70),
+          trailing: Icon(
+            Icons.chevron_right_rounded,
+            color: theme.textSecondary,
+          ),
           onTap: () => setState(() => _view = _CardStyleMenuView.animatedBacks),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         _CardStyleTile(
           option: const _CardStyleOption(
             id: 'cover_root',
@@ -123,11 +143,13 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
             icon: Icons.style_rounded,
           ),
           isSelected: isCoverSelected,
-          trailing:
-              const Icon(Icons.chevron_right_rounded, color: Colors.white70),
+          trailing: Icon(
+            Icons.chevron_right_rounded,
+            color: theme.textSecondary,
+          ),
           onTap: () => setState(() => _view = _CardStyleMenuView.coverBacks),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         _CardStyleTile(
           option: const _CardStyleOption(
             id: 'joker_root',
@@ -136,11 +158,13 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
             icon: Icons.celebration_rounded,
           ),
           isSelected: false,
-          trailing:
-              const Icon(Icons.chevron_right_rounded, color: Colors.white70),
+          trailing: Icon(
+            Icons.chevron_right_rounded,
+            color: theme.textSecondary,
+          ),
           onTap: () => setState(() => _view = _CardStyleMenuView.jokerCovers),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         _CardStyleTile(
           option: const _CardStyleOption(
             id: 'cardfaces_root',
@@ -149,8 +173,10 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
             icon: Icons.dashboard_rounded,
           ),
           isSelected: false,
-          trailing:
-              const Icon(Icons.chevron_right_rounded, color: Colors.white70),
+          trailing: Icon(
+            Icons.chevron_right_rounded,
+            color: theme.textSecondary,
+          ),
           onTap: () => setState(() => _view = _CardStyleMenuView.cardFaces),
         ),
       ],
@@ -168,7 +194,6 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
               title: 'Card Faces',
               onBack: () => setState(() => _view = _CardStyleMenuView.root),
             ),
-            const SizedBox(height: 8),
             _CardStyleTile(
               option: const _CardStyleOption(
                 id: 'default',
@@ -177,16 +202,13 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
                 icon: Icons.style_rounded,
               ),
               isSelected: selectedId == 'default',
-              trailing: selectedId == 'default'
-                  ? const Icon(Icons.check_rounded, color: Colors.green)
-                  : null,
               onTap: () async {
                 await CardBackService.instance.selectCardFaceSet('default');
                 HapticFeedback.selectionClick();
                 setState(() {});
               },
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             _CardStyleTile(
               option: const _CardStyleOption(
                 id: 'classic',
@@ -195,9 +217,6 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
                 icon: Icons.abc_rounded,
               ),
               isSelected: selectedId == 'classic',
-              trailing: selectedId == 'classic'
-                  ? const Icon(Icons.check_rounded, color: Colors.green)
-                  : null,
               onTap: () async {
                 await CardBackService.instance.selectCardFaceSet('classic');
                 HapticFeedback.selectionClick();
@@ -267,15 +286,18 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
                         : option.subtitle;
 
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.only(bottom: 10),
                       child: _CardStyleTile(
                         option: _CardStyleOption(
                           id: option.id,
                           title: unlocked ? option.title : lockedTitle,
                           subtitle: unlocked ? option.subtitle : lockedSubtitle,
                           icon: option.icon,
+                          previewDesignId: option.previewDesignId,
+                          previewAssetPath: option.previewAssetPath,
                         ),
                         isSelected: isSelected,
+                        isLocked: !unlocked,
                         onTap: () => _selectOption(context, option.id),
                       ),
                     );
@@ -299,6 +321,8 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
             return ValueListenableBuilder<List<CardBackDesign>>(
               valueListenable: CardBackService.instance.jokerCoverDesigns,
               builder: (context, jokerDesigns, _) {
+                final theme = ref.watch(themeProvider).theme;
+
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -308,7 +332,7 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
                           setState(() => _view = _CardStyleMenuView.root),
                     ),
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.only(bottom: 10),
                       child: _CardStyleTile(
                         option: const _CardStyleOption(
                           id: 'classic',
@@ -322,17 +346,17 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
                       ),
                     ),
                     if (jokerDesigns.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
                         child: Text(
                           'Add images to assets/images/jokercover/',
-                          style: TextStyle(color: Colors.white70),
+                          style: TextStyle(color: theme.textSecondary),
                         ),
                       ),
                     ...jokerDesigns.map((design) {
                       final unlocked = currentLevel >= design.unlockLevel;
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.only(bottom: 10),
                         child: _CardStyleTile(
                           option: _CardStyleOption(
                             id: design.id,
@@ -346,6 +370,7 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
                             previewAssetPath: design.assetPath,
                           ),
                           isSelected: selectedJokerId == design.id,
+                          isLocked: !unlocked,
                           onTap: () => _selectJokerOption(context, design.id),
                         ),
                       );
@@ -394,41 +419,56 @@ class _CardBackSelectionMenuState extends State<CardBackSelectionMenu> {
   }
 
   Widget _buildCoverStylesMenu(String selectedDesignId) {
-    return ValueListenableBuilder<List<CardBackDesign>>(
-      valueListenable: CardBackService.instance.cardBackCoverDesigns,
-      builder: (context, coverDesigns, _) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SubmenuHeader(
-              title: 'Cards (Back Cover)',
-              onBack: () => setState(() => _view = _CardStyleMenuView.root),
-            ),
-            if (coverDesigns.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text(
-                  'No styles found in assets/images/cardbackcover',
-                  style: TextStyle(color: Colors.white70),
+    return ValueListenableBuilder<int>(
+      valueListenable: PlayerLevelService.instance.currentLevel,
+      builder: (context, currentLevel, _) {
+        return ValueListenableBuilder<List<CardBackDesign>>(
+          valueListenable: CardBackService.instance.cardBackCoverDesigns,
+          builder: (context, coverDesigns, _) {
+            final theme = ref.watch(themeProvider).theme;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SubmenuHeader(
+                  title: 'Cards (Back Cover)',
+                  onBack: () => setState(() => _view = _CardStyleMenuView.root),
                 ),
-              ),
-            ...coverDesigns.map(
-              (design) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _CardStyleTile(
-                  option: _CardStyleOption(
-                    id: design.id,
-                    title: design.label,
-                    subtitle: null,
-                    icon: Icons.style_rounded,
-                    previewAssetPath: design.assetPath,
+                if (coverDesigns.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'No styles found in assets/images/cardbackcover',
+                      style: TextStyle(color: theme.textSecondary),
+                    ),
                   ),
-                  isSelected: selectedDesignId == design.id,
-                  onTap: () => _selectOption(context, design.id),
+                ...coverDesigns.map(
+                  (design) {
+                    final unlocked = currentLevel >= design.unlockLevel;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _CardStyleTile(
+                        option: _CardStyleOption(
+                          id: design.id,
+                          title: unlocked
+                              ? design.label
+                              : '${design.label} (Level ${design.unlockLevel})',
+                          subtitle: unlocked
+                              ? null
+                              : 'Your level: $currentLevel / Required: ${design.unlockLevel}',
+                          icon: Icons.style_rounded,
+                          previewAssetPath: design.assetPath,
+                        ),
+                        isSelected: selectedDesignId == design.id,
+                        isLocked: !unlocked,
+                        onTap: () => _selectOption(context, design.id),
+                      ),
+                    );
+                  },
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         );
       },
     );
@@ -483,11 +523,12 @@ void showCardStylesModal(BuildContext context) {
   );
 }
 
-class CardStylesModal extends StatelessWidget {
+class CardStylesModal extends ConsumerWidget {
   const CardStylesModal({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(themeProvider).theme;
     final media = MediaQuery.of(context);
     final isMobile = math.min(media.size.width, media.size.height) <
         AppDimensions.breakpointMobile;
@@ -505,14 +546,17 @@ class CardStylesModal extends StatelessWidget {
         final bottomInset = media.viewInsets.bottom;
         return DecoratedBox(
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1A1E),
+            color: theme.surfacePanel,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-            border: Border.all(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.22),
+            border: Border(
+              top: BorderSide(
+                color: theme.accentPrimary.withValues(alpha: 0.4),
+                width: 1,
+              ),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.45),
+                color: theme.backgroundDeep.withValues(alpha: 0.45),
                 blurRadius: 24,
                 offset: const Offset(0, -4),
               ),
@@ -531,7 +575,7 @@ class CardStylesModal extends StatelessWidget {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade600,
+                        color: theme.accentPrimary.withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -543,11 +587,11 @@ class CardStylesModal extends StatelessWidget {
                       children: [
                         Text(
                           'Card styles',
-                          style: GoogleFonts.inter(
-                            fontSize: isMobile ? 21 : 23,
+                          style: GoogleFonts.playfairDisplay(
+                            fontSize: 22,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            letterSpacing: 0.2,
+                            color: theme.accentPrimary,
+                            letterSpacing: 0.5,
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -556,7 +600,7 @@ class CardStylesModal extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 13,
                             height: 1.4,
-                            color: Colors.grey.shade500,
+                            color: theme.textSecondary,
                           ),
                         ),
                       ],
@@ -565,7 +609,7 @@ class CardStylesModal extends StatelessWidget {
                   Divider(
                     height: 1,
                     thickness: 1,
-                    color: Colors.white.withValues(alpha: 0.06),
+                    color: theme.accentDark.withValues(alpha: 0.4),
                   ),
                   Expanded(
                     child: ListView(
@@ -615,31 +659,59 @@ class _CardStyleOption {
   final String? previewDesignId;
 }
 
-class _CardStyleTile extends StatelessWidget {
+class _CardStyleTile extends ConsumerWidget {
   const _CardStyleTile({
     required this.option,
     required this.isSelected,
     required this.onTap,
     this.trailing,
+    this.isLocked = false,
   });
 
   final _CardStyleOption option;
   final bool isSelected;
   final VoidCallback onTap;
   final Widget? trailing;
+  final bool isLocked;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(themeProvider).theme;
+    final borderRadius = BorderRadius.circular(AppDimensions.radiusCard);
+
     return Material(
-      color: isSelected
-          ? Colors.amber.withValues(alpha: 0.15)
-          : Colors.transparent,
-      borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
+      color: Colors.transparent,
+      borderRadius: borderRadius,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusCard),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        borderRadius: borderRadius,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          decoration: BoxDecoration(
+            color: isLocked
+                ? theme.surfacePanel.withValues(alpha: 0.3)
+                : isSelected
+                    ? theme.accentPrimary.withValues(alpha: 0.12)
+                    : theme.surfacePanel.withValues(alpha: 0.6),
+            borderRadius: borderRadius,
+            border: Border.all(
+              color: isSelected && !isLocked
+                  ? theme.accentPrimary.withValues(alpha: 0.6)
+                  : theme.accentDark.withValues(alpha: 0.3),
+              width: isSelected && !isLocked ? 1.5 : 1,
+            ),
+            boxShadow: isSelected && !isLocked
+                ? [
+                    BoxShadow(
+                      color: theme.accentPrimary.withValues(alpha: 0.18),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
+          ),
           child: Row(
             children: [
               _StylePreview(
@@ -659,7 +731,11 @@ class _CardStyleTile extends StatelessWidget {
                       style: TextStyle(
                         fontWeight:
                             isSelected ? FontWeight.bold : FontWeight.w500,
-                        color: isSelected ? Colors.amber : Colors.white,
+                        color: isLocked
+                            ? theme.textSecondary
+                            : isSelected
+                                ? theme.accentPrimary
+                                : theme.textPrimary,
                       ),
                     ),
                     if (option.subtitle != null &&
@@ -667,8 +743,8 @@ class _CardStyleTile extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         option.subtitle!,
-                        style: const TextStyle(
-                          color: Colors.white60,
+                        style: TextStyle(
+                          color: theme.textSecondary,
                           fontSize: 12,
                         ),
                         maxLines: 1,
@@ -678,13 +754,12 @@ class _CardStyleTile extends StatelessWidget {
                   ],
                 ),
               ),
-              if (trailing != null) trailing!,
-              if (trailing == null && isSelected)
-                const Icon(
-                  Icons.check_circle,
-                  color: Colors.amber,
-                  size: 22,
-                ),
+              if (trailing != null)
+                trailing!
+              else if (isLocked)
+                _LockBadge()
+              else if (isSelected)
+                _SelectionCheckBadge(),
             ],
           ),
         ),
@@ -693,7 +768,59 @@ class _CardStyleTile extends StatelessWidget {
   }
 }
 
-class _StylePreview extends StatelessWidget {
+class _SelectionCheckBadge extends ConsumerWidget {
+  const _SelectionCheckBadge();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(themeProvider).theme;
+
+    return Container(
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        color: theme.accentPrimary,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: theme.accentPrimary.withValues(alpha: 0.4),
+            blurRadius: 6,
+          ),
+        ],
+      ),
+      child: Icon(
+        Icons.check_rounded,
+        color: theme.backgroundDeep,
+        size: 13,
+      ),
+    );
+  }
+}
+
+class _LockBadge extends ConsumerWidget {
+  const _LockBadge();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(themeProvider).theme;
+
+    return Container(
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        color: theme.accentDark,
+        shape: BoxShape.circle,
+      ),
+      child: Icon(
+        Icons.lock_rounded,
+        color: theme.textSecondary,
+        size: 13,
+      ),
+    );
+  }
+}
+
+class _StylePreview extends ConsumerWidget {
   const _StylePreview({
     required this.assetPath,
     required this.previewDesignId,
@@ -705,16 +832,18 @@ class _StylePreview extends StatelessWidget {
   final IconData fallbackIcon;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(themeProvider).theme;
+    const previewWidth = 48.0;
     final borderRadius = BorderRadius.circular(8);
 
     return Container(
-      width: 36,
-      height: AppDimensions.cardHeight(36).clamp(50.0, 54.0),
+      width: previewWidth,
+      height: AppDimensions.cardHeight(previewWidth),
       decoration: BoxDecoration(
         borderRadius: borderRadius,
-        border: Border.all(color: const Color(0x55FFFFFF)),
-        color: const Color(0x22111111),
+        border: Border.all(color: theme.accentDark),
+        color: theme.backgroundDeep.withValues(alpha: 0.6),
       ),
       child: ClipRRect(
         borderRadius: borderRadius,
@@ -722,8 +851,11 @@ class _StylePreview extends StatelessWidget {
             ? Image.asset(
                 assetPath!,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) =>
-                    Icon(fallbackIcon, color: Colors.white70, size: 18),
+                errorBuilder: (_, __, ___) => Icon(
+                  fallbackIcon,
+                  color: theme.textSecondary,
+                  size: 18,
+                ),
               )
             : _AnimatedStyleFallback(
                 designId: previewDesignId,
@@ -734,7 +866,7 @@ class _StylePreview extends StatelessWidget {
   }
 }
 
-class _AnimatedStyleFallback extends StatelessWidget {
+class _AnimatedStyleFallback extends ConsumerWidget {
   const _AnimatedStyleFallback({
     required this.designId,
     required this.fallbackIcon,
@@ -744,7 +876,9 @@ class _AnimatedStyleFallback extends StatelessWidget {
   final IconData fallbackIcon;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(themeProvider).theme;
+
     final gradient = switch (designId) {
       'obsidian' => const LinearGradient(
           begin: Alignment.topLeft,
@@ -770,7 +904,7 @@ class _AnimatedStyleFallback extends StatelessWidget {
     };
 
     if (gradient == null) {
-      return Icon(fallbackIcon, color: Colors.white70, size: 18);
+      return Icon(fallbackIcon, color: theme.textSecondary, size: 18);
     }
 
     return Stack(
@@ -779,9 +913,9 @@ class _AnimatedStyleFallback extends StatelessWidget {
         DecoratedBox(decoration: BoxDecoration(gradient: gradient)),
         Center(
           child: Icon(
-            Icons.auto_awesome_rounded,
-            color: Colors.white.withValues(alpha: 0.7),
-            size: 16,
+            Icons.style_rounded,
+            color: theme.accentLight.withValues(alpha: 0.8),
+            size: 18,
           ),
         ),
       ],
@@ -789,7 +923,7 @@ class _AnimatedStyleFallback extends StatelessWidget {
   }
 }
 
-class _SubmenuHeader extends StatelessWidget {
+class _SubmenuHeader extends ConsumerWidget {
   const _SubmenuHeader({
     required this.title,
     required this.onBack,
@@ -799,30 +933,41 @@ class _SubmenuHeader extends StatelessWidget {
   final VoidCallback onBack;
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: onBack,
-            icon: const Icon(Icons.arrow_back_rounded),
-            color: Colors.white,
-            splashRadius: 20,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 28, height: 28),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(themeProvider).theme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              onPressed: onBack,
+              icon: const Icon(Icons.arrow_back_rounded),
+              color: theme.accentPrimary,
+              splashRadius: 20,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 28, height: 28),
             ),
-          ),
-        ],
-      ),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: GoogleFonts.playfairDisplay(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: theme.textPrimary,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ],
+        ),
+        Divider(
+          color: theme.accentDark.withValues(alpha: 0.4),
+          height: 1,
+          thickness: 1,
+        ),
+        const SizedBox(height: 12),
+      ],
     );
   }
 }
