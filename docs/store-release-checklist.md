@@ -12,7 +12,8 @@ Use this when preparing production builds for **Last Cards** — Android package
 ## Android (Google Play)
 
 1. **Play Console** — Create the app with package name `com.lastcards.app.paid` (paid listing; the original free app used `com.lastcards.app`).
-2. **Upload key** — Copy `android/key.properties.example` to `android/key.properties`, point `storeFile` at your keystore, set passwords and alias. Enable **Play App Signing** in Play Console (recommended).
+2. **Upload key** — Copy `android/key.properties.example` to `android/key.properties`, point `storeFile` at your keystore, set passwords and alias. Enable **Play App Signing** in Play Console (recommended). Run `android/export_upload_certificate.sh` to export `upload_certificate.pem` if Play rejects the upload certificate (see step 2b).
+2b. **Upload certificate mismatch** — If Play expects a different upload SHA-1 than your keystore (`keytool -list -v -storetype PKCS12 -keystore upload-keystore.p12 -alias upload`), contact Play Console support → **upload key reset** and attach `android/upload_certificate.pem`. After approval (~48h), rebuild and upload. Add **both** upload-key and **App signing key** SHA-1/SHA-256 to Firebase for `com.lastcards.app.paid`.
 3. **Build** — From project root: `flutter build appbundle`.
 4. **Firebase** — Register a new Android app with package `com.lastcards.app.paid`, then run `flutterfire configure` and download `google-services.json` into `android/app/`. Re-add SHA-1/SHA-256 from your upload keystore for Google Sign-In. iOS keeps the existing Firebase app (`com.lastcards.app`).
 5. **Data safety** — Complete the Data safety form (Firebase Auth, Firestore, Storage, account data, etc.).

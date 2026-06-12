@@ -40,21 +40,19 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAY-ugyBa-hl8VlrKE_4adWwWcMxmrGP18',
-    appId: '1:941909760769:android:83b3f2c2523462f1ac9900',
+    appId: '1:941909760769:android:cae5e78c11e617d8ac9900',
     messagingSenderId: '941909760769',
     projectId: 'lastcards-d4396',
     storageBucket: 'lastcards-d4396.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDwBkGrLFvO1a2OAB04Y0FAyleSD26vwVY',
     appId: '1:941909760769:ios:06d5c14c2527400dac9900',
     messagingSenderId: '941909760769',
     projectId: 'lastcards-d4396',
     storageBucket: 'lastcards-d4396.firebasestorage.app',
-    iosClientId:
-        '941909760769-bn0eet8po3ikvd1r9jfd4a67od1flsh7.apps.googleusercontent.com',
+    androidClientId: '941909760769-3ni1o5as373lej9sa2s2ggkv6tk4uooi.apps.googleusercontent.com',
+    iosClientId: '941909760769-bn0eet8po3ikvd1r9jfd4a67od1flsh7.apps.googleusercontent.com',
     iosBundleId: 'com.lastcards.app',
   );
-
 }

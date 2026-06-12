@@ -57,6 +57,7 @@ app.*.map.json
 **/android/key.properties
 **/android/*.jks
 **/android/*.p12
+**/android/upload_certificate.pem
 **/android/*.keystore
 
 # Windows

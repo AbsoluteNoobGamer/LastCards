@@ -1,5 +1,33 @@
 {
   "firestore": {
     "rules": "firestore.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "lastcards-d4396",
+          "appId": "1:941909760769:android:cae5e78c11e617d8ac9900",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "lastcards-d4396",
+          "configurations": {
+            "android": "1:941909760769:android:cae5e78c11e617d8ac9900",
+            "ios": "1:941909760769:ios:06d5c14c2527400dac9900"
+          }
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "lastcards-d4396",
+          "appId": "1:941909760769:ios:06d5c14c2527400dac9900",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      }
+    }
   }
 }

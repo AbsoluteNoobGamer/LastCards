@@ -2,7 +2,7 @@
 # Keystore (see Flutter: https://docs.flutter.dev/deployment/android#signing-the-app)
 #
 # `flutter build appbundle --release` requires a valid key.properties + keystore
-# (see app/build.gradle.kts). Verify SHA-1: pwsh -File android/verify_upload_cert.ps1
+# (see app/build.gradle.kts). Verify SHA-1: ./export_upload_certificate.sh
 #
 # storeFile: path relative to this android/ folder, e.g. upload-keystore.p12
 # Or use an absolute path.
