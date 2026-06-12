@@ -3,9 +3,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-/// Play Store listing for [com.lastcards.app] (used when Firestore omits a URL).
+/// Play Store listing for [com.lastcards.app.paid] (used when Firestore omits a URL).
 const String kDefaultAndroidStoreUrl =
-    'https://play.google.com/store/apps/details?id=com.lastcards.app';
+    'https://play.google.com/store/apps/details?id=com.lastcards.app.paid';
 
 /// Soft “update available” hint for the start screen.
 ///

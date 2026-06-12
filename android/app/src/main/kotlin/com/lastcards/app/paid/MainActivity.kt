@@ -1,4 +1,4 @@
-package com.lastcards.app
+package com.lastcards.app.paid
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge

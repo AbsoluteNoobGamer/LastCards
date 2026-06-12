@@ -33,7 +33,7 @@ val hasValidReleaseKeystore: Boolean
     }
 
 android {
-    namespace = "com.lastcards.app"
+    namespace = "com.lastcards.app.paid"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -58,7 +58,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.lastcards.app"
+        applicationId = "com.lastcards.app.paid"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

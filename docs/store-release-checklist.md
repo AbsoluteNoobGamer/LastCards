@@ -1,6 +1,6 @@
 # Store release checklist (Google Play & App Store)
 
-Use this when preparing production builds for **Last Cards** (`com.lastcards.app`).
+Use this when preparing production builds for **Last Cards** — Android package `com.lastcards.app.paid`, iOS bundle `com.lastcards.app`.
 
 ## Already in the repo
 
@@ -11,10 +11,10 @@ Use this when preparing production builds for **Last Cards** (`com.lastcards.app
 
 ## Android (Google Play)
 
-1. **Play Console** — Create the app with package name `com.lastcards.app`.
+1. **Play Console** — Create the app with package name `com.lastcards.app.paid` (paid listing; the original free app used `com.lastcards.app`).
 2. **Upload key** — Copy `android/key.properties.example` to `android/key.properties`, point `storeFile` at your keystore, set passwords and alias. Enable **Play App Signing** in Play Console (recommended).
 3. **Build** — From project root: `flutter build appbundle`.
-4. **Firebase** — Ensure the Android app in Firebase matches the package name; download `google-services.json` into `android/app/`.
+4. **Firebase** — Register a new Android app with package `com.lastcards.app.paid`, then run `flutterfire configure` and download `google-services.json` into `android/app/`. Re-add SHA-1/SHA-256 from your upload keystore for Google Sign-In. iOS keeps the existing Firebase app (`com.lastcards.app`).
 5. **Data safety** — Complete the Data safety form (Firebase Auth, Firestore, Storage, account data, etc.).
 6. **Listings** — Screenshots, feature graphic, short/full description, privacy policy URL.
 
