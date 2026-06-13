@@ -29,6 +29,7 @@ import '../../data/datasources/websocket_client.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_theme_data.dart';
+import '../../../../core/services/analytics_service.dart';
 import '../../../../core/services/player_level_service.dart';
 import '../../../../core/utils/ranked_tier_utils.dart';
 import '../../../../core/models/table_position_layout.dart';
@@ -426,6 +427,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   final Map<String, int> _matchCardsPlayed = {};
   final Map<String, int> _matchDrawsTaken = {};
   final Map<String, int> _matchSpecialsPlayed = {};
+  final Stopwatch _gameStopwatch = Stopwatch();
   @override
   void initState() {
     super.initState();
@@ -716,6 +718,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         if (!mounted) return;
         _startDealAnimation();
       });
+      _gameStopwatch
+        ..reset()
+        ..start();
+      AnalyticsService.instance.logGameStarted(
+        mode: 'online',
+        playerCount: snap.players.length,
+      );
       return;
     }
 
@@ -840,6 +849,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       }
       _startDealAnimation();
     });
+    _gameStopwatch
+      ..reset()
+      ..start();
+    AnalyticsService.instance.logGameStarted(
+      mode: 'offline',
+      playerCount: widget.totalPlayers,
+    );
   }
 
   Future<void> _startDealAnimation() async {
@@ -1017,6 +1033,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         _multiPlayCelebrationTrigger++;
         _multiPlayCelebrationTier = tier;
       });
+      AnalyticsService.instance.logComboPlayed(
+        cardCount: cardsPlayedThisTurn,
+        tier: tier,
+      );
     });
   }
 
@@ -1134,6 +1154,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   void _showSettingsSheet(BuildContext context) {
+    AnalyticsService.instance.logSettingsOpened();
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -3790,6 +3811,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       game_audio.AudioService.instance.playSound(GameSound.playerLose);
     }
 
+    _gameStopwatch.stop();
+    AnalyticsService.instance.logGameCompleted(
+      mode: _isOfflineSession ? 'offline' : 'online',
+      isWin: winner.id == OfflineGameState.localId,
+      durationSeconds: _gameStopwatch.elapsed.inSeconds,
+    );
+
     Future.microtask(() {
       if (!mounted) return;
       HapticFeedback.heavyImpact();
@@ -4150,6 +4178,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final live = ref.read(gameStateProvider);
     if (live != null) {
       ref.read(gameNotifierProvider.notifier).declareLastCards();
+      AnalyticsService.instance.logLastCardsDeclared(mode: 'online');
       return;
     }
     final localId = OfflineGameState.localId;
@@ -4179,6 +4208,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       playerId: localId,
       playerName: name,
     ));
+    AnalyticsService.instance.logLastCardsDeclared(mode: 'offline');
   }
 
   // ── Quick chat ──────────────────────────────────────────────────────────

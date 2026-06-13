@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/card_model.dart';
+import 'analytics_service.dart';
 import 'firestore_profile_service.dart';
 import 'player_level_service.dart';
 
@@ -373,6 +374,7 @@ class CardBackService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsSelectedKey, designId);
     if (pushToFirestore) unawaited(_pushCardCustomizationToFirestore());
+    AnalyticsService.instance.logCardBackChanged(designId: designId);
     return true;
   }
 

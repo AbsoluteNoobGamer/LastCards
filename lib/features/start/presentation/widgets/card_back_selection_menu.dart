@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/services/analytics_service.dart';
 import '../../../../core/services/card_back_service.dart';
 import '../../../../core/services/player_level_service.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -515,6 +516,7 @@ class _CardBackSelectionMenuState extends ConsumerState<CardBackSelectionMenu> {
 
 /// Opens the Card Styles sheet (same UI as Start → Card Styles icon row).
 void showCardStylesModal(BuildContext context) {
+  AnalyticsService.instance.logCardStyleMenuOpened();
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,

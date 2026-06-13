@@ -12,6 +12,7 @@ import '../../data/leaderboard_collections.dart';
 import '../../data/local_leaderboard_store.dart';
 
 import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/services/analytics_service.dart';
 import '../../../../core/widgets/themed_shimmer.dart';
 import '../../../../core/theme/app_theme_data.dart';
 
@@ -163,7 +164,14 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   static final List<LeaderboardMode> _screenModes =
       List<LeaderboardMode>.unmodifiable(LeaderboardMode.values);
 
+  @override
+  void initState() {
+    super.initState();
+    AnalyticsService.instance.logLeaderboardViewed(mode: _selectedMode.label);
+  }
+
   void _selectTab(_LeaderboardTab tab) {
+    final previousMode = _selectedMode;
     setState(() {
       _selectedTab = tab;
       _playerCountFilter = null;
@@ -181,15 +189,22 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
           }
       }
     });
+    if (_selectedMode != previousMode) {
+      AnalyticsService.instance.logLeaderboardViewed(mode: _selectedMode.label);
+    }
   }
 
   void _selectRankedVariant({required bool hardcore}) {
+    final previousMode = _selectedMode;
     setState(() {
       _rankedHardcore = hardcore;
       _selectedMode =
           hardcore ? LeaderboardMode.rankedHardcore : LeaderboardMode.ranked;
       _playerCountFilter = null;
     });
+    if (_selectedMode != previousMode) {
+      AnalyticsService.instance.logLeaderboardViewed(mode: _selectedMode.label);
+    }
   }
 
   // ── Ranked Firestore data ─────────────────────────────────────────────────
@@ -364,6 +379,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
           _rankedHardcore = false;
           _playerCountFilter = null;
         });
+        AnalyticsService.instance.logLeaderboardViewed(
+          mode: LeaderboardMode.ranked.label,
+        );
       });
     }
     return Scaffold(
@@ -427,10 +445,15 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                       label: mode.label,
                       selected: isSelected,
                       theme: theme,
-                      onTap: () => setState(() {
-                        _selectedMode = mode;
-                        _playerCountFilter = null;
-                      }),
+                      onTap: () {
+                        setState(() {
+                          _selectedMode = mode;
+                          _playerCountFilter = null;
+                        });
+                        AnalyticsService.instance.logLeaderboardViewed(
+                          mode: mode.label,
+                        );
+                      },
                     ),
                   );
                 }).toList(),

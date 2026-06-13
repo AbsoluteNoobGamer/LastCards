@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme_data.dart';
 import '../theme/app_themes.dart';
 import '../services/theme_service.dart';
+import '../services/analytics_service.dart';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -40,6 +41,7 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
     final idx = index.clamp(0, kAppThemes.length - 1);
     state = ThemeState(activeIndex: idx, theme: kAppThemes[idx]);
     await _service.saveThemeIndex(idx);
+    AnalyticsService.instance.logThemeChanged(themeId: kAppThemes[idx].id);
   }
 }
 

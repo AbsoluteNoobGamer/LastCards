@@ -1,3 +1,4 @@
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -43,7 +44,11 @@ class _StackAndFlowAppState extends ConsumerState<StackAndFlowApp> {
       theme: buildThemeData(themeState.theme),
       initialRoute: AppRoutes.splash,
       routes: appRoutes,
-      navigatorObservers: [appRouteObserver, startScreenBgmNavigatorObserver],
+      navigatorObservers: [
+        appRouteObserver,
+        startScreenBgmNavigatorObserver,
+        FirebaseAnalyticsObserver(analytics: FirebaseAnalytics.instance),
+      ],
       builder: (context, child) {
         final mq = MediaQuery.of(context);
         return MediaQuery(

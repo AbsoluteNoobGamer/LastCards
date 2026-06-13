@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'analytics_service.dart';
+
 /// Tracks player XP + derived level for local progression.
 ///
 /// XP is persisted via SharedPreferences key `player_total_xp`.
@@ -145,6 +147,7 @@ class PlayerLevelService {
     final nextLevel = levelFromTotalXP(_totalXp);
     if (nextLevel != currentLevel.value) {
       currentLevel.value = nextLevel;
+      AnalyticsService.instance.logLevelUp(newLevel: nextLevel);
     }
 
     final prefs = await SharedPreferences.getInstance();
