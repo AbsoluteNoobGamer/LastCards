@@ -37,7 +37,7 @@ class LockerCardBacksTab extends StatelessWidget {
                               state: d.id == selectedId
                                   ? LockerTileState.selected
                                   : LockerTileState.owned,
-                              preview: _swatch(context, d.label),
+                              preview: _thumbnail(context, d),
                               onTap: () => service.selectDesign(d.id),
                             );
                           }).toList(),
@@ -55,7 +55,7 @@ class LockerCardBacksTab extends StatelessWidget {
                                       ? LockerTileState.owned
                                       : LockerTileState.lockedByLevel,
                               lockCaption: unlocked ? null : 'Level ${d.unlockLevel}',
-                              preview: _swatch(context, d.label),
+                              preview: _thumbnail(context, d),
                               onTap: () {
                                 if (!unlocked) return;
                                 service.selectDesign(d.id);
@@ -117,7 +117,7 @@ class LockerJokersTab extends StatelessWidget {
                                   ? LockerTileState.owned
                                   : LockerTileState.lockedByLevel,
                           lockCaption: unlocked ? null : 'Level ${d.unlockLevel}',
-                          preview: _swatch(context, d.label),
+                          preview: _thumbnail(context, d),
                           onTap: () {
                             if (!unlocked) return;
                             service.selectJokerCover(d.id);
@@ -190,8 +190,22 @@ Widget _grid(List<Widget> tiles) {
   );
 }
 
-/// Placeholder thumbnail (initials-style) until real asset thumbnails are
-/// wired in — keeps this file independent from asset-loading concerns.
+/// Real thumbnail for a card back / joker cover, falling back to an
+/// initials-style placeholder if the asset fails to load (e.g. missing
+/// bundled asset, corrupt file).
+Widget _thumbnail(BuildContext context, CardBackDesign d) {
+  final path = d.assetPath ?? d.id;
+  return Image.asset(
+    path,
+    fit: BoxFit.cover,
+    gaplessPlayback: true,
+    errorBuilder: (context, error, stackTrace) => _swatch(context, d.label),
+  );
+}
+
+/// Placeholder thumbnail (initials-style) — used as a fallback when an
+/// asset fails to load, and for abstract options with no single image
+/// (e.g. card face sets).
 Widget _swatch(BuildContext context, String label) {
   final colors = Theme.of(context).colorScheme;
   return Container(
