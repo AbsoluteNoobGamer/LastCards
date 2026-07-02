@@ -195,11 +195,15 @@ Widget _grid(List<Widget> tiles) {
 /// bundled asset, corrupt file).
 Widget _thumbnail(BuildContext context, CardBackDesign d) {
   final path = d.assetPath ?? d.id;
-  return Image.asset(
-    path,
-    fit: BoxFit.cover,
-    gaplessPlayback: true,
-    errorBuilder: (context, error, stackTrace) => _swatch(context, d.label),
+  final colors = Theme.of(context).colorScheme;
+  return ColoredBox(
+    color: colors.surfaceContainerHighest,
+    child: Image.asset(
+      path,
+      fit: BoxFit.contain,
+      gaplessPlayback: true,
+      errorBuilder: (context, error, stackTrace) => _swatch(context, d.label),
+    ),
   );
 }
 
