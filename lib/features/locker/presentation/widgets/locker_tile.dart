@@ -92,10 +92,8 @@ class _LockerTileState extends State<LockerTile> {
             color: colors.surface.withValues(alpha: 0.4),
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              AspectRatio(
-                aspectRatio: 1,
+              Expanded(
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(6),
                   child: Opacity(
@@ -120,7 +118,7 @@ class _LockerTileState extends State<LockerTile> {
                   ),
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
                 widget.label,
                 maxLines: 1,
