@@ -92,9 +92,23 @@ Future<void> _flushSplashTimer(WidgetTester tester) async {
 void main() {
   setUp(_seedPrefs);
 
+  /// Default flutter_test surface is 800x600 — shorter than any real phone,
+  /// which makes some full-screen layouts (e.g. SplashScreen) overflow in a
+  /// way that never happens on an actual device. Use a realistic portrait
+  /// phone size instead.
+  Future<void> useRealisticPhoneViewport(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+  }
+
   testWidgets(
     'StackAndFlowApp bootstrap reaches AppRoutes.start with start screen',
     (tester) async {
+      await useRealisticPhoneViewport(tester);
       await _pumpStackAndFlowApp(tester, signedInUser: _signedInUser());
 
       expect(find.byType(SplashScreen), findsOneWidget);
@@ -153,6 +167,7 @@ void main() {
   });
 
   testWidgets('unknown route string does not crash the app', (tester) async {
+    await useRealisticPhoneViewport(tester);
     await tester.pumpWidget(
       ProviderScope(
         overrides: _routingOverrides(),
