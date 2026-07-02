@@ -37,6 +37,7 @@ _$GameStateImpl _$$GameStateImplFromJson(Map<String, dynamic> json) =>
           ? null
           : CardModel.fromJson(
               json['lastPlayedThisTurn'] as Map<String, dynamic>),
+      lastActionCardCount: (json['lastActionCardCount'] as num?)?.toInt() ?? 1,
       pendingJokerResolution: json['pendingJokerResolution'] as bool? ?? false,
       lastCardsDeclaredBy: json['lastCardsDeclaredBy'] == null
           ? const {}
@@ -64,6 +65,7 @@ Map<String, dynamic> _$$GameStateImplToJson(_$GameStateImpl instance) =>
       'actionsThisTurn': instance.actionsThisTurn,
       'cardsPlayedThisTurn': instance.cardsPlayedThisTurn,
       'lastPlayedThisTurn': instance.lastPlayedThisTurn,
+      'lastActionCardCount': instance.lastActionCardCount,
       'pendingJokerResolution': instance.pendingJokerResolution,
       'lastCardsDeclaredBy': _stringSetToJson(instance.lastCardsDeclaredBy),
       'isHardcore': instance.isHardcore,

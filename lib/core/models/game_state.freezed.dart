@@ -75,6 +75,14 @@ mixin _$GameState {
   /// the same turn (Numerical Flow Rule). Reset to null when the turn advances.
   CardModel? get lastPlayedThisTurn => throw _privateConstructorUsedError;
 
+  /// Number of cards included in the most recent single play (the one that
+  /// produced [lastPlayedThisTurn]) — e.g. 2 when a player stacked two same-rank
+  /// Kings together in one action. Distinguishes a single King from a stacked
+  /// King play, which need different Numerical Flow follow-up rules (see
+  /// `kingNumericalFlowResets` in the shared engine). Meaningless when
+  /// [lastPlayedThisTurn] is null; reset alongside it when the turn advances.
+  int get lastActionCardCount => throw _privateConstructorUsedError;
+
   /// True while a Joker has been committed as a play but still needs
   /// its represented card selection to be finalized in UI.
   bool get pendingJokerResolution => throw _privateConstructorUsedError;
@@ -120,6 +128,7 @@ abstract class $GameStateCopyWith<$Res> {
       int actionsThisTurn,
       int cardsPlayedThisTurn,
       CardModel? lastPlayedThisTurn,
+      int lastActionCardCount,
       bool pendingJokerResolution,
       @JsonKey(fromJson: _stringSetFromJson, toJson: _stringSetToJson)
       Set<String> lastCardsDeclaredBy,
@@ -162,6 +171,7 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
     Object? actionsThisTurn = null,
     Object? cardsPlayedThisTurn = null,
     Object? lastPlayedThisTurn = freezed,
+    Object? lastActionCardCount = null,
     Object? pendingJokerResolution = null,
     Object? lastCardsDeclaredBy = null,
     Object? isHardcore = null,
@@ -239,6 +249,10 @@ class _$GameStateCopyWithImpl<$Res, $Val extends GameState>
           ? _value.lastPlayedThisTurn
           : lastPlayedThisTurn // ignore: cast_nullable_to_non_nullable
               as CardModel?,
+      lastActionCardCount: null == lastActionCardCount
+          ? _value.lastActionCardCount
+          : lastActionCardCount // ignore: cast_nullable_to_non_nullable
+              as int,
       pendingJokerResolution: null == pendingJokerResolution
           ? _value.pendingJokerResolution
           : pendingJokerResolution // ignore: cast_nullable_to_non_nullable
@@ -310,6 +324,7 @@ abstract class _$$GameStateImplCopyWith<$Res>
       int actionsThisTurn,
       int cardsPlayedThisTurn,
       CardModel? lastPlayedThisTurn,
+      int lastActionCardCount,
       bool pendingJokerResolution,
       @JsonKey(fromJson: _stringSetFromJson, toJson: _stringSetToJson)
       Set<String> lastCardsDeclaredBy,
@@ -352,6 +367,7 @@ class __$$GameStateImplCopyWithImpl<$Res>
     Object? actionsThisTurn = null,
     Object? cardsPlayedThisTurn = null,
     Object? lastPlayedThisTurn = freezed,
+    Object? lastActionCardCount = null,
     Object? pendingJokerResolution = null,
     Object? lastCardsDeclaredBy = null,
     Object? isHardcore = null,
@@ -429,6 +445,10 @@ class __$$GameStateImplCopyWithImpl<$Res>
           ? _value.lastPlayedThisTurn
           : lastPlayedThisTurn // ignore: cast_nullable_to_non_nullable
               as CardModel?,
+      lastActionCardCount: null == lastActionCardCount
+          ? _value.lastActionCardCount
+          : lastActionCardCount // ignore: cast_nullable_to_non_nullable
+              as int,
       pendingJokerResolution: null == pendingJokerResolution
           ? _value.pendingJokerResolution
           : pendingJokerResolution // ignore: cast_nullable_to_non_nullable
@@ -467,6 +487,7 @@ class _$GameStateImpl implements _GameState {
       this.actionsThisTurn = 0,
       this.cardsPlayedThisTurn = 0,
       this.lastPlayedThisTurn,
+      this.lastActionCardCount = 1,
       this.pendingJokerResolution = false,
       @JsonKey(fromJson: _stringSetFromJson, toJson: _stringSetToJson)
       final Set<String> lastCardsDeclaredBy = const {},
@@ -572,6 +593,16 @@ class _$GameStateImpl implements _GameState {
   @override
   final CardModel? lastPlayedThisTurn;
 
+  /// Number of cards included in the most recent single play (the one that
+  /// produced [lastPlayedThisTurn]) — e.g. 2 when a player stacked two same-rank
+  /// Kings together in one action. Distinguishes a single King from a stacked
+  /// King play, which need different Numerical Flow follow-up rules (see
+  /// `kingNumericalFlowResets` in the shared engine). Meaningless when
+  /// [lastPlayedThisTurn] is null; reset alongside it when the turn advances.
+  @override
+  @JsonKey()
+  final int lastActionCardCount;
+
   /// True while a Joker has been committed as a play but still needs
   /// its represented card selection to be finalized in UI.
   @override
@@ -598,7 +629,7 @@ class _$GameStateImpl implements _GameState {
 
   @override
   String toString() {
-    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardPileHistory: $discardPileHistory, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, penaltyChainLive: $penaltyChainLive, activeSkipCount: $activeSkipCount, suitLock: $suitLock, preTurnCentreSuit: $preTurnCentreSuit, queenSuitLock: $queenSuitLock, winnerId: $winnerId, actionsThisTurn: $actionsThisTurn, cardsPlayedThisTurn: $cardsPlayedThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn, pendingJokerResolution: $pendingJokerResolution, lastCardsDeclaredBy: $lastCardsDeclaredBy, isHardcore: $isHardcore)';
+    return 'GameState(sessionId: $sessionId, phase: $phase, players: $players, currentPlayerId: $currentPlayerId, direction: $direction, discardTopCard: $discardTopCard, discardPileHistory: $discardPileHistory, drawPileCount: $drawPileCount, activePenaltyCount: $activePenaltyCount, penaltyChainLive: $penaltyChainLive, activeSkipCount: $activeSkipCount, suitLock: $suitLock, preTurnCentreSuit: $preTurnCentreSuit, queenSuitLock: $queenSuitLock, winnerId: $winnerId, actionsThisTurn: $actionsThisTurn, cardsPlayedThisTurn: $cardsPlayedThisTurn, lastPlayedThisTurn: $lastPlayedThisTurn, lastActionCardCount: $lastActionCardCount, pendingJokerResolution: $pendingJokerResolution, lastCardsDeclaredBy: $lastCardsDeclaredBy, isHardcore: $isHardcore)';
   }
 
   @override
@@ -640,6 +671,8 @@ class _$GameStateImpl implements _GameState {
                 other.cardsPlayedThisTurn == cardsPlayedThisTurn) &&
             (identical(other.lastPlayedThisTurn, lastPlayedThisTurn) ||
                 other.lastPlayedThisTurn == lastPlayedThisTurn) &&
+            (identical(other.lastActionCardCount, lastActionCardCount) ||
+                other.lastActionCardCount == lastActionCardCount) &&
             (identical(other.pendingJokerResolution, pendingJokerResolution) ||
                 other.pendingJokerResolution == pendingJokerResolution) &&
             const DeepCollectionEquality()
@@ -670,6 +703,7 @@ class _$GameStateImpl implements _GameState {
         actionsThisTurn,
         cardsPlayedThisTurn,
         lastPlayedThisTurn,
+        lastActionCardCount,
         pendingJokerResolution,
         const DeepCollectionEquality().hash(_lastCardsDeclaredBy),
         isHardcore
@@ -711,6 +745,7 @@ abstract class _GameState implements GameState {
       final int actionsThisTurn,
       final int cardsPlayedThisTurn,
       final CardModel? lastPlayedThisTurn,
+      final int lastActionCardCount,
       final bool pendingJokerResolution,
       @JsonKey(fromJson: _stringSetFromJson, toJson: _stringSetToJson)
       final Set<String> lastCardsDeclaredBy,
@@ -791,6 +826,15 @@ abstract class _GameState implements GameState {
   /// the same turn (Numerical Flow Rule). Reset to null when the turn advances.
   @override
   CardModel? get lastPlayedThisTurn;
+
+  /// Number of cards included in the most recent single play (the one that
+  /// produced [lastPlayedThisTurn]) — e.g. 2 when a player stacked two same-rank
+  /// Kings together in one action. Distinguishes a single King from a stacked
+  /// King play, which need different Numerical Flow follow-up rules (see
+  /// `kingNumericalFlowResets` in the shared engine). Meaningless when
+  /// [lastPlayedThisTurn] is null; reset alongside it when the turn advances.
+  @override
+  int get lastActionCardCount;
 
   /// True while a Joker has been committed as a play but still needs
   /// its represented card selection to be finalized in UI.
