@@ -4,7 +4,8 @@ import 'app_theme_data.dart';
 /// All 13 built-in Stack & Flow themes.
 ///
 /// Index 0 is the default (Classic Felt). Order here determines the display
-/// order in [ThemeSelectorModal] and maps to the persisted index integer.
+/// order in the Locker's "Table theme" tab and maps to the persisted index
+/// integer.
 const List<AppThemeData> kAppThemes = [
   _classicFelt,
   _carbon,

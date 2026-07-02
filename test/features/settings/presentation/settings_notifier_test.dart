@@ -205,10 +205,6 @@ void main() {
         _switchValue(tester, _switchByTitle('Enable Sound Effects')),
         isTrue,
       );
-      expect(
-        _switchValue(tester, _switchByTitle('Animated Card Effects')),
-        isTrue,
-      );
     });
 
     testWidgets('tapping Reduce Motion updates switch and provider state',

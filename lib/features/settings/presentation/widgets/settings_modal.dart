@@ -248,21 +248,6 @@ class SettingsModal extends ConsumerWidget {
                               audioService.setSoundEffectsEnabled(val),
                           activeThumbColor: Colors.amber,
                         ),
-                        ValueListenableBuilder<bool>(
-                          valueListenable:
-                              CardBackService.instance.animatedEffectsEnabled,
-                          builder: (context, enabled, _) {
-                            return SwitchListTile(
-                              contentPadding: EdgeInsets.zero,
-                              dense: isMobile,
-                              title: const Text('Animated Card Effects'),
-                              value: enabled,
-                              onChanged: (val) => CardBackService.instance
-                                  .setAnimatedEffectsEnabled(val),
-                              activeThumbColor: Colors.amber,
-                            );
-                          },
-                        ),
                       ],
                     ),
                   ),

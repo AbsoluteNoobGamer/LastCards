@@ -13,8 +13,7 @@ import '../../../rules/presentation/screens/rules_screen.dart';
 import '../../../settings/presentation/widgets/settings_modal.dart';
 import '../../../../features/single_player/widgets/difficulty_selection_sheet.dart';
 import '../../../../features/online/widgets/mode_selection_sheet.dart';
-import '../widgets/card_back_selection_menu.dart';
-import '../../../../core/theme/theme_selector_modal.dart';
+import '../../../../features/locker/presentation/screens/locker_screen.dart';
 import '../../../../core/navigation/app_page_routes.dart';
 import '../../../../core/widgets/glass_frosted_panel.dart';
 import '../../../../core/widgets/themed_shimmer.dart';
@@ -33,7 +32,6 @@ import '../../../../core/widgets/prestige_avatar_frame.dart';
 import '../../../../app/app_route_observer.dart';
 import '../../../../services/start_screen_bgm.dart';
 import '../../../../features/social/widgets/friends_list_sheet.dart';
-import '../../../../features/reactions/reaction_wheel_customize_sheet.dart';
 import '../../../../features/social/widgets/pending_friend_requests_banner.dart';
 import '../../../../features/social/widgets/pending_game_invites_banner.dart';
 import '../../../../core/providers/app_update_provider.dart';
@@ -678,14 +676,9 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                                 ),
                               ),
                               _IconRowItem(
-                                "Card Styles",
+                                "Locker",
                                 Icons.style_rounded,
-                                () => _showCardStyles(context),
-                              ),
-                              _IconRowItem(
-                                "Themes",
-                                Icons.palette_rounded,
-                                () => _showThemeSelector(context),
+                                () => showLocker(context),
                               ),
                               _IconRowItem(
                                 "Settings",
@@ -813,10 +806,6 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
     );
   }
 
-  void _showCardStyles(BuildContext context) {
-    showCardStylesModal(context);
-  }
-
   void _showAISelector(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -835,12 +824,4 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
     );
   }
 
-  void _showThemeSelector(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const ThemeSelectorModal(),
-    );
-  }
 }

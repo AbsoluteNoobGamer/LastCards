@@ -67,14 +67,15 @@ class _OnlineOpponentsSplashScreenState
 
     final Widget destination;
     if (isBust) {
-      destination = TableScreen(totalPlayers: playerCount);
+      destination = TableScreen(totalPlayers: playerCount, isOnline: true);
     } else if (isTournament) {
       destination = TableScreen(
         totalPlayers: playerCount,
         isTournamentMode: true,
+        isOnline: true,
       );
     } else {
-      destination = TableScreen(totalPlayers: playerCount);
+      destination = TableScreen(totalPlayers: playerCount, isOnline: true);
     }
 
     Navigator.of(splashContext).pushAndRemoveUntil(

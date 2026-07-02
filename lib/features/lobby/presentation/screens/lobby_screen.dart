@@ -1077,6 +1077,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
               totalPlayers: totalPlayers,
               isTournamentMode:
                   isKnockout || widget.onlineMode == OnlineMode.tournament,
+              isOnline: true,
             ),
           ),
         );

@@ -34,6 +34,7 @@ typedef TournamentRoundGameBuilder = Widget Function({
   required void Function(String playerId, int finishPosition) onPlayerFinished,
   required Map<String, String> tournamentPlayerNameByTableId,
   required List<String> activePlayerIds,
+  required bool isOnline,
   AiDifficulty? aiDifficulty,
 });
 
@@ -95,6 +96,7 @@ class TournamentCoordinator extends ConsumerStatefulWidget {
         onPlayerFinished,
     required Map<String, String> tournamentPlayerNameByTableId,
     required List<String> activePlayerIds,
+    required bool isOnline,
     AiDifficulty? aiDifficulty,
   }) {
     return TableScreen(
@@ -103,6 +105,7 @@ class TournamentCoordinator extends ConsumerStatefulWidget {
       onPlayerFinished: onPlayerFinished,
       tournamentPlayerNameByTableId: tournamentPlayerNameByTableId,
       aiDifficulty: aiDifficulty,
+      isOnline: isOnline,
     );
   }
 
@@ -248,6 +251,7 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
             onPlayerFinished: _onPlayerFinished,
             tournamentPlayerNameByTableId: nameByTableId,
             activePlayerIds: _enginePlayerIdsForCurrentTable!,
+            isOnline: widget.isOnline,
             aiDifficulty: widget.isOnline ? null : _aiDifficulty,
           ),
         ),
