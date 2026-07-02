@@ -401,7 +401,7 @@ class _AuthProfileSheetState extends ConsumerState<_AuthProfileSheet> {
                   child: OutlinedButton.icon(
                     onPressed: () {
                       Navigator.pop(context);
-                      showReactionWheelCustomizeSheet(context);
+                      showLocker(context, initialTabIndex: LockerTab.reactions);
                     },
                     icon: const Icon(Icons.emoji_emotions_outlined),
                     label: const Text('Reaction wheel'),
