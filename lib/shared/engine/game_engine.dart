@@ -18,14 +18,22 @@ export '../rules/card_rules.dart' show JokerPlayContext, jokerPlayContextFromCar
 /// seat. The next card is validated like a **new lead** against the discard top
 /// (the King), not as numerical-flow continuation off the King.
 ///
+/// In games with **3+ players**, this same reset applies only when the most
+/// recent play **stacked two or more same-rank Kings together** in one action
+/// (see [GameState.lastActionCardCount]) — a single King mid-turn in a 3+
+/// player game still requires normal numerical-flow adjacency for the
+/// follow-up card. Stacking multiple Kings is treated as "starting fresh"
+/// against the last King played, regardless of table size.
+///
 /// Uses [CardModel.effectiveRank], so a **Joker declared as King** matches a
 /// natural King here — same as the 2-player King skip in [nextPlayerId]. A **same-turn
 /// stack of multiple Kings** leaves [GameState.lastPlayedThisTurn] as the last
 /// King; direction may reverse multiple times, but the follow-up still uses this
 /// reset when the final played card is a King.
-bool twoPlayerKingResetsNumericalFlow(GameState state) {
-  return state.players.length == 2 &&
-      state.lastPlayedThisTurn?.effectiveRank == Rank.king;
+bool kingNumericalFlowResets(GameState state) {
+  if (state.lastPlayedThisTurn?.effectiveRank != Rank.king) return false;
+  if (state.players.length == 2) return true;
+  return state.lastActionCardCount >= 2;
 }
 
 /// Shared inputs for Joker declaration (client sheet + server validation).
@@ -46,12 +54,12 @@ bool twoPlayerKingResetsNumericalFlow(GameState state) {
       jokerPlayContextFromCardsPlayed(state.cardsPlayedThisTurn);
   final effectivePlayContext =
       resolvedContext == JokerPlayContext.midTurnContinuance &&
-              twoPlayerKingResetsNumericalFlow(state)
+              kingNumericalFlowResets(state)
           ? JokerPlayContext.turnStarter
           : resolvedContext;
   final anchor = resolvedContext == JokerPlayContext.midTurnContinuance &&
           state.lastPlayedThisTurn != null &&
-          !twoPlayerKingResetsNumericalFlow(state)
+          !kingNumericalFlowResets(state)
       ? state.lastPlayedThisTurn!
       : discardTop;
   final activeSequenceSuit =
@@ -216,7 +224,7 @@ String? validatePlay({
   if (state.actionsThisTurn > 0 &&
       state.lastPlayedThisTurn != null &&
       state.queenSuitLock == null &&
-      !twoPlayerKingResetsNumericalFlow(state)) {
+      !kingNumericalFlowResets(state)) {
     final prev = state.lastPlayedThisTurn!;
     final next = cards.first;
     // Only enforce adjacency for non-special cards continuing a same-suit flow.
@@ -279,7 +287,7 @@ String? validatePlay({
 /// 3. If discard is a penalty card and [GameState.isPenaltyChainActive], can also
 ///    stack 2s or Red/Black Jacks per penalty-on-penalty rules.
 ///
-/// **2-player King:** When [twoPlayerKingResetsNumericalFlow] is true, Joker
+/// **2-player King:** When [kingNumericalFlowResets] is true, Joker
 /// options use turn-starter matching (same suit or same rank as anchor), not
 /// mid-turn adjacency only.
 ///
@@ -299,13 +307,13 @@ List<CardModel> getValidJokerOptions({
       context ?? jokerPlayContextFromCardsPlayed(state.cardsPlayedThisTurn);
   final effectivePlayContext =
       resolvedContext == JokerPlayContext.midTurnContinuance &&
-              twoPlayerKingResetsNumericalFlow(state)
+              kingNumericalFlowResets(state)
           ? JokerPlayContext.turnStarter
           : resolvedContext;
   final anchorCard = contextTopCard ??
       (resolvedContext == JokerPlayContext.midTurnContinuance &&
               state.lastPlayedThisTurn != null &&
-              !twoPlayerKingResetsNumericalFlow(state)
+              !kingNumericalFlowResets(state)
           ? state.lastPlayedThisTurn!
           : discardTop);
   final targetRank = anchorCard.effectiveRank;
@@ -568,6 +576,7 @@ GameState applyPlay({
     actionsThisTurn: gs.actionsThisTurn + 1,
     cardsPlayedThisTurn: gs.cardsPlayedThisTurn + cards.length,
     lastPlayedThisTurn: lastCard,
+    lastActionCardCount: cards.length,
   );
 
   return gs;
@@ -1150,6 +1159,7 @@ GameState _normalizeStateForLastCardsClearabilityProbe(
     actionsThisTurn: 0,
     cardsPlayedThisTurn: 0,
     lastPlayedThisTurn: null,
+    lastActionCardCount: 1,
     activeSkipCount: 0,
     preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
     queenSuitLock: null,
@@ -1168,6 +1178,7 @@ GameState _applySameSeatFreshTurnSlice(GameState state) {
     actionsThisTurn: 0,
     cardsPlayedThisTurn: 0,
     lastPlayedThisTurn: null,
+    lastActionCardCount: 1,
     activeSkipCount: 0,
     preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
     queenSuitLock: null,
@@ -1444,9 +1455,9 @@ GameState initializeFirstTurnClearability(
 /// (e.g. `_resolveTournamentNextPlayerId`) before invoking this function.
 ///
 /// Resets: [currentPlayerId], [actionsThisTurn], [cardsPlayedThisTurn],
-/// [lastPlayedThisTurn], [activeSkipCount], [preTurnCentreSuit],
-/// [queenSuitLock], and may clear [penaltyChainLive] when the outgoing player
-/// did not end on a penalty card.
+/// [lastPlayedThisTurn], [lastActionCardCount], [activeSkipCount],
+/// [preTurnCentreSuit], [queenSuitLock], and may clear [penaltyChainLive] when
+/// the outgoing player did not end on a penalty card.
 ///
 /// Sets [PlayerModel.lastCardsHandWasClearableAtTurnStart] for the incoming
 /// player only.
@@ -1463,6 +1474,7 @@ GameState advanceTurn(GameState state, {String? nextId}) {
     actionsThisTurn: 0,
     cardsPlayedThisTurn: 0,
     lastPlayedThisTurn: null,
+    lastActionCardCount: 1,
     activeSkipCount: 0,
     preTurnCentreSuit: state.discardTopCard?.effectiveSuit,
     queenSuitLock: null,
