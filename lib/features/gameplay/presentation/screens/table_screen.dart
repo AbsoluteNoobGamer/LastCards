@@ -256,9 +256,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   int _multiPlayCelebrationTrigger = 0;
   int _multiPlayCelebrationTier = 0;
 
-  /// Offline-only: players who falsely declared Last Cards.
-  final Set<String> _offlineLastCardsBluffedBy = {};
-
   String? _lastCardsBluffBannerText;
   String? _lastCardsDeclaredBannerText;
 
@@ -686,7 +683,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _matchDrawsTaken.clear();
     _matchSpecialsPlayed.clear();
     _pendingOpeningLastCardsAnnouncement = false;
-    _offlineLastCardsBluffedBy.clear();
 
     // [gameNotifierProvider] keeps the last online [GameState] (including
     // lastCardsDeclaredBy) after game_ended until an explicit clear — SP flows
@@ -832,9 +828,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       );
       if (openingLc.applied) {
         state = openingLc.state;
-        if (openingLc.isBluff) {
-          _offlineLastCardsBluffedBy.add(state.currentPlayerId);
-        }
         _pendingOpeningLastCardsAnnouncement = true;
       }
     }
@@ -3668,8 +3661,19 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   void _offlineApplyLastCardsBluffPenaltyIfNeeded(String playerId) {
     if (!_isOfflineSession) return;
-    if (!_offlineLastCardsBluffedBy.contains(playerId)) return;
-    _offlineLastCardsBluffedBy.remove(playerId);
+    if (!_offlineState.lastCardsDeclaredBy.contains(playerId)) return;
+    final player = _offlineState.playerById(playerId);
+    if (player == null) return;
+    final hasJoker = player.hand.any((c) => c.isJoker);
+    // Bluff is determined fresh, right as this player's turn begins — not at
+    // declare time. The discard pile keeps changing while other players take
+    // their turns in between declaring and this player's turn actually
+    // arriving, so a check locked in at declare-time can go stale and
+    // wrongly flag a hand that becomes genuinely clearable by the time play
+    // reaches them. lastCardsHandWasClearableAtTurnStart is recomputed live
+    // by advanceTurn() for whichever seat is about to play, using the real
+    // board state at that moment — that's the correct signal to use here.
+    if (hasJoker || player.lastCardsHandWasClearableAtTurnStart) return;
     setState(() {
       _offlineState = _offlineState.copyWith(
         lastCardsDeclaredBy: {..._offlineState.lastCardsDeclaredBy}
@@ -4250,19 +4254,16 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (_offlineState.lastCardsDeclaredBy.contains(localId)) return;
     final p = _offlineState.playerById(localId);
     final name = p?.displayName ?? localId;
-    final hasJoker = p != null && p.hand.any((c) => c.isJoker);
-    final bluff = !hasJoker &&
-        !canClearHandInOneTurn(
-          state: _offlineState,
-          playerId: localId,
-        );
+    // Bluff status is intentionally NOT determined here. The discard pile
+    // keeps changing as opponents take their turns between now and when it
+    // actually becomes this player's turn, so any check run at declare-time
+    // would be evaluating a board state that's already stale by the time it
+    // matters. See _offlineApplyLastCardsBluffPenaltyIfNeeded, which checks
+    // freshly (using the live board) right as this player's turn begins.
     setState(() {
       _offlineState = _offlineState.copyWith(
         lastCardsDeclaredBy: {..._offlineState.lastCardsDeclaredBy, localId},
       );
-      if (bluff) {
-        _offlineLastCardsBluffedBy.add(localId);
-      }
     });
     _pushMoveLog(MoveLogEntry.lastCardsDeclared(
       playerId: localId,

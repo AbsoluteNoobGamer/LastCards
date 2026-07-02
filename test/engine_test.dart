@@ -980,6 +980,68 @@ void main() {
       );
     });
 
+    test('threePlayerSingleKingStillRequiresNumericalFlow_butDoubleKingStackResets', () {
+      // Regression: a single King in a 3+ player game still requires strict
+      // numerical flow for the follow-up (mirrors
+      // threePlayerKingMidTurnStillRequiresNumericalFlow above). Stacking TWO
+      // Kings together in one play, however, must reset the flow the same way
+      // a 2-player King does — the follow-up only needs to match the last
+      // King's suit, not be rank-adjacent to it.
+      var state = buildState(discardTop: c(Rank.five, Suit.spades));
+      final p2 = PlayerModel(
+        id: 'p2',
+        displayName: 'P2',
+        tablePosition: TablePosition.top,
+        hand: [],
+        cardCount: 0,
+      );
+      final p3 = PlayerModel(
+        id: 'p3',
+        displayName: 'P3',
+        tablePosition: TablePosition.left,
+        hand: [],
+        cardCount: 0,
+      );
+      state = state.copyWith(players: [...state.players, p2, p3]);
+
+      state = applyPlay(
+        state: state,
+        playerId: 'p1',
+        cards: [
+          c(Rank.king, Suit.spades),
+          c(Rank.king, Suit.hearts),
+        ],
+      );
+      expect(state.lastPlayedThisTurn!.effectiveRank, Rank.king);
+      expect(state.lastActionCardCount, 2,
+          reason: 'Stacked play of 2 Kings recorded as one action of size 2');
+
+      // 4♥ is not rank-adjacent to K♥, but the double-King stack reset means
+      // it only needs to match the last King's suit (hearts) — must be legal.
+      expect(
+        validatePlay(
+          cards: [c(Rank.four, Suit.hearts)],
+          discardTop: state.discardTopCard!,
+          state: state,
+        ),
+        isNull,
+        reason:
+            'Stacked King pair in 3+ players resets numerical flow, same as 2-player King',
+      );
+
+      // Cross-suit 4♣ still must fail — the reset only allows the King's suit,
+      // not an arbitrary card.
+      expect(
+        validatePlay(
+          cards: [c(Rank.four, Suit.clubs)],
+          discardTop: state.discardTopCard!,
+          state: state,
+        ),
+        isNotNull,
+        reason: 'Reset still requires matching the stacked King suit',
+      );
+    });
+
     test('twoPlayerKingFollowUpAceMatchesSuitOnlyNotWild', () {
       var state = buildState(discardTop: c(Rank.five, Suit.spades));
       final p2 = PlayerModel(
