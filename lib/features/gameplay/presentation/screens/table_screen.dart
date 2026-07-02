@@ -97,6 +97,19 @@ class TableScreen extends ConsumerStatefulWidget {
   final bool debugSkipDealAnimation;
   final AiDifficulty? aiDifficulty;
 
+  /// Whether this table is a live online session (server-authoritative via
+  /// [gameStateProvider]) or a local offline/AI session.
+  ///
+  /// This MUST be passed explicitly by the caller — it must never be
+  /// inferred from whether [gameStateProvider] currently has a value, since
+  /// that value arrives asynchronously (websocket snapshot) and checking it
+  /// at an arbitrary moment races with that arrival. Every real navigation
+  /// site already knows for certain which kind of game it's launching
+  /// (lobby/splash → online, single-player loading → offline, tournament
+  /// coordinator → tracks its own isOnline) — so there is no legitimate
+  /// case where this should be guessed instead of passed.
+  final bool isOnline;
+
   /// When set (e.g. from the opponents splash), reuses the same AI roster.
   final List<AiPlayerConfig>? preloadedAiPlayerConfigs;
 
@@ -109,6 +122,7 @@ class TableScreen extends ConsumerStatefulWidget {
     this.debugInitialDrawPile,
     this.debugSkipDealAnimation = false,
     this.aiDifficulty,
+    this.isOnline = false,
     this.preloadedAiPlayerConfigs,
     super.key,
   });
@@ -208,9 +222,17 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   final Map<String, Future<void>> _onlineDrawFlightChains = {};
   bool _bustLeaderboardRecorded = false;
 
-  /// True when this session is offline (no gameStateProvider); used to show
-  /// "Skip" in tournament when qualified.
+  /// True when this session is offline (local/AI, not server-authoritative).
+  /// Derived once from [TableScreen.isOnline] in [_initNewGame] — never
+  /// re-inferred from [gameStateProvider] elsewhere in this file. Used to
+  /// show "Skip" in tournament when qualified.
   bool _isOfflineSession = true;
+
+  /// True only in the rare case where [TableScreen.isOnline] is true but the
+  /// first server snapshot hasn't arrived in [gameStateProvider] yet. While
+  /// true, [build] shows a lightweight waiting state instead of guessing a
+  /// mode and starting local offline logic.
+  bool _awaitingFirstOnlineSnapshot = false;
 
   /// When true, we're fast-forwarding the rest of the round after user tapped Skip.
   bool _tournamentSimulatingRest = false;
@@ -436,7 +458,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   void _subscribeToOnlineMoveLogIfNeeded() {
-    if (ref.read(gameStateProvider) == null) return;
+    if (_isOfflineSession) return;
     final handler = ref.read(gameEventHandlerProvider);
     _onlineLastKnownCurrentPlayerId =
         ref.read(gameStateProvider)?.currentPlayerId;
@@ -651,7 +673,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     // Start turn timer when it's our turn in online mode (e.g. game just started)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted &&
-          ref.read(gameStateProvider) != null &&
+          !_isOfflineSession &&
           ref.read(isLocalTurnProvider)) {
         _startTimer();
       }
@@ -677,9 +699,23 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
     _bustLeaderboardRecorded = false;
     _tournamentSimulatingRest = false;
-    if (liveState != null) {
+
+    if (widget.isOnline && liveState == null) {
+      // Server snapshot hasn't landed yet. This shouldn't happen on the
+      // normal navigation paths (they gate on the first snapshot before
+      // ever constructing TableScreen), but if it ever does, wait for it
+      // instead of silently mis-starting as an offline session — that
+      // mismatch (widget.isOnline true, but running local offline logic)
+      // is exactly what caused desyncs before this flag existed.
+      _isOfflineSession = false;
+      _awaitingFirstOnlineSnapshot = true;
+      return;
+    }
+
+    if (widget.isOnline && liveState != null) {
       final snap = liveState;
       _isOfflineSession = false;
+      _awaitingFirstOnlineSnapshot = false;
       // Online mode: server sent state. Run visual deal animation then use it.
       _offlineState = snap;
       _drawPile = [];
@@ -728,7 +764,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       return;
     }
 
+    // widget.isOnline is false here (the two branches above already
+    // returned for the online case, snapshot present or not).
     _isOfflineSession = true;
+    _awaitingFirstOnlineSnapshot = false;
 
     final hasDebugState = widget.debugInitialOfflineState != null &&
         widget.debugInitialDrawPile != null;
@@ -911,7 +950,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     if (!mounted) return;
 
-    final isOnlineMode = ref.read(gameStateProvider) != null;
+    // Use the canonical _isOfflineSession (set once in _initNewGame) instead
+    // of re-checking gameStateProvider here — re-deriving mode mid-flight
+    // from a live, asynchronously-updated provider is what caused this
+    // widget to disagree with itself about which mode it was in.
+    final isOnlineMode = !_isOfflineSession;
     final realDrawCount = isOnlineMode
         ? (ref.read(gameStateProvider)?.drawPileCount ?? _drawPile.length)
         : _drawPile.length;
@@ -1185,7 +1228,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _timerWarningPlayed = resumeFromSeconds != null && resumeFromSeconds < 10;
     _lastTimerTickSeconds = null;
     _timerWarningSub?.cancel();
-    if (ref.read(gameStateProvider) == null &&
+    if (_isOfflineSession &&
         _offlineState.currentPlayerId == OfflineGameState.localId) {
       _offlineApplyLastCardsBluffPenaltyIfNeeded(OfflineGameState.localId);
     }
@@ -1198,7 +1241,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (secs <= 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        if (ref.read(gameStateProvider) != null) return;
+        if (!_isOfflineSession) return;
         if (_offlineState.currentPlayerId == OfflineGameState.localId &&
             !_aiThinking) {
           game_audio.AudioService.instance.playSound(GameSound.timerExpired);
@@ -1213,7 +1256,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         if (!mounted) return;
         // Online mode: server handles timeout authoritatively. Cancel local timer;
         // server's turn_timeout drives behavior.
-        if (ref.read(gameStateProvider) != null) {
+        if (!_isOfflineSession) {
           _engineTimer.cancel();
           return;
         }
@@ -1466,6 +1509,23 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final connState = ref.watch(connectionStateProvider).valueOrNull ??
         WsConnectionState.disconnected;
 
+    // Rare race guard: widget.isOnline but the first snapshot hasn't landed
+    // in gameStateProvider yet (see _initNewGame). As soon as it does, this
+    // watch triggers a rebuild, we notice it here, and kick off the real
+    // init on the next frame — rather than ever guessing a mode and running
+    // local offline logic while actually online.
+    if (_awaitingFirstOnlineSnapshot) {
+      if (liveState != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          setState(_initNewGame);
+        });
+      }
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     // Cache for dispose — ref is invalid during dispose. Online sessions must
     // always disconnect/clear even if the first build ran before a snapshot.
     if (!_isOfflineSession) {
@@ -1473,7 +1533,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       _gameNotifierToClearOnDispose = ref.read(gameNotifierProvider.notifier);
     }
 
-    final isOfflineMode = liveState == null;
+    final isOfflineMode = _isOfflineSession;
     final socketDisconnectedPlayerIds = isOfflineMode
         ? const <String>{}
         : ref.watch(gameNotifierProvider).socketDisconnectedPlayerIds;
@@ -1526,7 +1586,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     // In online mode, start turn timer when it becomes our turn (e.g. after opponent ends)
     ref.listen(isLocalTurnProvider, (prev, next) {
-      if (ref.read(gameStateProvider) == null || !mounted) return;
+      if (_isOfflineSession || !mounted) return;
       if (next == true && prev == false) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && ref.read(isLocalTurnProvider)) _startTimer();
@@ -2364,7 +2424,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   void _onCardTap(String cardId) {
     if (_aiThinking) return;
-    final isOfflineMode = ref.read(gameStateProvider) == null;
+    final isOfflineMode = _isOfflineSession;
     if (isOfflineMode) {
       _offlinePlayCards(OfflineGameState.localId, cardId: cardId);
     } else {
@@ -3607,7 +3667,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   // ── Win detection ──────────────────────────────────────────────────
 
   void _offlineApplyLastCardsBluffPenaltyIfNeeded(String playerId) {
-    if (ref.read(gameStateProvider) != null) return;
+    if (!_isOfflineSession) return;
     if (!_offlineLastCardsBluffedBy.contains(playerId)) return;
     _offlineLastCardsBluffedBy.remove(playerId);
     setState(() {
@@ -3638,7 +3698,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   /// Returns true when undeclared empty-hand draw was applied (offline only).
   bool _tryApplyOfflineUndeclaredLastCardsDraw(GameState state) {
-    if (ref.read(gameStateProvider) != null) return false;
+    if (!_isOfflineSession) return false;
     for (final p in state.players) {
       if (!needsUndeclaredLastCardsDraw(
         state: state,
@@ -4246,7 +4306,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final level = PlayerLevelService.instance.currentLevel.value;
     if (!isReactionUnlockedForLevel(messageIndex, level)) return;
 
-    final isOfflineMode = ref.read(gameStateProvider) == null;
+    final isOfflineMode = _isOfflineSession;
 
     final localPlayerId = ref
             .read(gameStateProvider)

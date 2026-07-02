@@ -62,6 +62,7 @@ class GameLoadingScreen extends ConsumerWidget {
         pageBuilder: (_, __, ___) => TableScreen(
           totalPlayers: playerCount,
           aiDifficulty: difficulty,
+          isOnline: false,
           preloadedAiPlayerConfigs:
               aiConfigs.isNotEmpty ? aiConfigs : null,
         ),

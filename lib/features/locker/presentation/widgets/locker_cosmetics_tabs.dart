@@ -193,6 +193,12 @@ Widget _grid(List<Widget> tiles) {
 /// Real thumbnail for a card back / joker cover, falling back to an
 /// initials-style placeholder if the asset fails to load (e.g. missing
 /// bundled asset, corrupt file).
+///
+/// Uses [BoxFit.cover] rather than [BoxFit.contain]: these are tall
+/// portrait card images inside a roughly-square tile, so "contain" leaves
+/// large empty bars down the sides. "cover" fills the tile completely and
+/// crops a bit off the top/bottom instead, which reads much better at
+/// thumbnail size.
 Widget _thumbnail(BuildContext context, CardBackDesign d) {
   final path = d.assetPath ?? d.id;
   final colors = Theme.of(context).colorScheme;
@@ -200,7 +206,8 @@ Widget _thumbnail(BuildContext context, CardBackDesign d) {
     color: colors.surfaceContainerHighest,
     child: Image.asset(
       path,
-      fit: BoxFit.contain,
+      fit: BoxFit.cover,
+      alignment: Alignment.center,
       gaplessPlayback: true,
       errorBuilder: (context, error, stackTrace) => _swatch(context, d.label),
     ),

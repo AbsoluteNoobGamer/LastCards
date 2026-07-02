@@ -399,6 +399,7 @@ void main() {
                 required onPlayerFinished,
                 required tournamentPlayerNameByTableId,
                 required activePlayerIds,
+                required isOnline,
                 AiDifficulty? aiDifficulty,
               }) {
                 return _AutoFinishRoundGameScreen(
@@ -446,6 +447,7 @@ void main() {
                 required onPlayerFinished,
                 required tournamentPlayerNameByTableId,
                 required activePlayerIds,
+                required isOnline,
                 AiDifficulty? aiDifficulty,
               }) {
                 capturedTournamentMode = isTournamentMode;
@@ -488,6 +490,7 @@ void main() {
                 required onPlayerFinished,
                 required tournamentPlayerNameByTableId,
                 required activePlayerIds,
+                required isOnline,
                 AiDifficulty? aiDifficulty,
               }) {
                 return _AutoFinishRoundGameScreen(
@@ -532,6 +535,7 @@ void main() {
                 required onPlayerFinished,
                 required tournamentPlayerNameByTableId,
                 required activePlayerIds,
+                required isOnline,
                 AiDifficulty? aiDifficulty,
               }) {
                 // 3 players finish; the 4th is auto-eliminated.
@@ -588,6 +592,7 @@ void main() {
                 required onPlayerFinished,
                 required tournamentPlayerNameByTableId,
                 required activePlayerIds,
+                required isOnline,
                 AiDifficulty? aiDifficulty,
               }) {
                 return _AutoFinishRoundGameScreen(
@@ -632,6 +637,7 @@ void main() {
                 required onPlayerFinished,
                 required tournamentPlayerNameByTableId,
                 required activePlayerIds,
+                required isOnline,
                 AiDifficulty? aiDifficulty,
               }) {
                 return _AutoFinishRoundGameScreen(
@@ -692,6 +698,7 @@ void main() {
                 required onPlayerFinished,
                 required tournamentPlayerNameByTableId,
                 required activePlayerIds,
+                required isOnline,
                 AiDifficulty? aiDifficulty,
               }) {
                 return _AutoFinishRoundGameScreen(
@@ -761,6 +768,7 @@ void main() {
                 required onPlayerFinished,
                 required tournamentPlayerNameByTableId,
                 required activePlayerIds,
+                required isOnline,
                 AiDifficulty? aiDifficulty,
               }) {
                 return _AutoFinishRoundGameScreen(
@@ -803,6 +811,7 @@ void main() {
                 required onPlayerFinished,
                 required tournamentPlayerNameByTableId,
                 required activePlayerIds,
+                required isOnline,
                 AiDifficulty? aiDifficulty,
               }) {
                 // player-2 finishes 1st, local 2nd, player-3 3rd; player-4 last (eliminated).

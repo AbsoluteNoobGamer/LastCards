@@ -122,7 +122,7 @@ class _LockerReactionsTabState extends ConsumerState<LockerReactionsTab> {
         final def = kReactionDefinitions[catalogId];
         final inWheel = wheel.contains(catalogId);
         return LockerTile(
-          label: def.unicodeLabel ?? '',
+          label: null,
           state: locked
               ? LockerTileState.lockedByLevel
               : inWheel

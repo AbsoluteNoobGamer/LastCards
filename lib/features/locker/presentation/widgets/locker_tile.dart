@@ -27,7 +27,7 @@ enum LockerTileState {
 class LockerTile extends StatefulWidget {
   const LockerTile({
     super.key,
-    required this.label,
+    this.label,
     required this.state,
     required this.onTap,
     this.preview,
@@ -35,7 +35,10 @@ class LockerTile extends StatefulWidget {
     this.priceLabel,
   });
 
-  final String label;
+  /// Caption under the thumbnail. Pass null to skip it entirely (e.g. when
+  /// the thumbnail itself already fully identifies the item, like an emoji
+  /// reaction — showing the same emoji again as tiny text is redundant).
+  final String? label;
   final LockerTileState state;
   final VoidCallback onTap;
 
@@ -92,6 +95,7 @@ class _LockerTileState extends State<LockerTile> {
             color: colors.surface.withValues(alpha: 0.4),
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
                 child: ClipRRect(
@@ -118,20 +122,23 @@ class _LockerTileState extends State<LockerTile> {
                   ),
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                widget.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.dmSans(
-                  fontSize: 11,
-                  color: colors.onSurface,
+              if (widget.label != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  widget.label!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 11,
+                    color: colors.onSurface,
+                  ),
                 ),
-              ),
+              ],
               if (isSelected)
                 Text(
                   'Selected',
+                  textAlign: TextAlign.center,
                   style: GoogleFonts.dmSans(
                     fontSize: 9.5,
                     color: colors.primary,
@@ -141,6 +148,7 @@ class _LockerTileState extends State<LockerTile> {
               else if (widget.lockCaption != null)
                 Text(
                   widget.lockCaption!,
+                  textAlign: TextAlign.center,
                   style: GoogleFonts.dmSans(
                     fontSize: 9.5,
                     color: colors.onSurface.withValues(alpha: 0.55),
@@ -149,6 +157,7 @@ class _LockerTileState extends State<LockerTile> {
               else if (widget.priceLabel != null)
                 Text(
                   widget.priceLabel!,
+                  textAlign: TextAlign.center,
                   style: GoogleFonts.dmSans(
                     fontSize: 9.5,
                     color: colors.error,
