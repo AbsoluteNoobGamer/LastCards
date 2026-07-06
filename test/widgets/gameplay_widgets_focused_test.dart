@@ -42,12 +42,14 @@ void main() {
   testWidgets('DrawPileWidget calls onTap when enabled', (tester) async {
     var taps = 0;
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: DrawPileWidget(
-            cardCount: 5,
-            enabled: true,
-            onTap: () => taps++,
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: DrawPileWidget(
+              cardCount: 5,
+              enabled: true,
+              onTap: () => taps++,
+            ),
           ),
         ),
       ),
@@ -61,12 +63,14 @@ void main() {
   testWidgets('DrawPileWidget does not call onTap when disabled', (tester) async {
     var taps = 0;
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: DrawPileWidget(
-            cardCount: 5,
-            enabled: false,
-            onTap: () => taps++,
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: DrawPileWidget(
+              cardCount: 5,
+              enabled: false,
+              onTap: () => taps++,
+            ),
           ),
         ),
       ),

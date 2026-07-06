@@ -2252,16 +2252,16 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                           vertical: 14,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.feltDeep.withValues(alpha: 0.92),
+                          color: appTheme.surfacePanel.withValues(alpha: 0.92),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: AppColors.goldLight.withValues(alpha: 0.95),
+                            color: appTheme.accentPrimary.withValues(alpha: 0.95),
                             width: 2,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color:
-                                  AppColors.goldPrimary.withValues(alpha: 0.35),
+                              color: appTheme.accentPrimary
+                                  .withValues(alpha: 0.35),
                               blurRadius: 24,
                               spreadRadius: 2,
                             ),
@@ -2270,8 +2270,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         child: Text(
                           _lastCardsDeclaredBannerText!,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
+                          style: TextStyle(
+                            color: appTheme.textPrimary,
                             fontSize: 17,
                             fontWeight: FontWeight.w900,
                           ),
@@ -2292,9 +2292,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                           vertical: 14,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.feltDeep.withValues(alpha: 0.92),
+                          color: appTheme.surfacePanel.withValues(alpha: 0.92),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
+                            // Semantic, not thematic: red = penalty escalated
+                            // against you, gold = a pickup/stack was cancelled.
                             color: _stackBlockBannerColor!,
                             width: 2,
                           ),
@@ -2302,8 +2304,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         child: Text(
                           _stackBlockBannerText!,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
+                          style: TextStyle(
+                            color: appTheme.textPrimary,
                             fontSize: 17,
                             fontWeight: FontWeight.w900,
                           ),
@@ -2324,18 +2326,19 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                           vertical: 14,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.82),
+                          color: appTheme.surfacePanel.withValues(alpha: 0.9),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color:
-                                AppColors.goldPrimary.withValues(alpha: 0.75),
+                            // Bad news for the bluffer — same red as a penalty
+                            // escalation, not the theme accent.
+                            color: const Color(0xFFE53935).withValues(alpha: 0.8),
                           ),
                         ),
                         child: Text(
                           _lastCardsBluffBannerText!,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: appTheme.textPrimary,
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
                           ),

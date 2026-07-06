@@ -322,6 +322,71 @@ class TableBackgroundPainter extends CustomPainter {
 
     // Universal vignette on top of every theme
     _paintVignette(canvas, size, opacity: 0.55);
+
+    // Universal framed rail — reads as an inset table edge rather than a
+    // full-bleed pattern. Tinted by the active theme's accent.
+    _paintFramedRail(canvas, size);
+  }
+
+  // ── Framed rail (casino-noir table edge) ────────────────────────────────────
+
+  /// Inset double keyline + corner fan motifs, tinted with [accentColor] so the
+  /// "table edge" reads correctly against every theme, not just gold ones.
+  void _paintFramedRail(Canvas canvas, Size size) {
+    final inset = size.shortestSide * 0.045;
+    final cornerRadius = Radius.circular(size.shortestSide * 0.08);
+
+    final outer = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+          inset, inset, size.width - inset * 2, size.height - inset * 2),
+      cornerRadius,
+    );
+    canvas.drawRRect(
+      outer,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4
+        ..color = accentColor.withValues(alpha: 0.4),
+    );
+
+    final innerInset = inset + 7;
+    final inner = RRect.fromRectAndRadius(
+      Rect.fromLTWH(innerInset, innerInset, size.width - innerInset * 2,
+          size.height - innerInset * 2),
+      Radius.circular(size.shortestSide * 0.07),
+    );
+    canvas.drawRRect(
+      inner,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.8
+        ..color = accentColor.withValues(alpha: 0.18),
+    );
+
+    _paintCornerFan(canvas, Offset(inset, inset), 0);
+    _paintCornerFan(canvas, Offset(size.width - inset, inset), math.pi / 2);
+    _paintCornerFan(
+        canvas, Offset(size.width - inset, size.height - inset), math.pi);
+    _paintCornerFan(canvas, Offset(inset, size.height - inset), -math.pi / 2);
+  }
+
+  /// A quarter-circle fan of arcs curving from [startAngle] into the table's
+  /// interior — an Art Deco corner spandrel, tinted with [accentColor].
+  void _paintCornerFan(Canvas canvas, Offset corner, double startAngle) {
+    final fan = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    const radii = [14.0, 24.0, 34.0, 44.0];
+    for (final r in radii) {
+      fan.color = accentColor.withValues(alpha: (0.5 - r * 0.008).clamp(0.05, 0.5));
+      canvas.drawArc(
+        Rect.fromCircle(center: corner, radius: r),
+        startAngle,
+        math.pi / 2,
+        false,
+        fan,
+      );
+    }
   }
 
   // ── Carbon Fibre ────────────────────────────────────────────────────────────

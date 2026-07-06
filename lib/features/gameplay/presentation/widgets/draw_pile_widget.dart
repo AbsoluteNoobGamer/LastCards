@@ -1,8 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_typography.dart';
 import 'card_back_widget.dart';
@@ -24,7 +25,7 @@ int _stackLayers(int count) {
 ///
 /// [reshuffleNotifier] — when this notifier fires (its value is toggled),
 /// the widget plays a short shuffle animation to signal a reshuffle event.
-class DrawPileWidget extends StatefulWidget {
+class DrawPileWidget extends ConsumerStatefulWidget {
   const DrawPileWidget({
     super.key,
     required this.cardCount,
@@ -45,10 +46,10 @@ class DrawPileWidget extends StatefulWidget {
   final ValueNotifier<bool>? reshuffleNotifier;
 
   @override
-  State<DrawPileWidget> createState() => _DrawPileWidgetState();
+  ConsumerState<DrawPileWidget> createState() => _DrawPileWidgetState();
 }
 
-class _DrawPileWidgetState extends State<DrawPileWidget>
+class _DrawPileWidgetState extends ConsumerState<DrawPileWidget>
     with SingleTickerProviderStateMixin {
   bool _isHovering = false;
   bool _isPressed = false;
@@ -132,6 +133,7 @@ class _DrawPileWidgetState extends State<DrawPileWidget>
 
   @override
   Widget build(BuildContext context) {
+    final theme = ref.watch(themeProvider).theme;
     final double targetScale = (_isPressed || _isHovering) ? 0.95 : 1.0;
     final height = AppDimensions.cardHeight(widget.cardWidth);
     final drawable =
@@ -158,8 +160,8 @@ class _DrawPileWidgetState extends State<DrawPileWidget>
           onTapUp:
               widget.enabled ? (_) => setState(() => _isPressed = false) : null,
           onTapCancel: () => setState(() => _isPressed = false),
-          splashColor: AppColors.goldPrimary.withValues(alpha: 0.35),
-          highlightColor: AppColors.goldLight.withValues(alpha: 0.12),
+          splashColor: theme.accentPrimary.withValues(alpha: 0.35),
+          highlightColor: theme.accentLight.withValues(alpha: 0.12),
           // Reshuffle: scale/offset/glow opacity.
           // Hover: [AnimatedScale]. Shuffle-only [AnimatedBuilder] — no per-frame
           // second ticker (avoids _debugRelayoutBoundaryAlreadyMarkedNeedsLayout).
@@ -228,7 +230,7 @@ class _DrawPileWidgetState extends State<DrawPileWidget>
                           ),
                         ),
 
-                        // Gold glow overlay — only visible during the reshuffle
+                        // Accent glow overlay — only visible during the reshuffle
                         if (glowOpacity > 0)
                           Positioned.fill(
                             child: IgnorePointer(
@@ -238,12 +240,12 @@ class _DrawPileWidgetState extends State<DrawPileWidget>
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(
-                                      color: AppColors.goldPrimary,
+                                      color: theme.accentPrimary,
                                       width: 3,
                                     ),
                                     gradient: RadialGradient(
                                       colors: [
-                                        AppColors.goldLight
+                                        theme.accentLight
                                             .withValues(alpha: 0.35),
                                         Colors.transparent,
                                       ],
@@ -258,7 +260,10 @@ class _DrawPileWidgetState extends State<DrawPileWidget>
                         Positioned(
                           top: 14,
                           left: 12,
-                          child: _CountBadge(count: widget.cardCount),
+                          child: _CountBadge(
+                            count: widget.cardCount,
+                            accentColor: theme.accentPrimary,
+                          ),
                         ),
 
                         // "DRAW" label — engraved into the card back
@@ -279,7 +284,7 @@ class _DrawPileWidgetState extends State<DrawPileWidget>
                                           .withValues(alpha: 0.55),
                                       border: drawable
                                           ? Border.all(
-                                              color: AppColors.goldPrimary
+                                              color: theme.accentPrimary
                                                   .withValues(alpha: 0.4),
                                               width: 1,
                                             )
@@ -290,7 +295,7 @@ class _DrawPileWidgetState extends State<DrawPileWidget>
                                       style:
                                           AppTypography.labelSmall.copyWith(
                                         letterSpacing: 2,
-                                        color: AppColors.goldPrimary,
+                                        color: theme.accentPrimary,
                                         fontSize: 11,
                                         fontWeight: FontWeight.w900,
                                       ),
@@ -325,9 +330,10 @@ class _DrawPileWidgetState extends State<DrawPileWidget>
 }
 
 class _CountBadge extends StatelessWidget {
-  const _CountBadge({required this.count});
+  const _CountBadge({required this.count, required this.accentColor});
 
   final int count;
+  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -337,14 +343,14 @@ class _CountBadge extends StatelessWidget {
         color: Colors.black.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: AppColors.goldPrimary.withValues(alpha: 0.45),
+          color: accentColor.withValues(alpha: 0.45),
           width: 1,
         ),
       ),
       child: Text(
         '$count',
         style: AppTypography.labelSmall.copyWith(
-          color: AppColors.goldPrimary.withValues(alpha: 0.85),
+          color: accentColor.withValues(alpha: 0.85),
           fontSize: 13,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,

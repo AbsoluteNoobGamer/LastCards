@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/card.dart';
+import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
+import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/shadow_blur.dart';
 import 'card_back_widget.dart';
@@ -16,7 +19,7 @@ import 'card_widget.dart';
 /// When the top card is a Joker that has been declared ([CardModel.jokerDeclaredSuit]
 /// and [CardModel.jokerDeclaredRank] are set), the card renders as the declared face
 /// and shows a looping animated gold outline to signal it is a Joker in disguise.
-class DiscardPileWidget extends StatefulWidget {
+class DiscardPileWidget extends ConsumerStatefulWidget {
   const DiscardPileWidget({
     super.key,
     this.topCard,
@@ -38,7 +41,15 @@ class DiscardPileWidget extends StatefulWidget {
   final int discardPileCount;
 
   @override
-  State<DiscardPileWidget> createState() => _DiscardPileWidgetState();
+  ConsumerState<DiscardPileWidget> createState() => _DiscardPileWidgetState();
+}
+
+/// Slight alternating rotation for stacked history layers — a loosely
+/// scattered "played pile" look rather than a squared-off twin of the draw
+/// pile. Layer 1 (closest to top) tilts one way, layer 2 the other, etc.
+double _historyLayerRotation(int layerIndex) {
+  const angles = [-0.09, 0.07, -0.05, 0.04];
+  return angles[(layerIndex - 1) % angles.length];
 }
 
 /// Maps a card count to the number of visible stack layers behind the top card.
@@ -61,11 +72,12 @@ Color _discardHoverGlow(CardModel? top) {
       : const Color(0xFF90CAF9);
 }
 
-class _DiscardPileWidgetState extends State<DiscardPileWidget> {
+class _DiscardPileWidgetState extends ConsumerState<DiscardPileWidget> {
   bool _isHovering = false;
 
   @override
   Widget build(BuildContext context) {
+    final theme = ref.watch(themeProvider).theme;
     final height = AppDimensions.cardHeight(widget.cardWidth);
     // No hover lift — keeps the face-up pile visually stable (layout + UX).
     final targetOffset = Offset.zero;
@@ -103,12 +115,39 @@ class _DiscardPileWidgetState extends State<DiscardPileWidget> {
         child: Stack(
           alignment: Alignment.center,
           children: [
+            // Soft accent-coloured glow pool — makes this pile read as the
+            // "stage" where cards land, rather than a mirrored twin of the
+            // draw pile's tidy stack.
+            if (topCard != null)
+              Positioned(
+                bottom: 2,
+                child: IgnorePointer(
+                  child: Container(
+                    width: widget.cardWidth * 1.15,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      gradient: RadialGradient(
+                        colors: [
+                          theme.accentPrimary.withValues(alpha: 0.35),
+                          theme.accentPrimary.withValues(alpha: 0.0),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
             // Zone label (visible when pile is empty)
             if (topCard == null)
-              _EmptyPileLabel(width: widget.cardWidth, height: height),
+              _EmptyPileLabel(
+                width: widget.cardWidth,
+                height: height,
+                theme: theme,
+              ),
 
-            // Dynamic stacked layers (furthest first) — card faces when history
-            // available, otherwise card backs.
+            // Dynamic stacked layers (furthest first) — loosely rotated card
+            // faces/backs peeking out, like a scattered played pile.
             if (topCard != null)
               for (int i = layers; i >= 1; i--)
                 Positioned(
@@ -116,7 +155,10 @@ class _DiscardPileWidgetState extends State<DiscardPileWidget> {
                   left: 8 + i * layerOffset,
                   child: Opacity(
                     opacity: (1 - i * 0.15).clamp(0.2, 0.8),
-                    child: _buildLayerCard(i),
+                    child: Transform.rotate(
+                      angle: _historyLayerRotation(i),
+                      child: _buildLayerCard(i),
+                    ),
                   ),
                 ),
 
@@ -141,6 +183,7 @@ class _DiscardPileWidgetState extends State<DiscardPileWidget> {
                       isHovering: _isHovering,
                       isJokerDisguised: isJokerDisguised,
                       hoverGlow: _discardHoverGlow(topCard),
+                      ringColor: theme.accentDark,
                       child: CardWidget(
                         card: displayCard!,
                         width: widget.cardWidth,
@@ -187,6 +230,7 @@ class _ClippedCardWithRing extends StatefulWidget {
     required this.isHovering,
     required this.isJokerDisguised,
     required this.hoverGlow,
+    required this.ringColor,
     required this.child,
   });
 
@@ -194,6 +238,10 @@ class _ClippedCardWithRing extends StatefulWidget {
   final bool isHovering;
   final bool isJokerDisguised;
   final Color hoverGlow;
+
+  /// Default (non-hover, non-Joker) ring color — the active theme's accent,
+  /// so the pile stops reading as permanently gold on every theme.
+  final Color ringColor;
   final Widget child;
 
   @override
@@ -291,7 +339,7 @@ class _ClippedCardWithRingState extends State<_ClippedCardWithRing>
             child: Stack(
               children: [
                 child!,
-                // Gold ring drawn INSIDE the clipped area — stays rounded, no rectangle
+                // Ring drawn INSIDE the clipped area — stays rounded, no rectangle
                 Positioned.fill(
                   child: IgnorePointer(
                     child: DecoratedBox(
@@ -302,7 +350,7 @@ class _ClippedCardWithRingState extends State<_ClippedCardWithRing>
                               ? AppColors.goldPrimary.withValues(alpha: jokerBorderAlpha)
                               : (widget.isHovering
                                   ? widget.hoverGlow
-                                  : AppColors.goldDark),
+                                  : widget.ringColor),
                           width: widget.isJokerDisguised ? 3.5 : 3,
                         ),
                       ),
@@ -320,10 +368,15 @@ class _ClippedCardWithRingState extends State<_ClippedCardWithRing>
 }
 
 class _EmptyPileLabel extends StatelessWidget {
-  const _EmptyPileLabel({required this.width, required this.height});
+  const _EmptyPileLabel({
+    required this.width,
+    required this.height,
+    required this.theme,
+  });
 
   final double width;
   final double height;
+  final AppThemeData theme;
 
   @override
   Widget build(BuildContext context) {
@@ -332,19 +385,19 @@ class _EmptyPileLabel extends StatelessWidget {
       height: height,
       decoration: BoxDecoration(
         border: Border.all(
-          color: AppColors.goldDark.withValues(alpha: 0.5),
+          color: theme.accentDark.withValues(alpha: 0.5),
           width: 1.5,
         ),
         borderRadius: BorderRadius.circular(
             AppDimensions.radiusCard * (width / AppDimensions.cardWidthMedium)),
-        color: AppColors.feltMid.withValues(alpha: 0.4),
+        color: theme.surfacePanel.withValues(alpha: 0.4),
       ),
       child: Center(
         child: Text(
           'DISCARD',
           style: AppTypography.labelSmall.copyWith(
             letterSpacing: 2,
-            color: AppColors.goldDark,
+            color: theme.accentDark,
           ),
         ),
       ),

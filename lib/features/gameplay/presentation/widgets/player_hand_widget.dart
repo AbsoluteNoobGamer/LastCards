@@ -68,6 +68,10 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget>
   /// Fixed horizontal offset between successive cards in the fan.
   static const double _fixedSpread = 45.0;
 
+  /// Floor overlap spread — the minimum visible/tappable strip per card
+  /// before we give up shrinking further and fall back to Option B (scroll).
+  static const double _minSpread = 20.0;
+
   @override
   void initState() {
     super.initState();
@@ -207,9 +211,21 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget>
           spread = 0;
           useScroll = false;
         } else {
-          spread = baseSpread;
-          final totalContentWidth = targetWidth + (n - 1) * baseSpread;
-          useScroll = totalContentWidth > maxWidth;
+          // Option A: shrink the overlap so all n cards fit exactly in
+          // maxWidth, down to a floor of _minSpread — below that the cards
+          // stop being individually tappable, so fall back to Option B
+          // (fixed floor spread inside a horizontal scroll).
+          final fitSpread = (maxWidth - targetWidth) / (n - 1);
+          if (fitSpread >= baseSpread) {
+            spread = baseSpread;
+            useScroll = false;
+          } else if (fitSpread >= _minSpread) {
+            spread = fitSpread;
+            useScroll = false;
+          } else {
+            spread = _minSpread;
+            useScroll = true;
+          }
         }
 
         final totalWidth =
@@ -378,19 +394,15 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget>
           ),
         );
 
-        // ── Outer SizedBox is always exactly maxWidth wide ─────────────
+        // Reports its true content width (stackWidth), not the full maxWidth
+        // — so ancestors that hug their child (rather than force it wide)
+        // don't end up painting chrome across empty space the hand doesn't
+        // use. Only the scrolling case below needs the full viewport width.
         if (!useScroll) {
           return SizedBox(
-            width: maxWidth,
+            width: stackWidth,
             height: cardH,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: SizedBox(
-                width: stackWidth,
-                height: cardH,
-                child: wrappedStack,
-              ),
-            ),
+            child: wrappedStack,
           );
         }
 

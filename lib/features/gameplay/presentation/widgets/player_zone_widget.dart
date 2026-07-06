@@ -240,7 +240,6 @@ class PlayerZoneWidget extends ConsumerWidget {
             _PlayerLabel(
               player: playerWithReactiveCount,
               isActiveTurn: isActiveTurn,
-              isLocalPlayer: isLocalPlayer,
               hasLastCardsDeclared: hasLastCardsDeclared,
               appTheme: appTheme,
               compact: compact,
@@ -602,7 +601,6 @@ class _PlayerLabel extends StatelessWidget {
     required this.player,
     required this.appTheme,
     this.isActiveTurn = false,
-    this.isLocalPlayer = false,
     this.hasLastCardsDeclared = false,
     this.compact = false,
     this.localAvatarFilePath,
@@ -611,56 +609,20 @@ class _PlayerLabel extends StatelessWidget {
   final PlayerModel player;
   final dynamic appTheme;
   final bool isActiveTurn;
-  final bool isLocalPlayer;
   final bool hasLastCardsDeclared;
   final bool compact;
   final String? localAvatarFilePath;
 
   @override
   Widget build(BuildContext context) {
-    String? badgeText;
-    Color? badgeColor;
-
-    if (isActiveTurn && isLocalPlayer) {
-      badgeText = "YOUR TURN";
-      badgeColor = PlayerStyles.getColor(player.tablePosition);
-    }
-
-    final badgePadding = compact
-        ? const EdgeInsets.symmetric(horizontal: 4, vertical: 1)
-        : const EdgeInsets.symmetric(horizontal: 6, vertical: 2);
-    final badgeFontSize = compact ? 7.0 : 9.0;
     final iconSize = compact ? 10.0 : 14.0;
     final nameFontSize = compact ? 9.0 : null;
     final countFontSize = compact ? 8.0 : 10.0;
     final gap = compact ? 2.0 : AppDimensions.xs;
 
-    Widget badgeWidget = const SizedBox.shrink();
-    if (badgeText != null) {
-      badgeWidget = Container(
-        margin: EdgeInsets.only(right: gap),
-        padding: badgePadding,
-        decoration: BoxDecoration(
-          color: (badgeColor ?? appTheme.textSecondary as Color)
-              .withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(compact ? 3 : 4),
-          border: Border.all(
-              color: (badgeColor ?? appTheme.textSecondary as Color)
-                  .withValues(alpha: 0.5),
-              width: 1),
-        ),
-        child: Text(
-          badgeText,
-          style: TextStyle(
-            color: badgeColor,
-            fontSize: badgeFontSize,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.5,
-          ),
-        ),
-      );
-    }
-
+    // Active-turn state is already communicated by the zone-level accent glow
+    // (see PlayerZoneWidget's outer Container) — no separate "YOUR TURN" pill
+    // needed here, so the label row stays to one quiet signal per state.
     final positionColor = PlayerStyles.getColor(player.tablePosition);
 
     final accentLc = appTheme.accentPrimary as Color;
@@ -699,7 +661,6 @@ class _PlayerLabel extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        badgeWidget,
         lastCardsPill,
         Transform.scale(
           scale: isActiveTurn && !compact ? 1.05 : 1.0,

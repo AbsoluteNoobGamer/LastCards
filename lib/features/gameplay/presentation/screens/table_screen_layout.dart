@@ -29,8 +29,11 @@ Widget _localHandRegionSlot({
             child: FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.topCenter,
-              child: SizedBox(
-                width: contentWidth,
+              // Cap width, don't force it — so the zone (nameplate + hand)
+              // hugs its real content width instead of stretching its
+              // active-turn accent tint across empty felt.
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: contentWidth),
                 child: child,
               ),
             ),
@@ -189,9 +192,9 @@ class _TableLayout extends StatelessWidget {
       orElse: () => players.isNotEmpty ? players.first : _emptyLocal,
     );
 
-    // Fixed 6-slot opponent rail — same geometry as a 7-player table; empty
-    // slots stay in place when fewer players are seated.
-    final opponentRailSlots = _fixedOpponentRailSlots(
+    // One slot per opponent actually seated — reclaims the dead centre space
+    // 1v1/duo games used to get from always budgeting a 7-player rail.
+    final opponentRailSlots = _adaptiveOpponentRailSlots(
       players: players,
       gameState: gameState,
       tournamentStatusBadges: tournamentStatusBadges,
@@ -341,15 +344,18 @@ class _TableLayout extends StatelessWidget {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   SizedBox(
-                                    width:
-                                        TablePortraitGrid.drawPileFootprintWidth(),
+                                    width: TablePortraitGrid
+                                        .drawPileFootprintWidth(
+                                            TablePortraitGrid.drawPileCardWidth),
                                     height: TablePortraitGrid
-                                        .drawPileFootprintHeight(),
+                                        .drawPileFootprintHeight(
+                                            TablePortraitGrid.drawPileCardWidth),
                                     child: DrawPileWidget(
                                       key: drawPileKey,
                                       cardCount: gameState.drawPileCount,
                                       onTap: onDrawTap,
-                                      cardWidth: TablePortraitGrid.pileSlotWidth,
+                                      cardWidth:
+                                          TablePortraitGrid.drawPileCardWidth,
                                       enabled: isMyTurn &&
                                           (gameState.actionsThisTurn == 0 ||
                                               gameState.queenSuitLock != null) &&
@@ -362,9 +368,11 @@ class _TableLayout extends StatelessWidget {
                                       width: TablePortraitGrid.pileGap),
                                   SizedBox(
                                     width: TablePortraitGrid
-                                        .discardPileFootprintWidth(),
+                                        .discardPileFootprintWidth(
+                                            TablePortraitGrid.discardPileCardWidth),
                                     height: TablePortraitGrid
-                                        .discardPileFootprintHeight(),
+                                        .discardPileFootprintHeight(
+                                            TablePortraitGrid.discardPileCardWidth),
                                     child: DiscardPileWidget(
                                       key: discardPileKey,
                                       topCard: gameState.discardTopCard,
@@ -374,7 +382,8 @@ class _TableLayout extends StatelessWidget {
                                           : null,
                                       discardPileHistory:
                                           gameState.discardPileHistory,
-                                      cardWidth: TablePortraitGrid.pileSlotWidth,
+                                      cardWidth:
+                                          TablePortraitGrid.discardPileCardWidth,
                                       discardPileCount: discardPileCount,
                                     ),
                                   ),
@@ -496,9 +505,6 @@ class _TableLayout extends StatelessWidget {
     cardCount: 0,
   );
 
-  /// Opponent seats for a full 7-player table (local is bottom; six rail slots).
-  static const int _kFixedOpponentSlotCount = 6;
-
   PlayerModel? _opponentAt(List<PlayerModel> players, TablePosition pos) {
     try {
       return players.firstWhere((p) => p.tablePosition == pos);
@@ -507,12 +513,19 @@ class _TableLayout extends StatelessWidget {
     }
   }
 
-  List<BustPlayerViewModel?> _fixedOpponentRailSlots({
+  /// One rail slot per opponent actually seated — sized to `players.length -
+  /// 1`, not a fixed six. Roster seat indices fill [kOpponentTablePositionCycle]
+  /// contiguously from the start (see [tablePositionForSeatIndex]), so seat
+  /// order stays stable (left, top, right, …) as players join/disconnect;
+  /// there just aren't empty trailing slots wasting rail width for smaller
+  /// tables.
+  List<BustPlayerViewModel?> _adaptiveOpponentRailSlots({
     required List<PlayerModel> players,
     required GameState gameState,
     required Map<String, String> tournamentStatusBadges,
   }) {
-    return List.generate(_kFixedOpponentSlotCount, (slotIndex) {
+    final opponentCount = math.max(0, players.length - 1);
+    return List.generate(opponentCount, (slotIndex) {
       final pos = kOpponentTablePositionCycle[slotIndex];
       final player = _opponentAt(players, pos);
       if (player == null) return null;
@@ -637,7 +650,8 @@ class _LandscapeTableLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const handCardWidth = 40.0;
-    const pileCardWidth = TablePortraitGrid.landscapePileSlotWidth;
+    const drawCardWidth = TablePortraitGrid.landscapeDrawPileCardWidth;
+    const discardCardWidth = TablePortraitGrid.landscapeDiscardPileCardWidth;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -716,14 +730,14 @@ class _LandscapeTableLayout extends StatelessWidget {
                                 children: [
                                   SizedBox(
                                     width: TablePortraitGrid
-                                        .drawPileFootprintWidth(pileCardWidth),
+                                        .drawPileFootprintWidth(drawCardWidth),
                                     height: TablePortraitGrid
-                                        .drawPileFootprintHeight(pileCardWidth),
+                                        .drawPileFootprintHeight(drawCardWidth),
                                     child: DrawPileWidget(
                                       key: drawPileKey,
                                       cardCount: gameState.drawPileCount,
                                       onTap: onDrawTap,
-                                      cardWidth: pileCardWidth,
+                                      cardWidth: drawCardWidth,
                                       enabled: isMyTurn &&
                                           (gameState.actionsThisTurn == 0 ||
                                               gameState.queenSuitLock != null) &&
@@ -736,10 +750,10 @@ class _LandscapeTableLayout extends StatelessWidget {
                                       width: TablePortraitGrid.landscapePileGap),
                                   SizedBox(
                                     width: TablePortraitGrid
-                                        .discardPileFootprintWidth(pileCardWidth),
+                                        .discardPileFootprintWidth(discardCardWidth),
                                     height: TablePortraitGrid
                                         .discardPileFootprintHeight(
-                                            pileCardWidth),
+                                            discardCardWidth),
                                     child: DiscardPileWidget(
                                       key: discardPileKey,
                                       topCard: gameState.discardTopCard,
@@ -749,7 +763,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                                           : null,
                                       discardPileHistory:
                                           gameState.discardPileHistory,
-                                      cardWidth: pileCardWidth,
+                                      cardWidth: discardCardWidth,
                                       discardPileCount: discardPileCount,
                                     ),
                                   ),
@@ -825,8 +839,11 @@ class _LandscapeTableLayout extends StatelessWidget {
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.bottomCenter,
-                    child: SizedBox(
-                      width: constraints.maxWidth,
+                    // Cap width, don't force it — same fix as portrait: hug
+                    // real content instead of stretching the accent tint.
+                    child: ConstrainedBox(
+                      constraints:
+                          BoxConstraints(maxWidth: constraints.maxWidth),
                       child: PlayerZoneWidget(
                         key: playerZoneKeys[localPlayer.id],
                         player: localPlayer,

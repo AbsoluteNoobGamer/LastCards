@@ -2,9 +2,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/game_state.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/providers/theme_provider.dart';
 
 /// Matches [LastCardsTableStrip] inline chip width.
 const double kDirectionReversalBannerMaxWidth = 340;
@@ -12,7 +13,7 @@ const double kDirectionReversalBannerMaxWidth = 340;
 /// Nudge below the suit-lock HUD centre.
 const double kDirectionReversalBannerYOffset = 10;
 
-class TurnIndicatorOverlay extends StatefulWidget {
+class TurnIndicatorOverlay extends ConsumerStatefulWidget {
   final PlayDirection direction;
 
   /// True only in the frame(s) after a King was played this turn.
@@ -33,10 +34,11 @@ class TurnIndicatorOverlay extends StatefulWidget {
   });
 
   @override
-  State<TurnIndicatorOverlay> createState() => _TurnIndicatorOverlayState();
+  ConsumerState<TurnIndicatorOverlay> createState() =>
+      _TurnIndicatorOverlayState();
 }
 
-class _TurnIndicatorOverlayState extends State<TurnIndicatorOverlay>
+class _TurnIndicatorOverlayState extends ConsumerState<TurnIndicatorOverlay>
     with SingleTickerProviderStateMixin {
   static const _enterMs = 500;
   static const _exitMs = 600;
@@ -89,20 +91,21 @@ class _TurnIndicatorOverlayState extends State<TurnIndicatorOverlay>
 
   Widget _bannerChip(String symbol) {
     final maxWidth = widget.maxWidth ?? kDirectionReversalBannerMaxWidth;
+    final theme = ref.watch(themeProvider).theme;
 
     return Container(
       constraints: BoxConstraints(maxWidth: maxWidth),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.goldDark.withValues(alpha: 0.88),
+        color: theme.accentDark.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: AppColors.goldLight.withValues(alpha: 0.95),
+          color: theme.accentLight.withValues(alpha: 0.95),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.goldPrimary.withValues(alpha: 0.35),
+            color: theme.accentPrimary.withValues(alpha: 0.35),
             blurRadius: 18,
             spreadRadius: 0,
           ),
@@ -113,8 +116,8 @@ class _TurnIndicatorOverlayState extends State<TurnIndicatorOverlay>
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: AppColors.feltDeep,
+        style: TextStyle(
+          color: theme.backgroundDeep,
           fontSize: 15,
           fontWeight: FontWeight.w900,
           letterSpacing: 0.5,
