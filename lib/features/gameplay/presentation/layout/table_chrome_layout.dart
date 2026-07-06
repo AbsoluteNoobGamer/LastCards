@@ -45,6 +45,12 @@ abstract final class TablePortraitGrid {
   static const double pileSlotWidth = 100;
   static const double pileGap = AppDimensions.md;
 
+  /// Draw pile stays a smaller, tidy utility stack; discard is the larger
+  /// "stage" where the played card lands — the two piles are deliberately
+  /// asymmetric rather than mirrored twins.
+  static const double drawPileCardWidth = 82;
+  static const double discardPileCardWidth = 112;
+
   /// Draw pile [SizedBox] — fits max stack depth (5 layers × [pileStackOffset]).
   static double drawPileFootprintWidth([double cardWidth = pileSlotWidth]) {
     const maxLayers = 5;
@@ -113,6 +119,10 @@ abstract final class TablePortraitGrid {
 
   static const double landscapePileSlotWidth = 56;
   static const double landscapePileGap = AppDimensions.sm;
+
+  /// Landscape counterparts of [drawPileCardWidth] / [discardPileCardWidth].
+  static const double landscapeDrawPileCardWidth = 46;
+  static const double landscapeDiscardPileCardWidth = 64;
 
   static double landscapeOpponentRowHeight({
     required bool useRail,

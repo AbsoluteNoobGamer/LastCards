@@ -143,48 +143,44 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
     }
 
     final itemW = widget.compact ? _itemWidthCompact : _itemWidth;
+    final totalContentWidth =
+        widget.slots.length * (itemW + slotPadding * 2);
 
-    // When compact (landscape), center the rail; when content fits, it stays centred.
-    if (widget.compact) {
-      return SizedBox(
-        height: railHeight,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Center(
-              child: SingleChildScrollView(
-                clipBehavior: Clip.none,
-                controller: _scrollController,
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final player in widget.slots)
-                      player == null
-                          ? buildEmptySlot(itemW)
-                          : buildSlot(player),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      );
-    }
-
+    // When every seated opponent fits the available width, centre them as a
+    // plain row — no scrolling, no dead space trailing off to one side.
+    // Only fall back to the scrollable list when the rail is genuinely full
+    // (5+ opponents), which is the only case that actually needs it.
     return SizedBox(
       height: railHeight,
-      child: ListView.builder(
-        clipBehavior: Clip.none,
-        controller: _scrollController,
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: AppDimensions.sm),
-        itemCount: widget.slots.length,
-        itemBuilder: (context, index) {
-          final player = widget.slots[index];
-          if (player == null) return buildEmptySlot(itemW);
-          return buildSlot(player);
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final fits = totalContentWidth <= constraints.maxWidth;
+          if (fits) {
+            return Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final player in widget.slots)
+                    player == null
+                        ? buildEmptySlot(itemW)
+                        : buildSlot(player),
+                ],
+              ),
+            );
+          }
+          return ListView.builder(
+            clipBehavior: Clip.none,
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: AppDimensions.sm),
+            itemCount: widget.slots.length,
+            itemBuilder: (context, index) {
+              final player = widget.slots[index];
+              if (player == null) return buildEmptySlot(itemW);
+              return buildSlot(player);
+            },
+          );
         },
       ),
     );
