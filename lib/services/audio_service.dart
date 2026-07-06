@@ -63,6 +63,9 @@ class AudioService {
     GameSound.opponentOut: 'opponent_out.wav',
     GameSound.cardSelect: 'card_select.wav',
     GameSound.endTurnButton: 'end_turn-button.wav',
+    GameSound.comboNice: 'combo_nice.wav',
+    GameSound.comboStack: 'combo_stack.wav',
+    GameSound.comboLegendary: 'combo_legendary.wav',
   };
 
   /// Flame [FlameAudio.play] gives a fresh [AudioPlayer] per sound; keep one active per lane so
@@ -70,6 +73,7 @@ class AudioService {
   AudioPlayer? _laneTurn;
   AudioPlayer? _laneSpecial;
   AudioPlayer? _laneUi;
+  AudioPlayer? _laneCombo;
 
   /// Pre-loaded pool for repeating tick (same clip); see [FlameAudio.createPool].
   AudioPool? _timerTickPool;
@@ -180,9 +184,11 @@ class AudioService {
     await _releaseCategoryLane(() => _laneTurn);
     await _releaseCategoryLane(() => _laneSpecial);
     await _releaseCategoryLane(() => _laneUi);
+    await _releaseCategoryLane(() => _laneCombo);
     _laneTurn = null;
     _laneSpecial = null;
     _laneUi = null;
+    _laneCombo = null;
   }
 
   Future<void> playSound(GameSound sound) async {
@@ -249,6 +255,12 @@ class AudioService {
       // ── Deal card: dealer dealing at round start (overlapping pool) ──────────
       case GameSound.dealCard:
         await _playOverlappingSound(relativePath);
+
+      // ── Combo celebration stingers: own lane so they aren't cut by turn/UI sounds ──
+      case GameSound.comboNice:
+      case GameSound.comboStack:
+      case GameSound.comboLegendary:
+        await _playCategoryLaneCombo(relativePath);
     }
   }
 
@@ -376,6 +388,23 @@ class AudioService {
     } catch (e) {
       if (kDebugMode) {
         debugPrint('AudioService._playCategoryLaneUi($relativePath) error: $e');
+      }
+    }
+  }
+
+  Future<void> _playCategoryLaneCombo(String relativePath) async {
+    await _releaseCategoryLane(() => _laneCombo);
+    _laneCombo = null;
+    if (!_soundEffectsEnabled) return;
+    try {
+      _laneCombo = await FlameAudio.play(
+        relativePath,
+        volume: _volume,
+        audioContext: _sfxAudioContext,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('AudioService._playCategoryLaneCombo($relativePath) error: $e');
       }
     }
   }

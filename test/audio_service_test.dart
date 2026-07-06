@@ -213,6 +213,9 @@ void main() {
       GameSound.opponentOut: 'opponent_out.wav',
       GameSound.endTurnButton: 'end_turn-button.wav',
       GameSound.cardSelect: 'card_select.wav',
+      GameSound.comboNice: 'combo_nice.wav',
+      GameSound.comboStack: 'combo_stack.wav',
+      GameSound.comboLegendary: 'combo_legendary.wav',
     };
 
     test('every GameSound value has a mapping entry', () {

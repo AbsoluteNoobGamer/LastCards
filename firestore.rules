@@ -136,6 +136,13 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow write: if false;
     }
+    // Longest-combo record leaderboard (cross-mode). Client-writable like the
+    // other offline-derived boards — the client only ever raises its own
+    // record (see ComboLeaderboardWriter), never someone else's.
+    match /leaderboard_combos/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
 
     // Lifetime head-to-head between two Firebase accounts (server writes only).
     match /matchups/{pairId} {

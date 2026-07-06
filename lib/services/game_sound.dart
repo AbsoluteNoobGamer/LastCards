@@ -31,6 +31,12 @@ enum GameSound {
   opponentOut,
   endTurnButton,
   cardSelect,
+
+  /// Multi-card combo celebration stingers, escalating by tier — see
+  /// [multiPlayCelebrationTierIndex].
+  comboNice,
+  comboStack,
+  comboLegendary,
 }
 
 /// Returns the [GameSound] for a special card's effect, or `null` for normal cards.
