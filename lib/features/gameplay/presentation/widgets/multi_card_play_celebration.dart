@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+import 'dart:math' as math;
 
-import '../../../../core/theme/app_colors.dart';
+import 'package:flutter/material.dart';
 
 /// Minimum cards played **this turn** (shared engine counter) to show feedback.
 const int kMultiPlayCelebrationMinCards = 3;
@@ -15,17 +15,38 @@ int multiPlayCelebrationTierIndex(int cardsPlayedThisTurn) {
   return 2;
 }
 
-/// Full-screen gold pulse when a player stacks many cards in one turn.
-/// [tierIndex] is 0–2 from [multiPlayCelebrationTierIndex].
+const _tierNames = ['NICE', 'COMBO', 'LEGENDARY'];
+
+/// Fixed "fire" palette — deliberately independent of the active theme, same
+/// way suit colors stay fixed. This is the combo feature's own signature.
+const _tierColors = [
+  Color(0xFFFFA000), // amber
+  Color(0xFFFF6D00), // deep orange
+  Color(0xFFFF3D00), // red-orange (paired with gold in the gradient text)
+];
+const _tierColorsLight = [
+  Color(0xFFFFD54F),
+  Color(0xFFFFB300),
+  Color(0xFFFFD54F),
+];
+
+/// Fire-themed pulse + badge + embers when a player stacks many cards in one
+/// turn. [tierIndex] is 0–2 from [multiPlayCelebrationTierIndex].
+///
+/// [cardCount] drives the "×N" badge text; pass `null` to show the ambient
+/// glow/embers only (used when this overlay is reused for a non-combo beat,
+/// e.g. a stack-cancel flash, where there's no real card count to report).
 class MultiCardPlayCelebrationOverlay extends StatefulWidget {
   const MultiCardPlayCelebrationOverlay({
     super.key,
     required this.trigger,
     required this.tierIndex,
+    this.cardCount,
   });
 
   final int trigger;
   final int tierIndex;
+  final int? cardCount;
 
   @override
   State<MultiCardPlayCelebrationOverlay> createState() =>
@@ -38,18 +59,13 @@ class _MultiCardPlayCelebrationOverlayState
   late final AnimationController _c;
 
   static const _tierDurations = [
-    Duration(milliseconds: 780),
-    Duration(milliseconds: 1020),
-    Duration(milliseconds: 1320),
+    Duration(milliseconds: 850),
+    Duration(milliseconds: 1150),
+    Duration(milliseconds: 1550),
   ];
 
-  static const _tierMaxOpacity = [0.20, 0.28, 0.38];
-
-  static const _tierColors = [
-    AppColors.goldPrimary,
-    AppColors.goldLight,
-    Color(0xFFFFD54F), // amber accent for largest stacks
-  ];
+  static const _tierMaxOpacity = [0.30, 0.42, 0.56];
+  static const _tierEmberCounts = [8, 16, 28];
 
   @override
   void initState() {
@@ -79,10 +95,21 @@ class _MultiCardPlayCelebrationOverlayState
   }
 
   double _strength(double t) {
-    final fi = 0.28;
+    final fi = 0.22;
     if (t <= fi) return (t / fi).clamp(0.0, 1.0);
     final u = (t - fi) / (1.0 - fi);
     return (1.0 - u).clamp(0.0, 1.0);
+  }
+
+  /// Bounce-in scale for the badge: overshoots past 1.0 then settles.
+  double _badgeScale(double t) {
+    const inEnd = 0.22;
+    if (t <= inEnd) {
+      final u = (t / inEnd).clamp(0.0, 1.0);
+      return Curves.easeOutBack.transform(u);
+    }
+    final u = ((t - inEnd) / (1.0 - inEnd)).clamp(0.0, 1.0);
+    return 1.0 - 0.06 * (1 - (1 - u).abs()) * math.sin(u * math.pi * 3);
   }
 
   @override
@@ -92,36 +119,178 @@ class _MultiCardPlayCelebrationOverlayState
     }
     final tier = widget.tierIndex.clamp(0, 2);
     final color = _tierColors[tier];
+    final colorLight = _tierColorsLight[tier];
     final maxOp = _tierMaxOpacity[tier];
+    final emberCount = _tierEmberCounts[tier];
 
     return AnimatedBuilder(
       animation: _c,
       builder: (context, _) {
-        final s = _strength(_c.value);
+        final t = _c.value;
+        final s = _strength(t);
         if (s <= 0.001) return const SizedBox.shrink();
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            CustomPaint(
-              painter: _RadialEdgePulsePainter(
-                color: color,
-                opacity: s * maxOp,
-              ),
-              size: Size.infinite,
-            ),
-            if (tier >= 2)
+
+        // Brief impact shake at the top tier only — decays fast.
+        final shakeT = (t / 0.35).clamp(0.0, 1.0);
+        final shakeDamp = tier >= 2 ? (1.0 - shakeT) : 0.0;
+        final dx = tier >= 2
+            ? math.sin(t * math.pi * 26) * 3.2 * shakeDamp
+            : 0.0;
+
+        return Transform.translate(
+          offset: Offset(dx, 0),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
               CustomPaint(
-                painter: _CenterGlowPulsePainter(
-                  color: AppColors.goldLight,
-                  opacity: s * maxOp * 0.45,
+                painter: _RadialEdgePulsePainter(
+                  color: color,
+                  opacity: s * maxOp,
                 ),
                 size: Size.infinite,
               ),
-          ],
+              if (tier >= 1)
+                CustomPaint(
+                  painter: _CenterGlowPulsePainter(
+                    color: colorLight,
+                    opacity: s * maxOp * 0.5,
+                  ),
+                  size: Size.infinite,
+                ),
+              CustomPaint(
+                painter: _EmberPainter(
+                  progress: t,
+                  strength: s,
+                  count: emberCount,
+                  color: color,
+                  colorLight: colorLight,
+                  seed: widget.trigger,
+                ),
+                size: Size.infinite,
+              ),
+              if (widget.cardCount != null)
+                Align(
+                  alignment: const Alignment(0, -0.06),
+                  child: Opacity(
+                    opacity: s,
+                    child: Transform.scale(
+                      scale: _badgeScale(t),
+                      child: _ComboBadge(
+                        tierName: _tierNames[tier],
+                        cardCount: widget.cardCount!,
+                        color: color,
+                        colorLight: colorLight,
+                        tier: tier,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         );
       },
     );
   }
+}
+
+class _ComboBadge extends StatelessWidget {
+  const _ComboBadge({
+    required this.tierName,
+    required this.cardCount,
+    required this.color,
+    required this.colorLight,
+    required this.tier,
+  });
+
+  final String tierName;
+  final int cardCount;
+  final Color color;
+  final Color colorLight;
+  final int tier;
+
+  @override
+  Widget build(BuildContext context) {
+    final fontSize = 22.0 + tier * 8.0;
+    final countFontSize = fontSize + 10;
+
+    Widget text(String s, double size, {Gradient? gradient}) {
+      final style = TextStyle(
+        fontSize: size,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 2,
+        color: gradient == null ? colorLight : Colors.white,
+        shadows: [
+          Shadow(color: color.withValues(alpha: 0.9), blurRadius: 14),
+          Shadow(color: Colors.black.withValues(alpha: 0.6), blurRadius: 4, offset: const Offset(0, 2)),
+        ],
+      );
+      if (gradient == null) return Text(s, style: style);
+      return ShaderMask(
+        shaderCallback: (rect) => gradient.createShader(rect),
+        child: Text(s, style: style),
+      );
+    }
+
+    final gradient = tier >= 2
+        ? LinearGradient(colors: [colorLight, color, colorLight])
+        : null;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        text(tierName, fontSize, gradient: gradient),
+        text('×$cardCount', countFontSize, gradient: gradient),
+      ],
+    );
+  }
+}
+
+class _EmberPainter extends CustomPainter {
+  _EmberPainter({
+    required this.progress,
+    required this.strength,
+    required this.count,
+    required this.color,
+    required this.colorLight,
+    required this.seed,
+  });
+
+  final double progress;
+  final double strength;
+  final int count;
+  final Color color;
+  final Color colorLight;
+  final int seed;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty || strength <= 0) return;
+    const phi = 0.6180339887;
+    final origin = Offset(size.width / 2, size.height * 0.58);
+    final paint = Paint()..style = PaintingStyle.fill;
+
+    for (int i = 0; i < count; i++) {
+      final seedVal = (i + 1 + seed * 0.01);
+      final angle = ((seedVal * phi) % 1.0) * math.pi * 2;
+      final spread = 40.0 + ((seedVal * 2.7) % 1.0) * size.shortestSide * 0.32;
+      final rise = progress * (60.0 + ((seedVal * 1.9) % 1.0) * 90.0);
+      final wobble = math.sin(progress * math.pi * 4 + i) * 8.0;
+
+      final dx = origin.dx + math.cos(angle) * spread * progress + wobble;
+      final dy = origin.dy + math.sin(angle) * spread * 0.4 * progress - rise;
+
+      final flicker = 0.5 + 0.5 * math.sin(progress * math.pi * 10 + i * 1.7);
+      final alpha = (strength * flicker).clamp(0.0, 1.0);
+      final t = (i % 3 == 0) ? colorLight : color;
+      paint.color = t.withValues(alpha: alpha * 0.85);
+      final r = 1.4 + (i % 4) * 0.7;
+      canvas.drawCircle(Offset(dx, dy), r, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _EmberPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.strength != strength;
 }
 
 class _RadialEdgePulsePainter extends CustomPainter {

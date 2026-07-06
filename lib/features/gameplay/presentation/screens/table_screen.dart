@@ -65,6 +65,7 @@ import '../../../../services/game_sound.dart';
 import '../../../../features/bust/models/bust_player_view_model.dart';
 import '../../../../features/bust/widgets/bust_player_rail.dart';
 import '../../../../features/leaderboard/data/leaderboard_stats_writer.dart';
+import '../../../../features/leaderboard/data/combo_leaderboard_writer.dart';
 import '../../../../features/tournament/providers/tournament_session_provider.dart';
 import '../../../../features/social/widgets/other_player_profile_sheet.dart';
 import '../../../../features/social/widgets/pending_friend_requests_banner.dart';
@@ -255,6 +256,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   int _multiPlayCelebrationTrigger = 0;
   int _multiPlayCelebrationTier = 0;
+  /// Null when this celebration is reused for a non-combo beat (e.g. a
+  /// stack-cancel flash) that has no real card count to report.
+  int? _multiPlayCelebrationCardCount;
+
+  /// Cards the *local* player has played so far this turn, accumulated across
+  /// possibly several plays (e.g. stacking same-rank cards one action at a
+  /// time) — tracked purely for the longest-combo leaderboard, independent of
+  /// [GameState.discardPileHistory] (which is capped and shared/synced).
+  List<CardModel> _localComboCardsThisTurn = [];
 
   String? _lastCardsBluffBannerText;
   String? _lastCardsDeclaredBannerText;
@@ -354,6 +364,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       _stackBlockBannerText = bannerText;
       _stackBlockBannerColor = bannerColor;
       _multiPlayCelebrationTier = 1;
+      _multiPlayCelebrationCardCount = null;
       _multiPlayCelebrationTrigger++;
     });
     Future.delayed(const Duration(milliseconds: 2000), () {
@@ -506,6 +517,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         );
       }
       final turnTotal = e.cardsPlayedThisTurnAfter;
+      if (turnTotal != null) {
+        _trackLocalComboForLeaderboard(
+          playerId: e.playerId,
+          justPlayed: e.cards,
+          cardsPlayedThisTurn: turnTotal,
+        );
+      }
       if (turnTotal != null &&
           turnTotal >= kMultiPlayCelebrationMinCards) {
         _fireMultiPlayCelebrationIfNeeded(turnTotal);
@@ -1060,20 +1078,69 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final tier = multiPlayCelebrationTierIndex(cardsPlayedThisTurn);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (tier == 0) {
-        HapticFeedback.lightImpact();
-      } else {
-        HapticFeedback.mediumImpact();
+      switch (tier) {
+        case 0:
+          HapticFeedback.lightImpact();
+        case 1:
+          HapticFeedback.mediumImpact();
+        default:
+          HapticFeedback.heavyImpact();
       }
+      const comboSounds = [
+        GameSound.comboNice,
+        GameSound.comboStack,
+        GameSound.comboLegendary,
+      ];
+      unawaited(game_audio.AudioService.instance.playSound(comboSounds[tier]));
       setState(() {
         _multiPlayCelebrationTrigger++;
         _multiPlayCelebrationTier = tier;
+        _multiPlayCelebrationCardCount = cardsPlayedThisTurn;
       });
       AnalyticsService.instance.logComboPlayed(
         cardCount: cardsPlayedThisTurn,
         tier: tier,
       );
     });
+  }
+
+  /// Tracks the local player's own combo cards for the longest-combo
+  /// leaderboard and submits a new record when one is set.
+  ///
+  /// [cardsPlayedThisTurn] is the authoritative running count from
+  /// [GameState]; when it's no bigger than [justPlayed] this is the first
+  /// play of a fresh turn, so the accumulator restarts rather than appends —
+  /// self-healing without needing to hook every turn-reset site.
+  ///
+  /// Only ever called for the signed-in/local player — AI and remote
+  /// opponents' combos still fire the celebration, but never write a record
+  /// under someone else's name.
+  void _trackLocalComboForLeaderboard({
+    required String playerId,
+    required List<CardModel> justPlayed,
+    required int cardsPlayedThisTurn,
+  }) {
+    if (!_isLocalMomentPlayer(playerId)) return;
+
+    _localComboCardsThisTurn = cardsPlayedThisTurn <= justPlayed.length
+        ? List.of(justPlayed)
+        : [..._localComboCardsThisTurn, ...justPlayed];
+
+    if (cardsPlayedThisTurn < kMultiPlayCelebrationMinCards) return;
+
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? OfflineGameState.localId;
+    final displayName = _isOfflineSession
+        ? (_offlineState.playerById(playerId)?.displayName ?? 'You')
+        : (ref.read(gameStateProvider)?.playerById(playerId)?.displayName ?? 'You');
+
+    unawaited(
+      ComboLeaderboardWriter.instance.recordComboIfBest(
+        uid: uid,
+        displayName: displayName,
+        comboCount: cardsPlayedThisTurn,
+        cards: List.of(_localComboCardsThisTurn),
+      ),
+    );
   }
 
   Future<void> _animateDrawFlightsToPlayer(String playerId, int count) async {
@@ -1892,15 +1959,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 ),
               ),
 
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: MultiCardPlayCelebrationOverlay(
-                    trigger: _multiPlayCelebrationTrigger,
-                    tierIndex: _multiPlayCelebrationTier,
-                  ),
-                ),
-              ),
-
               SafeArea(
                 child: Column(
                   children: [
@@ -1994,6 +2052,18 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                       ),
                     ),
                   ],
+                ),
+              ),
+
+              // ── Multi-card combo celebration — above the table so the badge
+              // and embers aren't hidden behind the piles ────────────────────
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: MultiCardPlayCelebrationOverlay(
+                    trigger: _multiPlayCelebrationTrigger,
+                    tierIndex: _multiPlayCelebrationTier,
+                    cardCount: _multiPlayCelebrationCardCount,
+                  ),
                 ),
               ),
 
@@ -2672,6 +2742,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         // Win / tournament round-end may pop this route — run before any setState
         // so we never call setState after dispose (_dependents.isEmpty).
         _trackMatchPlay(playerId, [assignedJoker]);
+        _trackLocalComboForLeaderboard(
+          playerId: playerId,
+          justPlayed: [assignedJoker],
+          cardsPlayedThisTurn: newState.cardsPlayedThisTurn,
+        );
         _fireMultiPlayCelebrationIfNeeded(newState.cardsPlayedThisTurn);
         if (_checkWin(playerId, newState)) return;
 
@@ -2766,6 +2841,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
       // Win / tournament round-end may pop this route — run before setState.
       _trackMatchPlay(playerId, played);
+      _trackLocalComboForLeaderboard(
+        playerId: playerId,
+        justPlayed: played,
+        cardsPlayedThisTurn: newState.cardsPlayedThisTurn,
+      );
       _fireMultiPlayCelebrationIfNeeded(newState.cardsPlayedThisTurn);
       if (_checkWin(playerId, newState)) return;
 

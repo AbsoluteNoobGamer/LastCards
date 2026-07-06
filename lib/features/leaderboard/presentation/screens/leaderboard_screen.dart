@@ -10,11 +10,18 @@ import 'package:last_cards/shared/leaderboard/display_name_leaderboard_rules.dar
 
 import '../../data/leaderboard_collections.dart';
 import '../../data/local_leaderboard_store.dart';
+import '../../data/local_combo_leaderboard_store.dart';
+import '../../data/combo_leaderboard_writer.dart';
 
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/services/analytics_service.dart';
 import '../../../../core/widgets/themed_shimmer.dart';
 import '../../../../core/theme/app_theme_data.dart';
+import '../../../../core/models/card_model.dart';
+import '../../../../core/models/offline_game_state.dart';
+import '../../../gameplay/presentation/widgets/card_widget.dart';
+import '../../../gameplay/presentation/widgets/multi_card_play_celebration.dart'
+    show kMultiPlayCelebrationMinCards;
 
 // ── Data model ────────────────────────────────────────────────────────────────
 
@@ -88,7 +95,7 @@ class _ModeEntry {
   }
 }
 
-enum _LeaderboardTab { ranked, online, bust, other }
+enum _LeaderboardTab { ranked, online, bust, other, combos }
 
 const _otherLeaderboardModes = [
   LeaderboardMode.singlePlayer,
@@ -187,6 +194,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
           if (!_otherLeaderboardModes.contains(_selectedMode)) {
             _selectedMode = _otherLeaderboardModes.first;
           }
+        case _LeaderboardTab.combos:
+          // Cross-mode board — doesn't use _selectedMode at all.
+          break;
       }
     });
     if (_selectedMode != previousMode) {
@@ -367,6 +377,77 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     return idx == -1 ? -1 : idx + 1;
   }
 
+  // ── Combo (longest-combo) leaderboard — cross-mode, single record per
+  // player, merged from Firestore + the local device store the same way
+  // [_fetchMode] merges the other boards. ─────────────────────────────────
+
+  /// The "local" identity for combos: signed-in uid, or the shared guest id
+  /// used offline — matches [ComboLeaderboardWriter]'s own uid resolution so
+  /// guests still see their own record highlighted.
+  String get _localComboUid =>
+      FirebaseAuth.instance.currentUser?.uid ?? OfflineGameState.localId;
+
+  Future<List<ComboLeaderboardEntry>> _fetchCombos() async {
+    final localEntries = await LocalComboLeaderboardStore.instance.loadEntries();
+
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection(comboLeaderboardCollection)
+          .orderBy('comboCount', descending: true)
+          .limit(50)
+          .get();
+
+      final remoteEntries = snap.docs.map((d) {
+        final data = d.data();
+        final cardsJson =
+            (data['cards'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+        return ComboLeaderboardEntry(
+          uid: d.id,
+          displayName: data['displayName'] as String? ?? 'Player',
+          comboCount: (data['comboCount'] as num?)?.toInt() ?? 0,
+          cards: cardsJson.map(CardModel.fromJson).toList(),
+          achievedAtMillis: 0,
+        );
+      }).toList();
+
+      final mergedByUid = <String, ComboLeaderboardEntry>{
+        for (final e in remoteEntries) e.uid: e,
+      };
+
+      // Prefer the local record for the current player/guest — Firestore may
+      // lag, and guests have no Firestore doc at all.
+      final localUid = _localComboUid;
+      for (final e in localEntries) {
+        if (e.uid == localUid) {
+          final remote = mergedByUid[e.uid];
+          if (remote == null || e.comboCount > remote.comboCount) {
+            mergedByUid[e.uid] = e;
+          }
+        }
+      }
+
+      final merged = mergedByUid.values.toList(growable: false);
+      merged.sort((a, b) => b.comboCount.compareTo(a.comboCount));
+      return filterLeaderboardEntriesForDisplay(merged, (e) => e.displayName);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Combo leaderboard fetch error: $e');
+      }
+      final local = List.of(localEntries)
+        ..sort((a, b) => b.comboCount.compareTo(a.comboCount));
+      return filterLeaderboardEntriesForDisplay(local, (e) => e.displayName);
+    }
+  }
+
+  ComboLeaderboardEntry? _findLocalComboEntry(List<ComboLeaderboardEntry> entries) {
+    return entries.firstWhereOrNull((e) => e.uid == _localComboUid);
+  }
+
+  int _localComboRank(List<ComboLeaderboardEntry> entries) {
+    final idx = entries.indexWhere((e) => e.uid == _localComboUid);
+    return idx == -1 ? -1 : idx + 1;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = ref.watch(themeProvider).theme;
@@ -499,25 +580,32 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
               ),
             ),
           Expanded(
-            child: (_selectedMode == LeaderboardMode.ranked ||
-                    _selectedMode == LeaderboardMode.rankedHardcore)
-                ? _RankedLeaderboard(
-                    fetchRanked: () =>
-                        _fetchRankedFrom(collectionForMode(_selectedMode)),
-                    findLocalEntry: _findLocalEntry,
-                    localRank: _localRank,
+            child: _selectedTab == _LeaderboardTab.combos
+                ? _ComboLeaderboard(
+                    fetchEntries: _fetchCombos,
+                    findLocalEntry: _findLocalComboEntry,
+                    localRank: _localComboRank,
                     theme: theme,
-                    // Rebuild when filter changes.
-                    filterKey: _playerCountFilter,
                   )
-                : _ModeLeaderboard(
-                    mode: _selectedMode,
-                    fetchEntries: () => _fetchMode(_selectedMode),
-                    findLocalEntry: _findLocalModeEntry,
-                    localRank: _localModeRank,
-                    theme: theme,
-                    filterKey: _playerCountFilter,
-                  ),
+                : (_selectedMode == LeaderboardMode.ranked ||
+                        _selectedMode == LeaderboardMode.rankedHardcore)
+                    ? _RankedLeaderboard(
+                        fetchRanked: () =>
+                            _fetchRankedFrom(collectionForMode(_selectedMode)),
+                        findLocalEntry: _findLocalEntry,
+                        localRank: _localRank,
+                        theme: theme,
+                        // Rebuild when filter changes.
+                        filterKey: _playerCountFilter,
+                      )
+                    : _ModeLeaderboard(
+                        mode: _selectedMode,
+                        fetchEntries: () => _fetchMode(_selectedMode),
+                        findLocalEntry: _findLocalModeEntry,
+                        localRank: _localModeRank,
+                        theme: theme,
+                        filterKey: _playerCountFilter,
+                      ),
           ),
         ],
       ),
@@ -543,6 +631,7 @@ class _LeaderboardTabBar extends StatelessWidget {
     (_LeaderboardTab.online, 'Online'),
     (_LeaderboardTab.bust, 'Bust'),
     (_LeaderboardTab.other, 'Offline'),
+    (_LeaderboardTab.combos, 'Combos'),
   ];
 
   @override
@@ -1981,6 +2070,242 @@ class _ModeTile extends StatelessWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Combos (longest-combo) leaderboard ────────────────────────────────────────
+//
+// Same fire palette as the in-game combo celebration — deliberately fixed,
+// independent of the active table theme, so "Legendary" always reads as fire.
+
+_TierInfo _comboTier(int count) {
+  if (count >= 10) return const _TierInfo('Mythic', Color(0xFFFF3D00));
+  if (count >= 7) return const _TierInfo('Legendary', Color(0xFFFF6D00));
+  if (count >= 5) return const _TierInfo('Combo', Color(0xFFFFA000));
+  return const _TierInfo('Nice', Color(0xFFB0BEC5));
+}
+
+class _ComboLeaderboard extends StatefulWidget {
+  const _ComboLeaderboard({
+    required this.fetchEntries,
+    required this.findLocalEntry,
+    required this.localRank,
+    required this.theme,
+  });
+
+  final Future<List<ComboLeaderboardEntry>> Function() fetchEntries;
+  final ComboLeaderboardEntry? Function(List<ComboLeaderboardEntry>) findLocalEntry;
+  final int Function(List<ComboLeaderboardEntry>) localRank;
+  final AppThemeData theme;
+
+  @override
+  State<_ComboLeaderboard> createState() => _ComboLeaderboardState();
+}
+
+class _ComboLeaderboardState extends State<_ComboLeaderboard> {
+  late Future<List<ComboLeaderboardEntry>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = widget.fetchEntries();
+  }
+
+  Future<void> _refresh() async {
+    setState(() => _future = widget.fetchEntries());
+    await _future;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    return FutureBuilder<List<ComboLeaderboardEntry>>(
+      future: _future,
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return Center(
+            child: ThemedShimmer(width: 220, height: 180, borderRadius: 16),
+          );
+        }
+
+        if (snap.hasError || !snap.hasData) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.cloud_off,
+                    color: theme.textSecondary.withValues(alpha: 0.6), size: 48),
+                const SizedBox(height: 12),
+                Text(
+                  'Failed to load the combo leaderboard.',
+                  style: GoogleFonts.inter(
+                      color: theme.textSecondary.withValues(alpha: 0.6)),
+                ),
+                const SizedBox(height: 16),
+                TextButton.icon(
+                  onPressed: _refresh,
+                  icon: Icon(Icons.refresh, color: theme.accentPrimary),
+                  label: Text('Retry',
+                      style: GoogleFonts.inter(color: theme.accentPrimary)),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final entries = snap.data!;
+        if (entries.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('🔥', style: TextStyle(fontSize: 48)),
+                const SizedBox(height: 12),
+                Text(
+                  'No combos recorded yet.\nStack $kMultiPlayCelebrationMinCards+ cards in one turn to set the record!',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    color: theme.textSecondary.withValues(alpha: 0.8),
+                    fontSize: 15,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return RefreshIndicator(
+          onRefresh: _refresh,
+          color: theme.accentPrimary,
+          backgroundColor: theme.surfacePanel,
+          child: CustomScrollView(
+            slivers: [
+              const SliverToBoxAdapter(child: SizedBox(height: 8)),
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, i) => _ComboTile(
+                    index: i,
+                    entry: entries[i],
+                    isLocal: entries[i].uid == widget.findLocalEntry(entries)?.uid,
+                    theme: theme,
+                  ),
+                  childCount: entries.length,
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ComboTile extends StatelessWidget {
+  const _ComboTile({
+    required this.index,
+    required this.entry,
+    required this.isLocal,
+    required this.theme,
+  });
+
+  final int index;
+  final ComboLeaderboardEntry entry;
+  final bool isLocal;
+  final AppThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final rank = index + 1;
+    final isTop3 = rank <= 3 && !isLocal;
+    const medalColors = [
+      Color(0xFFFFD700),
+      Color(0xFFB0BEC5),
+      Color(0xFFBF8970),
+    ];
+    final tier = _comboTier(entry.comboCount);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: isLocal
+            ? tier.color.withValues(alpha: 0.10)
+            : isTop3
+                ? medalColors[rank - 1].withValues(alpha: 0.06)
+                : theme.backgroundMid,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isLocal
+              ? tier.color.withValues(alpha: 0.5)
+              : theme.textPrimary.withValues(alpha: 0.06),
+          width: isLocal ? 1.5 : 1,
+        ),
+        boxShadow: isLocal
+            ? [BoxShadow(color: tier.color.withValues(alpha: 0.15), blurRadius: 8)]
+            : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _RankCircle(rank: rank, theme: theme),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        entry.displayName,
+                        style: GoogleFonts.outfit(
+                          color: isLocal ? tier.color : theme.textPrimary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (isLocal) ...[
+                      const SizedBox(width: 6),
+                      _YouBadge(theme: theme),
+                    ],
+                    const SizedBox(width: 6),
+                    _TierBadge(label: tier.label, color: tier.color),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '×${entry.comboCount}',
+                style: GoogleFonts.outfit(
+                  color: tier.color,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          if (entry.cards.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 44,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: entry.cards.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 4),
+                itemBuilder: (context, i) => CardWidget(
+                  card: entry.cards[i],
+                  width: 28,
+                  faceUp: true,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
