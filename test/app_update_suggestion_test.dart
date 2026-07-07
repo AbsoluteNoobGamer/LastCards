@@ -29,4 +29,31 @@ void main() {
       );
     });
   });
+
+  group('isBuildBelowMinimum', () {
+    test('false when minimum is null (no gate configured)', () {
+      expect(
+        isBuildBelowMinimum(currentBuild: 10, minimumRequiredBuild: null),
+        false,
+      );
+    });
+
+    test('false when current >= minimum', () {
+      expect(
+        isBuildBelowMinimum(currentBuild: 15, minimumRequiredBuild: 15),
+        false,
+      );
+      expect(
+        isBuildBelowMinimum(currentBuild: 16, minimumRequiredBuild: 15),
+        false,
+      );
+    });
+
+    test('true when current < minimum', () {
+      expect(
+        isBuildBelowMinimum(currentBuild: 15, minimumRequiredBuild: 16),
+        true,
+      );
+    });
+  });
 }

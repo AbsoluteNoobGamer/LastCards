@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app_route_observer.dart';
+import 'router/navigator_key.dart';
 import 'start_screen_bgm_navigator_observer.dart';
 import '../core/theme/app_theme_data.dart';
 import '../core/providers/auth_profile_sync_provider.dart';
@@ -41,6 +42,7 @@ class _StackAndFlowAppState extends ConsumerState<StackAndFlowApp> {
     return MaterialApp(
       title: 'Last Cards',
       debugShowCheckedModeBanner: false,
+      navigatorKey: rootNavigatorKey,
       theme: buildThemeData(themeState.theme),
       initialRoute: AppRoutes.splash,
       routes: appRoutes,

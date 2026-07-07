@@ -15,6 +15,7 @@ import '../../../../features/single_player/widgets/difficulty_selection_sheet.da
 import '../../../../features/online/widgets/mode_selection_sheet.dart';
 import '../../../../features/locker/presentation/screens/locker_screen.dart';
 import '../../../../core/navigation/app_page_routes.dart';
+import '../../../../core/widgets/banner_ad_slot.dart';
 import '../../../../core/widgets/glass_frosted_panel.dart';
 import '../../../../core/widgets/themed_shimmer.dart';
 import '../../../../core/providers/game_provider.dart';
@@ -35,6 +36,7 @@ import '../../../../features/social/widgets/friends_list_sheet.dart';
 import '../../../../features/social/widgets/pending_friend_requests_banner.dart';
 import '../../../../features/social/widgets/pending_game_invites_banner.dart';
 import '../../../../core/providers/app_update_provider.dart';
+import '../../../notifications/presentation/widgets/notification_bell_button.dart';
 import '../widgets/optional_update_banner.dart';
 
 part 'start_screen_background.dart';
@@ -696,6 +698,8 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                             ],
                           ),
                         ),
+                        const SizedBox(height: 16),
+                        const Center(child: BannerAdSlot()),
                         const SizedBox(
                           height: 32,
                         ),
@@ -731,13 +735,19 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
             ),
           ),
 
-          // 4. Auth profile badge — top-right corner
+          // 4. Notification bell + auth profile badge — top-right corner
           Positioned(
             top: 0,
             right: 0,
             child: SafeArea(
-              child: _AuthProfileBadge(
-                onTap: () => _showAuthProfileSheet(context),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const NotificationBellButton(),
+                  _AuthProfileBadge(
+                    onTap: () => _showAuthProfileSheet(context),
+                  ),
+                ],
               ),
             ),
           ),

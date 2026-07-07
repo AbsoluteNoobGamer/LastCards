@@ -2,20 +2,25 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../core/providers/app_update_provider.dart';
+import '../features/start/presentation/widgets/forced_update_screen.dart';
 import 'router/app_routes.dart';
 
 /// Full-screen splash shown when the app loads.
-/// Displays the Last Cards branding, then navigates to [AuthGate].
-class SplashScreen extends StatefulWidget {
+/// Displays the Last Cards branding, then navigates to [AuthGate] — unless
+/// [forcedUpdateGateProvider] says this build is too old, in which case it
+/// routes to [ForcedUpdateScreen] instead.
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   static const _kDuration = Duration(milliseconds: 2500);
 
   @override
@@ -24,8 +29,16 @@ class _SplashScreenState extends State<SplashScreen> {
     Future.delayed(_kDuration, _goToStart);
   }
 
-  void _goToStart() {
+  Future<void> _goToStart() async {
     if (!mounted) return;
+    final forcedGate = await ref.read(forcedUpdateGateProvider.future);
+    if (!mounted) return;
+    if (forcedGate != null) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => ForcedUpdateScreen(info: forcedGate)),
+      );
+      return;
+    }
     Navigator.of(context).pushReplacementNamed(AppRoutes.start);
   }
 

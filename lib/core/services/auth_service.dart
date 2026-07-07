@@ -10,6 +10,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../firebase_options.dart';
 import 'account_deletion_service.dart';
 import 'firestore_profile_service.dart';
+import 'push_notification_service.dart';
 
 /// Result of a Google sign-in attempt.
 sealed class GoogleSignInResult {
@@ -319,6 +320,10 @@ class AuthService {
   }
 
   Future<void> signOut() async {
+    final uid = _auth?.currentUser?.uid;
+    if (uid != null) {
+      await PushNotificationService.instance.unregisterCurrentToken(uid);
+    }
     try {
       await GoogleSignIn().signOut();
     } catch (_) {

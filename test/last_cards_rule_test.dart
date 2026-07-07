@@ -105,6 +105,45 @@ void main() {
       ];
       expect(canHandClearInOneTurnHandOnly(hand), isTrue);
     });
+
+    test(
+        'regression: a Queen mid-chain does NOT unconditionally accept any '
+        'next card — it must still match by suit/rank like a real card', () {
+      // Old bug: `_validChainStep` treated *any* card following a Queen as
+      // legal ("next.effectiveRank == Rank.queen" returned true
+      // unconditionally), which let a Queen act as a free bridge between two
+      // otherwise-unconnected cards. 10♠ can open on a 10♦ discard (rank
+      // match), but clubs Q♣/3♣ share no suit or rank with 10♠ — this hand
+      // should NOT be clearable.
+      final hand = [
+        c(Rank.ten, Suit.spades),
+        c(Rank.queen, Suit.clubs),
+        c(Rank.three, Suit.clubs),
+      ];
+      expect(
+        canHandClearInOneTurnHandOnly(hand, discardTop: c(Rank.ten, Suit.diamonds)),
+        isFalse,
+      );
+    });
+
+    test(
+        'regression: a Joker mid-chain does NOT bridge to an unrelated card — '
+        "it can only continue as something it could actually declare", () {
+      // Old bug: `_validChainStep` treated a Joker on either side of a step
+      // as an unconditional pass ("prev.isJoker || next.isJoker" returned
+      // true), letting it bridge between two hand "islands" that share no
+      // suit/rank with each other. 3♣ can open on a 3♦ discard (rank match),
+      // but nothing the Joker could legally declare after 3♣ connects to 7♥.
+      final hand = [
+        c(Rank.three, Suit.clubs),
+        c(Rank.joker, Suit.spades),
+        c(Rank.seven, Suit.hearts),
+      ];
+      expect(
+        canHandClearInOneTurnHandOnly(hand, discardTop: c(Rank.three, Suit.diamonds)),
+        isFalse,
+      );
+    });
   });
 
   group('canClearHandInOneTurn (engine)', () {
@@ -395,6 +434,35 @@ void main() {
         state.playerById('p1')!.lastCardsHandWasClearableAtTurnStart,
         isFalse,
         reason: 'No card in hand can legally open against K♠',
+      );
+
+      final r = applyOpeningSeatLastCardsSeedIfNeeded(state: state);
+      expect(r.applied, isFalse);
+      expect(r.state.lastCardsDeclaredBy, isNot(contains('p1')));
+    });
+
+    test(
+        'regression: does NOT seed for the exact 7-card hand reported live — '
+        'Joker/Q♣/J♦/10♠/4♥/5♥/10♦ against a Q♦ discard top', () {
+      // A Queen unconditionally accepting any next card, plus a Joker
+      // unconditionally bridging to/from anything, together let the old DFS
+      // "connect" three unrelated groups (J♦-10♦-10♠ / Q♣ / 4♥-5♥) that no
+      // real declared-Joker sequence can actually play out — see the
+      // `_validChainStep` regressions above for the isolated bugs.
+      final hand = [
+        c(Rank.joker, Suit.spades),
+        c(Rank.queen, Suit.clubs),
+        c(Rank.jack, Suit.diamonds),
+        c(Rank.ten, Suit.spades),
+        c(Rank.four, Suit.hearts),
+        c(Rank.five, Suit.hearts),
+        c(Rank.ten, Suit.diamonds),
+      ];
+      var state = stateForP1(hand, discardTop: c(Rank.queen, Suit.diamonds));
+      state = initializeFirstTurnClearability(state, isBustMode: false);
+      expect(
+        state.playerById('p1')!.lastCardsHandWasClearableAtTurnStart,
+        isFalse,
       );
 
       final r = applyOpeningSeatLastCardsSeedIfNeeded(state: state);
