@@ -249,7 +249,10 @@ class FcmSender {
     required String body,
   }) async {
     final token = await _getAccessToken();
-    if (token == null) return;
+    if (token == null) {
+      _log.error('notifyTopic("$topic") skipped — no access token (see prior log for why).');
+      return;
+    }
     await _sendTopicPush(accessToken: token, topic: topic, title: title, body: body);
   }
 
@@ -354,7 +357,9 @@ class FcmSender {
         },
         body: jsonEncode(buildFcmMessagePayload(deviceToken: deviceToken, title: title, body: body)),
       );
-      if (response.statusCode != 200) {
+      if (response.statusCode == 200) {
+        _log.info('FCM push sent to token ...${_lastChars(deviceToken)}.');
+      } else {
         _log.error('FCM send failed (${response.statusCode}): ${response.body}');
       }
     } catch (e) {
@@ -379,11 +384,16 @@ class FcmSender {
         },
         body: jsonEncode(buildFcmTopicMessagePayload(topic: topic, title: title, body: body)),
       );
-      if (response.statusCode != 200) {
+      if (response.statusCode == 200) {
+        _log.info('FCM topic push sent to "$topic".');
+      } else {
         _log.error('FCM topic send failed (${response.statusCode}): ${response.body}');
       }
     } catch (e) {
       _log.error('Error sending FCM topic push: $e');
     }
   }
+
+  static String _lastChars(String s, [int n = 8]) =>
+      s.length <= n ? s : s.substring(s.length - n);
 }
