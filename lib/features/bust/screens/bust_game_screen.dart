@@ -976,7 +976,12 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
             ? ((1000 + _aiDelayRng.nextInt(900)) * diffMult).round()
             : (800 * diffMult).round();
 
-    if (delayMs > 0) await Future.delayed(Duration(milliseconds: delayMs));
+    // Always await, even at 0ms: Future.delayed(Duration.zero) still yields
+    // to the event loop (lets a frame render and unwinds the call stack)
+    // unlike a bare synchronous call — skipping the await entirely here let
+    // a long simulated AI-turn chain recurse with no suspension point at
+    // all, freezing the UI and risking a stack-depth crash.
+    await Future.delayed(Duration(milliseconds: delayMs));
     if (!mounted) return;
 
     // No draw pile and no valid card → skip
