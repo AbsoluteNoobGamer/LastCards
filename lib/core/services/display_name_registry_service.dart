@@ -37,6 +37,22 @@ class DisplayNameRegistryService {
     return null;
   }
 
+  /// Looks up a UID by display name (same normalization as the uniqueness
+  /// check, so it's case/whitespace-insensitive). Returns null if no one has
+  /// claimed that exact name.
+  Future<String?> findUidByDisplayName(String displayName) async {
+    final key = normalizeLeaderboardDisplayNameKey(displayName);
+    if (key.isEmpty) return null;
+    try {
+      final doc = await _firestore.collection(_collection).doc(key).get();
+      if (!doc.exists) return null;
+      final uid = doc.data()?['uid'] as String?;
+      return (uid == null || uid.isEmpty) ? null : uid;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<bool> isNameAvailable(String displayName, {String? exceptUid}) async {
     final key = normalizeLeaderboardDisplayNameKey(displayName);
     if (key.isEmpty) return false;
