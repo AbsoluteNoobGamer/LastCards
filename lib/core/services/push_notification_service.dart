@@ -37,6 +37,12 @@ class PushNotificationService {
     importance: Importance.high,
   );
 
+  /// Broadcast topics every install subscribes to — no per-user targeting,
+  /// used for announcements that apply to everyone regardless of sign-in
+  /// state. Sent from `AppUpdateBroadcaster`/`RoomManager` on the server
+  /// (see `server/lib/fcm_sender.dart`'s `notifyTopic`).
+  static const _broadcastTopics = ['app_updates', 'matchmaking_open'];
+
   final FlutterLocalNotificationsPlugin _local = FlutterLocalNotificationsPlugin();
   final FirestoreProfileService _profileService = FirestoreProfileService();
 
@@ -108,6 +114,14 @@ class PushNotificationService {
       if (initialMessage != null) _openInbox();
     } catch (e) {
       if (kDebugMode) debugPrint('PushNotificationService: getInitialMessage failed: $e');
+    }
+
+    for (final topic in _broadcastTopics) {
+      try {
+        await FirebaseMessaging.instance.subscribeToTopic(topic).timeout(_stepTimeout);
+      } catch (e) {
+        if (kDebugMode) debugPrint('PushNotificationService: subscribeToTopic($topic) failed: $e');
+      }
     }
 
     FirebaseMessaging.instance.onTokenRefresh.listen(_registerToken);

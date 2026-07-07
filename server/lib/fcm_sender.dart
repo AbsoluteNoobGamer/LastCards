@@ -41,6 +41,48 @@ Map<String, dynamic> buildFcmMessagePayload({
   };
 }
 
+/// FCM HTTP v1 `messages:send` request body for a topic broadcast — every
+/// device subscribed to [topic] (client calls `subscribeToTopic` on launch)
+/// receives it, with no per-user Firestore write (there's no single `uid` a
+/// broadcast belongs to).
+Map<String, dynamic> buildFcmTopicMessagePayload({
+  required String topic,
+  required String title,
+  required String body,
+}) {
+  return {
+    'message': {
+      'topic': topic,
+      'notification': {'title': title, 'body': body},
+    },
+  };
+}
+
+/// Reads a Firestore REST `fields` map (as returned by `GET .../documents/...`)
+/// back into a plain Dart map. Only handles the value types this server
+/// actually reads (`stringValue`, `arrayValue` of `stringValue`s) — extend if
+/// a future caller needs more.
+Map<String, dynamic> parseFirestoreFields(Map<String, dynamic> fields) {
+  final result = <String, dynamic>{};
+  for (final entry in fields.entries) {
+    final value = entry.value as Map<String, dynamic>;
+    if (value.containsKey('stringValue')) {
+      result[entry.key] = value['stringValue'] as String?;
+    } else if (value.containsKey('integerValue')) {
+      result[entry.key] = int.tryParse(value['integerValue'] as String? ?? '');
+    } else if (value.containsKey('arrayValue')) {
+      final values = (value['arrayValue'] as Map<String, dynamic>?)?['values']
+              as List<dynamic>? ??
+          const [];
+      result[entry.key] = values
+          .map((v) => (v as Map<String, dynamic>)['stringValue'] as String?)
+          .whereType<String>()
+          .toList();
+    }
+  }
+  return result;
+}
+
 /// Sends push notifications (FCM) and writes the matching in-app inbox entry
 /// to Firestore. The two together are how a server-triggered event (e.g.
 /// "it's your turn", "you were challenged") reaches a player whether the app
@@ -59,12 +101,13 @@ Map<String, dynamic> buildFcmMessagePayload({
 /// "degrade gracefully, never crash a game session over an analytics/side
 /// write" convention).
 ///
-/// **Not yet wired into [GameSession]** — deciding exactly which turn/game
-/// events should trigger a push (every turn regardless of connection state?
-/// only after the player has been disconnected for N seconds? only ranked
-/// games?) is a product decision left to the caller. [notify] is the call to
-/// make once that's decided, e.g. from the disconnect-handling path around
-/// `GameSession._trophyRecorder.recordLeavePenalty` call sites.
+/// Wired sends: [notifyTopic] broadcasts a new-app-version announcement
+/// (topic `app_updates`, polled periodically in `bin/main.dart`) and a
+/// "someone is searching for players" announcement (topic
+/// `matchmaking_open`, fired from `RoomManager._handleQuickplay` on queue
+/// join). [notify] (per-user, targeted) powers the `/notify-invite` HTTP
+/// route for friend room invites — [GameSession] turn/disconnect events are
+/// not wired up yet; that's still a product decision left to a future caller.
 class FcmSender {
   FcmSender._();
 
@@ -163,23 +206,29 @@ class FcmSender {
     }
   }
 
-  /// Writes the in-app inbox doc for [uid] and pushes to every token in
-  /// [fcmTokens] (from `users/{uid}.fcmTokens` — see
-  /// `FirestoreProfileService.addFcmToken` on the client). Safe to call with
-  /// an empty token list (writes only the inbox doc, no push). No-op if
-  /// credentials aren't configured.
+  /// Pushes to every token in [fcmTokens] (from `users/{uid}.fcmTokens` —
+  /// see `FirestoreProfileService.addFcmToken` on the client), and — unless
+  /// [writeInboxDoc] is `false` — also writes the in-app inbox doc for
+  /// [uid]. Pass `writeInboxDoc: false` when the event already has its own
+  /// dedicated Firestore-backed inbox (e.g. friend room invites use
+  /// `users/{uid}/gameInvites`; writing a second, generic inbox entry for
+  /// the same event would just be a duplicate notification in the UI).
+  /// Safe to call with an empty token list (writes only the inbox doc, if
+  /// any). No-op if credentials aren't configured.
   Future<void> notify({
     required String uid,
     required List<String> fcmTokens,
     required String type,
     required String title,
     required String body,
+    bool writeInboxDoc = true,
   }) async {
     final token = await _getAccessToken();
     if (token == null) return;
 
     await Future.wait([
-      _writeInboxDoc(accessToken: token, uid: uid, type: type, title: title, body: body),
+      if (writeInboxDoc)
+        _writeInboxDoc(accessToken: token, uid: uid, type: type, title: title, body: body),
       ...fcmTokens.map(
         (deviceToken) => _sendPush(
           accessToken: token,
@@ -189,6 +238,74 @@ class FcmSender {
         ),
       ),
     ]);
+  }
+
+  /// Broadcasts to every device subscribed to [topic] — no per-user
+  /// targeting, no inbox write (there's no single recipient to write one
+  /// for). No-op if credentials aren't configured.
+  Future<void> notifyTopic({
+    required String topic,
+    required String title,
+    required String body,
+  }) async {
+    final token = await _getAccessToken();
+    if (token == null) return;
+    await _sendTopicPush(accessToken: token, topic: topic, title: title, body: body);
+  }
+
+  /// Reads `users/{uid}.fcmTokens` (registered device push tokens). Returns
+  /// an empty list if the doc/field is missing, credentials aren't
+  /// configured, or the request fails — callers should treat that the same
+  /// as "no devices to push to" rather than an error.
+  Future<List<String>> getUserFcmTokens(String uid) async {
+    final token = await _getAccessToken();
+    if (token == null) return const [];
+
+    final url = Uri.parse('https://firestore.googleapis.com/v1/projects/$_projectId'
+        '/databases/(default)/documents/users/$uid');
+    try {
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode != 200) return const [];
+      final doc = jsonDecode(response.body) as Map<String, dynamic>;
+      final fields = doc['fields'] as Map<String, dynamic>?;
+      if (fields == null) return const [];
+      final parsed = parseFirestoreFields(fields);
+      final tokens = parsed['fcmTokens'];
+      return tokens is List<String> ? tokens : const [];
+    } catch (e) {
+      _log.error('Error reading fcmTokens for $uid: $e');
+      return const [];
+    }
+  }
+
+  /// Reads a top-level Firestore document's fields (e.g. `app_config/app_update`).
+  /// Returns null if missing, unconfigured, or the request fails.
+  Future<Map<String, dynamic>?> getDocumentFields({
+    required String collection,
+    required String docId,
+  }) async {
+    final token = await _getAccessToken();
+    if (token == null) return null;
+
+    final url = Uri.parse('https://firestore.googleapis.com/v1/projects/$_projectId'
+        '/databases/(default)/documents/$collection/$docId');
+    try {
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode != 200) return null;
+      final doc = jsonDecode(response.body) as Map<String, dynamic>;
+      final fields = doc['fields'] as Map<String, dynamic>?;
+      if (fields == null) return null;
+      return parseFirestoreFields(fields);
+    } catch (e) {
+      _log.error('Error reading $collection/$docId: $e');
+      return null;
+    }
   }
 
   Future<void> _writeInboxDoc({
@@ -242,6 +359,31 @@ class FcmSender {
       }
     } catch (e) {
       _log.error('Error sending FCM push: $e');
+    }
+  }
+
+  Future<void> _sendTopicPush({
+    required String accessToken,
+    required String topic,
+    required String title,
+    required String body,
+  }) async {
+    final url =
+        Uri.parse('https://fcm.googleapis.com/v1/projects/$_projectId/messages:send');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(buildFcmTopicMessagePayload(topic: topic, title: title, body: body)),
+      );
+      if (response.statusCode != 200) {
+        _log.error('FCM topic send failed (${response.statusCode}): ${response.body}');
+      }
+    } catch (e) {
+      _log.error('Error sending FCM topic push: $e');
     }
   }
 }

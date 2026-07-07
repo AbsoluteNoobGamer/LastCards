@@ -1,16 +1,23 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+
+import '../network/game_server_http.dart';
 
 /// Firestore-backed friends and in-app room invites.
 class FriendsService {
-  FriendsService({FirebaseFirestore? firestore, FirebaseAuth? auth})
+  FriendsService({FirebaseFirestore? firestore, FirebaseAuth? auth, http.Client? httpClient})
       : _firestore = firestore ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance;
+        _auth = auth ?? FirebaseAuth.instance,
+        _http = httpClient ?? http.Client();
 
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
+  final http.Client _http;
 
   static const _users = 'users';
   static const _incoming = 'incomingFriendRequests';
@@ -214,12 +221,50 @@ class FriendsService {
   }) async {
     final from = _uid;
     if (from == null || toUid == from) return;
+    final upperRoomCode = roomCode.toUpperCase();
     await _userDoc(toUid).collection(_invites).add({
       'fromUid': from,
       'fromDisplayName': fromDisplayName,
-      'roomCode': roomCode.toUpperCase(),
+      'roomCode': upperRoomCode,
       'createdAt': FieldValue.serverTimestamp(),
     });
+    unawaited(_pushInviteNotification(
+      toUid: toUid,
+      fromDisplayName: fromDisplayName,
+      roomCode: upperRoomCode,
+    ));
+  }
+
+  /// Best-effort OS push for the invite just written above — the in-app
+  /// banner (from [gameInvitesStream]) already works via the Firestore
+  /// write itself; this only wakes up a backgrounded/closed app. Never
+  /// throws: a failure here must not affect the invite, which already
+  /// succeeded.
+  Future<void> _pushInviteNotification({
+    required String toUid,
+    required String fromDisplayName,
+    required String roomCode,
+  }) async {
+    try {
+      final idToken = await _auth.currentUser?.getIdToken();
+      if (idToken == null) return;
+      await _http
+          .post(
+            gameServerNotifyInviteUri(),
+            headers: {
+              'Authorization': 'Bearer $idToken',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'toUid': toUid,
+              'fromDisplayName': fromDisplayName,
+              'roomCode': roomCode,
+            }),
+          )
+          .timeout(const Duration(seconds: 8));
+    } catch (e) {
+      if (kDebugMode) debugPrint('FriendsService: invite push failed: $e');
+    }
   }
 
   Future<void> deleteGameInvite(String inviteDocId) async {

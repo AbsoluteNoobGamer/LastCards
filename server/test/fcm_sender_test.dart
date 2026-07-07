@@ -36,4 +36,50 @@ void main() {
       });
     });
   });
+
+  group('buildFcmTopicMessagePayload', () {
+    test('wraps title/body/topic in the FCM v1 message envelope', () {
+      final payload = buildFcmTopicMessagePayload(
+        topic: 'app_updates',
+        title: 'Update available',
+        body: 'A new version is out.',
+      );
+
+      expect(payload['message'], {
+        'topic': 'app_updates',
+        'notification': {
+          'title': 'Update available',
+          'body': 'A new version is out.',
+        },
+      });
+    });
+  });
+
+  group('parseFirestoreFields', () {
+    test('decodes stringValue, integerValue, and arrayValue of strings', () {
+      final parsed = parseFirestoreFields({
+        'latestVersionName': {'stringValue': '1.2.0'},
+        'latestBuildAndroid': {'integerValue': '42'},
+        'fcmTokens': {
+          'arrayValue': {
+            'values': [
+              {'stringValue': 'token-a'},
+              {'stringValue': 'token-b'},
+            ],
+          },
+        },
+      });
+
+      expect(parsed['latestVersionName'], '1.2.0');
+      expect(parsed['latestBuildAndroid'], 42);
+      expect(parsed['fcmTokens'], ['token-a', 'token-b']);
+    });
+
+    test('empty arrayValue decodes to an empty list', () {
+      final parsed = parseFirestoreFields({
+        'fcmTokens': {'arrayValue': <String, dynamic>{}},
+      });
+      expect(parsed['fcmTokens'], <String>[]);
+    });
+  });
 }

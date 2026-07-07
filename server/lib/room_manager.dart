@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:uuid/uuid.dart';
 
+import 'fcm_sender.dart';
 import 'firebase_auth_verifier.dart';
 import 'game_session.dart';
 import 'logger.dart';
@@ -538,6 +540,16 @@ class RoomManager {
       displayName: displayName,
       firebaseUid: firebaseUid,
       avatarUrl: avatarUrl,
+    ));
+
+    // Broadcast "someone is looking for players" to every subscribed device
+    // (online and offline) — fired the moment they join the queue, even if
+    // they end up matched instantly below; that's still the moment they
+    // "started searching" from the player's point of view.
+    unawaited(FcmSender.instance.notifyTopic(
+      topic: 'matchmaking_open',
+      title: 'A table is open!',
+      body: '$displayName is looking for players — join now!',
     ));
 
     _log.info('Queue($queueKey) size: ${queue.length}/$playerCount');
