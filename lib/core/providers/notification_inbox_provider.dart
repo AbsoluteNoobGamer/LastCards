@@ -14,7 +14,7 @@ final notificationInboxServiceProvider =
 /// there's nothing to fetch either way.
 final notificationInboxProvider =
     StreamProvider.autoDispose<List<InboxNotification>>((ref) {
-  final user = ref.watch(authStateProvider).value;
+  final user = ref.watch(authStateProvider).valueOrNull;
   if (user == null || Firebase.apps.isEmpty) {
     return Stream.value(const <InboxNotification>[]);
   }
@@ -23,6 +23,6 @@ final notificationInboxProvider =
 });
 
 final unreadNotificationCountProvider = Provider.autoDispose<int>((ref) {
-  final notifications = ref.watch(notificationInboxProvider).value ?? const [];
+  final notifications = ref.watch(notificationInboxProvider).valueOrNull ?? const [];
   return notifications.where((n) => !n.read).length;
 });
