@@ -47,6 +47,35 @@ class PlayerHandWidget extends StatefulWidget {
   /// Increment (e.g. `notifier.value++`) to play a short horizontal shake after an invalid play.
   final ValueNotifier<int>? invalidPlayShakeTrigger;
 
+  /// Fixed horizontal offset between successive cards in the fan.
+  static const double _fixedSpread = 45.0;
+
+  /// Floor overlap spread — the minimum visible/tappable strip per card
+  /// before we give up shrinking further and fall back to Option B (scroll).
+  static const double _minSpread = 20.0;
+
+  /// The fan's natural width for [cardCount] cards, mirroring the exact
+  /// spread math used in [State.build] below — used by callers that want to
+  /// reserve a **fixed** footprint (e.g. sized to a reference 9-card hand)
+  /// instead of letting the reserved box resize as the actual hand count
+  /// changes turn to turn.
+  static double referenceFanWidth({
+    required double maxWidth,
+    required double cardWidth,
+    required bool isCompact,
+    int cardCount = 9,
+  }) {
+    final minW = math.min(44.0, cardWidth);
+    final targetWidth =
+        (maxWidth * (isCompact ? 0.14 : 0.11)).clamp(minW, cardWidth);
+    if (cardCount <= 1) return targetWidth;
+    final fitSpread = (maxWidth - targetWidth) / (cardCount - 1);
+    final spread = fitSpread >= _fixedSpread
+        ? _fixedSpread
+        : fitSpread.clamp(_minSpread, _fixedSpread);
+    return targetWidth + (cardCount - 1) * spread;
+  }
+
   @override
   State<PlayerHandWidget> createState() => _PlayerHandWidgetState();
 }
@@ -64,13 +93,6 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget>
   late final AnimationController _shakeCtrl;
   VoidCallback? _shakeListener;
   int _lastShakeStamp = -1;
-
-  /// Fixed horizontal offset between successive cards in the fan.
-  static const double _fixedSpread = 45.0;
-
-  /// Floor overlap spread — the minimum visible/tappable strip per card
-  /// before we give up shrinking further and fall back to Option B (scroll).
-  static const double _minSpread = 20.0;
 
   @override
   void initState() {
@@ -206,7 +228,8 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget>
         final double spread;
         final bool useScroll;
 
-        final baseSpread = _fixedSpread + (_hoverWiden ? 6.0 : 0.0);
+        final baseSpread =
+            PlayerHandWidget._fixedSpread + (_hoverWiden ? 6.0 : 0.0);
         if (n <= 1) {
           spread = 0;
           useScroll = false;
@@ -219,11 +242,11 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget>
           if (fitSpread >= baseSpread) {
             spread = baseSpread;
             useScroll = false;
-          } else if (fitSpread >= _minSpread) {
+          } else if (fitSpread >= PlayerHandWidget._minSpread) {
             spread = fitSpread;
             useScroll = false;
           } else {
-            spread = _minSpread;
+            spread = PlayerHandWidget._minSpread;
             useScroll = true;
           }
         }
@@ -394,15 +417,20 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget>
           ),
         );
 
-        // Reports its true content width (stackWidth), not the full maxWidth
-        // — so ancestors that hug their child (rather than force it wide)
-        // don't end up painting chrome across empty space the hand doesn't
-        // use. Only the scrolling case below needs the full viewport width.
+        // Centered within whatever ambient width the parent gives this
+        // widget: when the ancestor hugs actual content, this reports
+        // stackWidth directly (Center is a no-op). When the ancestor instead
+        // reserves a *fixed* reference footprint (see [referenceFanWidth] —
+        // e.g. "always the size of a 9-card hand"), the real (possibly
+        // narrower or wider) fan centers within that fixed frame instead of
+        // being force-stretched or left pinned to one side.
         if (!useScroll) {
-          return SizedBox(
-            width: stackWidth,
-            height: cardH,
-            child: wrappedStack,
+          return Center(
+            child: SizedBox(
+              width: stackWidth,
+              height: cardH,
+              child: wrappedStack,
+            ),
           );
         }
 

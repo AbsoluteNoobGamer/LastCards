@@ -243,7 +243,13 @@ void main() {
       expect(canClearHandInOneTurn(state: state, playerId: 'p1'), isTrue);
     });
 
-    test('sequence then value chain: hand-only path still succeeds vs bad discard', () {
+    test(
+        'sequence then value chain: NOT clearable when no card in hand can '
+        'legally open against the discard top', () {
+      // Regression for the "declared Last Cards" bug: a hand that only
+      // chains among *itself* isn't actually clearable if nothing in it can
+      // legally be the first card played. 3♥/4♥/5♥/5♣ vs K♠ shares no suit
+      // or rank with any card in hand — there is no legal opener at all.
       final hand = [
         c(Rank.three, Suit.hearts),
         c(Rank.four, Suit.hearts),
@@ -252,6 +258,19 @@ void main() {
       ];
       final mismatchTop = c(Rank.king, Suit.spades);
       final state = stateForP1(hand, discardTop: mismatchTop);
+      expect(canClearHandInOneTurn(state: state, playerId: 'p1'), isFalse);
+    });
+
+    test('sequence then value chain: clearable once the discard top allows a legal opener', () {
+      final hand = [
+        c(Rank.three, Suit.hearts),
+        c(Rank.four, Suit.hearts),
+        c(Rank.five, Suit.hearts),
+        c(Rank.five, Suit.clubs),
+      ];
+      // King of hearts matches the hand's suit — 3♥ (or any ♥ card) can open.
+      final matchingTop = c(Rank.king, Suit.hearts);
+      final state = stateForP1(hand, discardTop: matchingTop);
       expect(canClearHandInOneTurn(state: state, playerId: 'p1'), isTrue);
     });
 
@@ -274,14 +293,26 @@ void main() {
       expect(bluff, isFalse);
     });
 
-    test('non-Joker chain [2♥,3♥,4♥,4♠] clearable regardless of discard top', () {
+    test('non-Joker chain [2♥,3♥,4♥,4♠] NOT clearable when the discard top matches nothing in hand', () {
       final hand = [
         c(Rank.two, Suit.hearts),
         c(Rank.three, Suit.hearts),
         c(Rank.four, Suit.hearts),
         c(Rank.four, Suit.spades),
       ];
+      // Ace of diamonds shares no suit/rank with any card in this hand.
       final state = stateForP1(hand, discardTop: c(Rank.ace, Suit.diamonds));
+      expect(canClearHandInOneTurn(state: state, playerId: 'p1'), isFalse);
+    });
+
+    test('non-Joker chain [2♥,3♥,4♥,4♠] clearable once the discard top allows a legal opener', () {
+      final hand = [
+        c(Rank.two, Suit.hearts),
+        c(Rank.three, Suit.hearts),
+        c(Rank.four, Suit.hearts),
+        c(Rank.four, Suit.spades),
+      ];
+      final state = stateForP1(hand, discardTop: c(Rank.two, Suit.clubs));
       expect(canClearHandInOneTurn(state: state, playerId: 'p1'), isTrue);
     });
 
@@ -331,7 +362,8 @@ void main() {
         c(Rank.five, Suit.hearts),
         c(Rank.five, Suit.clubs),
       ];
-      var state = stateForP1(hand, discardTop: c(Rank.king, Suit.spades));
+      // King of hearts lets 3♥ (or any ♥) legally open — genuinely clearable.
+      var state = stateForP1(hand, discardTop: c(Rank.king, Suit.hearts));
       state = initializeFirstTurnClearability(state, isBustMode: false);
       expect(
         state.playerById('p1')!.lastCardsHandWasClearableAtTurnStart,
@@ -342,6 +374,32 @@ void main() {
       expect(r.applied, isTrue);
       expect(r.isBluff, isFalse);
       expect(r.state.lastCardsDeclaredBy, contains('p1'));
+    });
+
+    test(
+        'regression: does NOT seed when the hand only chains among itself but '
+        'has no legal opener against the real discard top', () {
+      // This is the exact "Guest declared Last Cards" bug reported on a
+      // brand-new game: a hand that happens to chain internally (3♥-4♥-5♥
+      // value-chains to 5♣) but shares no suit/rank with the actual discard
+      // top must NOT be seeded as an honest opening declaration.
+      final hand = [
+        c(Rank.three, Suit.hearts),
+        c(Rank.four, Suit.hearts),
+        c(Rank.five, Suit.hearts),
+        c(Rank.five, Suit.clubs),
+      ];
+      var state = stateForP1(hand, discardTop: c(Rank.king, Suit.spades));
+      state = initializeFirstTurnClearability(state, isBustMode: false);
+      expect(
+        state.playerById('p1')!.lastCardsHandWasClearableAtTurnStart,
+        isFalse,
+        reason: 'No card in hand can legally open against K♠',
+      );
+
+      final r = applyOpeningSeatLastCardsSeedIfNeeded(state: state);
+      expect(r.applied, isFalse);
+      expect(r.state.lastCardsDeclaredBy, isNot(contains('p1')));
     });
 
     test('no-op when opener already declared', () {

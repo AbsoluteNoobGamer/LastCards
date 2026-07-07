@@ -1042,6 +1042,125 @@ void main() {
       );
     });
 
+    test('threePlayerSequentialDoubleKingTapsAlsoResets', () {
+      // Regression: the same reset must apply when a player plays two Kings
+      // as two SEPARATE single-card taps in a row (the normal way this app's
+      // UI plays multiple cards in a turn — there is no multi-select), not
+      // only when they're stacked together in one action. Previously,
+      // lastActionCardCount reset to 1 after the second solo King play, so
+      // kingNumericalFlowResets never saw two Kings even though the player
+      // had legitimately played two Kings this turn.
+      var state = buildState(discardTop: c(Rank.five, Suit.spades));
+      final p2 = PlayerModel(
+        id: 'p2',
+        displayName: 'P2',
+        tablePosition: TablePosition.top,
+        hand: [],
+        cardCount: 0,
+      );
+      final p3 = PlayerModel(
+        id: 'p3',
+        displayName: 'P3',
+        tablePosition: TablePosition.left,
+        hand: [],
+        cardCount: 0,
+      );
+      state = state.copyWith(players: [...state.players, p2, p3]);
+
+      // First King, played alone.
+      state = applyPlay(
+        state: state,
+        playerId: 'p1',
+        cards: [c(Rank.king, Suit.spades)],
+      );
+      expect(state.lastActionCardCount, 1);
+      expect(kingNumericalFlowResets(state), isFalse,
+          reason: 'A single King in a 3+ player game still needs numerical flow');
+
+      // Second King, played as its own separate tap — legal via the
+      // same-rank "value chain" follow-up rule regardless of suit adjacency.
+      expect(
+        validatePlay(
+          cards: [c(Rank.king, Suit.hearts)],
+          discardTop: state.discardTopCard!,
+          state: state,
+        ),
+        isNull,
+        reason: 'Same-rank follow-up (King after King) is always a legal value chain',
+      );
+      state = applyPlay(
+        state: state,
+        playerId: 'p1',
+        cards: [c(Rank.king, Suit.hearts)],
+      );
+
+      expect(state.lastActionCardCount, 2,
+          reason: 'Two solo King taps in a row must accumulate, not reset to 1');
+      expect(kingNumericalFlowResets(state), isTrue,
+          reason: 'Two Kings played this turn — however they were played — resets the flow');
+
+      // 4♥ is not rank-adjacent to K♥, but the reset means it only needs to
+      // match the last King's suit.
+      expect(
+        validatePlay(
+          cards: [c(Rank.four, Suit.hearts)],
+          discardTop: state.discardTopCard!,
+          state: state,
+        ),
+        isNull,
+        reason: 'Sequential King pair in 3+ players resets numerical flow too',
+      );
+
+      // Cross-suit still must fail.
+      expect(
+        validatePlay(
+          cards: [c(Rank.four, Suit.clubs)],
+          discardTop: state.discardTopCard!,
+          state: state,
+        ),
+        isNotNull,
+        reason: 'Reset still requires matching the last King suit',
+      );
+    });
+
+    test('kingRunResetsWhenBrokenByAnotherRank', () {
+      // A King run must not leak across an intervening different-rank play:
+      // King, then a legal off-rank card, then a fresh single King again
+      // should NOT be treated as a continued run in a 3+ player game.
+      var state = buildState(discardTop: c(Rank.king, Suit.spades));
+      final p2 = PlayerModel(
+        id: 'p2',
+        displayName: 'P2',
+        tablePosition: TablePosition.top,
+        hand: [],
+        cardCount: 0,
+      );
+      final p3 = PlayerModel(
+        id: 'p3',
+        displayName: 'P3',
+        tablePosition: TablePosition.left,
+        hand: [],
+        cardCount: 0,
+      );
+      state = state.copyWith(players: [...state.players, p2, p3]);
+
+      state = applyPlay(
+        state: state,
+        playerId: 'p1',
+        cards: [c(Rank.king, Suit.spades)],
+      );
+      expect(state.lastActionCardCount, 1);
+
+      state = applyPlay(
+        state: state,
+        playerId: 'p1',
+        cards: [c(Rank.queen, Suit.spades)],
+      );
+      expect(state.lastActionCardCount, 1,
+          reason: 'A different rank breaks the run and resets the count');
+      expect(kingNumericalFlowResets(state), isFalse);
+    });
+
     test('twoPlayerKingFollowUpAceMatchesSuitOnlyNotWild', () {
       var state = buildState(discardTop: c(Rank.five, Suit.spades));
       final p2 = PlayerModel(

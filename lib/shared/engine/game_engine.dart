@@ -18,12 +18,15 @@ export '../rules/card_rules.dart' show JokerPlayContext, jokerPlayContextFromCar
 /// seat. The next card is validated like a **new lead** against the discard top
 /// (the King), not as numerical-flow continuation off the King.
 ///
-/// In games with **3+ players**, this same reset applies only when the most
-/// recent play **stacked two or more same-rank Kings together** in one action
-/// (see [GameState.lastActionCardCount]) — a single King mid-turn in a 3+
-/// player game still requires normal numerical-flow adjacency for the
-/// follow-up card. Stacking multiple Kings is treated as "starting fresh"
-/// against the last King played, regardless of table size.
+/// In games with **3+ players**, this same reset applies only once **two or
+/// more Kings have been played consecutively this turn** — whether stacked
+/// together in one action, or played as separate single-card taps back to
+/// back (see [GameState.lastActionCardCount], which accumulates across such
+/// a run). A single King mid-turn in a 3+ player game still requires normal
+/// numerical-flow adjacency for the follow-up card. Playing multiple Kings
+/// consecutively is treated as "starting fresh" against the last King
+/// played, regardless of table size or whether they were played together or
+/// one at a time.
 ///
 /// Uses [CardModel.effectiveRank], so a **Joker declared as King** matches a
 /// natural King here — same as the 2-player King skip in [nextPlayerId]. A **same-turn
@@ -572,11 +575,26 @@ GameState applyPlay({
 
   // Count this as a valid action for the current player, and record the last
   // card played this turn for same-turn sequential adjacency enforcement.
+  //
+  // lastActionCardCount accumulates across consecutive same-rank actions
+  // (e.g. King played alone, then a second King played alone right after,
+  // via the "value chain" follow-up rule in validatePlay) rather than always
+  // resetting to this action's own size. Without this, kingNumericalFlowResets
+  // only ever saw the *latest single action's* card count — so two Kings
+  // stacked together in one play correctly reset the flow, but two Kings
+  // played as separate consecutive taps (the normal way this game's UI plays
+  // multiple cards in a turn) never did, even though both are "two Kings
+  // played this turn" from the player's point of view.
+  final continuesSameRankRun = state.lastPlayedThisTurn != null &&
+      cards.every((c) =>
+          c.effectiveRank == state.lastPlayedThisTurn!.effectiveRank);
   gs = gs.copyWith(
     actionsThisTurn: gs.actionsThisTurn + 1,
     cardsPlayedThisTurn: gs.cardsPlayedThisTurn + cards.length,
     lastPlayedThisTurn: lastCard,
-    lastActionCardCount: cards.length,
+    lastActionCardCount: continuesSameRankRun
+        ? state.lastActionCardCount + cards.length
+        : cards.length,
   );
 
   return gs;
@@ -1376,9 +1394,23 @@ bool canClearHandInOneTurn({
   if (p.hand.isEmpty) return true;
   if (p.hand.length != p.cardCount) return false;
   if (p.hand.any((c) => c.isJoker)) {
-    return canHandClearInOneTurnHandOnly(p.hand);
+    return canHandClearInOneTurnHandOnly(
+      p.hand,
+      discardTop: state.discardTopCard,
+      suitLock: state.suitLock,
+      queenSuitLock: state.queenSuitLock,
+      isPenaltyChainActive: state.isPenaltyChainActive,
+    );
   }
-  if (canHandClearInOneTurnHandOnly(p.hand)) return true;
+  if (canHandClearInOneTurnHandOnly(
+    p.hand,
+    discardTop: state.discardTopCard,
+    suitLock: state.suitLock,
+    queenSuitLock: state.queenSuitLock,
+    isPenaltyChainActive: state.isPenaltyChainActive,
+  )) {
+    return true;
+  }
   return _canClearHandRespectingDiscard(state, playerId);
 }
 

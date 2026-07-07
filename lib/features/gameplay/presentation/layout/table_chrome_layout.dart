@@ -29,6 +29,12 @@ abstract final class TablePortraitGrid {
   /// Turn timer + floating action bar band.
   static const double actionBarHeight = 108;
 
+  /// Gap between the board region and the action bar — clears room for the
+  /// "Last cards: (names)" strip, which floats just below the HUD and would
+  /// otherwise overlap the turn timer bar now that the board sits close to
+  /// the action bar (see the bottom-anchored board FittedBox alignment).
+  static const double boardToActionBarGap = 24;
+
   /// Local [PlayerZoneWidget] + hand fan.
   static const double handRegionHeight = 156;
 
@@ -113,6 +119,9 @@ abstract final class TablePortraitGrid {
 
   /// Compact turn timer + [FloatingActionBarWidget] band.
   static const double landscapeActionBarHeight = 72;
+
+  /// Landscape counterpart of [boardToActionBarGap].
+  static const double landscapeBoardToActionBarGap = 16;
 
   /// Local hand fan + avatar in landscape.
   static const double landscapeHandRegionHeight = 106;

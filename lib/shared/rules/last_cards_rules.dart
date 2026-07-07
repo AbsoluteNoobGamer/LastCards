@@ -4,18 +4,46 @@ import 'pickup_chain_rules.dart';
 /// Max hand size for showing the Last Cards button without Joker / pick-up cards.
 const int lastCardsMaxHandSize = 4;
 
-/// Hand-only chain check (no [validatePlay] / discard top). Used as a fallback
-/// when the hand contains Jokers (mixed plays go through `declare_joker` online).
+/// Hand-only chain check (no [validatePlay]). Used as a fallback when the
+/// hand contains Jokers (mixed plays go through `declare_joker` online).
 ///
-/// Explores single-card orderings; mid-turn flow mirrors [validatePlay] without
-/// discard matching on the first card.
-bool canHandClearInOneTurnHandOnly(List<CardModel> hand) {
+/// Explores single-card orderings; mid-turn flow mirrors [validatePlay].
+///
+/// When [discardTop] is provided, the **first** card of the chain is also
+/// checked against it (plus [suitLock] / [queenSuitLock] /
+/// [isPenaltyChainActive]) — without this, the DFS would report a hand
+/// "clearable" as long as its cards chain amongst *themselves*, even if none
+/// of them could actually be legally played first against the real discard
+/// pile (e.g. a "Guest declared Last Cards" seed firing on turn one for a
+/// hand that only chains internally but can't legally open). Pass `null` to
+/// skip this (matches the old, unconstrained behaviour).
+bool canHandClearInOneTurnHandOnly(
+  List<CardModel> hand, {
+  CardModel? discardTop,
+  Suit? suitLock,
+  Suit? queenSuitLock,
+  bool isPenaltyChainActive = false,
+}) {
   if (hand.isEmpty) return true;
   final cards = List<CardModel>.from(hand);
-  return _dfsChain(cards, null);
+  return _dfsChain(
+    cards,
+    null,
+    discardTop: discardTop,
+    suitLock: suitLock,
+    queenSuitLock: queenSuitLock,
+    isPenaltyChainActive: isPenaltyChainActive,
+  );
 }
 
-bool _dfsChain(List<CardModel> remaining, CardModel? lastPlayed) {
+bool _dfsChain(
+  List<CardModel> remaining,
+  CardModel? lastPlayed, {
+  required CardModel? discardTop,
+  required Suit? suitLock,
+  required Suit? queenSuitLock,
+  required bool isPenaltyChainActive,
+}) {
   if (remaining.isEmpty) {
     if (lastPlayed == null) return true;
     return lastPlayed.effectiveRank != Rank.queen;
@@ -25,11 +53,64 @@ bool _dfsChain(List<CardModel> remaining, CardModel? lastPlayed) {
     final next = remaining[i];
     final rest = List<CardModel>.from(remaining)..removeAt(i);
     if (lastPlayed == null) {
-      if (_dfsChain(rest, next)) return true;
+      if (!_canOpenChain(
+        next,
+        discardTop: discardTop,
+        suitLock: suitLock,
+        queenSuitLock: queenSuitLock,
+        isPenaltyChainActive: isPenaltyChainActive,
+      )) {
+        continue;
+      }
+      if (_dfsChain(rest, next,
+          discardTop: discardTop,
+          suitLock: suitLock,
+          queenSuitLock: queenSuitLock,
+          isPenaltyChainActive: isPenaltyChainActive)) {
+        return true;
+      }
     } else if (_validChainStep(lastPlayed, next)) {
-      if (_dfsChain(rest, next)) return true;
+      if (_dfsChain(rest, next,
+          discardTop: discardTop,
+          suitLock: suitLock,
+          queenSuitLock: queenSuitLock,
+          isPenaltyChainActive: isPenaltyChainActive)) {
+        return true;
+      }
     }
   }
+  return false;
+}
+
+/// Whether [card] could legally be the very first card played this turn,
+/// mirroring the engine's `_validateSingle` first-card rules. Returns `true`
+/// unconstrained when [discardTop] is null (no context available).
+bool _canOpenChain(
+  CardModel card, {
+  required CardModel? discardTop,
+  required Suit? suitLock,
+  required Suit? queenSuitLock,
+  required bool isPenaltyChainActive,
+}) {
+  if (discardTop == null) return true;
+  if (card.isJoker) return true;
+  if (card.effectiveRank == Rank.ace) return true; // wild ace opener
+  if (isPenaltyChainActive &&
+      card.effectiveRank == Rank.jack &&
+      !card.isBlackJack) {
+    return true;
+  }
+  final discardIsPenalty =
+      discardTop.effectiveRank == Rank.two || discardTop.effectiveRank == Rank.jack;
+  final cardIsPenalty =
+      card.effectiveRank == Rank.two || card.effectiveRank == Rank.jack;
+  if (isPenaltyChainActive && discardIsPenalty && cardIsPenalty) return true;
+  if (queenSuitLock != null) {
+    return card.effectiveSuit == queenSuitLock || card.effectiveRank == Rank.queen;
+  }
+  final requiredSuit = suitLock ?? discardTop.effectiveSuit;
+  if (card.effectiveSuit == requiredSuit) return true;
+  if (card.effectiveRank == discardTop.effectiveRank) return true;
   return false;
 }
 
