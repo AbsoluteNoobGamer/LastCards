@@ -8,6 +8,14 @@ const int lastCardsMaxHandSize = 4;
 /// hand contains Jokers (mixed plays go through `declare_joker` online).
 ///
 /// Explores single-card orderings; mid-turn flow mirrors [validatePlay].
+/// Jokers are explored by trying every rank/suit they could legally declare
+/// at that position (mirroring [getValidJokerOptions] in `game_engine.dart`)
+/// rather than assumed to bridge to anything — a Joker's declared identity
+/// constrains what can legally follow it exactly like a real card would.
+/// Without this, e.g. Queen♣ → Joker → Heart-suit-run was wrongly treated as
+/// chainable: the Joker can only satisfy a Queen's suit-lock by declaring
+/// clubs or another Queen, so whatever comes after it must chain from *that*
+/// declared identity, not from an unconstrained wildcard.
 ///
 /// When [discardTop] is provided, the **first** card of the chain is also
 /// checked against it (plus [suitLock] / [queenSuitLock] /
@@ -52,6 +60,33 @@ bool _dfsChain(
   for (var i = 0; i < remaining.length; i++) {
     final next = remaining[i];
     final rest = List<CardModel>.from(remaining)..removeAt(i);
+
+    if (next.isJoker) {
+      // Try every identity the Joker could legally declare here; recurse as
+      // if that declared card were played, so subsequent steps are governed
+      // by the declaration, not by an unconstrained "anything goes" wildcard.
+      for (final declared in _jokerDeclarationCandidates) {
+        final canDeclareHere = lastPlayed == null
+            ? _canOpenChain(
+                declared,
+                discardTop: discardTop,
+                suitLock: suitLock,
+                queenSuitLock: queenSuitLock,
+                isPenaltyChainActive: isPenaltyChainActive,
+              )
+            : _validChainStep(lastPlayed, declared);
+        if (!canDeclareHere) continue;
+        if (_dfsChain(rest, declared,
+            discardTop: discardTop,
+            suitLock: suitLock,
+            queenSuitLock: queenSuitLock,
+            isPenaltyChainActive: isPenaltyChainActive)) {
+          return true;
+        }
+      }
+      continue;
+    }
+
     if (lastPlayed == null) {
       if (!_canOpenChain(
         next,
@@ -82,9 +117,23 @@ bool _dfsChain(
   return false;
 }
 
+/// Every (suit, rank) identity a Joker could be declared as, precomputed
+/// once — used to test each candidate against [_canOpenChain] /
+/// [_validChainStep] instead of assuming a Joker connects to anything.
+final List<CardModel> _jokerDeclarationCandidates = [
+  for (final suit in Suit.values)
+    for (final rank in Rank.values)
+      if (rank != Rank.joker)
+        CardModel(id: 'joker_probe_${suit.name}_${rank.name}', suit: suit, rank: rank),
+];
+
 /// Whether [card] could legally be the very first card played this turn,
 /// mirroring the engine's `_validateSingle` first-card rules. Returns `true`
 /// unconstrained when [discardTop] is null (no context available).
+///
+/// [card] is never an actual Joker here — [_dfsChain] resolves Jokers to a
+/// candidate declared identity (see [_jokerDeclarationCandidates]) before
+/// calling this.
 bool _canOpenChain(
   CardModel card, {
   required CardModel? discardTop,
@@ -93,7 +142,6 @@ bool _canOpenChain(
   required bool isPenaltyChainActive,
 }) {
   if (discardTop == null) return true;
-  if (card.isJoker) return true;
   if (card.effectiveRank == Rank.ace) return true; // wild ace opener
   if (isPenaltyChainActive &&
       card.effectiveRank == Rank.jack &&
@@ -115,16 +163,17 @@ bool _canOpenChain(
 }
 
 /// Step validity mirroring [validatePlay] mid-turn flow (no discard).
+///
+/// Neither argument is ever an actual Joker here — [_dfsChain] resolves
+/// Jokers to a candidate declared identity (see [_jokerDeclarationCandidates])
+/// before calling this. Queens are **not** wild: a Queen played mid-chain
+/// must still match [prev] by normal suit/rank continuity (below) unless
+/// [prev] is itself a Queen, in which case its suit-lock governs instead.
 bool _validChainStep(CardModel prev, CardModel next) {
-  if (next.effectiveRank == Rank.queen) return true;
-
   if (prev.effectiveRank == Rank.queen) {
     return next.effectiveSuit == prev.effectiveSuit ||
-        next.effectiveRank == Rank.queen ||
-        next.isJoker;
+        next.effectiveRank == Rank.queen;
   }
-
-  if (prev.isJoker || next.isJoker) return true;
 
   // No [GameState] here: this DFS only chains cards within one hypothetical turn.
   // After any penalty card, the next card in that turn is always "chain live"
