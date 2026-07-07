@@ -372,8 +372,15 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
         game_audio.AudioService.instance.playDealCardSoundForPlayer(pi);
         final overlay = _dealingOverlayKey.currentState;
         if (overlay != null) {
-          unawaited(overlay.animateCardDeal(p.id));
-          await Future.delayed(const Duration(milliseconds: 100));
+          // Fully await each flight (rather than firing unawaited + a short
+          // stagger, as table_screen.dart's dealing loop does for a
+          // deliberately overlapping "fan deal" look) — with up to 10
+          // players here, that pattern can keep several independent
+          // AnimationControllers ticking concurrently for several seconds
+          // straight, which was crashing with
+          // "!semantics.parentDataDirty". No overlap = no concurrent
+          // animation-driven rebuilds racing each other.
+          await overlay.animateCardDeal(p.id);
         } else {
           await Future.delayed(const Duration(milliseconds: 100));
         }
@@ -1548,24 +1555,36 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
               ),
 
               if (localPlayer != null)
-                SafeArea(
-                  child: isLandscapeMobile
-                      ? _buildBustLandscapeTable(
-                          layoutSize: layoutSize,
-                          opponents: opponents,
-                          localPlayer: localPlayer,
-                          isMyTurn: isMyTurn,
-                          roundState: rs,
-                        )
-                      : _buildBustPortraitTable(
-                          layoutSize: layoutSize,
-                          opponents: opponents,
-                          localPlayer: localPlayer,
-                          isMyTurn: isMyTurn,
-                          handCardWidth: handCardWidth,
-                          isMobile: isMobile,
-                          roundState: rs,
-                        ),
+                // Excludes the whole gameplay area from the semantics tree
+                // while dealing — this is the highest-churn window (rapid
+                // setState + card-flight animations updating hand/player
+                // widgets every ~100ms) and iOS Simulator runs with
+                // accessibility forced on, which is known to expose a
+                // longstanding Flutter framework semantics-tree race
+                // ("!semantics.parentDataDirty", flutter/flutter#7861) under
+                // exactly this kind of rapid concurrent rebuild. Semantics
+                // resume normally once dealing finishes.
+                ExcludeSemantics(
+                  excluding: _isDealing,
+                  child: SafeArea(
+                    child: isLandscapeMobile
+                        ? _buildBustLandscapeTable(
+                            layoutSize: layoutSize,
+                            opponents: opponents,
+                            localPlayer: localPlayer,
+                            isMyTurn: isMyTurn,
+                            roundState: rs,
+                          )
+                        : _buildBustPortraitTable(
+                            layoutSize: layoutSize,
+                            opponents: opponents,
+                            localPlayer: localPlayer,
+                            isMyTurn: isMyTurn,
+                            handCardWidth: handCardWidth,
+                            isMobile: isMobile,
+                            roundState: rs,
+                          ),
+                  ),
                 ),
 
               if (_moveLogEntries.isNotEmpty)
@@ -1600,18 +1619,23 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                 ),
               ),
 
-              // Dealing animation overlay (cards flying from draw pile)
+              // Dealing animation overlay (cards flying from draw pile) —
+              // purely decorative, never needs semantics.
               Positioned.fill(
-                child: DealingAnimationOverlay(
-                  key: _dealingOverlayKey,
-                  drawPileKey: _drawPileKey,
-                  playerKeys: _playerZoneKeys,
+                child: ExcludeSemantics(
+                  child: DealingAnimationOverlay(
+                    key: _dealingOverlayKey,
+                    drawPileKey: _drawPileKey,
+                    playerKeys: _playerZoneKeys,
+                  ),
                 ),
               ),
 
-              // Card play flight overlay
+              // Card play flight overlay — same, purely decorative.
               Positioned.fill(
-                child: CardFlightOverlay(key: _playFlightKey),
+                child: ExcludeSemantics(
+                  child: CardFlightOverlay(key: _playFlightKey),
+                ),
               ),
 
               // Direction: left slot of [FloatingActionBarWidget] (no Last Cards in Bust).
