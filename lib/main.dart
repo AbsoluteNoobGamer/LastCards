@@ -66,9 +66,21 @@ Future<void> main() async {
   await const ProfileService().initDefaultIfNeeded();
   await CardBackService.instance.init();
   await AudioService.instance.init();
-  await AdsService.instance.init();
+
+  // Ads/push are both optional, network/platform-plugin-heavy services —
+  // never let either block startup (a hang or throw here must not prevent
+  // runApp(), or the app shows a permanent white screen).
+  try {
+    await AdsService.instance.init();
+  } catch (e) {
+    if (kDebugMode) debugPrint('AdsService init skipped: $e');
+  }
   if (firebaseReady) {
-    await PushNotificationService.instance.init();
+    try {
+      await PushNotificationService.instance.init();
+    } catch (e) {
+      if (kDebugMode) debugPrint('PushNotificationService init skipped: $e');
+    }
   }
 
   runApp(

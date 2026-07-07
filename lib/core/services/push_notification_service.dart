@@ -64,23 +64,39 @@ class PushNotificationService {
       if (kDebugMode) debugPrint('PushNotificationService: permission request failed: $e');
     }
 
-    await _local.initialize(
-      const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-        iOS: DarwinInitializationSettings(),
-      ),
-      onDidReceiveNotificationResponse: (_) => _openInbox(),
-    );
-    if (Platform.isAndroid) {
-      await _local
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(_androidChannel);
+    try {
+      await _local.initialize(
+        // Permission already requested above via FirebaseMessaging; asking
+        // again here (the Darwin defaults) risks a second/conflicting
+        // platform-channel prompt, which has been observed to hang app
+        // startup on iOS Simulators.
+        const InitializationSettings(
+          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+          iOS: DarwinInitializationSettings(
+            requestAlertPermission: false,
+            requestBadgePermission: false,
+            requestSoundPermission: false,
+          ),
+        ),
+        onDidReceiveNotificationResponse: (_) => _openInbox(),
+      );
+      if (Platform.isAndroid) {
+        await _local
+            .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+            ?.createNotificationChannel(_androidChannel);
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('PushNotificationService: local notifications init failed: $e');
     }
 
     FirebaseMessaging.onMessage.listen(_showForegroundNotification);
     FirebaseMessaging.onMessageOpenedApp.listen((_) => _openInbox());
-    final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
-    if (initialMessage != null) _openInbox();
+    try {
+      final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+      if (initialMessage != null) _openInbox();
+    } catch (e) {
+      if (kDebugMode) debugPrint('PushNotificationService: getInitialMessage failed: $e');
+    }
 
     FirebaseMessaging.instance.onTokenRefresh.listen(_registerToken);
 
