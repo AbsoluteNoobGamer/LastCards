@@ -2108,21 +2108,34 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 ),
 
               // ── Tournament Skip (offline, when qualified) ───────────────────
-              if (widget.isTournamentMode &&
-                  _isOfflineSession &&
-                  _tournamentFinishedPlayerIds
-                      .contains(OfflineGameState.localId) &&
-                  !_tournamentRoundComplete &&
-                  gameState.phase != GamePhase.ended)
-                Positioned(
-                  bottom: isLandscapeMobile
-                      ? landscapeSkipChipBottom
-                      : portraitSkipChipBottom,
-                  left: 0,
-                  right: 0,
-                  child: SafeArea(
-                    top: false,
-                    child: Center(
+              // Always mounted — toggling via `if (...) Positioned(...)`
+              // inserts/removes this InkWell/Material subtree (and its
+              // semantics nodes) from the Stack exactly when a burst of
+              // AI-turn state updates is starting, which reliably crashes
+              // with "!semantics.parentDataDirty" in the identical Bust
+              // pattern (see BustGameScreen's skip chip). Visibility with
+              // maintainState/maintainAnimation/maintainSize keeps the
+              // Element/RenderObject alive and in place; only paint/hit-test/
+              // semantics are toggled, which Flutter handles safely.
+              Positioned(
+                bottom: isLandscapeMobile
+                    ? landscapeSkipChipBottom
+                    : portraitSkipChipBottom,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  top: false,
+                  child: Center(
+                    child: Visibility(
+                      visible: widget.isTournamentMode &&
+                          _isOfflineSession &&
+                          _tournamentFinishedPlayerIds
+                              .contains(OfflineGameState.localId) &&
+                          !_tournamentRoundComplete &&
+                          gameState.phase != GamePhase.ended,
+                      maintainState: true,
+                      maintainAnimation: true,
+                      maintainSize: true,
                       child: Builder(
                         builder: (context) {
                           final busy =
@@ -2196,6 +2209,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     ),
                   ),
                 ),
+              ),
 
               // ── Settings + back (single-player and online) ──────────────────
               Positioned(

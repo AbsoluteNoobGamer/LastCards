@@ -1804,12 +1804,26 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                 ),
 
               // ── Bust skip (rewarded ad, once local has used both turns) ─────
-              if (_bustCanSkipRest && !_isDealing && _gameState.phase != GamePhase.ended)
-                Positioned(
-                  bottom: MediaQuery.of(context).padding.bottom + 170,
-                  left: 0,
-                  right: 0,
-                  child: Center(
+              // Always mounted — toggling via `if (...) Positioned(...)`
+              // inserts/removes this InkWell/Material subtree (and its
+              // semantics nodes) from the Stack exactly when a burst of
+              // AI-turn state updates is starting, which reliably crashed
+              // with "!semantics.parentDataDirty". Visibility with
+              // maintainState/maintainAnimation/maintainSize keeps the
+              // Element/RenderObject alive and in place; only paint/hit-test/
+              // semantics are toggled, which Flutter handles safely.
+              Positioned(
+                bottom: MediaQuery.of(context).padding.bottom + 170,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Visibility(
+                    visible: _bustCanSkipRest &&
+                        !_isDealing &&
+                        _gameState.phase != GamePhase.ended,
+                    maintainState: true,
+                    maintainAnimation: true,
+                    maintainSize: true,
                     child: Builder(
                       builder: (context) {
                         final busy = _bustSimulatingRest || _bustSkipAdShowing;
@@ -1876,6 +1890,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                     ),
                   ),
                 ),
+              ),
             ],
           );
         },
