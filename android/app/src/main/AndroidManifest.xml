@@ -3,10 +3,17 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Stripped from merged manifests (ad SDKs); avoids Play “privacy policy for READ_PHONE_STATE”. -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" tools:node="remove" />
+    <!-- Push notifications (Android 13+ requires runtime request; see PushNotificationService). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="Last Cards"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- AdMob App ID (real account ID; ad UNIT ids used in-app are still Google's -->
+        <!-- public test units until swapped for real ones — see lib/core/services/ad_unit_ids.dart). -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-4446209247875215~7842641622"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"

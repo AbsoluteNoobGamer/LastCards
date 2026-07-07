@@ -29,6 +29,7 @@ import '../../data/datasources/websocket_client.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_theme_data.dart';
+import '../../../../core/services/ads_service.dart';
 import '../../../../core/services/analytics_service.dart';
 import '../../../../core/services/player_level_service.dart';
 import '../../../../core/utils/ranked_tier_utils.dart';
@@ -3976,6 +3977,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           isLocalWin: winner.id == OfflineGameState.localId,
           onPlayAgain: () {
             Navigator.of(context).pop();
+            unawaited(AdsService.instance.maybeShowInterstitialAfterMatch());
             setState(() {
               _initNewGame();
               _selectedCardId = null;

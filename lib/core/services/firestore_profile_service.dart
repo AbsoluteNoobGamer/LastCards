@@ -215,6 +215,28 @@ class FirestoreProfileService {
         );
   }
 
+  /// Registers a device's FCM token for push delivery (multiple devices per
+  /// account are supported — the server fans a push out to every token).
+  Future<void> addFcmToken(String uid, String token) async {
+    await _firestore.collection(_usersCollection).doc(uid).set(
+      {
+        'fcmTokens': FieldValue.arrayUnion([token]),
+      },
+      SetOptions(merge: true),
+    );
+  }
+
+  /// Unregisters a device's FCM token (call on sign-out so a shared/reset
+  /// device stops receiving another account's pushes).
+  Future<void> removeFcmToken(String uid, String token) async {
+    await _firestore.collection(_usersCollection).doc(uid).set(
+      {
+        'fcmTokens': FieldValue.arrayRemove([token]),
+      },
+      SetOptions(merge: true),
+    );
+  }
+
   /// Clears the avatar (sets avatarUrl to null in Firestore).
   Future<void> clearAvatar(String uid) async {
     final now = FieldValue.serverTimestamp();

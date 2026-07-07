@@ -100,3 +100,92 @@ Future<AppUpdateSuggestion?> fetchAppUpdateSuggestion() async {
     return null;
   }
 }
+
+/// Blocking "you must update to keep playing" gate — for breaking changes
+/// (e.g. a server protocol bump) rather than the dismissible
+/// [AppUpdateSuggestion] banner.
+///
+/// Uses the same `app_config/app_update` Firestore doc, with two additional
+/// fields:
+/// - `minimumBuildAndroid` (int): builds below this are blocked on Android.
+/// - `minimumBuildIos` (int): same for iOS.
+class ForcedUpdateInfo {
+  const ForcedUpdateInfo({
+    required this.storeUrl,
+    this.remoteVersionLabel,
+  });
+
+  final String storeUrl;
+  final String? remoteVersionLabel;
+}
+
+@visibleForTesting
+bool isBuildBelowMinimum({
+  required int currentBuild,
+  required int? minimumRequiredBuild,
+}) {
+  if (minimumRequiredBuild == null) return false;
+  return currentBuild < minimumRequiredBuild;
+}
+
+/// Returns gate info when this build is below the configured minimum for the
+/// current platform. Never throws — failures yield `null` (never blocks play
+/// due to a network hiccup).
+Future<ForcedUpdateInfo?> fetchForcedUpdateGate() async {
+  if (kIsWeb) return null;
+  if (Firebase.apps.isEmpty) return null;
+
+  try {
+    final info = await PackageInfo.fromPlatform();
+    final currentBuild = int.tryParse(info.buildNumber) ?? 0;
+
+    final snap = await FirebaseFirestore.instance
+        .collection('app_config')
+        .doc('app_update')
+        .get(const GetOptions(source: Source.serverAndCache));
+
+    if (!snap.exists) return null;
+    final data = snap.data();
+    if (data == null) return null;
+
+    final minAndroid = (data['minimumBuildAndroid'] as num?)?.toInt();
+    final minIos = (data['minimumBuildIos'] as num?)?.toInt();
+    final versionName = data['latestVersionName'] as String?;
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        if (!isBuildBelowMinimum(
+          currentBuild: currentBuild,
+          minimumRequiredBuild: minAndroid,
+        )) {
+          return null;
+        }
+        final url = (data['androidStoreUrl'] as String?)?.trim();
+        return ForcedUpdateInfo(
+          storeUrl:
+              (url != null && url.isNotEmpty) ? url : kDefaultAndroidStoreUrl,
+          remoteVersionLabel: versionName,
+        );
+      case TargetPlatform.iOS:
+        if (!isBuildBelowMinimum(
+          currentBuild: currentBuild,
+          minimumRequiredBuild: minIos,
+        )) {
+          return null;
+        }
+        final iosUrl = (data['iosStoreUrl'] as String?)?.trim();
+        if (iosUrl == null || iosUrl.isEmpty) {
+          // Cannot deep-link; don't block play with no way out.
+          return null;
+        }
+        return ForcedUpdateInfo(storeUrl: iosUrl, remoteVersionLabel: versionName);
+      default:
+        return null;
+    }
+  } catch (e, st) {
+    if (kDebugMode) {
+      debugPrint('fetchForcedUpdateGate: $e\n$st');
+    }
+    return null;
+  }
+}

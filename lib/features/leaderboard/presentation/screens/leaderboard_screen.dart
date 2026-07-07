@@ -15,6 +15,7 @@ import '../../data/combo_leaderboard_writer.dart';
 
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/services/analytics_service.dart';
+import '../../../../core/widgets/banner_ad_slot.dart';
 import '../../../../core/widgets/themed_shimmer.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/models/card_model.dart';
@@ -607,6 +608,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                         filterKey: _playerCountFilter,
                       ),
           ),
+          const SafeArea(top: false, child: Center(child: BannerAdSlot())),
         ],
       ),
     );

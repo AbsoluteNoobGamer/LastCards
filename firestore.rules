@@ -31,6 +31,7 @@ service cloud.firestore {
           'jokerCoverSelectedId',
           'cardFaceSet',
           'reactionWheel',
+          'fcmTokens',
         ]);
 
       allow delete: if request.auth != null && request.auth.uid == uid;
@@ -101,6 +102,16 @@ service cloud.firestore {
       allow delete: if request.auth != null
         && (request.auth.uid == uid
           || resource.data.fromUid == request.auth.uid);
+    }
+
+    // In-app notification inbox. Written server-side only (game server /
+    // future Cloud Functions use the Admin SDK, which bypasses these rules)
+    // — clients may only read their own, mark as read, or delete.
+    match /users/{uid}/notifications/{notificationId} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
     // Leaderboards: allow authenticated reads, only server can write.

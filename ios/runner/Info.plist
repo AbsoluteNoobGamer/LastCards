@@ -85,5 +85,13 @@
 			</array>
 		</dict>
 	</array>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-4446209247875215~9617723886</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>This identifier is used to show you ads that are more relevant to you.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

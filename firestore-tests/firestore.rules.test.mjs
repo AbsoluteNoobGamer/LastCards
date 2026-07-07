@@ -89,6 +89,15 @@ describe('users/{uid}', () => {
     );
   });
 
+  it('allows merge update of fcmTokens (push notification registration)', async () => {
+    const db = testEnv.authenticatedContext('alice').firestore();
+    const ref = doc(db, 'users', 'alice');
+    await assertSucceeds(setDoc(ref, profilePayload({ displayName: 'Alice' })));
+    await assertSucceeds(
+      setDoc(ref, { fcmTokens: ['token-1', 'token-2'] }, { merge: true }),
+    );
+  });
+
   it('denies create with extra fields', async () => {
     const db = testEnv.authenticatedContext('alice').firestore();
     await assertFails(
@@ -154,6 +163,74 @@ describe('users/{uid}', () => {
     );
     const aliceDb = testEnv.authenticatedContext('alice').firestore();
     await assertFails(deleteDoc(doc(aliceDb, 'users', 'bob')));
+  });
+});
+
+describe('users/{uid}/notifications/{notificationId}', () => {
+  function notifPayload(partial = {}) {
+    return {
+      type: 'turn',
+      title: "It's your turn",
+      body: 'Alice played a card.',
+      createdAt: Timestamp.now(),
+      read: false,
+      ...partial,
+    };
+  }
+
+  it('allows self read', async () => {
+    // Rules deny client create, so seed via the rules-bypassing admin context
+    // (mirrors how the game server writes these with the Admin SDK).
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users/alice/notifications/n1'), notifPayload());
+    });
+    const db = testEnv.authenticatedContext('alice').firestore();
+    await assertSucceeds(getDoc(doc(db, 'users/alice/notifications/n1')));
+  });
+
+  it('denies read by another user', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users/alice/notifications/n1'), notifPayload());
+    });
+    const db = testEnv.authenticatedContext('bob').firestore();
+    await assertFails(getDoc(doc(db, 'users/alice/notifications/n1')));
+  });
+
+  it('denies client create (server/admin-only)', async () => {
+    const db = testEnv.authenticatedContext('alice').firestore();
+    await assertFails(setDoc(doc(db, 'users/alice/notifications/n1'), notifPayload()));
+  });
+
+  it('allows self marking a notification as read', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users/alice/notifications/n1'), notifPayload());
+    });
+    const db = testEnv.authenticatedContext('alice').firestore();
+    await assertSucceeds(
+      setDoc(doc(db, 'users/alice/notifications/n1'), { read: true }, { merge: true }),
+    );
+  });
+
+  it('denies updating fields other than read', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users/alice/notifications/n1'), notifPayload());
+    });
+    const db = testEnv.authenticatedContext('alice').firestore();
+    await assertFails(
+      setDoc(
+        doc(db, 'users/alice/notifications/n1'),
+        { title: 'Hijacked' },
+        { merge: true },
+      ),
+    );
+  });
+
+  it('allows self delete', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users/alice/notifications/n1'), notifPayload());
+    });
+    const db = testEnv.authenticatedContext('alice').firestore();
+    await assertSucceeds(deleteDoc(doc(db, 'users/alice/notifications/n1')));
   });
 });
 

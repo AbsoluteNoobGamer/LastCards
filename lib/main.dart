@@ -7,8 +7,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
+import 'core/services/ads_service.dart';
 import 'core/services/card_back_service.dart';
 import 'core/services/profile_service.dart';
+import 'core/services/push_notification_service.dart';
 import 'firebase_options.dart';
 import 'services/audio_service.dart';
 import 'services/start_screen_bgm.dart';
@@ -21,10 +23,12 @@ Future<void> main() async {
   // playback starts later (singleton self-registration was too late on some devices).
   registerStartScreenBgmAppLifecycleObserver();
 
+  var firebaseReady = false;
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    firebaseReady = true;
     await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
     // Persist auth across app restarts (web) and give Firebase time to restore (all platforms).
     if (kIsWeb) {
@@ -62,6 +66,10 @@ Future<void> main() async {
   await const ProfileService().initDefaultIfNeeded();
   await CardBackService.instance.init();
   await AudioService.instance.init();
+  await AdsService.instance.init();
+  if (firebaseReady) {
+    await PushNotificationService.instance.init();
+  }
 
   runApp(
     // Riverpod root scope
