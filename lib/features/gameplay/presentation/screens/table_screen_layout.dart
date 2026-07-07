@@ -29,11 +29,13 @@ Widget _localHandRegionSlot({
             child: FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.topCenter,
-              // Cap width, don't force it — so the zone (nameplate + hand)
-              // hugs its real content width instead of stretching its
-              // active-turn accent tint across empty felt.
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: contentWidth),
+              // Fixed width (a reference 9-card hand, see
+              // PlayerHandWidget.referenceFanWidth) — not just a cap — so the
+              // zone's footprint (and its active-turn accent tint) stays the
+              // same size turn to turn. PlayerHandWidget centers its actual
+              // fan within this fixed frame regardless of real card count.
+              child: SizedBox(
+                width: contentWidth,
                 child: child,
               ),
             ),
@@ -268,6 +270,14 @@ class _TableLayout extends StatelessWidget {
         final effectiveWidth = constraints.maxWidth;
         final handCardWidth = (effectiveWidth * (isMobile ? 0.12 : 0.1))
             .clamp(44.0, 82.0);
+        // Fixed footprint sized to a reference 9-card hand — the local hand
+        // region stays the same size turn to turn regardless of actual hand
+        // count, instead of visibly resizing as cards are played/drawn.
+        final referenceHandWidth = PlayerHandWidget.referenceFanWidth(
+          maxWidth: effectiveWidth,
+          cardWidth: handCardWidth,
+          isCompact: isMobile,
+        );
         final hasTournamentBadges = tournamentStatusBadges.isNotEmpty;
         final opponentRowHeight = TablePortraitGrid.opponentRowHeight(
           useRail: true,
@@ -318,7 +328,16 @@ class _TableLayout extends StatelessWidget {
                     return ClipRect(
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
-                        alignment: Alignment.center,
+                        // Anchor to the bottom, not the centre: the board's
+                        // content (piles+HUD) is much shorter than this
+                        // Expanded region, and centering it split the slack
+                        // evenly — leaving a dead gap floating between the
+                        // HUD and the action bar. Bottom-anchoring puts the
+                        // piles flush against the action bar/hand below, and
+                        // any leftover space becomes felt above, near the
+                        // opponents, which reads as intentional breathing
+                        // room rather than a broken void.
+                        alignment: Alignment.bottomCenter,
                         child: ConstrainedBox(
                           constraints: BoxConstraints(
                             maxWidth: boardConstraints.maxWidth,
@@ -420,6 +439,8 @@ class _TableLayout extends StatelessWidget {
                 ),
               ),
 
+              const SizedBox(height: TablePortraitGrid.boardToActionBarGap),
+
               // ── Region 3: Action bar (fixed height) ───────────────────────
               SizedBox(
                 height: TablePortraitGrid.actionBarHeight,
@@ -452,7 +473,7 @@ class _TableLayout extends StatelessWidget {
               // ── Region 4: Local hand (fixed height) ───────────────────────
               _localHandRegionSlot(
                 height: handRegionHeight,
-                contentWidth: effectiveWidth,
+                contentWidth: referenceHandWidth,
                 child: PlayerZoneWidget(
                   key: playerZoneKeys[localPlayer.id],
                   player: localPlayer,
@@ -655,6 +676,13 @@ class _LandscapeTableLayout extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Fixed footprint sized to a reference 9-card hand — same rationale
+        // as portrait's referenceHandWidth.
+        final referenceHandWidth = PlayerHandWidget.referenceFanWidth(
+          maxWidth: constraints.maxWidth,
+          cardWidth: handCardWidth,
+          isCompact: true,
+        );
         final hasTournamentBadges = tournamentStatusBadges.isNotEmpty;
         final opponentRowHeight = TablePortraitGrid.landscapeOpponentRowHeight(
           useRail: true,
@@ -703,7 +731,16 @@ class _LandscapeTableLayout extends StatelessWidget {
                     return ClipRect(
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
-                        alignment: Alignment.center,
+                        // Anchor to the bottom, not the centre: the board's
+                        // content (piles+HUD) is much shorter than this
+                        // Expanded region, and centering it split the slack
+                        // evenly — leaving a dead gap floating between the
+                        // HUD and the action bar. Bottom-anchoring puts the
+                        // piles flush against the action bar/hand below, and
+                        // any leftover space becomes felt above, near the
+                        // opponents, which reads as intentional breathing
+                        // room rather than a broken void.
+                        alignment: Alignment.bottomCenter,
                         child: ConstrainedBox(
                           constraints: BoxConstraints(
                             maxWidth: boardConstraints.maxWidth,
@@ -800,6 +837,9 @@ class _LandscapeTableLayout extends StatelessWidget {
                 ),
               ),
 
+              const SizedBox(
+                  height: TablePortraitGrid.landscapeBoardToActionBarGap),
+
               // ── Region 3: Action bar (fixed height) ───────────────────────
               SizedBox(
                 height: TablePortraitGrid.landscapeActionBarHeight,
@@ -839,11 +879,10 @@ class _LandscapeTableLayout extends StatelessWidget {
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.bottomCenter,
-                    // Cap width, don't force it — same fix as portrait: hug
-                    // real content instead of stretching the accent tint.
-                    child: ConstrainedBox(
-                      constraints:
-                          BoxConstraints(maxWidth: constraints.maxWidth),
+                    // Fixed width (reference 9-card hand) — same rationale as
+                    // portrait: keeps the zone's footprint stable turn to turn.
+                    child: SizedBox(
+                      width: referenceHandWidth,
                       child: PlayerZoneWidget(
                         key: playerZoneKeys[localPlayer.id],
                         player: localPlayer,

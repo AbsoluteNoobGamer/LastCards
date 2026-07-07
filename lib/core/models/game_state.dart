@@ -78,10 +78,12 @@ class GameState with _$GameState {
     /// the same turn (Numerical Flow Rule). Reset to null when the turn advances.
     CardModel? lastPlayedThisTurn,
 
-    /// Number of cards included in the most recent single play (the one that
-    /// produced [lastPlayedThisTurn]) — e.g. 2 when a player stacked two same-rank
-    /// Kings together in one action. Distinguishes a single King from a stacked
-    /// King play, which need different Numerical Flow follow-up rules (see
+    /// Cards played in the current unbroken same-rank run ending at
+    /// [lastPlayedThisTurn] — e.g. 2 once a player has played two Kings in a
+    /// row this turn, whether stacked together in one action or as two
+    /// separate single-card plays back to back. Resets to the new action's
+    /// own size whenever the rank changes. Distinguishes a single King from a
+    /// King run, which need different Numerical Flow follow-up rules (see
     /// `kingNumericalFlowResets` in the shared engine). Meaningless when
     /// [lastPlayedThisTurn] is null; reset alongside it when the turn advances.
     @Default(1) int lastActionCardCount,
