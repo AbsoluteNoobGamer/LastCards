@@ -311,6 +311,58 @@ void main() {
       expect(state.isRoundComplete, isFalse);
     });
 
+    group('hasFinishedTurnsWaitingOnOthers', () {
+      test('true once a player hits 2 turns while others still have turns left', () {
+        final state = BustRoundState(
+          roundNumber: 1,
+          activePlayerIds: const ['a', 'b', 'c'],
+          eliminatedIds: const [],
+          turnsThisRound: const {'a': 2, 'b': 1, 'c': 0},
+          penaltyPoints: const {},
+          playerOrder: const ['a', 'b', 'c'],
+        );
+        expect(state.hasFinishedTurnsWaitingOnOthers('a'), isTrue);
+        expect(state.hasFinishedTurnsWaitingOnOthers('b'), isFalse);
+      });
+
+      test('false once the round is actually complete (nothing left to watch)', () {
+        final state = BustRoundState(
+          roundNumber: 1,
+          activePlayerIds: const ['a', 'b'],
+          eliminatedIds: const [],
+          turnsThisRound: const {'a': 2, 'b': 2},
+          penaltyPoints: const {},
+          playerOrder: const ['a', 'b'],
+        );
+        expect(state.hasFinishedTurnsWaitingOnOthers('a'), isFalse);
+      });
+
+      test('false during the final showdown even at 2+ turns (no turn cap there)', () {
+        final state = BustRoundState(
+          roundNumber: 9,
+          activePlayerIds: const ['a', 'b'],
+          eliminatedIds: const [],
+          turnsThisRound: const {'a': 3, 'b': 1},
+          penaltyPoints: const {},
+          playerOrder: const ['a', 'b'],
+        );
+        expect(state.isFinalShowdown, isTrue);
+        expect(state.hasFinishedTurnsWaitingOnOthers('a'), isFalse);
+      });
+
+      test('false for a player who has not reached 2 turns yet', () {
+        final state = BustRoundState(
+          roundNumber: 1,
+          activePlayerIds: const ['a', 'b', 'c'],
+          eliminatedIds: const [],
+          turnsThisRound: const {'a': 1, 'b': 0, 'c': 0},
+          penaltyPoints: const {},
+          playerOrder: const ['a', 'b', 'c'],
+        );
+        expect(state.hasFinishedTurnsWaitingOnOthers('a'), isFalse);
+      });
+    });
+
     test('currentRotation reflects turns taken', () {
       final twoPlayers = ['a', 'b'];
       var state = BustRoundState(
