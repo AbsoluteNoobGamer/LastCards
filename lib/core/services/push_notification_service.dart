@@ -43,6 +43,14 @@ class PushNotificationService {
   bool _initialized = false;
   String? _registeredToken;
 
+  /// Platform push plumbing (APNs handshake, permission dialogs, local-notif
+  /// registration) is known to stall indefinitely on iOS Simulators — a
+  /// `try/catch` alone doesn't help a call that never completes, only one
+  /// that throws. Every potentially-blocking await below is wrapped with
+  /// this so a stuck call degrades to "push disabled" instead of hanging
+  /// `main()` (and therefore `runApp()`) forever.
+  static const _stepTimeout = Duration(seconds: 5);
+
   Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
@@ -50,40 +58,43 @@ class PushNotificationService {
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
     try {
-      await FirebaseMessaging.instance.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-      await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
+      await FirebaseMessaging.instance
+          .requestPermission(alert: true, badge: true, sound: true)
+          .timeout(_stepTimeout);
+      await FirebaseMessaging.instance
+          .setForegroundNotificationPresentationOptions(
+            alert: true,
+            badge: true,
+            sound: true,
+          )
+          .timeout(_stepTimeout);
     } catch (e) {
       if (kDebugMode) debugPrint('PushNotificationService: permission request failed: $e');
     }
 
     try {
-      await _local.initialize(
-        // Permission already requested above via FirebaseMessaging; asking
-        // again here (the Darwin defaults) risks a second/conflicting
-        // platform-channel prompt, which has been observed to hang app
-        // startup on iOS Simulators.
-        const InitializationSettings(
-          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-          iOS: DarwinInitializationSettings(
-            requestAlertPermission: false,
-            requestBadgePermission: false,
-            requestSoundPermission: false,
-          ),
-        ),
-        onDidReceiveNotificationResponse: (_) => _openInbox(),
-      );
+      await _local
+          .initialize(
+            // Permission already requested above via FirebaseMessaging;
+            // asking again here (the Darwin defaults) risks a
+            // second/conflicting platform-channel prompt, which has been
+            // observed to hang app startup on iOS Simulators.
+            const InitializationSettings(
+              android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+              iOS: DarwinInitializationSettings(
+                requestAlertPermission: false,
+                requestBadgePermission: false,
+                requestSoundPermission: false,
+              ),
+            ),
+            onDidReceiveNotificationResponse: (_) => _openInbox(),
+          )
+          .timeout(_stepTimeout);
       if (Platform.isAndroid) {
         await _local
             .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-            ?.createNotificationChannel(_androidChannel);
+            ?.createNotificationChannel(_androidChannel)
+            .timeout(_stepTimeout);
       }
     } catch (e) {
       if (kDebugMode) debugPrint('PushNotificationService: local notifications init failed: $e');
@@ -92,7 +103,8 @@ class PushNotificationService {
     FirebaseMessaging.onMessage.listen(_showForegroundNotification);
     FirebaseMessaging.onMessageOpenedApp.listen((_) => _openInbox());
     try {
-      final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+      final initialMessage =
+          await FirebaseMessaging.instance.getInitialMessage().timeout(_stepTimeout);
       if (initialMessage != null) _openInbox();
     } catch (e) {
       if (kDebugMode) debugPrint('PushNotificationService: getInitialMessage failed: $e');
@@ -102,11 +114,13 @@ class PushNotificationService {
 
     // (Re)register the token whenever the signed-in user changes — offline
     // and guest sessions have no `uid` to attach a token to, so this is a
-    // no-op until the player signs in.
+    // no-op until the player signs in. Runs fully async (not awaited by
+    // init()), so a stuck getToken() here can't block startup either way,
+    // but the timeout keeps it from leaking a hung future.
     FirebaseAuth.instance.authStateChanges().listen((user) async {
       if (user == null) return;
       try {
-        final token = await FirebaseMessaging.instance.getToken();
+        final token = await FirebaseMessaging.instance.getToken().timeout(_stepTimeout);
         if (token != null) await _registerToken(token);
       } catch (e) {
         if (kDebugMode) debugPrint('PushNotificationService: getToken failed: $e');

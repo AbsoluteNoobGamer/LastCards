@@ -68,16 +68,18 @@ Future<void> main() async {
   await AudioService.instance.init();
 
   // Ads/push are both optional, network/platform-plugin-heavy services —
-  // never let either block startup (a hang or throw here must not prevent
-  // runApp(), or the app shows a permanent white screen).
+  // never let either block startup. A timeout is required in addition to
+  // try/catch: a hung (never-completing) platform call isn't an exception,
+  // so only the timeout — not the catch — protects runApp() from it.
+  const initTimeout = Duration(seconds: 8);
   try {
-    await AdsService.instance.init();
+    await AdsService.instance.init().timeout(initTimeout);
   } catch (e) {
     if (kDebugMode) debugPrint('AdsService init skipped: $e');
   }
   if (firebaseReady) {
     try {
-      await PushNotificationService.instance.init();
+      await PushNotificationService.instance.init().timeout(initTimeout);
     } catch (e) {
       if (kDebugMode) debugPrint('PushNotificationService init skipped: $e');
     }
