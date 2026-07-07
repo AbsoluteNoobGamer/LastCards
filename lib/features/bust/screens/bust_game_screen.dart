@@ -971,16 +971,21 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
         state: _gameState, aiPlayerId: aiId);
     final diffMult = widget.aiDifficulty.delayMultiplier;
     final delayMs = _bustSimulatingRest
-        ? 0
+        // One frame (~16ms), not 0: Duration.zero still resolves far faster
+        // than the renderer's frame pacing, so a long simulated chain (up
+        // to ~18 turns for 10 players × 2 turns) can fire setState() faster
+        // than Flutter's semantics tree can settle between frames, which
+        // crashes with "!semantics.parentDataDirty". A real (if tiny) delay
+        // forces each turn onto its own frame instead.
+        ? 16
         : hasPlayable
             ? ((1000 + _aiDelayRng.nextInt(900)) * diffMult).round()
             : (800 * diffMult).round();
 
-    // Always await, even at 0ms: Future.delayed(Duration.zero) still yields
-    // to the event loop (lets a frame render and unwinds the call stack)
-    // unlike a bare synchronous call — skipping the await entirely here let
-    // a long simulated AI-turn chain recurse with no suspension point at
-    // all, freezing the UI and risking a stack-depth crash.
+    // Always await this, never skip it for a 0ms case: without a real
+    // suspension point here, a long recursive AI-turn chain would run with
+    // no yield to the event loop at all, freezing the UI and risking a
+    // stack-depth crash.
     await Future.delayed(Duration(milliseconds: delayMs));
     if (!mounted) return;
 

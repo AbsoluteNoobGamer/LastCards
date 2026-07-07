@@ -3236,8 +3236,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final hasPlayable =
           aiHasPlayableTurn(state: _offlineState, aiPlayerId: aiId);
       final diffMult = widget.aiDifficulty?.delayMultiplier ?? 1.0;
+      // One frame (~16ms), not 0: Duration.zero still resolves far faster
+      // than the renderer's frame pacing, so a long simulated turn chain can
+      // fire setState() faster than Flutter's semantics tree can settle
+      // between frames, crashing with "!semantics.parentDataDirty" (see the
+      // identical fix/explanation on BustGameScreen._scheduleAiTurn). A real
+      // (if tiny) delay forces each turn onto its own frame instead.
       final baseThinkMs = offlineTournamentInstantPacing()
-          ? 0
+          ? 16
           : (_randomAiDelayMs(1200, 2500) * diffMult).round();
 
       final lastCardsReactionGraceMs =
@@ -3250,7 +3256,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       // Forced draw pacing: pause before draw and a brief pause after.
       if (!hasPlayable) {
         final drawPauseMs =
-            offlineTournamentInstantPacing() ? 0 : (1000 * diffMult).round();
+            offlineTournamentInstantPacing() ? 16 : (1000 * diffMult).round();
         await Future.delayed(Duration(milliseconds: drawPauseMs));
       } else {
         await Future.delayed(Duration(milliseconds: baseThinkMs));
@@ -3319,8 +3325,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       }
 
       if (!hasPlayable) {
-        await Future.delayed(
-            Duration(milliseconds: offlineTournamentInstantPacing() ? 0 : 600));
+        await Future.delayed(Duration(
+            milliseconds: offlineTournamentInstantPacing() ? 16 : 600));
         if (!mounted) return;
       }
 
