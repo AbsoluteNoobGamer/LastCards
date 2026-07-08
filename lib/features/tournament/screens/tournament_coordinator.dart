@@ -8,6 +8,7 @@ import '../../../../core/models/offline_game_state.dart';
 import '../../../../core/navigation/app_page_routes.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
+import '../../../../core/services/ads_service.dart';
 import '../../../../core/services/player_level_service.dart';
 import '../../../../services/audio_service.dart';
 import '../../../../services/game_sound.dart';
@@ -265,6 +266,9 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
         }
         return;
       }
+      // Each tournament round is a completed match in its own right — same
+      // hook TableScreen uses for standalone offline/online matches.
+      unawaited(AdsService.instance.maybeShowInterstitialAfterMatch());
       if (roundResult != null) {
         // Defensive reconciliation: table can report finish IDs while the engine
         // missed one callback due to route/frame timing. Replaying ensures the

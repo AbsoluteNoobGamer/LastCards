@@ -1690,6 +1690,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               winnerName: winner.displayName,
               isLocalWin: isLocalWin,
               onPlayAgain: () {
+                unawaited(AdsService.instance.maybeShowInterstitialAfterMatch());
                 ref.read(gameNotifierProvider.notifier).clearOnlineState();
                 ref.read(wsClientProvider).disconnect();
                 navigator.pop(); // close dialog

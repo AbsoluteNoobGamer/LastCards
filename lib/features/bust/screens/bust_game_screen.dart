@@ -667,6 +667,9 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
 
     Future.microtask(() {
       if (!mounted) return;
+      // Each Bust round is a completed match in its own right — same hook
+      // TableScreen uses for standalone offline/online matches.
+      unawaited(AdsService.instance.maybeShowInterstitialAfterMatch());
       Navigator.of(context).push(PageRouteBuilder(
         pageBuilder: (_, __, ___) => BustEliminationScreen(
           result: result,
