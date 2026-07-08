@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/game_state.dart';
 import '../../../../core/providers/theme_provider.dart';
+import 'stack_block_banner_overlay.dart' show GlobalKeyFollower;
 
 /// Matches [LastCardsTableStrip] inline chip width.
 const double kDirectionReversalBannerMaxWidth = 340;
@@ -188,8 +189,11 @@ class DirectionBannerAtHud extends StatelessWidget {
       clipBehavior: Clip.none,
       fit: StackFit.expand,
       children: [
-        _HudBannerFollower(
+        GlobalKeyFollower(
           targetKey: hudKey,
+          targetAnchor: Alignment.center,
+          childAnchor: Alignment.center,
+          offset: const Offset(0, kDirectionReversalBannerYOffset),
           child: TurnIndicatorOverlay(
             direction: direction,
             kingJustPlayed: kingJustPlayed,
@@ -202,113 +206,3 @@ class DirectionBannerAtHud extends StatelessWidget {
   }
 }
 
-class _HudBannerFollower extends StatefulWidget {
-  const _HudBannerFollower({
-    required this.targetKey,
-    required this.child,
-  });
-
-  final GlobalKey targetKey;
-  final Widget child;
-
-  @override
-  State<_HudBannerFollower> createState() => _HudBannerFollowerState();
-}
-
-class _HudBannerFollowerState extends State<_HudBannerFollower> {
-  Rect? _targetRect;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback(_scheduleUpdate);
-  }
-
-  @override
-  void didUpdateWidget(covariant _HudBannerFollower oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    WidgetsBinding.instance.addPostFrameCallback(_scheduleUpdate);
-  }
-
-  void _scheduleUpdate(_) {
-    if (!mounted) return;
-    _updateTargetRect();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _updateTargetRect();
-    });
-  }
-
-  void _updateTargetRect() {
-    final targetBox =
-        widget.targetKey.currentContext?.findRenderObject() as RenderBox?;
-    if (targetBox == null || !targetBox.hasSize) return;
-
-    final overlayBox =
-        context.findAncestorRenderObjectOfType<RenderStack>();
-    if (overlayBox == null || !overlayBox.hasSize) return;
-
-    final globalTopLeft = targetBox.localToGlobal(Offset.zero);
-    final topLeft = overlayBox.globalToLocal(globalTopLeft);
-    final rect = topLeft & targetBox.size;
-    if (_targetRect != rect) {
-      setState(() => _targetRect = rect);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final rect = _targetRect;
-    if (rect == null) return const SizedBox.shrink();
-
-    final targetPoint = Offset(
-          rect.left + rect.width / 2,
-          rect.top + rect.height / 2,
-        ) +
-        const Offset(0, kDirectionReversalBannerYOffset);
-
-    return Positioned(
-      left: targetPoint.dx,
-      top: targetPoint.dy,
-      child: _BannerChildAnchor(
-        anchor: Alignment.center,
-        child: widget.child,
-      ),
-    );
-  }
-}
-
-class _BannerChildAnchor extends StatelessWidget {
-  const _BannerChildAnchor({
-    required this.anchor,
-    required this.child,
-  });
-
-  final Alignment anchor;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomSingleChildLayout(
-      delegate: _BannerChildAnchorDelegate(anchor),
-      child: child,
-    );
-  }
-}
-
-class _BannerChildAnchorDelegate extends SingleChildLayoutDelegate {
-  _BannerChildAnchorDelegate(this.anchor);
-
-  final Alignment anchor;
-
-  @override
-  Offset getPositionForChild(Size size, Size childSize) {
-    return Offset(
-      -childSize.width * (anchor.x + 1) / 2,
-      -childSize.height * (anchor.y + 1) / 2,
-    );
-  }
-
-  @override
-  bool shouldRelayout(covariant _BannerChildAnchorDelegate oldDelegate) =>
-      oldDelegate.anchor != anchor;
-}
