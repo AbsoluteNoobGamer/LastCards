@@ -55,7 +55,6 @@ import 'package:last_cards/features/gameplay/presentation/layout/table_chrome_la
 import '../widgets/game_move_log_overlay.dart'
     show GameMoveLogPanel;
 import '../widgets/quick_chat_panel.dart';
-import '../widgets/quick_chat_bubble.dart';
 import '../widgets/felt_table_background.dart';
 
 import '../../../../shared/reactions/reaction_catalog.dart';
@@ -1908,15 +1907,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   TablePortraitGrid.handRegionHeight +
                   TablePortraitGrid.actionBarHeight +
                   AppDimensions.sm;
-          final overlayQuickChatBubbles = {
-            for (final b in _quickChatBubbles)
-              b.playerId: (
-                id: b.id,
-                playerName: b.playerName,
-                reactionWireIndex: b.reactionWireIndex,
-                isLocal: b.isLocal
-              ),
-          };
           final overlayUseRail = gameState.players.length > 4;
           final overlayHasTournamentBadges =
               _buildTournamentStatusBadges().isNotEmpty;
@@ -2068,7 +2058,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 ),
               ),
 
-              // ── Portrait transient overlay (chat, direction) ─────────────
+              // ── Portrait transient overlay (move log, direction) ──────────
               if (isPortraitGrid)
                 Positioned.fill(
                   child: _PortraitTransientOverlayLayer(
@@ -2080,12 +2070,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     opponentRowHeight: overlayOpponentRowHeight,
                     hasRankedBadge: overlayIsRanked,
                     moveLogEntries: _moveLogEntries,
-                    quickChatBubblesByPlayer: overlayQuickChatBubbles,
-                    onRemoveQuickChatBubble: _removeQuickChatBubble,
                   ),
                 ),
 
-              // ── Landscape transient overlay (chat, direction) ─────────────
+              // ── Landscape transient overlay (move log, direction) ─────────
               if (isLandscapeMobile)
                 Positioned.fill(
                   child: _LandscapeTransientOverlayLayer(
@@ -2097,8 +2085,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     opponentRowHeight: overlayOpponentRowHeight,
                     hasRankedBadge: overlayIsRanked,
                     moveLogEntries: _moveLogEntries,
-                    quickChatBubblesByPlayer: overlayQuickChatBubbles,
-                    onRemoveQuickChatBubble: _removeQuickChatBubble,
                   ),
                 ),
 

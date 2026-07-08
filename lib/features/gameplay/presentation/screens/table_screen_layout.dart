@@ -315,8 +315,8 @@ class _TableLayout extends StatelessWidget {
                       ? TablePortraitGrid.opponentRailBaseHeightWithBadge
                       : TablePortraitGrid.opponentRailBaseHeight,
                   thinkingPlayerId: thinkingOpponentId,
-                  quickChatBubblesByPlayer: const {},
-                  onRemoveQuickChatBubble: null,
+                  quickChatBubblesByPlayer: quickChatBubblesByPlayer,
+                  onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                   skipHighlightPlayerIds: skipHighlightPlayerIds,
                 ),
               ),
@@ -486,6 +486,8 @@ class _TableLayout extends StatelessWidget {
                       .contains(localPlayer.id),
                   skipSeatHighlight:
                       skipHighlightPlayerIds.contains(localPlayer.id),
+                  chatBubble: quickChatBubblesByPlayer[localPlayer.id],
+                  onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                   child: finishedPlayerIds.contains(localPlayer.id)
                       ? _TournamentLocalStatusBanner(
                           isEliminated: _isEliminatedBadge(
@@ -718,8 +720,8 @@ class _LandscapeTableLayout extends StatelessWidget {
                       : TablePortraitGrid.landscapeOpponentRailBaseHeight,
                   compact: true,
                   thinkingPlayerId: thinkingOpponentId,
-                  quickChatBubblesByPlayer: const {},
-                  onRemoveQuickChatBubble: null,
+                  quickChatBubblesByPlayer: quickChatBubblesByPlayer,
+                  onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                   skipHighlightPlayerIds: skipHighlightPlayerIds,
                 ),
               ),
@@ -895,6 +897,8 @@ class _LandscapeTableLayout extends StatelessWidget {
                         compact: true,
                         skipSeatHighlight:
                             skipHighlightPlayerIds.contains(localPlayer.id),
+                        chatBubble: quickChatBubblesByPlayer[localPlayer.id],
+                        onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                         child: finishedPlayerIds.contains(localPlayer.id)
                             ? _TournamentLocalStatusBanner(
                                 isEliminated: _isEliminatedBadge(
