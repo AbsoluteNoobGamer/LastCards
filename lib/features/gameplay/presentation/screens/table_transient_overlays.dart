@@ -63,7 +63,6 @@ class _GlobalKeyFollower extends StatefulWidget {
     this.targetAnchor = Alignment.center,
     this.childAnchor = Alignment.center,
     this.offset = Offset.zero,
-    this.maxTop,
     this.minTop,
   });
 
@@ -72,9 +71,6 @@ class _GlobalKeyFollower extends StatefulWidget {
   final Alignment targetAnchor;
   final Alignment childAnchor;
   final Offset offset;
-  /// When set, caps [Positioned.top] so followers (e.g. chat bubbles) stay above
-  /// the move log band.
-  final double? maxTop;
   /// When set, floors [Positioned.top] so followers stay below the move log band.
   final double? minTop;
 
@@ -135,9 +131,6 @@ class _GlobalKeyFollowerState extends State<_GlobalKeyFollower> {
         widget.offset;
 
     var top = targetPoint.dy;
-    if (widget.maxTop != null) {
-      top = math.min(top, widget.maxTop!);
-    }
     if (widget.minTop != null) {
       top = math.max(top, widget.minTop!);
     }
@@ -313,7 +306,12 @@ class _PortraitDirectionBannerOverlay extends StatelessWidget {
   }
 }
 
-/// Wraps portrait-only transient overlays (chat, direction banner).
+/// Wraps portrait-only transient overlays (move log, direction banner, Last
+/// Cards strip). Quick-chat bubbles are no longer rendered here — they're
+/// docked inline under each player's name/avatar instead (via
+/// [PlayerZoneWidget.chatBubble] / [BustPlayerRail.quickChatBubblesByPlayer]),
+/// matching Bust mode, so it's unambiguous who sent a reaction instead of a
+/// loosely-positioned floating bubble.
 class _PortraitTransientOverlayLayer extends StatelessWidget {
   const _PortraitTransientOverlayLayer({
     required this.gameState,
@@ -324,8 +322,6 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
     required this.opponentRowHeight,
     required this.hasRankedBadge,
     required this.moveLogEntries,
-    required this.quickChatBubblesByPlayer,
-    required this.onRemoveQuickChatBubble,
     required this.appTheme,
     this.stackBlockBannerText,
     this.stackBlockBannerColor,
@@ -339,22 +335,12 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
   final double opponentRowHeight;
   final bool hasRankedBadge;
   final List<MoveLogEntry> moveLogEntries;
-  final Map<String, QuickChatBubbleData> quickChatBubblesByPlayer;
-  final void Function(String id)? onRemoveQuickChatBubble;
   final AppThemeData appTheme;
   final String? stackBlockBannerText;
   final Color? stackBlockBannerColor;
 
   @override
   Widget build(BuildContext context) {
-    final safeTop = MediaQuery.paddingOf(context).top;
-    final chatBubbleMaxTop = TablePortraitGrid.boardRegionTopPx(
-          safeTop: safeTop,
-          hasRankedBadge: hasRankedBadge,
-          opponentRowHeight: opponentRowHeight,
-        ) -
-        8;
-
     return Stack(
       clipBehavior: Clip.none,
       fit: StackFit.expand,
@@ -365,24 +351,6 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
           hasRankedBadge: hasRankedBadge,
           useRail: gameState.players.length > 4,
         ),
-        if (onRemoveQuickChatBubble != null)
-          for (final entry in quickChatBubblesByPlayer.entries)
-            if (playerZoneKeys[entry.key] != null)
-              _GlobalKeyFollower(
-                targetKey: playerZoneKeys[entry.key]!,
-                targetAnchor: Alignment.bottomCenter,
-                childAnchor: Alignment.topCenter,
-                offset: const Offset(0, 4),
-                maxTop: chatBubbleMaxTop,
-                child: QuickChatBubble(
-                  key: ValueKey(entry.value.id),
-                  playerName: entry.value.playerName,
-                  reactionWireIndex: entry.value.reactionWireIndex,
-                  isLocal: entry.value.isLocal,
-                  tailPointsUp: true,
-                  onDismiss: () => onRemoveQuickChatBubble!(entry.value.id),
-                ),
-              ),
         _PortraitDirectionBannerOverlay(
           direction: gameState.direction,
           kingJustPlayed: kingJustPlayed,
@@ -423,6 +391,8 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
 }
 
 /// Landscape transient overlays — same key-follower pattern as portrait.
+/// Quick-chat bubbles are docked inline (see [_PortraitTransientOverlayLayer]
+/// doc comment) rather than rendered here.
 class _LandscapeTransientOverlayLayer extends StatelessWidget {
   const _LandscapeTransientOverlayLayer({
     required this.gameState,
@@ -433,8 +403,6 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
     required this.opponentRowHeight,
     required this.hasRankedBadge,
     required this.moveLogEntries,
-    required this.quickChatBubblesByPlayer,
-    required this.onRemoveQuickChatBubble,
     required this.appTheme,
     this.stackBlockBannerText,
     this.stackBlockBannerColor,
@@ -448,22 +416,12 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
   final double opponentRowHeight;
   final bool hasRankedBadge;
   final List<MoveLogEntry> moveLogEntries;
-  final Map<String, QuickChatBubbleData> quickChatBubblesByPlayer;
-  final void Function(String id)? onRemoveQuickChatBubble;
   final AppThemeData appTheme;
   final String? stackBlockBannerText;
   final Color? stackBlockBannerColor;
 
   @override
   Widget build(BuildContext context) {
-    final safeTop = MediaQuery.paddingOf(context).top;
-    final chatBubbleMaxTop = TablePortraitGrid.landscapeBoardRegionTopPx(
-          safeTop: safeTop,
-          hasRankedBadge: hasRankedBadge,
-          opponentRowHeight: opponentRowHeight,
-        ) -
-        8;
-
     return Stack(
       clipBehavior: Clip.none,
       fit: StackFit.expand,
@@ -475,24 +433,6 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
           useRail: gameState.players.length > 4,
           landscape: true,
         ),
-        if (onRemoveQuickChatBubble != null)
-          for (final entry in quickChatBubblesByPlayer.entries)
-            if (playerZoneKeys[entry.key] != null)
-              _GlobalKeyFollower(
-                targetKey: playerZoneKeys[entry.key]!,
-                targetAnchor: Alignment.bottomCenter,
-                childAnchor: Alignment.topCenter,
-                offset: const Offset(0, 4),
-                maxTop: chatBubbleMaxTop,
-                child: QuickChatBubble(
-                  key: ValueKey(entry.value.id),
-                  playerName: entry.value.playerName,
-                  reactionWireIndex: entry.value.reactionWireIndex,
-                  isLocal: entry.value.isLocal,
-                  tailPointsUp: true,
-                  onDismiss: () => onRemoveQuickChatBubble!(entry.value.id),
-                ),
-              ),
         _PortraitDirectionBannerOverlay(
           direction: gameState.direction,
           kingJustPlayed: kingJustPlayed,
