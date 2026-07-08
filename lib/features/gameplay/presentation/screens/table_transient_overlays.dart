@@ -407,6 +407,7 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
             color: stackBlockBannerColor!,
             appTheme: appTheme,
             discardPileKey: discardPileKey,
+            landscape: false,
             minTop: _moveLogBottomPx(
               context: context,
               entries: moveLogEntries,
@@ -516,6 +517,7 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
             color: stackBlockBannerColor!,
             appTheme: appTheme,
             discardPileKey: discardPileKey,
+            landscape: true,
             minTop: _moveLogBottomPx(
               context: context,
               entries: moveLogEntries,
@@ -566,14 +568,42 @@ class _PortraitLastCardsStripOverlay extends StatelessWidget {
   }
 }
 
+/// Horizontal distance from the discard pile's own centre to the true centre
+/// of the draw+discard pile row (the row is centered as a whole, but the
+/// discard pile — the wider of the two — sits right of that midpoint).
+/// Negative: the row's true centre is left of the discard pile's centre.
+double _pileRowCenterOffsetFromDiscardCenter({required bool landscape}) {
+  final drawWidth = landscape
+      ? TablePortraitGrid.landscapeDrawPileCardWidth
+      : TablePortraitGrid.drawPileCardWidth;
+  final discardWidth = landscape
+      ? TablePortraitGrid.landscapeDiscardPileCardWidth
+      : TablePortraitGrid.discardPileCardWidth;
+  final gap = landscape
+      ? TablePortraitGrid.landscapePileGap
+      : TablePortraitGrid.pileGap;
+
+  final drawFootprint = TablePortraitGrid.drawPileFootprintWidth(drawWidth);
+  final discardFootprint =
+      TablePortraitGrid.discardPileFootprintWidth(discardWidth);
+  final rowCenter = (drawFootprint + gap + discardFootprint) / 2;
+  final discardCenter = drawFootprint + gap + discardFootprint / 2;
+  return rowCenter - discardCenter;
+}
+
 /// Stack-block banner ("+2 added to the stack!" etc.) — floats just above the
-/// discard pile, floored by [minTop] so it never climbs above the move log.
+/// pile row, floored by [minTop] so it never climbs above the move log.
+///
+/// Anchored to [discardPileKey] but shifted left by
+/// [_pileRowCenterOffsetFromDiscardCenter] so it centers on the draw+discard
+/// pile row as a whole, not just the (wider, right-of-centre) discard pile.
 class _StackBlockBannerOverlay extends StatelessWidget {
   const _StackBlockBannerOverlay({
     required this.text,
     required this.color,
     required this.appTheme,
     required this.discardPileKey,
+    required this.landscape,
     this.minTop,
   });
 
@@ -581,15 +611,18 @@ class _StackBlockBannerOverlay extends StatelessWidget {
   final Color color;
   final AppThemeData appTheme;
   final GlobalKey discardPileKey;
+  final bool landscape;
   final double? minTop;
 
   @override
   Widget build(BuildContext context) {
+    final centerOffsetX =
+        _pileRowCenterOffsetFromDiscardCenter(landscape: landscape);
     return _GlobalKeyFollower(
       targetKey: discardPileKey,
       targetAnchor: Alignment.topCenter,
       childAnchor: Alignment.bottomCenter,
-      offset: const Offset(0, -10),
+      offset: Offset(centerOffsetX, -10),
       minTop: minTop,
       child: IgnorePointer(
         child: Container(
