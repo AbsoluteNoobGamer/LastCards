@@ -59,6 +59,18 @@ class BustRoundState {
       !isFinalShowdown &&
       activePlayerIds.every((id) => (turnsThisRound[id] ?? 0) >= 2);
 
+  /// [playerId] has taken both allotted turns this round (turn cap reached)
+  /// but the round hasn't finished — other players still have turns left,
+  /// so [playerId] is just watching until [isRoundComplete]. Never true
+  /// during [isFinalShowdown] (no turn cap there — every player is always
+  /// still in the race). Used to gate the rewarded-ad "skip rest of round"
+  /// button in `BustGameScreen`.
+  bool hasFinishedTurnsWaitingOnOthers(String playerId) {
+    if (isFinalShowdown) return false;
+    if (isRoundComplete) return false;
+    return (turnsThisRound[playerId] ?? 0) >= 2;
+  }
+
   BustRoundState copyWith({
     int? roundNumber,
     List<String>? activePlayerIds,

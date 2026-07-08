@@ -35,6 +35,7 @@ import 'package:last_cards/features/gameplay/presentation/widgets/player_zone_wi
 import 'package:last_cards/features/gameplay/presentation/widgets/quick_chat_panel.dart'
     show QuickChatPanel;
 import 'package:last_cards/features/gameplay/presentation/widgets/turn_indicator_overlay.dart';
+import 'package:last_cards/core/services/ads_service.dart';
 import 'package:last_cards/core/services/player_level_service.dart';
 import 'package:last_cards/shared/reactions/reaction_catalog.dart';
 import 'package:last_cards/features/settings/presentation/widgets/settings_modal.dart';
@@ -179,6 +180,22 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   bool get _bustStopPlayFromTurnCap =>
       !_roundManager.state.isFinalShowdown &&
       _roundManager.state.isRoundComplete;
+
+  /// When true, AI turns resolve instantly (no delay) — set after the local
+  /// player watches a rewarded ad to skip the rest of a round they've
+  /// already used both their turns in. See [_onBustSkipTapped].
+  bool _bustSimulatingRest = false;
+
+  /// True while the rewarded ad for [_onBustSkipTapped] is loading/showing.
+  bool _bustSkipAdShowing = false;
+
+  /// Whether to show the "skip rest of round" chip — see
+  /// [BustRoundState.hasFinishedTurnsWaitingOnOthers].
+  bool get _bustCanSkipRest {
+    if (_bustRoundNavigationQueued) return false;
+    return _roundManager.state
+        .hasFinishedTurnsWaitingOnOthers(OfflineGameState.localId);
+  }
 
   @override
   void initState() {
@@ -636,6 +653,30 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     });
   }
 
+  // ── Skip rest of round (rewarded ad) ───────────────────────────────────────
+
+  /// Shows a rewarded ad; only starts fast-forwarding the remaining AI turns
+  /// this round if the player watches it to completion (see
+  /// [AdsService.showRewardedAd]). The AI turn chain is already running by
+  /// the time this is tappable (see [_bustCanSkipRest]) — this just flips
+  /// [_bustSimulatingRest] so [_scheduleAiTurn]'s delay collapses to zero.
+  Future<void> _onBustSkipTapped() async {
+    if (!_bustCanSkipRest || _bustSimulatingRest || _bustSkipAdShowing) return;
+    setState(() => _bustSkipAdShowing = true);
+    final shown = await AdsService.instance.showRewardedAd(
+      onEarnedReward: (_) {
+        if (mounted) setState(() => _bustSimulatingRest = true);
+      },
+    );
+    if (!mounted) return;
+    setState(() => _bustSkipAdShowing = false);
+    if (!shown) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ad not ready yet — try again in a moment.')),
+      );
+    }
+  }
+
   // ── Card play ──────────────────────────────────────────────────────────────
 
   void _onCardTap(String cardId) {
@@ -936,10 +977,22 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     final hasPlayable = aiHasPlayableTurn(
         state: _gameState, aiPlayerId: aiId);
     final diffMult = widget.aiDifficulty.delayMultiplier;
-    final delayMs = hasPlayable
-        ? ((1000 + _aiDelayRng.nextInt(900)) * diffMult).round()
-        : (800 * diffMult).round();
+    final delayMs = _bustSimulatingRest
+        // One frame (~16ms), not 0: Duration.zero still resolves far faster
+        // than the renderer's frame pacing, so a long simulated chain (up
+        // to ~18 turns for 10 players × 2 turns) can fire setState() faster
+        // than Flutter's semantics tree can settle between frames, which
+        // crashes with "!semantics.parentDataDirty". A real (if tiny) delay
+        // forces each turn onto its own frame instead.
+        ? 16
+        : hasPlayable
+            ? ((1000 + _aiDelayRng.nextInt(900)) * diffMult).round()
+            : (800 * diffMult).round();
 
+    // Always await this, never skip it for a 0ms case: without a real
+    // suspension point here, a long recursive AI-turn chain would run with
+    // no yield to the event loop at all, freezing the UI and risking a
+    // stack-depth crash.
     await Future.delayed(Duration(milliseconds: delayMs));
     if (!mounted) return;
 
@@ -1773,6 +1826,95 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                     ),
                   ),
                 ),
+
+              // ── Bust skip (rewarded ad, once local has used both turns) ─────
+              // Always mounted — toggling via `if (...) Positioned(...)`
+              // inserts/removes this InkWell/Material subtree (and its
+              // semantics nodes) from the Stack exactly when a burst of
+              // AI-turn state updates is starting, which reliably crashed
+              // with "!semantics.parentDataDirty". Visibility with
+              // maintainState/maintainAnimation/maintainSize keeps the
+              // Element/RenderObject alive and in place; only paint/hit-test/
+              // semantics are toggled, which Flutter handles safely.
+              Positioned(
+                bottom: MediaQuery.of(context).padding.bottom + 170,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Visibility(
+                    visible: _bustCanSkipRest &&
+                        !_isDealing &&
+                        _gameState.phase != GamePhase.ended,
+                    maintainState: true,
+                    maintainAnimation: true,
+                    maintainSize: true,
+                    child: Builder(
+                      builder: (context) {
+                        final busy = _bustSimulatingRest || _bustSkipAdShowing;
+                        final label = _bustSimulatingRest
+                            ? 'Simulating…'
+                            : _bustSkipAdShowing
+                                ? 'Loading ad…'
+                                : 'Watch ad to skip';
+                        return Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: busy
+                                ? null
+                                : () {
+                                    unawaited(_onBustSkipTapped());
+                                  },
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: busy
+                                    ? Colors.white24
+                                    : AppColors.goldPrimary.withValues(alpha: 0.9),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: busy ? Colors.white38 : AppColors.goldDark,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (busy)
+                                    const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  else
+                                    const Icon(
+                                      Icons.ondemand_video_rounded,
+                                      size: 20,
+                                      color: Colors.black87,
+                                    ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    label,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: busy ? Colors.white70 : Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
             ],
           );
         },

@@ -238,6 +238,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   /// When true, we're fast-forwarding the rest of the round after user tapped Skip.
   bool _tournamentSimulatingRest = false;
+
+  /// When true, a rewarded ad is loading/showing for the tournament skip —
+  /// distinct from [_tournamentSimulatingRest], which only starts once the
+  /// ad has actually been watched.
+  bool _tournamentSkipAdShowing = false;
   // ── Turn timer ────────────────────────────────────────────────────
   late final GameTurnTimer _engineTimer = GameTurnTimer();
   StreamSubscription<int>? _timerWarningSub;
@@ -2109,85 +2114,108 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 ),
 
               // ── Tournament Skip (offline, when qualified) ───────────────────
-              if (widget.isTournamentMode &&
-                  _isOfflineSession &&
-                  _tournamentFinishedPlayerIds
-                      .contains(OfflineGameState.localId) &&
-                  !_tournamentRoundComplete &&
-                  gameState.phase != GamePhase.ended)
-                Positioned(
-                  bottom: isLandscapeMobile
-                      ? landscapeSkipChipBottom
-                      : portraitSkipChipBottom,
-                  left: 0,
-                  right: 0,
-                  child: SafeArea(
-                    top: false,
-                    child: Center(
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: _tournamentSimulatingRest
-                              ? null
-                              : () {
-                                  unawaited(_onTournamentSkipTapped());
-                                },
-                          borderRadius: BorderRadius.circular(20),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: _tournamentSimulatingRest
-                                  ? Colors.white24
-                                  : AppColors.goldPrimary
-                                      .withValues(alpha: 0.9),
+              // Always mounted — toggling via `if (...) Positioned(...)`
+              // inserts/removes this InkWell/Material subtree (and its
+              // semantics nodes) from the Stack exactly when a burst of
+              // AI-turn state updates is starting, which reliably crashes
+              // with "!semantics.parentDataDirty" in the identical Bust
+              // pattern (see BustGameScreen's skip chip). Visibility with
+              // maintainState/maintainAnimation/maintainSize keeps the
+              // Element/RenderObject alive and in place; only paint/hit-test/
+              // semantics are toggled, which Flutter handles safely.
+              Positioned(
+                bottom: isLandscapeMobile
+                    ? landscapeSkipChipBottom
+                    : portraitSkipChipBottom,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  top: false,
+                  child: Center(
+                    child: Visibility(
+                      visible: widget.isTournamentMode &&
+                          _isOfflineSession &&
+                          _tournamentFinishedPlayerIds
+                              .contains(OfflineGameState.localId) &&
+                          !_tournamentRoundComplete &&
+                          gameState.phase != GamePhase.ended,
+                      maintainState: true,
+                      maintainAnimation: true,
+                      maintainSize: true,
+                      child: Builder(
+                        builder: (context) {
+                          final busy =
+                              _tournamentSimulatingRest || _tournamentSkipAdShowing;
+                          final label = _tournamentSimulatingRest
+                              ? 'Simulating…'
+                              : _tournamentSkipAdShowing
+                                  ? 'Loading ad…'
+                                  : 'Watch ad to skip';
+                          return Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: busy
+                                  ? null
+                                  : () {
+                                      unawaited(_onTournamentSkipTapped());
+                                    },
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: _tournamentSimulatingRest
-                                    ? Colors.white38
-                                    : AppColors.goldDark,
-                                width: 1.5,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (_tournamentSimulatingRest)
-                                  SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                else
-                                  const Icon(
-                                    Icons.fast_forward_rounded,
-                                    size: 20,
-                                    color: Colors.black87,
-                                  ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _tournamentSimulatingRest
-                                      ? 'Simulating…'
-                                      : 'Skip to result',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: _tournamentSimulatingRest
-                                        ? Colors.white70
-                                        : Colors.black87,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: busy
+                                      ? Colors.white24
+                                      : AppColors.goldPrimary
+                                          .withValues(alpha: 0.9),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: busy
+                                        ? Colors.white38
+                                        : AppColors.goldDark,
+                                    width: 1.5,
                                   ),
                                 ),
-                              ],
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (busy)
+                                      SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    else
+                                      const Icon(
+                                        Icons.ondemand_video_rounded,
+                                        size: 20,
+                                        color: Colors.black87,
+                                      ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      label,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: busy
+                                            ? Colors.white70
+                                            : Colors.black87,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
                       ),
                     ),
                   ),
                 ),
+              ),
 
               // ── Settings + back (single-player and online) ──────────────────
               Positioned(
@@ -3194,8 +3222,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final hasPlayable =
           aiHasPlayableTurn(state: _offlineState, aiPlayerId: aiId);
       final diffMult = widget.aiDifficulty?.delayMultiplier ?? 1.0;
+      // One frame (~16ms), not 0: Duration.zero still resolves far faster
+      // than the renderer's frame pacing, so a long simulated turn chain can
+      // fire setState() faster than Flutter's semantics tree can settle
+      // between frames, crashing with "!semantics.parentDataDirty" (see the
+      // identical fix/explanation on BustGameScreen._scheduleAiTurn). A real
+      // (if tiny) delay forces each turn onto its own frame instead.
       final baseThinkMs = offlineTournamentInstantPacing()
-          ? 0
+          ? 16
           : (_randomAiDelayMs(1200, 2500) * diffMult).round();
 
       final lastCardsReactionGraceMs =
@@ -3208,7 +3242,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       // Forced draw pacing: pause before draw and a brief pause after.
       if (!hasPlayable) {
         final drawPauseMs =
-            offlineTournamentInstantPacing() ? 0 : (1000 * diffMult).round();
+            offlineTournamentInstantPacing() ? 16 : (1000 * diffMult).round();
         await Future.delayed(Duration(milliseconds: drawPauseMs));
       } else {
         await Future.delayed(Duration(milliseconds: baseThinkMs));
@@ -3277,8 +3311,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       }
 
       if (!hasPlayable) {
-        await Future.delayed(
-            Duration(milliseconds: offlineTournamentInstantPacing() ? 0 : 600));
+        await Future.delayed(Duration(
+            milliseconds: offlineTournamentInstantPacing() ? 16 : 600));
         if (!mounted) return;
       }
 
@@ -3528,17 +3562,30 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
   }
 
+  /// Shows a rewarded ad; only starts the fast-forward simulation if the
+  /// player watches it to completion (see [AdsService.showRewardedAd]).
   Future<void> _onTournamentSkipTapped() async {
     if (!widget.isTournamentMode ||
         !_isOfflineSession ||
         _tournamentRoundComplete ||
-        _tournamentSimulatingRest) {
+        _tournamentSimulatingRest ||
+        _tournamentSkipAdShowing) {
       return;
     }
     if (!_tournamentFinishedPlayerIds.contains(OfflineGameState.localId)) {
       return;
     }
-    _startTournamentSimulation();
+    setState(() => _tournamentSkipAdShowing = true);
+    final shown = await AdsService.instance.showRewardedAd(
+      onEarnedReward: (_) => _startTournamentSimulation(),
+    );
+    if (!mounted) return;
+    setState(() => _tournamentSkipAdShowing = false);
+    if (!shown) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ad not ready yet — try again in a moment.')),
+      );
+    }
   }
 
   /// Starts fast-forward simulation of the rest of the round when the local
