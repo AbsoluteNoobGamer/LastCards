@@ -68,8 +68,9 @@ class InviteFriendsSheet extends ConsumerWidget {
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 24),
                     child: Text(
-                      'No friends yet. Tap another player’s avatar during an '
-                      'online game to send a friend request.',
+                      'No friends yet. Open Friends from the home screen to '
+                      'search for a player, or tap another player’s avatar '
+                      'during an online game.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.inter(
                         fontSize: 13,
