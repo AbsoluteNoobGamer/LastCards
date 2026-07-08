@@ -669,30 +669,44 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
-                              _IconRowItem(
-                                "Leaderboard",
-                                Icons.emoji_events_rounded,
-                                () => _pushWithTransition(
-                                  context,
-                                  const LeaderboardScreen(),
+                              // Expanded: without a width constraint, each
+                              // item's label sizes to its natural (unclamped)
+                              // width, so the Text's overflow:ellipsis never
+                              // engages and the Row can overflow on narrower
+                              // phones (e.g. iPhone SE/mini, ~375-390 logical
+                              // px wide) once "Leaderboard" is in the mix.
+                              Expanded(
+                                child: _IconRowItem(
+                                  "Leaderboard",
+                                  Icons.emoji_events_rounded,
+                                  () => _pushWithTransition(
+                                    context,
+                                    const LeaderboardScreen(),
+                                  ),
                                 ),
                               ),
-                              _IconRowItem(
-                                "Locker",
-                                Icons.style_rounded,
-                                () => showLocker(context),
+                              Expanded(
+                                child: _IconRowItem(
+                                  "Locker",
+                                  Icons.style_rounded,
+                                  () => showLocker(context),
+                                ),
                               ),
-                              _IconRowItem(
-                                "Settings",
-                                Icons.settings_rounded,
-                                () => _showSettings(context),
+                              Expanded(
+                                child: _IconRowItem(
+                                  "Settings",
+                                  Icons.settings_rounded,
+                                  () => _showSettings(context),
+                                ),
                               ),
-                              _IconRowItem(
-                                "Rules",
-                                Icons.menu_book_rounded,
-                                () => _pushWithTransition(
-                                  context,
-                                  const RulesScreen(),
+                              Expanded(
+                                child: _IconRowItem(
+                                  "Rules",
+                                  Icons.menu_book_rounded,
+                                  () => _pushWithTransition(
+                                    context,
+                                    const RulesScreen(),
+                                  ),
                                 ),
                               ),
                             ],

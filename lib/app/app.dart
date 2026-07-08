@@ -14,6 +14,15 @@ import '../core/providers/theme_provider.dart';
 import '../features/settings/presentation/widgets/settings_modal.dart';
 import 'router/app_routes.dart';
 
+/// Wraps [FirebaseAnalyticsObserver] construction behind a provider so tests
+/// can override it with a no-op observer instead of touching the real
+/// Firebase Analytics SDK — which requires `Firebase.initializeApp()` to
+/// have run, never true in the test sandbox. Production behavior is
+/// unchanged: this returns the exact same observer as before.
+final analyticsNavigatorObserverProvider = Provider<NavigatorObserver>((ref) {
+  return FirebaseAnalyticsObserver(analytics: FirebaseAnalytics.instance);
+});
+
 class LastCardsApp extends ConsumerStatefulWidget {
   const LastCardsApp({super.key});
 
@@ -39,6 +48,7 @@ class _LastCardsAppState extends ConsumerState<LastCardsApp> {
     ref.watch(reactionWheelProvider);
     final themeState = ref.watch(themeProvider);
     final reduceMotion = ref.watch(reduceMotionProvider);
+    final analyticsObserver = ref.watch(analyticsNavigatorObserverProvider);
     return MaterialApp(
       title: 'Last Cards',
       debugShowCheckedModeBanner: false,
@@ -49,7 +59,7 @@ class _LastCardsAppState extends ConsumerState<LastCardsApp> {
       navigatorObservers: [
         appRouteObserver,
         startScreenBgmNavigatorObserver,
-        FirebaseAnalyticsObserver(analytics: FirebaseAnalytics.instance),
+        analyticsObserver,
       ],
       builder: (context, child) {
         final mq = MediaQuery.of(context);

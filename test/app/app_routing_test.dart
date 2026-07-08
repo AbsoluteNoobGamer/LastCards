@@ -50,6 +50,8 @@ List<Override> _routingOverrides({User? user}) {
       ),
     ),
     audioServiceProvider.overrideWith((ref) => _MockAudioService()),
+    // Firebase Analytics isn't initialized in the test sandbox.
+    analyticsNavigatorObserverProvider.overrideWithValue(NavigatorObserver()),
   ];
 }
 
