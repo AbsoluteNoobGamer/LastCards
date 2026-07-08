@@ -259,7 +259,7 @@ class _PortraitMoveLogOverlay extends StatelessWidget {
       left: 0,
       right: 0,
       child: Align(
-        alignment: Alignment.centerLeft,
+        alignment: Alignment.topCenter,
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: TablePortraitGrid.moveLogHorizontalInset,
