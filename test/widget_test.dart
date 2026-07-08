@@ -9,9 +9,18 @@ void main() {
     // Seed SharedPreferences so ProfileService doesn't crash during init.
     SharedPreferences.setMockInitialValues({'profile_name': 'Player'});
 
-    // Build our app wrapped in ProviderScope (same as main.dart).
+    // Build our app wrapped in ProviderScope (same as main.dart). Firebase
+    // Analytics isn't initialized in the test sandbox, so swap in a no-op
+    // navigator observer instead of the real Firebase-backed one.
     await tester.pumpWidget(
-      const ProviderScope(child: StackAndFlowApp()),
+      ProviderScope(
+        overrides: [
+          analyticsNavigatorObserverProvider.overrideWithValue(
+            NavigatorObserver(),
+          ),
+        ],
+        child: const StackAndFlowApp(),
+      ),
     );
 
     // Basic check: verify it pumps without crashing.
