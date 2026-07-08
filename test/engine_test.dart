@@ -399,6 +399,56 @@ void main() {
       );
       expect(err, isNull);
     });
+
+    test('multiCardSequenceAnchoredByHighEndAceMatchesDiscardByRank', () {
+      // Regression: user reported that playing [A♥, K♥] together on top of a
+      // discard of A♣ was rejected. The Ace matches the discard by rank
+      // (A==A); the King is just the tail of a same-suit descending run from
+      // the Ace. The old code only ever validated the numerically-lowest
+      // card (the King here, since Ace sorts high) against the discard,
+      // which shares neither rank nor suit with A♣.
+      final state = buildState(discardTop: c(Rank.ace, Suit.clubs));
+      final err = validatePlay(
+        cards: [c(Rank.ace, Suit.hearts), c(Rank.king, Suit.hearts)],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNull);
+    });
+
+    test('aceTwoWrapAnchorFallsBackToPreTurnCentreSuitWhenDiscardDiffers', () {
+      // [2♠, A♠] doesn't match discard 5♦ by suit or rank at either end, so
+      // the Ace anchor falls back to the pre-turn-centre-suit exception —
+      // valid here because it matches (spades == spades), same as the
+      // original ace-starts-an-ascending-sequence rule this mirrors.
+      final state = buildState(
+        discardTop: c(Rank.five, Suit.diamonds),
+        preTurnCentreSuit: Suit.spades,
+      );
+      final err = validatePlay(
+        cards: [c(Rank.ace, Suit.spades), c(Rank.two, Suit.spades)],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNull);
+    });
+
+    test('highEndAceAnchorStillRequiresPreTurnCentreSuitWhenNotMatchingNormally', () {
+      // Guards against a new loophole introduced by trying the high end: an
+      // Ace that does NOT match the discard by suit or rank must still fall
+      // back to the pre-turn-centre-suit restriction (it can't just ride the
+      // ordinary first-card wildcard rule to smuggle in an unrelated run).
+      final state = buildState(
+        discardTop: c(Rank.five, Suit.diamonds),
+        preTurnCentreSuit: Suit.diamonds,
+      );
+      final err = validatePlay(
+        cards: [c(Rank.king, Suit.clubs), c(Rank.ace, Suit.clubs)],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNotNull);
+    });
   });
 
   group('4. Queen Self-Covering', () {

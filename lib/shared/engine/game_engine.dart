@@ -205,17 +205,15 @@ String? validatePlay({
       return 'Sequence must be consecutive cards of the same suit.';
     }
 
-    // Scenario 2 (Multi-card play involving Ace):
-    // If the sequence starts with an Ace, it must match the pre-turn centre suit
-    // in order to be a valid *sequence containing an Ace*.
-    if (state.actionsThisTurn == 0 && sorted.first.effectiveRank == Rank.ace) {
-      if (sorted.first.effectiveSuit != state.preTurnCentreSuit) {
-        return 'Invalid sequence: The Ace (${sorted.first.shortLabel}) must match the centre card (${state.preTurnCentreSuit?.displayName}) to start a sequence.';
-      }
-    }
-
-    // Leading card (lowest value) validates against the discard.
-    return _validateSingle(sorted.first, discardTop, state);
+    // The card connecting the run to the discard pile can be either end: the
+    // lowest card for an ascending run, or the highest for a descending one
+    // (see docstring). Try the low end first, then fall back to the high end
+    // — e.g. discard A♣, playing [A♥, K♥]: the King (low end under
+    // high-Ace-first sort) doesn't match, but the Ace (high end) matches the
+    // discard by rank, with the King simply the tail of the descending run.
+    final lowError = _validateSequenceAnchor(sorted.first, discardTop, state);
+    if (lowError == null) return null;
+    return _validateSequenceAnchor(sorted.last, discardTop, state);
   }
 
   // ── Same-turn sequential adjacency (Numerical Flow Rule) ──────────────
@@ -428,6 +426,32 @@ List<CardModel> getValidJokerOptions({
   }
 
   return validOptions;
+}
+
+/// Validates [anchor] — one end of a multi-card sequence — against [discard].
+///
+/// An Ace anchor needs an extra check beyond [_validateSingle]: that
+/// function's first-card wildcard rule lets *any* Ace connect to *any*
+/// discard, which would otherwise let a same-suit run be smuggled in behind
+/// an Ace regardless of what's actually on the pile. So an Ace anchor must
+/// either match the discard normally (by rank — e.g. Ace-on-Ace) or, if it's
+/// relying purely on the wildcard, match [GameState.preTurnCentreSuit].
+String? _validateSequenceAnchor(
+  CardModel anchor,
+  CardModel discard,
+  GameState state,
+) {
+  if (state.actionsThisTurn == 0 && anchor.effectiveRank == Rank.ace) {
+    final requiredSuit = state.suitLock ?? discard.effectiveSuit;
+    final matchesNormally = anchor.effectiveSuit == requiredSuit ||
+        anchor.effectiveRank == discard.effectiveRank;
+    if (matchesNormally) return null;
+    if (anchor.effectiveSuit != state.preTurnCentreSuit) {
+      return 'Invalid sequence: The Ace (${anchor.shortLabel}) must match the centre card (${state.preTurnCentreSuit?.displayName}) to start a sequence.';
+    }
+    return null;
+  }
+  return _validateSingle(anchor, discard, state);
 }
 
 /// Returns `null` if [card] can legally be played on top of [discard].
