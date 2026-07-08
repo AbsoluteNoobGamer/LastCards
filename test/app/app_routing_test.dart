@@ -72,14 +72,14 @@ Future<void> _pumpNamedRoute(
   await tester.pump();
 }
 
-Future<void> _pumpStackAndFlowApp(
+Future<void> _pumpLastCardsApp(
   WidgetTester tester, {
   User? signedInUser,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: _routingOverrides(user: signedInUser),
-      child: const StackAndFlowApp(),
+      child: const LastCardsApp(),
     ),
   );
   await tester.pump();
@@ -106,10 +106,10 @@ void main() {
   }
 
   testWidgets(
-    'StackAndFlowApp bootstrap reaches AppRoutes.start with start screen',
+    'LastCardsApp bootstrap reaches AppRoutes.start with start screen',
     (tester) async {
       await useRealisticPhoneViewport(tester);
-      await _pumpStackAndFlowApp(tester, signedInUser: _signedInUser());
+      await _pumpLastCardsApp(tester, signedInUser: _signedInUser());
 
       expect(find.byType(SplashScreen), findsOneWidget);
 

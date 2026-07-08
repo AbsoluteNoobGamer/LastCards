@@ -14,14 +14,14 @@ import '../core/providers/theme_provider.dart';
 import '../features/settings/presentation/widgets/settings_modal.dart';
 import 'router/app_routes.dart';
 
-class StackAndFlowApp extends ConsumerStatefulWidget {
-  const StackAndFlowApp({super.key});
+class LastCardsApp extends ConsumerStatefulWidget {
+  const LastCardsApp({super.key});
 
   @override
-  ConsumerState<StackAndFlowApp> createState() => _StackAndFlowAppState();
+  ConsumerState<LastCardsApp> createState() => _LastCardsAppState();
 }
 
-class _StackAndFlowAppState extends ConsumerState<StackAndFlowApp> {
+class _LastCardsAppState extends ConsumerState<LastCardsApp> {
   @override
   void initState() {
     super.initState();
