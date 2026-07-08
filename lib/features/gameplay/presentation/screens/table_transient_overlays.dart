@@ -259,7 +259,7 @@ class _PortraitMoveLogOverlay extends StatelessWidget {
       left: 0,
       right: 0,
       child: Align(
-        alignment: Alignment.centerLeft,
+        alignment: Alignment.topCenter,
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: TablePortraitGrid.moveLogHorizontalInset,
@@ -326,6 +326,9 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
     required this.moveLogEntries,
     required this.quickChatBubblesByPlayer,
     required this.onRemoveQuickChatBubble,
+    required this.appTheme,
+    this.stackBlockBannerText,
+    this.stackBlockBannerColor,
   });
 
   final GameState gameState;
@@ -338,6 +341,9 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
   final List<MoveLogEntry> moveLogEntries;
   final Map<String, QuickChatBubbleData> quickChatBubblesByPlayer;
   final void Function(String id)? onRemoveQuickChatBubble;
+  final AppThemeData appTheme;
+  final String? stackBlockBannerText;
+  final Color? stackBlockBannerColor;
 
   @override
   Widget build(BuildContext context) {
@@ -395,6 +401,22 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
             landscape: false,
           ),
         ),
+        if (stackBlockBannerText != null)
+          _StackBlockBannerOverlay(
+            text: stackBlockBannerText!,
+            color: stackBlockBannerColor!,
+            appTheme: appTheme,
+            discardPileKey: discardPileKey,
+            landscape: false,
+            minTop: _moveLogBottomPx(
+              context: context,
+              entries: moveLogEntries,
+              opponentRowHeight: opponentRowHeight,
+              hasRankedBadge: hasRankedBadge,
+              useRail: gameState.players.length > 4,
+              landscape: false,
+            ),
+          ),
       ],
     );
   }
@@ -413,6 +435,9 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
     required this.moveLogEntries,
     required this.quickChatBubblesByPlayer,
     required this.onRemoveQuickChatBubble,
+    required this.appTheme,
+    this.stackBlockBannerText,
+    this.stackBlockBannerColor,
   });
 
   final GameState gameState;
@@ -425,6 +450,9 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
   final List<MoveLogEntry> moveLogEntries;
   final Map<String, QuickChatBubbleData> quickChatBubblesByPlayer;
   final void Function(String id)? onRemoveQuickChatBubble;
+  final AppThemeData appTheme;
+  final String? stackBlockBannerText;
+  final Color? stackBlockBannerColor;
 
   @override
   Widget build(BuildContext context) {
@@ -483,6 +511,22 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
             landscape: true,
           ),
         ),
+        if (stackBlockBannerText != null)
+          _StackBlockBannerOverlay(
+            text: stackBlockBannerText!,
+            color: stackBlockBannerColor!,
+            appTheme: appTheme,
+            discardPileKey: discardPileKey,
+            landscape: true,
+            minTop: _moveLogBottomPx(
+              context: context,
+              entries: moveLogEntries,
+              opponentRowHeight: opponentRowHeight,
+              hasRankedBadge: hasRankedBadge,
+              useRail: gameState.players.length > 4,
+              landscape: true,
+            ),
+          ),
       ],
     );
   }
@@ -518,6 +562,86 @@ class _PortraitLastCardsStripOverlay extends StatelessWidget {
           players: players,
           lastCardsDeclaredBy: lastCardsDeclaredBy,
           inline: true,
+        ),
+      ),
+    );
+  }
+}
+
+/// Horizontal distance from the discard pile's own centre to the true centre
+/// of the draw+discard pile row (the row is centered as a whole, but the
+/// discard pile — the wider of the two — sits right of that midpoint).
+/// Negative: the row's true centre is left of the discard pile's centre.
+double _pileRowCenterOffsetFromDiscardCenter({required bool landscape}) {
+  final drawWidth = landscape
+      ? TablePortraitGrid.landscapeDrawPileCardWidth
+      : TablePortraitGrid.drawPileCardWidth;
+  final discardWidth = landscape
+      ? TablePortraitGrid.landscapeDiscardPileCardWidth
+      : TablePortraitGrid.discardPileCardWidth;
+  final gap = landscape
+      ? TablePortraitGrid.landscapePileGap
+      : TablePortraitGrid.pileGap;
+
+  final drawFootprint = TablePortraitGrid.drawPileFootprintWidth(drawWidth);
+  final discardFootprint =
+      TablePortraitGrid.discardPileFootprintWidth(discardWidth);
+  final rowCenter = (drawFootprint + gap + discardFootprint) / 2;
+  final discardCenter = drawFootprint + gap + discardFootprint / 2;
+  return rowCenter - discardCenter;
+}
+
+/// Stack-block banner ("+2 added to the stack!" etc.) — floats just above the
+/// pile row, floored by [minTop] so it never climbs above the move log.
+///
+/// Anchored to [discardPileKey] but shifted left by
+/// [_pileRowCenterOffsetFromDiscardCenter] so it centers on the draw+discard
+/// pile row as a whole, not just the (wider, right-of-centre) discard pile.
+class _StackBlockBannerOverlay extends StatelessWidget {
+  const _StackBlockBannerOverlay({
+    required this.text,
+    required this.color,
+    required this.appTheme,
+    required this.discardPileKey,
+    required this.landscape,
+    this.minTop,
+  });
+
+  final String text;
+  final Color color;
+  final AppThemeData appTheme;
+  final GlobalKey discardPileKey;
+  final bool landscape;
+  final double? minTop;
+
+  @override
+  Widget build(BuildContext context) {
+    final centerOffsetX =
+        _pileRowCenterOffsetFromDiscardCenter(landscape: landscape);
+    return _GlobalKeyFollower(
+      targetKey: discardPileKey,
+      targetAnchor: Alignment.topCenter,
+      childAnchor: Alignment.bottomCenter,
+      offset: Offset(centerOffsetX, -10),
+      minTop: minTop,
+      child: IgnorePointer(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 32),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          decoration: BoxDecoration(
+            color: appTheme.surfacePanel.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color, width: 2),
+          ),
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: appTheme.textPrimary,
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
         ),
       ),
     );

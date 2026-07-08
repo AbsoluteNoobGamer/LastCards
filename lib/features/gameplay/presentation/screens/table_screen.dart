@@ -2082,6 +2082,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     moveLogEntries: _moveLogEntries,
                     quickChatBubblesByPlayer: overlayQuickChatBubbles,
                     onRemoveQuickChatBubble: _removeQuickChatBubble,
+                    appTheme: appTheme,
+                    stackBlockBannerText: _stackBlockBannerText,
+                    stackBlockBannerColor: _stackBlockBannerColor,
                   ),
                 ),
 
@@ -2099,6 +2102,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     moveLogEntries: _moveLogEntries,
                     quickChatBubblesByPlayer: overlayQuickChatBubbles,
                     onRemoveQuickChatBubble: _removeQuickChatBubble,
+                    appTheme: appTheme,
+                    stackBlockBannerText: _stackBlockBannerText,
+                    stackBlockBannerColor: _stackBlockBannerColor,
                   ),
                 ),
 
@@ -2340,40 +2346,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         ),
                         child: Text(
                           _lastCardsDeclaredBannerText!,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: appTheme.textPrimary,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-              if (_stackBlockBannerText != null)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: Center(
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 32),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          color: appTheme.surfacePanel.withValues(alpha: 0.92),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            // Semantic, not thematic: red = penalty escalated
-                            // against you, gold = a pickup/stack was cancelled.
-                            color: _stackBlockBannerColor!,
-                            width: 2,
-                          ),
-                        ),
-                        child: Text(
-                          _stackBlockBannerText!,
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: appTheme.textPrimary,
