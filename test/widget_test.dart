@@ -11,11 +11,11 @@ void main() {
 
     // Build our app wrapped in ProviderScope (same as main.dart).
     await tester.pumpWidget(
-      const ProviderScope(child: StackAndFlowApp()),
+      const ProviderScope(child: LastCardsApp()),
     );
 
     // Basic check: verify it pumps without crashing.
-    expect(find.byType(StackAndFlowApp), findsOneWidget);
+    expect(find.byType(LastCardsApp), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
     await tester.binding.delayed(const Duration(hours: 1));

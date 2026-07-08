@@ -102,7 +102,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   }
 }
 
-/// User preference; [StackAndFlowApp] also merges this into [MediaQuery.disableAnimations].
+/// User preference; [LastCardsApp] also merges this into [MediaQuery.disableAnimations].
 final reduceMotionProvider = Provider<bool>((ref) {
   return ref.watch(settingsProvider).reduceMotion;
 });

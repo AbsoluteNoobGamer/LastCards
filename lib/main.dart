@@ -88,7 +88,7 @@ Future<void> main() async {
   runApp(
     // Riverpod root scope
     const ProviderScope(
-      child: StackAndFlowApp(),
+      child: LastCardsApp(),
     ),
   );
 }
