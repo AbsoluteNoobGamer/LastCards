@@ -3,6 +3,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ad_unit_ids.dart';
+import 'purchase_service.dart';
 
 /// Wraps the Google Mobile Ads SDK: interstitial/rewarded preloading +
 /// reload-after-show, and a banner-ad factory. Singleton, initialized once
@@ -84,8 +85,10 @@ class AdsService {
 
   /// Call once per completed match. Only actually shows an ad every
   /// [_interstitialFrequency]th call (and only if one finished preloading in
-  /// time), so this is safe to call unconditionally after every match.
+  /// time), so this is safe to call unconditionally after every match. No-op
+  /// once the player has purchased "Remove Ads".
   Future<void> maybeShowInterstitialAfterMatch() async {
+    if (PurchaseService.instance.adsRemoved.value) return;
     final prefs = await SharedPreferences.getInstance();
     final count = (prefs.getInt(_prefsMatchesSinceInterstitialKey) ?? 0) + 1;
     if (count < _interstitialFrequency) {

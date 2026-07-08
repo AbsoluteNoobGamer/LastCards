@@ -993,3 +993,41 @@ class _IconRowItemState extends ConsumerState<_IconRowItem> {
     );
   }
 }
+
+// -----------------------------------------------------------------------------
+// Ads footer: banner ad + "Remove Ads" entry point. Collapses to nothing once
+// the player has purchased "Remove Ads" — no banner, nothing left to offer.
+// -----------------------------------------------------------------------------
+
+class _AdsFooter extends ConsumerWidget {
+  const _AdsFooter();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(themeProvider).theme;
+    return ValueListenableBuilder<bool>(
+      valueListenable: PurchaseService.instance.adsRemoved,
+      builder: (context, adsRemoved, _) {
+        if (adsRemoved) return const SizedBox.shrink();
+        return Column(
+          children: [
+            const Center(child: BannerAdSlot()),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => showRemoveAdsSheet(context),
+              icon: Icon(Icons.block_rounded, size: 15, color: theme.textSecondary),
+              label: Text(
+                'Remove Ads',
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: theme.textSecondary,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}

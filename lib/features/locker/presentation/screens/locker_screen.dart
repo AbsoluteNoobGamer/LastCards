@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/services/ads_service.dart';
 import '../../../../core/services/player_level_service.dart';
+import '../../../../core/services/purchase_service.dart';
 import '../widgets/locker_cosmetics_tabs.dart';
 import '../widgets/locker_effects_tab.dart';
 import '../widgets/locker_reactions_tab.dart';
@@ -152,23 +153,32 @@ class _RewardedXpButtonState extends State<_RewardedXpButton> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return TextButton.icon(
-      onPressed: _showing ? null : _watchAd,
-      icon: _showing
-          ? SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2, color: colors.primary),
-            )
-          : Icon(Icons.ondemand_video_rounded, color: colors.primary, size: 18),
-      label: Text(
-        '+$kRewardedAdXpBonus XP',
-        style: GoogleFonts.dmSans(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: colors.primary,
-        ),
-      ),
+    return ValueListenableBuilder<bool>(
+      valueListenable: PurchaseService.instance.adsRemoved,
+      builder: (context, adsRemoved, _) {
+        // Nothing to watch once ads are removed — no equivalent free XP
+        // grant, this is a discretionary bonus, not a feature unlock.
+        if (adsRemoved) return const SizedBox.shrink();
+        return TextButton.icon(
+          onPressed: _showing ? null : _watchAd,
+          icon: _showing
+              ? SizedBox(
+                  width: 16,
+                  height: 16,
+                  child:
+                      CircularProgressIndicator(strokeWidth: 2, color: colors.primary),
+                )
+              : Icon(Icons.ondemand_video_rounded, color: colors.primary, size: 18),
+          label: Text(
+            '+$kRewardedAdXpBonus XP',
+            style: GoogleFonts.dmSans(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: colors.primary,
+            ),
+          ),
+        );
+      },
     );
   }
 }

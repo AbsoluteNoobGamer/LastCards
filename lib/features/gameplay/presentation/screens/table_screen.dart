@@ -30,6 +30,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/services/ads_service.dart';
+import '../../../../core/services/purchase_service.dart';
 import '../../../../core/services/analytics_service.dart';
 import '../../../../core/services/player_level_service.dart';
 import '../../../../core/utils/ranked_tier_utils.dart';
@@ -3526,6 +3527,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       return;
     }
     if (!_tournamentFinishedPlayerIds.contains(OfflineGameState.localId)) {
+      return;
+    }
+    // "Remove Ads" purchasers skip straight to the reward — no ad to watch.
+    if (PurchaseService.instance.adsRemoved.value) {
+      _startTournamentSimulation();
       return;
     }
     setState(() => _tournamentSkipAdShowing = true);

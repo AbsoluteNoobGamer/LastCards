@@ -16,6 +16,8 @@ import '../../../../features/online/widgets/mode_selection_sheet.dart';
 import '../../../../features/locker/presentation/screens/locker_screen.dart';
 import '../../../../core/navigation/app_page_routes.dart';
 import '../../../../core/widgets/banner_ad_slot.dart';
+import '../../../../core/services/purchase_service.dart';
+import '../../../purchases/widgets/remove_ads_sheet.dart';
 import '../../../../core/widgets/glass_frosted_panel.dart';
 import '../../../../core/widgets/themed_shimmer.dart';
 import '../../../../core/providers/game_provider.dart';
@@ -713,7 +715,7 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                           ),
                         ),
                         const SizedBox(height: 16),
-                        const Center(child: BannerAdSlot()),
+                        const _AdsFooter(),
                         const SizedBox(
                           height: 32,
                         ),
