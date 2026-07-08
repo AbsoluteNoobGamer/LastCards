@@ -1012,16 +1012,38 @@ class _AdsFooter extends ConsumerWidget {
         return Column(
           children: [
             const Center(child: BannerAdSlot()),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: () => showRemoveAdsSheet(context),
-              icon: Icon(Icons.block_rounded, size: 15, color: theme.textSecondary),
-              label: Text(
-                'Remove Ads',
-                style: GoogleFonts.outfit(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: theme.textSecondary,
+            const SizedBox(height: 10),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => showRemoveAdsSheet(context),
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: theme.accentPrimary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: theme.accentPrimary.withValues(alpha: 0.6),
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.block_rounded, size: 17, color: theme.accentPrimary),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Remove Ads',
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: theme.accentPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
