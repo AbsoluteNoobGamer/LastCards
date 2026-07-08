@@ -187,6 +187,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   final Map<String, GlobalKey> _playerZoneKeys = {};
   final Set<String> _skipHighlightPlayerIds = <String>{};
   Timer? _skipHighlightClearTimer;
+  Timer? _stackBlockBannerClearTimer;
 
   /// Mutable offline state — set by initState via buildWithDeck().
   late GameState _offlineState;
@@ -369,6 +370,27 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       _multiPlayCelebrationTrigger++;
     });
     Future.delayed(const Duration(milliseconds: 2000), () {
+      if (mounted) {
+        setState(() {
+          _stackBlockBannerText = null;
+          _stackBlockBannerColor = null;
+        });
+      }
+    });
+  }
+
+  /// Shows [text] in the stack-block banner for a beat, then clears it.
+  /// Generic display helper — unlike [_announcePenaltyChainAction], this
+  /// carries no penalty-specific side effects (HUD flash, haptics).
+  void _showStackBlockBanner(String text, Color color) {
+    if (_tournamentSimulatingRest) return;
+    _stackBlockBannerClearTimer?.cancel();
+    setState(() {
+      _stackBlockBannerText = text;
+      _stackBlockBannerColor = color;
+    });
+    _stackBlockBannerClearTimer =
+        Timer(const Duration(milliseconds: 1800), () {
       if (mounted) {
         setState(() {
           _stackBlockBannerText = null;
@@ -606,7 +628,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     // ── Reshuffle ───────────────────────────────────────────────────────────
     // Server reshuffled the deck. Toggle the notifier so DrawPileWidget plays
-    // its animation and show the same snackbar as offline mode.
+    // its animation and show the stack-block banner (same as offline mode).
     _onlineReshuffleSub = handler.reshuffles.listen((e) {
       if (!mounted) return;
       game_audio.AudioService.instance.playSound(GameSound.shuffleDeck);
@@ -614,28 +636,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         _onlineDiscardCount = 1;
         _reshuffleNotifier.value = !_reshuffleNotifier.value;
       });
-      ScaffoldMessenger.of(context)
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.shuffle_rounded, color: Colors.white, size: 18),
-                SizedBox(width: 8),
-                Text(
-                  'Reshuffling deck...',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: AppColors.goldDark,
-            duration: const Duration(milliseconds: 1800),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      _showStackBlockBanner('Reshuffling deck...', AppColors.goldDark);
     });
 
     // ── Quick chat ─────────────────────────────────────────────────────────
@@ -1012,6 +1013,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _gameMomentSub?.cancel();
     _quickChatCooldownTimer?.cancel();
     _skipHighlightClearTimer?.cancel();
+    _stackBlockBannerClearTimer?.cancel();
     _engineTimer.dispose();
     _reshuffleNotifier.dispose();
     _handShakeNotifier.dispose();
@@ -3597,11 +3599,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   ///   3. Appends them to [_drawPile].
   ///   4. Calls setState to update [drawPileCount] immediately.
   ///   5. Toggles [_reshuffleNotifier] → DrawPileWidget plays its animation.
-  ///   6. Shows a visible "Reshuffling deck..." snackbar.
+  ///   6. Shows a "Reshuffling deck..." stack-block banner.
   ///   7. Prints the new count to the console for confirmation.
   ///
   /// When [silent] is true (offline tournament fast-forward), skips sound,
-  /// pile animation notifier, and snackbar so simulation stays instant.
+  /// pile animation notifier, and banner so simulation stays instant.
   void _reshuffleCentrePileIntoDrawPile({bool silent = false}) {
     // Called after draw paths complete (see [_makeCards] doc) — not from the
     // factory during [applyDraw].
@@ -3639,28 +3641,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     // ── 6. Visible banner so players know a reshuffle happened ──────────────
     if (!silent) {
-      ScaffoldMessenger.of(context)
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.shuffle_rounded, color: Colors.white, size: 18),
-                SizedBox(width: 8),
-                Text(
-                  'Reshuffling deck...',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: AppColors.goldDark,
-            duration: const Duration(milliseconds: 1800),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      _showStackBlockBanner('Reshuffling deck...', AppColors.goldDark);
     }
   }
 
