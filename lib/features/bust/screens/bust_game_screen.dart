@@ -25,8 +25,7 @@ import 'package:last_cards/features/gameplay/presentation/widgets/draw_pile_widg
 import 'package:last_cards/features/gameplay/presentation/widgets/floating_action_bar_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/layout/table_chrome_layout.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/felt_table_background.dart';
-import 'package:last_cards/features/gameplay/presentation/widgets/game_move_log_overlay.dart'
-    show GameMoveLogOverlay;
+import 'package:last_cards/features/gameplay/presentation/widgets/stack_block_banner_overlay.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/hud_overlay_widget.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/ace_suit_picker_sheet.dart';
 import 'package:last_cards/features/gameplay/presentation/widgets/multi_card_play_celebration.dart';
@@ -172,6 +171,10 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   int _multiPlayCelebrationTrigger = 0;
   int _multiPlayCelebrationTier = 0;
 
+  String? _stackBlockBannerText;
+  Color? _stackBlockBannerColor;
+  Timer? _stackBlockBannerClearTimer;
+
   int get _clampedPlayers => widget.totalPlayers.clamp(2, 10);
 
   /// Standard bust rounds end after two turns each; the 1v1 finale ends on
@@ -193,10 +196,52 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     _handShakeNotifier.dispose();
     _quickChatCooldownTimer?.cancel();
     _skipHighlightClearTimer?.cancel();
+    _stackBlockBannerClearTimer?.cancel();
     // Match [TableScreen.dispose]: stop shared SFX players so a mid-game exit
     // cannot leave deal/AI audio overlapping the next session (lag, missing SFX).
     unawaited(game_audio.AudioService.instance.stopAll());
     super.dispose();
+  }
+
+  /// Shows [text] in the stack-block banner for a beat, then clears it.
+  /// Mirrors [TableScreen]'s helper of the same name — kept screen-local
+  /// since it touches this screen's own State fields/Timer.
+  void _showStackBlockBanner(String text, Color color) {
+    _stackBlockBannerClearTimer?.cancel();
+    setState(() {
+      _stackBlockBannerText = text;
+      _stackBlockBannerColor = color;
+    });
+    _stackBlockBannerClearTimer =
+        Timer(const Duration(milliseconds: 1800), () {
+      if (mounted) {
+        setState(() {
+          _stackBlockBannerText = null;
+          _stackBlockBannerColor = null;
+        });
+      }
+    });
+  }
+
+  /// Shows the stack-block banner for [playedCard] if it warrants one (same
+  /// shared rule set [TableScreen] uses — see [stackBlockBannerMessageFor]).
+  void _announceStackBlockBanner({
+    required GameState beforeState,
+    required GameState afterState,
+    required CardModel playedCard,
+    required String playerId,
+    String? playerName,
+  }) {
+    final message = stackBlockBannerMessageFor(
+      beforeState: beforeState,
+      afterState: afterState,
+      playedCard: playedCard,
+      isLocal: playerId == OfflineGameState.localId,
+      playerName: playerName,
+    );
+    if (message == null) return;
+    HapticFeedback.mediumImpact();
+    _showStackBlockBanner(message.text, message.color);
   }
 
   void _fireMultiPlayCelebrationIfNeeded(int cardsPlayedThisTurn) {
@@ -530,19 +575,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       );
       _reshuffleNotifier.value = !_reshuffleNotifier.value;
     });
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(SnackBar(
-        content: const Row(children: [
-          Icon(Icons.shuffle_rounded, color: Colors.white, size: 16),
-          SizedBox(width: 8),
-          Text('Deck reshuffled',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-        ]),
-        backgroundColor: AppColors.goldDark,
-        duration: const Duration(milliseconds: 1600),
-        behavior: SnackBarBehavior.floating,
-      ));
+    _showStackBlockBanner('Deck reshuffled', AppColors.goldDark);
   }
 
   // ── Round end detection ────────────────────────────────────────────────────
@@ -711,6 +744,13 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
         game_audio.AudioService.instance.playSound(GameSound.skipApplied);
         _flashSkipHighlight(skippedPlayerIdsForSkipState(newState));
       }
+      _announceStackBlockBanner(
+        beforeState: beforeState,
+        afterState: newState,
+        playedCard: played.first,
+        playerId: OfflineGameState.localId,
+        playerName: local.displayName,
+      );
       _fireMultiPlayCelebrationIfNeeded(newState.cardsPlayedThisTurn);
     } finally {
       _localActionInProgress = false;
@@ -1020,6 +1060,16 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       );
     }
 
+    if (result.playedCards.isNotEmpty) {
+      _announceStackBlockBanner(
+        beforeState: preTurn,
+        afterState: result.state,
+        playedCard: result.playedCards.first,
+        playerId: aiId,
+        playerName: aiName,
+      );
+    }
+
     if (result.playedCards.isNotEmpty &&
         result.preTurnAdvanceState.cardsPlayedThisTurn >=
             kMultiPlayCelebrationMinCards) {
@@ -1239,6 +1289,29 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
             isLocal: b.isLocal,
           ),
       };
+
+  /// Where this screen's move-log band / stack-block banner floor starts,
+  /// derived from Bust's own (non-grid) layout: [BustPlayerRail] height +
+  /// [_RoundIndicator]'s approximate height + a small gap. Unlike
+  /// [TablePortraitGrid]'s fixed-grid board, Bust's piles sit in a flexible
+  /// `Expanded` region with no fixed offset, so [boardTop] is left generous
+  /// — the log's own [TablePortraitGrid.moveLogMaxHeight] cap already keeps
+  /// it from growing unreasonably tall.
+  ({double top, double boardTop}) _bustMoveLogAnchors(
+    BuildContext context, {
+    required bool landscape,
+  }) {
+    final safeTop = MediaQuery.paddingOf(context).top;
+    const railHeight = 96.0;
+    const landscapeRailHeight = 72.0;
+    const roundIndicatorHeight = 34.0;
+    final top = safeTop +
+        (landscape ? landscapeRailHeight : railHeight) +
+        roundIndicatorHeight +
+        TablePortraitGrid.moveLogTopGap;
+    final boardTop = top + TablePortraitGrid.moveLogMaxHeight + 200;
+    return (top: top, boardTop: boardTop);
+  }
 
   Widget _buildDrawDiscardCluster({
     required Size layoutSize,
@@ -1588,7 +1661,36 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                 ),
 
               if (_moveLogEntries.isNotEmpty)
-                GameMoveLogOverlay(entries: _moveLogEntries),
+                Builder(builder: (context) {
+                  final anchors = _bustMoveLogAnchors(
+                    context,
+                    landscape: isLandscapeMobile,
+                  );
+                  return MoveLogOverlay(
+                    entries: _moveLogEntries,
+                    top: anchors.top,
+                    boardTop: anchors.boardTop,
+                  );
+                }),
+
+              if (_stackBlockBannerText != null)
+                Builder(builder: (context) {
+                  final anchors = _bustMoveLogAnchors(
+                    context,
+                    landscape: isLandscapeMobile,
+                  );
+                  return StackBlockBannerOverlay(
+                    text: _stackBlockBannerText!,
+                    color: _stackBlockBannerColor!,
+                    appTheme: theme,
+                    discardPileKey: _discardPileKey,
+                    minTop: moveLogBottomPx(
+                      entries: _moveLogEntries,
+                      top: anchors.top,
+                      boardTop: anchors.boardTop,
+                    ),
+                  );
+                }),
 
               if (!isLandscapeMobile)
                 Positioned(

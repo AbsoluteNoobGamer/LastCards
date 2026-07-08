@@ -52,8 +52,7 @@ import '../widgets/floating_action_bar_widget.dart';
 import '../widgets/last_cards_table_strip.dart';
 import '../widgets/turn_indicator_overlay.dart';
 import 'package:last_cards/features/gameplay/presentation/layout/table_chrome_layout.dart';
-import '../widgets/game_move_log_overlay.dart'
-    show GameMoveLogPanel;
+import '../widgets/stack_block_banner_overlay.dart';
 import '../widgets/quick_chat_panel.dart';
 import '../widgets/quick_chat_bubble.dart';
 import '../widgets/felt_table_background.dart';
@@ -326,57 +325,23 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }) {
     if (_tournamentSimulatingRest) return;
 
-    final chainWasActive = beforeState.activePenaltyCount > 0 ||
-        beforeState.penaltyChainLive;
-    final isLocal = _isLocalMomentPlayer(playerId);
-    final name = playerName?.split(' ').first ?? 'Player';
-
-    final String bannerText;
-    final Color bannerColor;
-    if (playedCard.effectiveRank == Rank.two) {
-      bannerText = isLocal
-          ? '+2 added to the stack!'
-          : '$name added +2 to the stack!';
-      bannerColor = const Color(0xFFE53935);
-    } else if (playedCard.effectiveRank == Rank.jack &&
-        !playedCard.suit.isRed) {
-      bannerText = isLocal
-          ? '+5 added to the stack!'
-          : '$name added +5 to the stack!';
-      bannerColor = const Color(0xFFE53935);
-    } else if (playedCard.effectiveRank == Rank.jack &&
-        playedCard.suit.isRed) {
-      bannerText = isLocal
-          ? 'Pick up cancelled!'
-          : '$name cancelled the pick up!';
-      bannerColor = AppColors.goldPrimary;
-    } else if (chainWasActive &&
-        afterState.activePenaltyCount == 0 &&
-        !afterState.penaltyChainLive) {
-      bannerText =
-          isLocal ? 'Stack cancelled!' : '$name cancelled the stack!';
-      bannerColor = AppColors.goldPrimary;
-    } else {
-      return;
-    }
+    final message = stackBlockBannerMessageFor(
+      beforeState: beforeState,
+      afterState: afterState,
+      playedCard: playedCard,
+      isLocal: _isLocalMomentPlayer(playerId),
+      playerName: playerName,
+    );
+    if (message == null) return;
 
     _bumpPenaltyFlashForHud();
     HapticFeedback.mediumImpact();
     setState(() {
-      _stackBlockBannerText = bannerText;
-      _stackBlockBannerColor = bannerColor;
       _multiPlayCelebrationTier = 1;
       _multiPlayCelebrationCardCount = null;
       _multiPlayCelebrationTrigger++;
     });
-    Future.delayed(const Duration(milliseconds: 2000), () {
-      if (mounted) {
-        setState(() {
-          _stackBlockBannerText = null;
-          _stackBlockBannerColor = null;
-        });
-      }
-    });
+    _showStackBlockBanner(message.text, message.color);
   }
 
   /// Shows [text] in the stack-block banner for a beat, then clears it.
