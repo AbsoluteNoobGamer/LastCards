@@ -714,6 +714,8 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                             ],
                           ),
                         ),
+                        const SizedBox(height: 20),
+                        const _RemoveAdsButton(),
                         const SizedBox(height: 16),
                         const _AdsFooter(),
                         const SizedBox(

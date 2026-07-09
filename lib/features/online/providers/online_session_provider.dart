@@ -125,7 +125,12 @@ class OnlineSessionNotifier extends StateNotifier<OnlineSessionState> {
         queueJoinStyle: OnlineQueueJoinStyle.selectTable,
         clearPlayerCount: true,
       );
-    } else if (mode == OnlineGameMode.quickMatchCasual) {
+    } else if (mode == OnlineGameMode.quickMatchCasual ||
+        mode == OnlineGameMode.ranked ||
+        mode == OnlineGameMode.rankedHardcore) {
+      // Ranked and Ranked Hardcore are one-tap from the top-level menu now —
+      // there's no separate "select table" step for them, so they always
+      // join the waiting queue directly, same as casual Quick Match.
       state = state.copyWith(
         mode: mode,
         queueJoinStyle: OnlineQueueJoinStyle.joinWaitingQueue,

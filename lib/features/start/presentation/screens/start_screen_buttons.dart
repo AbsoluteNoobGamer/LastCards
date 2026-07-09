@@ -999,8 +999,11 @@ class _IconRowItemState extends ConsumerState<_IconRowItem> {
 // the player has purchased "Remove Ads" — no banner, nothing left to offer.
 // -----------------------------------------------------------------------------
 
-class _AdsFooter extends ConsumerWidget {
-  const _AdsFooter();
+/// The paid ad-removal CTA — kept separate from [_AdsFooter] and placed
+/// higher up the page (right after the icon row) so it's reachable without
+/// scrolling, unlike the banner ad itself which nobody needs to see instantly.
+class _RemoveAdsButton extends ConsumerWidget {
+  const _RemoveAdsButton();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1009,46 +1012,57 @@ class _AdsFooter extends ConsumerWidget {
       valueListenable: PurchaseService.instance.adsRemoved,
       builder: (context, adsRemoved, _) {
         if (adsRemoved) return const SizedBox.shrink();
-        return Column(
-          children: [
-            const Center(child: BannerAdSlot()),
-            const SizedBox(height: 10),
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => showRemoveAdsSheet(context),
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: theme.accentPrimary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: theme.accentPrimary.withValues(alpha: 0.6),
-                      width: 1.2,
-                    ),
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => showRemoveAdsSheet(context),
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                decoration: BoxDecoration(
+                  color: theme.accentPrimary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: theme.accentPrimary.withValues(alpha: 0.6),
+                    width: 1.2,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.block_rounded, size: 17, color: theme.accentPrimary),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Remove Ads',
-                        style: GoogleFonts.outfit(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: theme.accentPrimary,
-                        ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.block_rounded, size: 17, color: theme.accentPrimary),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Remove Ads',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: theme.accentPrimary,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
+          ),
         );
+      },
+    );
+  }
+}
+
+class _AdsFooter extends ConsumerWidget {
+  const _AdsFooter();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: PurchaseService.instance.adsRemoved,
+      builder: (context, adsRemoved, _) {
+        if (adsRemoved) return const SizedBox.shrink();
+        return const Center(child: BannerAdSlot());
       },
     );
   }
