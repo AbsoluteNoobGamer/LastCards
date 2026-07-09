@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:last_cards/core/models/card_model.dart';
 import 'package:last_cards/core/models/game_state.dart';
 import 'package:last_cards/core/models/offline_game_state.dart';
@@ -238,6 +239,13 @@ void main() {
   });
 
   group('Tournament mode flow wiring', () {
+    setUp(() {
+      // Each tournament round now awaits AdsService.maybeShowInterstitialAfterMatch,
+      // which reads SharedPreferences — needs mocking or it hangs waiting on
+      // a platform channel that doesn't exist in the test environment.
+      SharedPreferences.setMockInitialValues({});
+    });
+
     CardModel c(String id, Rank rank, Suit suit) =>
         CardModel(id: id, rank: rank, suit: suit);
 

@@ -1691,11 +1691,17 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               winnerName: winner.displayName,
               isLocalWin: isLocalWin,
               onPlayAgain: () {
-                unawaited(AdsService.instance.maybeShowInterstitialAfterMatch());
-                ref.read(gameNotifierProvider.notifier).clearOnlineState();
-                ref.read(wsClientProvider).disconnect();
-                navigator.pop(); // close dialog
-                navigator.pop(); // leave table
+                unawaited(() async {
+                  // Wait for the interstitial to actually be dismissed before
+                  // tearing down/navigating — otherwise the next screen loads
+                  // underneath the still-visible ad.
+                  await AdsService.instance.maybeShowInterstitialAfterMatch();
+                  if (!mounted) return;
+                  ref.read(gameNotifierProvider.notifier).clearOnlineState();
+                  ref.read(wsClientProvider).disconnect();
+                  navigator.pop(); // close dialog
+                  navigator.pop(); // leave table
+                }());
               },
               isOnlineMode: true,
               ratingDelta: ratingDelta,
@@ -3940,13 +3946,19 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           isLocalWin: winner.id == OfflineGameState.localId,
           onPlayAgain: () {
             Navigator.of(context).pop();
-            unawaited(AdsService.instance.maybeShowInterstitialAfterMatch());
-            setState(() {
-              _initNewGame();
-              _selectedCardId = null;
-              _flyingCardId = null;
-              _aiThinking = false;
-            });
+            unawaited(() async {
+              // Wait for the interstitial to actually be dismissed before
+              // starting the next game — otherwise it deals/renders
+              // underneath the still-visible ad.
+              await AdsService.instance.maybeShowInterstitialAfterMatch();
+              if (!mounted) return;
+              setState(() {
+                _initNewGame();
+                _selectedCardId = null;
+                _flyingCardId = null;
+                _aiThinking = false;
+              });
+            }());
           },
           xpAwarded: winner.id == OfflineGameState.localId ? 50 : 10,
           matchStats: _buildMatchStats(),

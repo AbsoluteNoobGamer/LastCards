@@ -666,11 +666,13 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     );
     final updatedLocalStats = [..._localRoundStats, localStat];
 
-    Future.microtask(() {
+    Future.microtask(() async {
       if (!mounted) return;
       // Each Bust round is a completed match in its own right — same hook
-      // TableScreen uses for standalone offline/online matches.
-      unawaited(AdsService.instance.maybeShowInterstitialAfterMatch());
+      // TableScreen uses for standalone offline/online matches. Awaited so
+      // the elimination screen doesn't load underneath the still-visible ad.
+      await AdsService.instance.maybeShowInterstitialAfterMatch();
+      if (!mounted) return;
       Navigator.of(context).push(PageRouteBuilder(
         pageBuilder: (_, __, ___) => BustEliminationScreen(
           result: result,

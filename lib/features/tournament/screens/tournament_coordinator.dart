@@ -267,8 +267,11 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
         return;
       }
       // Each tournament round is a completed match in its own right — same
-      // hook TableScreen uses for standalone offline/online matches.
-      unawaited(AdsService.instance.maybeShowInterstitialAfterMatch());
+      // hook TableScreen uses for standalone offline/online matches. Awaited
+      // (unlike a fire-and-forget call) so the next round doesn't start
+      // loading underneath the still-visible ad.
+      await AdsService.instance.maybeShowInterstitialAfterMatch();
+      if (!mounted || _isDisposed) return;
       if (roundResult != null) {
         // Defensive reconciliation: table can report finish IDs while the engine
         // missed one callback due to route/frame timing. Replaying ensures the

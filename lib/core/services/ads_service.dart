@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -86,6 +88,12 @@ class AdsService {
   /// [_interstitialFrequency]th call (and only if one finished preloading in
   /// time), so this is safe to call unconditionally after every match. No-op
   /// once the player has purchased "Remove Ads".
+  ///
+  /// Awaiting this call only returns once the ad has actually been dismissed
+  /// (or failed to show) — [InterstitialAd.show]'s own Future resolves as
+  /// soon as the show request is issued, not when the ad closes, so callers
+  /// that don't wait on this would start the next screen/game underneath the
+  /// still-visible ad. Callers must `await` this rather than fire-and-forget.
   Future<void> maybeShowInterstitialAfterMatch() async {
     if (PurchaseService.instance.adsRemoved.value) return;
     final prefs = await SharedPreferences.getInstance();
@@ -99,7 +107,22 @@ class AdsService {
     final ad = _interstitialAd;
     if (ad == null) return;
     _interstitialAd = null;
+
+    final dismissed = Completer<void>();
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        _loadInterstitial();
+        if (!dismissed.isCompleted) dismissed.complete();
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        ad.dispose();
+        _loadInterstitial();
+        if (!dismissed.isCompleted) dismissed.complete();
+      },
+    );
     await ad.show();
+    await dismissed.future;
   }
 
   void _loadRewarded() {
