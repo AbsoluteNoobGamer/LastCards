@@ -1,7 +1,9 @@
 # ── Build stage ───────────────────────────────────────────────────────────────
-# Use Dart 3.9.2 (satisfies google_fonts ^8.0.2 which needs Dart >=3.9.0).
-# We also install Flutter so that `flutter pub get` can resolve the root
-# package (last_cards) which declares `flutter: sdk: flutter`.
+# The base image's own `dart` binary is never used — Flutter installs its own
+# bundled Dart SDK below and /opt/flutter/bin is prepended to PATH before any
+# `dart`/`flutter pub get` command runs, so what actually matters is the
+# FLUTTER_VERSION pinned below, not this tag. Kept on a dart: image purely for
+# a small Debian base with apt available.
 FROM dart:3.9.2 AS build
 
 # Install Flutter SDK (same version the app targets)
@@ -9,7 +11,10 @@ RUN apt-get update -q && apt-get install -y --no-install-recommends \
       curl git unzip xz-utils ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-ENV FLUTTER_VERSION=3.35.4
+# Must satisfy in_app_purchase 3.3.0's own constraint (sdk: ^3.10.0,
+# flutter: >=3.38.0) — a transitive dep pulled in via the root last_cards
+# package. Bundled Dart SDK for 3.41.9 is 3.11.5.
+ENV FLUTTER_VERSION=3.41.9
 RUN curl -fsSL \
       "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz" \
       -o /tmp/flutter.tar.xz && \
