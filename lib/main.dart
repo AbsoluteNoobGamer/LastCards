@@ -10,6 +10,7 @@ import 'app/app.dart';
 import 'core/services/ads_service.dart';
 import 'core/services/card_back_service.dart';
 import 'core/services/profile_service.dart';
+import 'core/services/purchase_service.dart';
 import 'core/services/push_notification_service.dart';
 import 'firebase_options.dart';
 import 'services/audio_service.dart';
@@ -76,6 +77,11 @@ Future<void> main() async {
     await AdsService.instance.init().timeout(initTimeout);
   } catch (e) {
     if (kDebugMode) debugPrint('AdsService init skipped: $e');
+  }
+  try {
+    await PurchaseService.instance.init().timeout(initTimeout);
+  } catch (e) {
+    if (kDebugMode) debugPrint('PurchaseService init skipped: $e');
   }
   if (firebaseReady) {
     try {

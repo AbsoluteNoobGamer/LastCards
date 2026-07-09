@@ -35,6 +35,7 @@ import 'package:last_cards/features/gameplay/presentation/widgets/quick_chat_pan
     show QuickChatPanel;
 import 'package:last_cards/features/gameplay/presentation/widgets/turn_indicator_overlay.dart';
 import 'package:last_cards/core/services/ads_service.dart';
+import 'package:last_cards/core/services/purchase_service.dart';
 import 'package:last_cards/core/services/player_level_service.dart';
 import 'package:last_cards/shared/reactions/reaction_catalog.dart';
 import 'package:last_cards/features/settings/presentation/widgets/settings_modal.dart';
@@ -698,6 +699,11 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   /// [_bustSimulatingRest] so [_scheduleAiTurn]'s delay collapses to zero.
   Future<void> _onBustSkipTapped() async {
     if (!_bustCanSkipRest || _bustSimulatingRest || _bustSkipAdShowing) return;
+    // "Remove Ads" purchasers skip straight to the reward — no ad to watch.
+    if (PurchaseService.instance.adsRemoved.value) {
+      setState(() => _bustSimulatingRest = true);
+      return;
+    }
     setState(() => _bustSkipAdShowing = true);
     final shown = await AdsService.instance.showRewardedAd(
       onEarnedReward: (_) {
