@@ -2,6 +2,20 @@ import 'package:last_cards_server/fcm_sender.dart';
 import 'package:test/test.dart';
 
 void main() {
+  group('encodeFirestoreFields', () {
+    test('encodes String, int, and bool values as Firestore REST types', () {
+      final encoded = encodeFirestoreFields({
+        'latestVersionName': '1.0.2',
+        'latestBuildAndroid': 35,
+        'forced': false,
+      });
+
+      expect(encoded['latestVersionName'], {'stringValue': '1.0.2'});
+      expect(encoded['latestBuildAndroid'], {'integerValue': '35'});
+      expect(encoded['forced'], {'booleanValue': false});
+    });
+  });
+
   group('buildNotificationDocFields', () {
     test('encodes string/bool/timestamp fields for the Firestore REST API', () {
       final fields = buildNotificationDocFields(

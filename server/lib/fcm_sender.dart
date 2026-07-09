@@ -8,6 +8,21 @@ import 'package:uuid/uuid.dart';
 
 import 'logger.dart';
 
+/// Encodes plain Dart values (`String`/`int`/`bool`) as Firestore REST
+/// field values. Split out from [FcmSender.updateDocumentFields] so the
+/// encoding is unit-testable without a network call.
+Map<String, dynamic> encodeFirestoreFields(Map<String, Object> fields) {
+  return {
+    for (final entry in fields.entries)
+      entry.key: switch (entry.value) {
+        String s => {'stringValue': s},
+        int i => {'integerValue': i.toString()},
+        bool b => {'booleanValue': b},
+        final other => {'stringValue': other.toString()},
+      },
+  };
+}
+
 /// Firestore field encoding for a new `users/{uid}/notifications/{id}` doc.
 /// Split out from [FcmSender._writeInboxDoc] so the payload shape is
 /// unit-testable without a network call — see `firestore.rules` for the
@@ -308,6 +323,47 @@ class FcmSender {
     } catch (e) {
       _log.error('Error reading $collection/$docId: $e');
       return null;
+    }
+  }
+
+  /// Partially updates a top-level Firestore document — only the keys in
+  /// [fields] are touched (via `updateMask.fieldPaths`); any other existing
+  /// fields on the document are left alone. Creates the document if it
+  /// doesn't exist yet. [fields] values may be `String`, `int`, or `bool`.
+  /// Returns `true` on success. No-op (returns `false`) if credentials
+  /// aren't configured.
+  Future<bool> updateDocumentFields({
+    required String collection,
+    required String docId,
+    required Map<String, Object> fields,
+  }) async {
+    final token = await _getAccessToken();
+    if (token == null) return false;
+
+    final encoded = encodeFirestoreFields(fields);
+
+    final maskParams =
+        fields.keys.map((k) => 'updateMask.fieldPaths=${Uri.encodeQueryComponent(k)}').join('&');
+    final url = Uri.parse('https://firestore.googleapis.com/v1/projects/$_projectId'
+        '/databases/(default)/documents/$collection/$docId?$maskParams');
+    try {
+      final response = await http.patch(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'fields': encoded}),
+      );
+      if (response.statusCode != 200) {
+        _log.error(
+            'Failed to update $collection/$docId: ${response.statusCode} ${response.body}');
+        return false;
+      }
+      return true;
+    } catch (e) {
+      _log.error('Error updating $collection/$docId: $e');
+      return false;
     }
   }
 
