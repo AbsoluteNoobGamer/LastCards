@@ -394,18 +394,18 @@ void main() {
     });
 
     test(
-        'negative regression: [K♣,Q♣,8♣,5♣] is NOT clearable even '
-        'discard-independently — a Queen only rescues ONE stranded card',
-        () {
-      // A Queen mid-chain bypasses rank adjacency (suit match only), but
-      // that bypass is a single-use bridge: whichever card follows the
-      // Queen resumes normal same-suit/adjacent-rank rules for anything
-      // after it. K♣(13)/8♣(8)/5♣(5) aren't adjacent to each other, so no
-      // matter which one the Queen bridges to, the other two are stranded.
-      // This must still correctly report unclearable — the discard-pile
-      // fix only stops the *board* from wrongly manufacturing a bluff; it
-      // must not accidentally launder a genuinely broken hand into a
-      // "clearable" one.
+        'canHandClearInOneTurnHandOnly under-reports [K♣,Q♣,8♣,5♣] as '
+        'unclearable — it only models single-card chaining', () {
+      // This pure hand-only DFS only understands _validChainStep's
+      // single-card model: a Queen bridges rank-adjacency for exactly the
+      // one card immediately after it, then normal adjacency resumes. Under
+      // that narrower model K♣(13)/8♣(8)/5♣(5) aren't mutually adjacent, so
+      // this function reports false. The real, discard-aware engine used
+      // for actual bluff detection (canClearHandIgnoringDiscardPile, below)
+      // additionally understands multi-card sequence plays — which bypass
+      // single-card adjacency entirely — and correctly finds this hand
+      // clearable. This test exists to document the gap, not to claim the
+      // hand is genuinely unclearable.
       final hand = [
         c(Rank.king, Suit.clubs),
         c(Rank.queen, Suit.clubs),
@@ -413,6 +413,72 @@ void main() {
         c(Rank.five, Suit.clubs),
       ];
       expect(canHandClearInOneTurnHandOnly(hand), isFalse);
+    });
+
+    test(
+        'regression: [K♣,Q♣,8♣,5♣] IS clearable in one turn — declaring it '
+        'must never be flagged as a bluff, in 2p or 3p+', () {
+      // Reported scenario: player declares Last Cards holding K♣,Q♣,8♣,5♣.
+      // Real winning line the engine finds: 8♣ opens (matches whatever was
+      // on the pile), then K♣+Q♣ played together as a single two-card
+      // sequence (multi-card plays validate off their own leading card
+      // against the current discard, not off single-card adjacency to the
+      // last card played), landing Q♣ on top and arming queenSuitLock; 5♣
+      // then covers the queen lock via a plain suit match. That path never
+      // depends on a King reversal or Eight skip wrapping the turn back —
+      // it works identically regardless of player count.
+      final hand = [
+        c(Rank.king, Suit.clubs),
+        c(Rank.queen, Suit.clubs),
+        c(Rank.eight, Suit.clubs),
+        c(Rank.five, Suit.clubs),
+      ];
+
+      final twoPlayerState =
+          stateForP1(hand, discardTop: c(Rank.ace, Suit.diamonds));
+      expect(
+        canClearHandIgnoringDiscardPile(state: twoPlayerState, playerId: 'p1'),
+        isTrue,
+        reason: '2-player: K♣/Q♣/8♣/5♣ genuinely clears in one turn',
+      );
+
+      final threePlayerState = GameState(
+        sessionId: 't',
+        phase: GamePhase.playing,
+        currentPlayerId: 'p1',
+        direction: PlayDirection.clockwise,
+        discardTopCard: c(Rank.ace, Suit.diamonds),
+        drawPileCount: 10,
+        players: [
+          PlayerModel(
+            id: 'p1',
+            displayName: 'P1',
+            tablePosition: TablePosition.bottom,
+            hand: hand,
+            cardCount: hand.length,
+          ),
+          PlayerModel(
+            id: 'p2',
+            displayName: 'P2',
+            tablePosition: TablePosition.top,
+            hand: const [],
+            cardCount: 0,
+          ),
+          PlayerModel(
+            id: 'p3',
+            displayName: 'P3',
+            tablePosition: TablePosition.left,
+            hand: const [],
+            cardCount: 0,
+          ),
+        ],
+      );
+      expect(
+        canClearHandIgnoringDiscardPile(
+            state: threePlayerState, playerId: 'p1'),
+        isTrue,
+        reason: '3-player: same hand clears the same way, skip-wrap or not',
+      );
     });
   });
 

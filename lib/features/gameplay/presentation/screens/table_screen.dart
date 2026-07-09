@@ -17,7 +17,7 @@ import '../../domain/usecases/offline_game_engine.dart';
 import 'package:last_cards/shared/engine/shuffle_utils.dart';
 import 'package:last_cards/shared/rules/move_log_support.dart';
 import 'package:last_cards/shared/rules/last_cards_rules.dart'
-    show canHandClearInOneTurnHandOnly, lastCardsMaxHandSize, mayDeclareLastCards;
+    show lastCardsMaxHandSize, mayDeclareLastCards;
 import 'package:last_cards/shared/rules/win_condition_rules.dart'
     show canConfirmPlayerWin, needsUndeclaredLastCardsDraw, wouldConfirmWin;
 import '../../data/datasources/offline_game_state_datasource.dart';
@@ -3707,15 +3707,20 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final player = _offlineState.playerById(playerId);
     if (player == null) return;
     final hasJoker = player.hand.any((c) => c.isJoker);
-    // Bluff is purely about whether the declared hand's cards can chain
-    // together among themselves (Ace as a wild opener, runs, same-rank
-    // pairs, etc.) — the discard pile keeps changing while other players
-    // take their turns in between declaring and this player's turn
-    // actually arriving, so it must not factor into whether the
-    // declaration itself was honest. A hand can be a perfectly legitimate
-    // declare even if the board has since drifted to something that
-    // doesn't match what it needs to open on.
-    if (hasJoker || canHandClearInOneTurnHandOnly(player.hand)) return;
+    // Bluff is purely about whether the declared hand can be played out in
+    // one turn's own structure (Ace as a wild opener, runs, same-rank
+    // pairs, King/Eight same-seat continuation, etc.) — the discard pile
+    // keeps changing while other players take their turns in between
+    // declaring and this player's turn actually arriving, so the specific
+    // board must not factor into whether the declaration itself was
+    // honest. See canClearHandIgnoringDiscardPile's doc comment.
+    if (hasJoker ||
+        canClearHandIgnoringDiscardPile(
+          state: _offlineState,
+          playerId: playerId,
+        )) {
+      return;
+    }
     setState(() {
       _offlineState = _offlineState.copyWith(
         lastCardsDeclaredBy: {..._offlineState.lastCardsDeclaredBy}

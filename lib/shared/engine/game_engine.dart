@@ -1438,6 +1438,52 @@ bool canClearHandInOneTurn({
   return _canClearHandRespectingDiscard(state, playerId);
 }
 
+/// Whether [playerId]'s hand can be emptied in one hypothetical turn,
+/// **ignoring what's actually on the discard pile** — this is what Last
+/// Cards bluff detection uses (see `TableScreen._offlineApplyLastCardsBluffPenaltyIfNeeded`
+/// and the server's `_handleDeclareLastCards`), since a declaration is a
+/// statement about the hand's own structure, not a bet that the board
+/// stays put while other players take their turns before this one arrives.
+///
+/// Unlike [canHandClearInOneTurnHandOnly] (which has no concept of player
+/// count or turns at all), this still fully respects same-turn mechanics
+/// that come from actually playing the hand out — Numerical Flow Rule
+/// adjacency, Queen suit-lock, same-rank stacking, and critically
+/// **King/Eight same-seat turn continuation** (2-player King reversal, or
+/// an Eight skip that wraps the turn back to this player because there's
+/// nobody else left to skip to) — that continuation starts a *fresh lead*
+/// against whatever was just played, not a numerical-flow step off it, so
+/// a hand-only chain check alone would wrongly call it unclearable.
+///
+/// Only Jokers are exempt from this call entirely (see call sites) since a
+/// held Joker already makes the declaration inherently safe from bluff.
+bool canClearHandIgnoringDiscardPile({
+  required GameState state,
+  required String playerId,
+}) {
+  final p = state.playerById(playerId);
+  if (p == null) return false;
+  if (p.hand.isEmpty) return true;
+  if (p.hand.length != p.cardCount) return false;
+
+  // Fast path: cards chain among themselves with no assumption about the
+  // board at all — no need for the heavier simulation below.
+  if (canHandClearInOneTurnHandOnly(p.hand)) return true;
+
+  // Slow path: try every card in hand as a hypothetical discard-pile top,
+  // so whichever one becomes the opener is always treated as legal to
+  // lead with (the real board's specific card is irrelevant here) — then
+  // reuse the fully turn-structure-aware simulation for everything from
+  // the second card onward, exactly as [canClearHandInOneTurn] does.
+  final normalized = _normalizeStateForLastCardsClearabilityProbe(state, playerId);
+  final hand = normalized.playerById(playerId)!.hand;
+  for (final probeCard in hand) {
+    final probeState = normalized.copyWith(discardTopCard: probeCard);
+    if (_canClearHandRespectingDiscard(probeState, playerId)) return true;
+  }
+  return false;
+}
+
 /// Sets [PlayerModel.lastCardsHandWasClearableAtTurnStart] for
 /// [GameState.currentPlayerId] via [canClearHandInOneTurn], and clears the flag
 /// for everyone else.

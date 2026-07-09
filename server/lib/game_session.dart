@@ -9,7 +9,7 @@ import 'package:last_cards/shared/engine/game_engine.dart';
 import 'package:last_cards/shared/engine/shuffle_utils.dart';
 import 'package:last_cards/shared/rules/move_log_support.dart';
 import 'package:last_cards/shared/rules/last_cards_rules.dart'
-    show canHandClearInOneTurnHandOnly, mayDeclareLastCards;
+    show mayDeclareLastCards;
 import 'package:last_cards/shared/rules/win_condition_rules.dart'
     show
         canConfirmPlayerWin,
@@ -1284,12 +1284,14 @@ class GameSession {
     );
 
     final hasJoker = player.hand.any((c) => c.isJoker);
-    // Bluff is purely about whether the declared hand's cards can chain
-    // together among themselves — the discard pile keeps changing while
+    // Bluff is purely about whether the declared hand can be played out in
+    // one turn's own structure — the discard pile keeps changing while
     // other players take their turns before this player's turn actually
-    // arrives, so it must not factor into whether the declaration was
-    // honest. See the matching offline check in TableScreen.
-    if (!hasJoker && !canHandClearInOneTurnHandOnly(player.hand)) {
+    // arrives, so the specific board must not factor into whether the
+    // declaration was honest. See the matching offline check in
+    // TableScreen and canClearHandIgnoringDiscardPile's doc comment.
+    if (!hasJoker &&
+        !canClearHandIgnoringDiscardPile(state: _state, playerId: playerId)) {
       _lastCardsBluffedBy.add(playerId);
     }
 
