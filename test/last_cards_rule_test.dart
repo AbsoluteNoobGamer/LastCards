@@ -367,6 +367,33 @@ void main() {
     });
   });
 
+  group('Last Cards bluff detection ignores the discard pile', () {
+    test(
+        'regression: a single self-playable card must never be flagged as a '
+        'bluff, no matter what the discard pile drifted to', () {
+      // Reported bug: player declares Last Cards holding only 6♥ (trivially
+      // playable — it's their whole hand). Other players take their turns
+      // before play returns, and the discard pile drifts to 4♦ — sharing
+      // neither suit nor rank with 6♥. canClearHandInOneTurn (discard-aware)
+      // correctly reports this specific board position as unplayable...
+      final driftedState =
+          stateForP1([c(Rank.six, Suit.hearts)], discardTop: c(Rank.four, Suit.diamonds));
+      expect(
+        canClearHandInOneTurn(state: driftedState, playerId: 'p1'),
+        isFalse,
+        reason: '6♥ genuinely cannot open on 4♦ right now',
+      );
+
+      // ...but that must NOT be what bluff detection uses: declaring is a
+      // statement about the hand itself, not a bet that the board stays
+      // put. TableScreen._offlineApplyLastCardsBluffPenaltyIfNeeded and the
+      // server's _handleDeclareLastCards both use this discard-independent
+      // check instead, precisely so a shifting pile never turns an honest
+      // declare into a false bluff penalty.
+      expect(canHandClearInOneTurnHandOnly([c(Rank.six, Suit.hearts)]), isTrue);
+    });
+  });
+
   group('shouldShowLastCardsButton', () {
     test('respects bust and declared (no hand-size gate)', () {
       expect(

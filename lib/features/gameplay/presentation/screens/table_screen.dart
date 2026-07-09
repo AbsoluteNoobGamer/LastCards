@@ -17,7 +17,7 @@ import '../../domain/usecases/offline_game_engine.dart';
 import 'package:last_cards/shared/engine/shuffle_utils.dart';
 import 'package:last_cards/shared/rules/move_log_support.dart';
 import 'package:last_cards/shared/rules/last_cards_rules.dart'
-    show lastCardsMaxHandSize, mayDeclareLastCards;
+    show canHandClearInOneTurnHandOnly, lastCardsMaxHandSize, mayDeclareLastCards;
 import 'package:last_cards/shared/rules/win_condition_rules.dart'
     show canConfirmPlayerWin, needsUndeclaredLastCardsDraw, wouldConfirmWin;
 import '../../data/datasources/offline_game_state_datasource.dart';
@@ -3707,15 +3707,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final player = _offlineState.playerById(playerId);
     if (player == null) return;
     final hasJoker = player.hand.any((c) => c.isJoker);
-    // Bluff is determined fresh, right as this player's turn begins — not at
-    // declare time. The discard pile keeps changing while other players take
-    // their turns in between declaring and this player's turn actually
-    // arriving, so a check locked in at declare-time can go stale and
-    // wrongly flag a hand that becomes genuinely clearable by the time play
-    // reaches them. lastCardsHandWasClearableAtTurnStart is recomputed live
-    // by advanceTurn() for whichever seat is about to play, using the real
-    // board state at that moment — that's the correct signal to use here.
-    if (hasJoker || player.lastCardsHandWasClearableAtTurnStart) return;
+    // Bluff is purely about whether the declared hand's cards can chain
+    // together among themselves (Ace as a wild opener, runs, same-rank
+    // pairs, etc.) — the discard pile keeps changing while other players
+    // take their turns in between declaring and this player's turn
+    // actually arriving, so it must not factor into whether the
+    // declaration itself was honest. A hand can be a perfectly legitimate
+    // declare even if the board has since drifted to something that
+    // doesn't match what it needs to open on.
+    if (hasJoker || canHandClearInOneTurnHandOnly(player.hand)) return;
     setState(() {
       _offlineState = _offlineState.copyWith(
         lastCardsDeclaredBy: {..._offlineState.lastCardsDeclaredBy}
