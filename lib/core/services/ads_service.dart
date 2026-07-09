@@ -16,9 +16,8 @@ class AdsService {
 
   static const String _prefsMatchesSinceInterstitialKey = 'ads_matches_since_interstitial';
 
-  /// Show an interstitial only every Nth match end, so players aren't shown a
-  /// full-screen ad after every single game.
-  static const int _interstitialFrequency = 3;
+  /// Show an interstitial every Nth match end. Set to 1 = every match.
+  static const int _interstitialFrequency = 1;
 
   bool _initialized = false;
   InterstitialAd? _interstitialAd;
