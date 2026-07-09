@@ -5,11 +5,11 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../providers/online_session_provider.dart';
 import '../screens/matchmaking_screen.dart';
-import 'mode_selection_sheet.dart';
+import 'queue_join_style_sheet.dart';
 
-/// Bottom Sheet 2 — Player Count Selection
+/// Bottom Sheet 3 — Player Count Selection
 ///
-/// Shown after the user selects a game mode in [ModeSelectionSheet].
+/// Shown after the user picks "Select table" in [QueueJoinStyleSheet].
 /// Lets the player pick 2–7 players; then "Find Game" navigates
 /// to [MatchmakingScreen].
 class PlayerCountSheet extends ConsumerStatefulWidget {
@@ -168,7 +168,7 @@ class _PlayerCountSheetState extends ConsumerState<PlayerCountSheet> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const ModeSelectionSheet(),
+      builder: (_) => const QueueJoinStyleSheet(),
     );
   }
 

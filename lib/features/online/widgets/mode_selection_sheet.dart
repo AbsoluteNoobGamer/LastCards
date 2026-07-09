@@ -7,13 +7,11 @@ import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../lobby/presentation/screens/lobby_screen.dart';
 import '../providers/online_session_provider.dart';
-import '../screens/matchmaking_screen.dart';
-import 'player_count_sheet.dart';
+import 'queue_join_style_sheet.dart';
 
-/// Bottom Sheet — online mode selection. Quick Match, Ranked, and Ranked
-/// Hardcore are one-tap straight into matchmaking; Private Game opens the
-/// lobby. Picking a specific table size is a secondary link below the
-/// main cards rather than its own top-level mode.
+/// Bottom Sheet — online mode selection. Casual, Ranked, and Ranked
+/// Hardcore all open the same Select table / Quick match submenu
+/// ([QueueJoinStyleSheet]); Private Game opens the lobby directly.
 class ModeSelectionSheet extends ConsumerWidget {
   const ModeSelectionSheet({super.key});
 
@@ -81,19 +79,7 @@ class ModeSelectionSheet extends ConsumerWidget {
                 }).toList(),
               ),
             ),
-            TextButton(
-              onPressed: () => _onCustomTableSize(context, ref),
-              child: Text(
-                'Prefer a specific table size? Choose players',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  color: theme.textSecondary,
-                  decoration: TextDecoration.underline,
-                  decorationColor: theme.textSecondary.withValues(alpha: 0.5),
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -127,41 +113,13 @@ class ModeSelectionSheet extends ConsumerWidget {
       return;
     }
 
-    // Quick Match, Ranked, and Ranked Hardcore are all one-tap now — go
-    // straight into matchmaking with no intermediate submenu.
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const MatchmakingScreen(),
-        transitionDuration: const Duration(milliseconds: 400),
-        transitionsBuilder: (_, animation, __, child) {
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.06),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-              )),
-              child: child,
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  void _onCustomTableSize(BuildContext context, WidgetRef ref) {
-    ref
-        .read(onlineSessionProvider.notifier)
-        .setMode(OnlineGameMode.selectTableCasual);
-    Navigator.of(context).pop();
+    // Casual, Ranked, and Ranked Hardcore all ask Select table vs Quick
+    // match next, via the same submenu.
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const PlayerCountSheet(),
+      builder: (_) => const QueueJoinStyleSheet(),
     );
   }
 }

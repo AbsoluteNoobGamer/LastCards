@@ -27,8 +27,10 @@ enum OnlineGameMode {
     switch (this) {
       case OnlineGameMode.selectTableCasual:
         return 'Select table';
+      // Top-level card now opens a Select table / Quick match submenu (like
+      // Ranked and Ranked Hardcore), so it reads as the whole casual tier.
       case OnlineGameMode.quickMatchCasual:
-        return 'Quick match';
+        return 'Casual';
       case OnlineGameMode.privateGame:
         return 'Private Game';
       case OnlineGameMode.ranked:
@@ -43,7 +45,7 @@ enum OnlineGameMode {
       case OnlineGameMode.selectTableCasual:
         return 'Choose how many players, then find a match';
       case OnlineGameMode.quickMatchCasual:
-        return 'Join a table that is already waiting for players';
+        return 'No ranking on the line — pick a table size or jump right in';
       case OnlineGameMode.privateGame:
         return 'Invite friends with a code';
       case OnlineGameMode.ranked:
@@ -58,7 +60,7 @@ enum OnlineGameMode {
       case OnlineGameMode.selectTableCasual:
         return '🪑';
       case OnlineGameMode.quickMatchCasual:
-        return '⚡';
+        return '🎮';
       case OnlineGameMode.privateGame:
         return '🔒';
       case OnlineGameMode.ranked:
@@ -87,10 +89,13 @@ class OnlineSessionState {
   final int? playerCount;
 
   /// True when this session should quickplay as "join any non-full waiting queue"
-  /// (no [playerCount] in the WS message).
+  /// (no [playerCount] in the WS message). Every tier (casual/ranked/hardcore)
+  /// now routes through the same Select table / Quick match submenu, so this
+  /// must always defer to the explicit [queueJoinStyle] choice rather than
+  /// assuming a tier — [OnlineSessionNotifier.setMode] seeds a sensible
+  /// default and the submenu overrides it once the player actually picks.
   bool get isJoinWaitingQueue {
     if (mode == OnlineGameMode.privateGame) return false;
-    if (mode == OnlineGameMode.quickMatchCasual) return true;
     return queueJoinStyle == OnlineQueueJoinStyle.joinWaitingQueue;
   }
 
@@ -128,9 +133,9 @@ class OnlineSessionNotifier extends StateNotifier<OnlineSessionState> {
     } else if (mode == OnlineGameMode.quickMatchCasual ||
         mode == OnlineGameMode.ranked ||
         mode == OnlineGameMode.rankedHardcore) {
-      // Ranked and Ranked Hardcore are one-tap from the top-level menu now —
-      // there's no separate "select table" step for them, so they always
-      // join the waiting queue directly, same as casual Quick Match.
+      // Seed a default of "join waiting queue" the instant a top-level tier
+      // is picked; QueueJoinStyleSheet immediately follows and overrides
+      // this via setQueueJoinStyle once the player actually chooses.
       state = state.copyWith(
         mode: mode,
         queueJoinStyle: OnlineQueueJoinStyle.joinWaitingQueue,
