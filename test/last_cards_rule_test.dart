@@ -392,6 +392,28 @@ void main() {
       // declare into a false bluff penalty.
       expect(canHandClearInOneTurnHandOnly([c(Rank.six, Suit.hearts)]), isTrue);
     });
+
+    test(
+        'negative regression: [K♣,Q♣,8♣,5♣] is NOT clearable even '
+        'discard-independently — a Queen only rescues ONE stranded card',
+        () {
+      // A Queen mid-chain bypasses rank adjacency (suit match only), but
+      // that bypass is a single-use bridge: whichever card follows the
+      // Queen resumes normal same-suit/adjacent-rank rules for anything
+      // after it. K♣(13)/8♣(8)/5♣(5) aren't adjacent to each other, so no
+      // matter which one the Queen bridges to, the other two are stranded.
+      // This must still correctly report unclearable — the discard-pile
+      // fix only stops the *board* from wrongly manufacturing a bluff; it
+      // must not accidentally launder a genuinely broken hand into a
+      // "clearable" one.
+      final hand = [
+        c(Rank.king, Suit.clubs),
+        c(Rank.queen, Suit.clubs),
+        c(Rank.eight, Suit.clubs),
+        c(Rank.five, Suit.clubs),
+      ];
+      expect(canHandClearInOneTurnHandOnly(hand), isFalse);
+    });
   });
 
   group('shouldShowLastCardsButton', () {
