@@ -24,6 +24,14 @@ const _eventNames = <String>[
   AnalyticsEvents.matchmakingMatched,
   AnalyticsEvents.matchmakingCancelled,
   AnalyticsEvents.matchmakingTimeout,
+  AnalyticsEvents.adImpression,
+  AnalyticsEvents.adClick,
+  AnalyticsEvents.adFailed,
+  AnalyticsEvents.removeAdsSheetViewed,
+  AnalyticsEvents.purchaseStarted,
+  AnalyticsEvents.purchaseCompleted,
+  AnalyticsEvents.purchaseFailed,
+  AnalyticsEvents.purchaseCancelled,
 ];
 
 const _paramKeys = <String>[
@@ -45,6 +53,8 @@ const _paramKeys = <String>[
   AnalyticsParams.turnIndex,
   AnalyticsParams.reason,
   AnalyticsParams.waitSeconds,
+  AnalyticsParams.placement,
+  AnalyticsParams.source,
 ];
 
 final _snakeCase = RegExp(r'^[a-z][a-z0-9_]*$');

@@ -26,6 +26,14 @@ abstract final class AnalyticsEvents {
   static const String matchmakingMatched = 'matchmaking_matched';
   static const String matchmakingCancelled = 'matchmaking_cancelled';
   static const String matchmakingTimeout = 'matchmaking_timeout';
+  static const String adImpression = 'ad_impression';
+  static const String adClick = 'ad_click';
+  static const String adFailed = 'ad_failed';
+  static const String removeAdsSheetViewed = 'remove_ads_sheet_viewed';
+  static const String purchaseStarted = 'purchase_started';
+  static const String purchaseCompleted = 'purchase_completed';
+  static const String purchaseFailed = 'purchase_failed';
+  static const String purchaseCancelled = 'purchase_cancelled';
 }
 
 abstract final class AnalyticsParams {
@@ -47,4 +55,6 @@ abstract final class AnalyticsParams {
   static const String turnIndex = 'turn_index';
   static const String reason = 'reason';
   static const String waitSeconds = 'wait_seconds';
+  static const String placement = 'placement';
+  static const String source = 'source';
 }

@@ -1066,7 +1066,9 @@ class _AdsFooter extends ConsumerWidget {
       valueListenable: PurchaseService.instance.adsRemoved,
       builder: (context, adsRemoved, _) {
         if (adsRemoved) return const SizedBox.shrink();
-        return const Center(child: BannerAdSlot());
+        return const Center(
+          child: BannerAdSlot(placement: 'start_screen_banner'),
+        );
       },
     );
   }

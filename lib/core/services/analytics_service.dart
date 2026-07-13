@@ -139,6 +139,72 @@ class AnalyticsService {
     } catch (_) {}
   }
 
+  void logAdImpression({required String placement}) {
+    try {
+      _analytics.logEvent(
+        name: AnalyticsEvents.adImpression,
+        parameters: {AnalyticsParams.placement: placement},
+      );
+    } catch (_) {}
+  }
+
+  void logAdClick({required String placement}) {
+    try {
+      _analytics.logEvent(
+        name: AnalyticsEvents.adClick,
+        parameters: {AnalyticsParams.placement: placement},
+      );
+    } catch (_) {}
+  }
+
+  void logAdFailed({required String placement, required String reason}) {
+    try {
+      _analytics.logEvent(
+        name: AnalyticsEvents.adFailed,
+        parameters: {
+          AnalyticsParams.placement: placement,
+          AnalyticsParams.reason: reason,
+        },
+      );
+    } catch (_) {}
+  }
+
+  void logRemoveAdsSheetViewed() {
+    try {
+      _analytics.logEvent(name: AnalyticsEvents.removeAdsSheetViewed);
+    } catch (_) {}
+  }
+
+  void logPurchaseStarted() {
+    try {
+      _analytics.logEvent(name: AnalyticsEvents.purchaseStarted);
+    } catch (_) {}
+  }
+
+  void logPurchaseCompleted({required String source}) {
+    try {
+      _analytics.logEvent(
+        name: AnalyticsEvents.purchaseCompleted,
+        parameters: {AnalyticsParams.source: source},
+      );
+    } catch (_) {}
+  }
+
+  void logPurchaseFailed({required String reason}) {
+    try {
+      _analytics.logEvent(
+        name: AnalyticsEvents.purchaseFailed,
+        parameters: {AnalyticsParams.reason: reason},
+      );
+    } catch (_) {}
+  }
+
+  void logPurchaseCancelled() {
+    try {
+      _analytics.logEvent(name: AnalyticsEvents.purchaseCancelled);
+    } catch (_) {}
+  }
+
   void logRankedGamePlayed({
     required bool isWin,
     required int mmrBefore,

@@ -3701,6 +3701,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
     setState(() => _tournamentSkipAdShowing = true);
     final shown = await AdsService.instance.showRewardedAd(
+      placement: 'tournament_skip_reward',
       onEarnedReward: (_) => _startTournamentSimulation(),
     );
     if (!mounted) return;
