@@ -8,7 +8,10 @@ import '../services/purchase_service.dart';
 /// finishes loading (so it never reserves dead space if AdMob has no fill).
 /// Renders nothing at all once the player has purchased "Remove Ads".
 class BannerAdSlot extends StatefulWidget {
-  const BannerAdSlot({super.key, this.size = AdSize.banner});
+  const BannerAdSlot({super.key, required this.placement, this.size = AdSize.banner});
+
+  /// Identifies which screen this banner is on, e.g. "start_screen_banner".
+  final String placement;
 
   final AdSize size;
 
@@ -31,6 +34,7 @@ class _BannerAdSlotState extends State<BannerAdSlot> {
 
   void _loadAd() {
     _ad = AdsService.instance.createBannerAd(
+      placement: widget.placement,
       size: widget.size,
       onLoaded: () {
         if (!mounted) return;

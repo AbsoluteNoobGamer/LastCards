@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/providers/theme_provider.dart';
+import '../../../core/services/analytics_service.dart';
 import '../../../core/services/purchase_service.dart';
 import '../../../core/theme/app_theme_data.dart';
 
@@ -10,6 +11,7 @@ import '../../../core/theme/app_theme_data.dart';
 /// loaded), a purchase button, and a restore-purchases link (required by App
 /// Store guidelines for non-consumables).
 void showRemoveAdsSheet(BuildContext context) {
+  AnalyticsService.instance.logRemoveAdsSheetViewed();
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,

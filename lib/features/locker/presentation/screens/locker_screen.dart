@@ -133,6 +133,7 @@ class _RewardedXpButtonState extends State<_RewardedXpButton> {
     if (_showing) return;
     setState(() => _showing = true);
     final shown = await AdsService.instance.showRewardedAd(
+      placement: 'locker_xp_reward',
       onEarnedReward: (_) {
         unawaited(PlayerLevelService.instance.awardXP(kRewardedAdXpBonus));
         if (!mounted) return;

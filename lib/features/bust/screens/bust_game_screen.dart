@@ -708,6 +708,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     }
     setState(() => _bustSkipAdShowing = true);
     final shown = await AdsService.instance.showRewardedAd(
+      placement: 'bust_skip_reward',
       onEarnedReward: (_) {
         if (mounted) setState(() => _bustSimulatingRest = true);
       },

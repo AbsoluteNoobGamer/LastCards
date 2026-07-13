@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'analytics_service.dart';
+
 /// Handles the single "Remove Ads" non-consumable in-app purchase via
 /// Apple Pay / Google Play Billing (through the `in_app_purchase` plugin).
 ///
@@ -128,10 +130,12 @@ class PurchaseService {
     final product = removeAdsProduct;
     if (product == null) {
       lastError.value = 'Store not ready yet — try again in a moment.';
+      AnalyticsService.instance.logPurchaseFailed(reason: 'store_not_ready');
       return;
     }
     lastError.value = null;
     purchaseInProgress.value = true;
+    AnalyticsService.instance.logPurchaseStarted();
     try {
       final started = await _iap.buyNonConsumable(
         purchaseParam: PurchaseParam(productDetails: product),
@@ -139,10 +143,13 @@ class PurchaseService {
       if (!started) {
         purchaseInProgress.value = false;
         lastError.value = 'Purchase failed — please try again.';
+        AnalyticsService.instance
+            .logPurchaseFailed(reason: 'buy_call_rejected');
       }
     } catch (_) {
       purchaseInProgress.value = false;
       lastError.value = 'Purchase failed — please try again.';
+      AnalyticsService.instance.logPurchaseFailed(reason: 'exception');
     }
   }
 
@@ -168,8 +175,13 @@ class PurchaseService {
         case PurchaseStatus.pending:
           purchaseInProgress.value = true;
         case PurchaseStatus.purchased:
+          await _grantEntitlement(completionSource: 'purchase');
+          purchaseInProgress.value = false;
+          if (purchase.pendingCompletePurchase) {
+            await _iap.completePurchase(purchase);
+          }
         case PurchaseStatus.restored:
-          await _grantEntitlement();
+          await _grantEntitlement(completionSource: 'restore');
           purchaseInProgress.value = false;
           if (purchase.pendingCompletePurchase) {
             await _iap.completePurchase(purchase);
@@ -178,11 +190,15 @@ class PurchaseService {
           purchaseInProgress.value = false;
           lastError.value =
               purchase.error?.message ?? 'Purchase failed — please try again.';
+          AnalyticsService.instance.logPurchaseFailed(
+            reason: purchase.error?.message ?? 'unknown',
+          );
           if (purchase.pendingCompletePurchase) {
             await _iap.completePurchase(purchase);
           }
         case PurchaseStatus.canceled:
           purchaseInProgress.value = false;
+          AnalyticsService.instance.logPurchaseCancelled();
           if (purchase.pendingCompletePurchase) {
             await _iap.completePurchase(purchase);
           }
@@ -190,10 +206,21 @@ class PurchaseService {
     }
   }
 
-  Future<void> _grantEntitlement({bool persistRemote = true}) async {
+  /// [completionSource] is `'purchase'` or `'restore'` for a user-driven
+  /// purchase-flow completion (logs `purchase_completed`), or null for a
+  /// passive cross-device sync ([_syncFromFirestore]) — the latter isn't a
+  /// funnel event, so it's left unlogged.
+  Future<void> _grantEntitlement({
+    bool persistRemote = true,
+    String? completionSource,
+  }) async {
     adsRemoved.value = true;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_prefsKey, true);
+
+    if (completionSource != null) {
+      AnalyticsService.instance.logPurchaseCompleted(source: completionSource);
+    }
 
     if (!persistRemote) return;
     final uid = FirebaseAuth.instance.currentUser?.uid;

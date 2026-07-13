@@ -5,6 +5,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ad_unit_ids.dart';
+import 'analytics_service.dart';
 import 'purchase_service.dart';
 
 /// Wraps the Google Mobile Ads SDK: interstitial/rewarded preloading +
@@ -36,6 +37,7 @@ class AdsService {
   /// Creates and loads a banner ad. Caller owns the returned [BannerAd] and
   /// must call `.dispose()` when done with it (see [BannerAdSlot]).
   BannerAd createBannerAd({
+    required String placement,
     AdSize size = AdSize.banner,
     VoidCallback? onLoaded,
     VoidCallback? onFailedToLoad,
@@ -48,8 +50,14 @@ class AdsService {
         onAdLoaded: (_) => onLoaded?.call(),
         onAdFailedToLoad: (ad, error) {
           ad.dispose();
+          AnalyticsService.instance
+              .logAdFailed(placement: placement, reason: 'load_failed');
           onFailedToLoad?.call();
         },
+        onAdImpression: (_) =>
+            AnalyticsService.instance.logAdImpression(placement: placement),
+        onAdClicked: (_) =>
+            AnalyticsService.instance.logAdClick(placement: placement),
       ),
     );
     ad.load();
@@ -104,12 +112,23 @@ class AdsService {
     }
     await prefs.setInt(_prefsMatchesSinceInterstitialKey, 0);
 
+    const placement = 'post_match_interstitial';
     final ad = _interstitialAd;
-    if (ad == null) return;
+    if (ad == null) {
+      AnalyticsService.instance
+          .logAdFailed(placement: placement, reason: 'not_loaded');
+      return;
+    }
     _interstitialAd = null;
 
     final dismissed = Completer<void>();
     ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdShowedFullScreenContent: (ad) {
+        AnalyticsService.instance.logAdImpression(placement: placement);
+      },
+      onAdClicked: (ad) {
+        AnalyticsService.instance.logAdClick(placement: placement);
+      },
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
         _loadInterstitial();
@@ -117,6 +136,8 @@ class AdsService {
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
         ad.dispose();
+        AnalyticsService.instance
+            .logAdFailed(placement: placement, reason: 'show_failed');
         _loadInterstitial();
         if (!dismissed.isCompleted) dismissed.complete();
       },
@@ -132,18 +153,6 @@ class AdsService {
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
           _rewardedAd = ad;
-          ad.fullScreenContentCallback = FullScreenContentCallback(
-            onAdDismissedFullScreenContent: (ad) {
-              ad.dispose();
-              _rewardedAd = null;
-              _loadRewarded();
-            },
-            onAdFailedToShowFullScreenContent: (ad, error) {
-              ad.dispose();
-              _rewardedAd = null;
-              _loadRewarded();
-            },
-          );
         },
         onAdFailedToLoad: (error) {
           _rewardedAd = null;
@@ -158,13 +167,38 @@ class AdsService {
   /// Shows the preloaded rewarded ad. [onEarnedReward] only fires if the
   /// player watches to completion. Returns `false` (without showing anything)
   /// if no ad has finished preloading yet — callers should disable/hide the
-  /// "watch ad" button while [isRewardedAdReady] is `false`.
+  /// "watch ad" button while [isRewardedAdReady] is `false`. [placement]
+  /// identifies which surface offered the reward (e.g. "locker_xp_reward"),
+  /// since one shared preloaded ad instance backs every rewarded placement.
   Future<bool> showRewardedAd({
+    required String placement,
     required void Function(num amount) onEarnedReward,
   }) async {
     final ad = _rewardedAd;
-    if (ad == null) return false;
+    if (ad == null) {
+      AnalyticsService.instance
+          .logAdFailed(placement: placement, reason: 'not_loaded');
+      return false;
+    }
     _rewardedAd = null;
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdShowedFullScreenContent: (ad) {
+        AnalyticsService.instance.logAdImpression(placement: placement);
+      },
+      onAdClicked: (ad) {
+        AnalyticsService.instance.logAdClick(placement: placement);
+      },
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        _loadRewarded();
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        ad.dispose();
+        AnalyticsService.instance
+            .logAdFailed(placement: placement, reason: 'show_failed');
+        _loadRewarded();
+      },
+    );
     await ad.show(
       onUserEarnedReward: (_, reward) => onEarnedReward(reward.amount),
     );

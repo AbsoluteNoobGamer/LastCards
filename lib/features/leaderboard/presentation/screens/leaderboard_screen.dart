@@ -608,7 +608,10 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                         filterKey: _playerCountFilter,
                       ),
           ),
-          const SafeArea(top: false, child: Center(child: BannerAdSlot())),
+          const SafeArea(
+            top: false,
+            child: Center(child: BannerAdSlot(placement: 'leaderboard_banner')),
+          ),
         ],
       ),
     );
