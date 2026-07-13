@@ -724,8 +724,11 @@ class _PrimaryButtonBaseState extends ConsumerState<_PrimaryButtonBase>
     final isMobile = screenWidth < 600;
     final buttonWidth = isMobile
         ? (screenWidth * 0.78).clamp(220.0, 360.0)
-        : (screenWidth * 0.3).clamp(220.0, 300.0);
-    const buttonHeight = 68.0;
+        : (screenWidth * 0.3).clamp(260.0, 480.0);
+    final buttonHeight = isMobile ? 68.0 : (screenWidth * 0.06).clamp(68.0, 88.0);
+    // Grows the icon/label together with the button so a much taller tablet
+    // button doesn't end up with tiny phone-sized content floating in it.
+    final contentScale = buttonHeight / 68.0;
 
     final scale = widget.isPressed ? 0.95 : (widget.isHovered ? 1.05 : 1.0);
 
@@ -835,7 +838,7 @@ class _PrimaryButtonBaseState extends ConsumerState<_PrimaryButtonBase>
                     Icon(
                       iconData,
                       color: Colors.white.withValues(alpha: 0.95),
-                      size: 28,
+                      size: 28 * contentScale,
                       shadows: const [
                         Shadow(
                           color: Color(0x66000000),
@@ -853,7 +856,7 @@ class _PrimaryButtonBaseState extends ConsumerState<_PrimaryButtonBase>
                           Text(
                             widget.label,
                             style: GoogleFonts.outfit(
-                              fontSize: 18,
+                              fontSize: 18 * contentScale,
                               fontWeight: FontWeight.w700,
                               color: Colors.white.withValues(alpha: 0.96),
                               letterSpacing: 2.0,
@@ -916,6 +919,9 @@ class _IconRowItemState extends ConsumerState<_IconRowItem> {
     final theme = ref.watch(themeProvider).theme;
     final accent = theme.accentPrimary;
     final accentLight = theme.accentLight;
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
+    final iconSize = isMobile ? 26.0 : 34.0;
+    final labelFontSize = isMobile ? 10.0 : 13.0;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -967,7 +973,7 @@ class _IconRowItemState extends ConsumerState<_IconRowItem> {
                   child: Icon(
                     widget.icon,
                     color: Colors.white, // overridden by ShaderMask
-                    size: 26,
+                    size: iconSize,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -975,7 +981,7 @@ class _IconRowItemState extends ConsumerState<_IconRowItem> {
                   widget.label,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.outfit(
-                    fontSize: 10,
+                    fontSize: labelFontSize,
                     fontWeight: FontWeight.w600,
                     color: accent,
                     letterSpacing: 0.8,

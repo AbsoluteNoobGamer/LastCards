@@ -88,7 +88,14 @@ class _TableLayout extends StatelessWidget {
     this.skipHighlightPlayerIds = const <String>{},
     this.onOpponentProfileTap,
     this.localAvatarFilePath,
+    this.tableScale = 1.0,
   });
+
+  /// Multiplier applied to every [TablePortraitGrid] reference size —
+  /// 1.0 on phones, grows on tablets/desktop so chrome fills the extra
+  /// canvas instead of leaving it as bare felt (see [TableScreen]'s
+  /// top-level `tableScale` computation).
+  final double tableScale;
 
   /// Online: tap opponent avatar to open profile / friend actions.
   final void Function(PlayerModel player)? onOpponentProfileTap;
@@ -262,14 +269,22 @@ class _TableLayout extends StatelessWidget {
             opponentAvatarTap: opponentAvatarTap,
             isRanked: isRanked,
             localAvatarFilePath: localAvatarFilePath,
+            tableScale: tableScale,
           );
         }
 
         final horizontalPadding =
             isMobile ? AppDimensions.xs : AppDimensions.md;
         final effectiveWidth = constraints.maxWidth;
-        final handCardWidth = (effectiveWidth * (isMobile ? 0.12 : 0.1))
-            .clamp(44.0, 82.0);
+        // The width-percentage formula alone doesn't grow proportionally
+        // with the screen on tablets (10% of a wider screen isn't 10% *
+        // tableScale bigger) — multiply by tableScale too, so actual card
+        // size keeps pace with the reserved hand-region frame height
+        // below, instead of leaving a growing empty gap under a
+        // top-aligned, comparatively small card fan.
+        final handCardWidth =
+            (effectiveWidth * (isMobile ? 0.12 : 0.1) * (isMobile ? 1.0 : tableScale))
+                .clamp(44.0, 82.0 * tableScale);
         // Fixed footprint sized to a reference 9-card hand — the local hand
         // region stays the same size turn to turn regardless of actual hand
         // count, instead of visibly resizing as cards are played/drawn.
@@ -277,21 +292,24 @@ class _TableLayout extends StatelessWidget {
           maxWidth: effectiveWidth,
           cardWidth: handCardWidth,
           isCompact: isMobile,
+          scale: tableScale,
         );
         final hasTournamentBadges = tournamentStatusBadges.isNotEmpty;
         final opponentRowHeight = TablePortraitGrid.opponentRowHeight(
           useRail: true,
           hasBadges: hasTournamentBadges,
+          scale: tableScale,
         );
-        final rankedBand = isRanked ? 34.0 : 0.0;
+        final rankedBand = isRanked ? 34.0 * tableScale : 0.0;
         final bottomPad = isMobile ? 0.0 : AppDimensions.md;
+        final scaledActionBarHeight = TablePortraitGrid.actionBarHeight * tableScale;
         final handRegionHeight = math.min(
-          TablePortraitGrid.handRegionHeight,
+          TablePortraitGrid.handRegionHeight * tableScale,
           constraints.maxHeight -
               opponentRowHeight -
-              TablePortraitGrid.actionBarHeight -
+              scaledActionBarHeight -
               rankedBand,
-        ).clamp(110.0, TablePortraitGrid.handRegionHeight);
+        ).clamp(110.0, TablePortraitGrid.handRegionHeight * tableScale);
 
         return Padding(
           padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -314,6 +332,7 @@ class _TableLayout extends StatelessWidget {
                   height: hasTournamentBadges
                       ? TablePortraitGrid.opponentRailBaseHeightWithBadge
                       : TablePortraitGrid.opponentRailBaseHeight,
+                  scale: tableScale,
                   thinkingPlayerId: thinkingOpponentId,
                   quickChatBubblesByPlayer: quickChatBubblesByPlayer,
                   onRemoveQuickChatBubble: onRemoveQuickChatBubble,
@@ -325,9 +344,19 @@ class _TableLayout extends StatelessWidget {
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, boardConstraints) {
+                    final scaledDrawWidth =
+                        TablePortraitGrid.drawPileCardWidth * tableScale;
+                    final scaledDiscardWidth =
+                        TablePortraitGrid.discardPileCardWidth * tableScale;
                     return ClipRect(
                       child: FittedBox(
-                        fit: BoxFit.scaleDown,
+                        // contain (not scaleDown): on tablets this lets the
+                        // whole piles+HUD block grow to fill the Expanded
+                        // region instead of staying pinned at its natural
+                        // (already tableScale-multiplied) size — a safety
+                        // net for any residual slack, now that the
+                        // constants themselves are pre-scaled above.
+                        fit: BoxFit.contain,
                         // Anchor to the bottom, not the centre: the board's
                         // content (piles+HUD) is much shorter than this
                         // Expanded region, and centering it split the slack
@@ -351,12 +380,12 @@ class _TableLayout extends StatelessWidget {
                                   isDealing ? 'DEALING...' : 'DEALER',
                                   key: const ValueKey('dealer-status'),
                                   style: TextStyle(
-                                    fontSize: isMobile ? 8 : 9,
+                                    fontSize: (isMobile ? 8 : 9) * tableScale,
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: AppDimensions.xs),
+                              SizedBox(height: AppDimensions.xs * tableScale),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -364,17 +393,14 @@ class _TableLayout extends StatelessWidget {
                                 children: [
                                   SizedBox(
                                     width: TablePortraitGrid
-                                        .drawPileFootprintWidth(
-                                            TablePortraitGrid.drawPileCardWidth),
+                                        .drawPileFootprintWidth(scaledDrawWidth),
                                     height: TablePortraitGrid
-                                        .drawPileFootprintHeight(
-                                            TablePortraitGrid.drawPileCardWidth),
+                                        .drawPileFootprintHeight(scaledDrawWidth),
                                     child: DrawPileWidget(
                                       key: drawPileKey,
                                       cardCount: gameState.drawPileCount,
                                       onTap: onDrawTap,
-                                      cardWidth:
-                                          TablePortraitGrid.drawPileCardWidth,
+                                      cardWidth: scaledDrawWidth,
                                       enabled: isMyTurn &&
                                           (gameState.actionsThisTurn == 0 ||
                                               gameState.queenSuitLock != null) &&
@@ -383,15 +409,13 @@ class _TableLayout extends StatelessWidget {
                                       reshuffleNotifier: reshuffleNotifier,
                                     ),
                                   ),
-                                  const SizedBox(
-                                      width: TablePortraitGrid.pileGap),
+                                  SizedBox(
+                                      width: TablePortraitGrid.pileGap * tableScale),
                                   SizedBox(
                                     width: TablePortraitGrid
-                                        .discardPileFootprintWidth(
-                                            TablePortraitGrid.discardPileCardWidth),
+                                        .discardPileFootprintWidth(scaledDiscardWidth),
                                     height: TablePortraitGrid
-                                        .discardPileFootprintHeight(
-                                            TablePortraitGrid.discardPileCardWidth),
+                                        .discardPileFootprintHeight(scaledDiscardWidth),
                                     child: DiscardPileWidget(
                                       key: discardPileKey,
                                       topCard: gameState.discardTopCard,
@@ -401,14 +425,13 @@ class _TableLayout extends StatelessWidget {
                                           : null,
                                       discardPileHistory:
                                           gameState.discardPileHistory,
-                                      cardWidth:
-                                          TablePortraitGrid.discardPileCardWidth,
+                                      cardWidth: scaledDiscardWidth,
                                       discardPileCount: discardPileCount,
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: AppDimensions.sm),
+                              SizedBox(height: AppDimensions.sm * tableScale),
                               SizedBox(
                                 key: hudKey,
                                 width: boardConstraints.maxWidth,
@@ -427,6 +450,7 @@ class _TableLayout extends StatelessWidget {
                                         : null,
                                     compact: isMobile,
                                     onPenaltyIncreased: onPenaltyIncreased,
+                                    scale: tableScale,
                                   ),
                                 ),
                               ),
@@ -439,11 +463,12 @@ class _TableLayout extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: TablePortraitGrid.boardToActionBarGap),
+              SizedBox(
+                  height: TablePortraitGrid.boardToActionBarGap * tableScale),
 
               // ── Region 3: Action bar (fixed height) ───────────────────────
               SizedBox(
-                height: TablePortraitGrid.actionBarHeight,
+                height: scaledActionBarHeight,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -452,7 +477,7 @@ class _TableLayout extends StatelessWidget {
                       totalDurationSeconds: turnTimerTotalSeconds,
                       isVisible: true,
                     ),
-                    const SizedBox(height: AppDimensions.sm),
+                    SizedBox(height: AppDimensions.sm * tableScale),
                     FloatingActionBarWidget(
                       activePlayerName: activePlayerDisplayName,
                       direction: gameState.direction,
@@ -482,6 +507,7 @@ class _TableLayout extends StatelessWidget {
                   isActiveTurn:
                       gameState.currentPlayerId == localPlayer.id,
                   compact: false,
+                  scale: tableScale,
                   hasLastCardsDeclared: gameState.lastCardsDeclaredBy
                       .contains(localPlayer.id),
                   skipSeatHighlight:
@@ -508,6 +534,7 @@ class _TableLayout extends StatelessWidget {
                           enabled: isMyTurn && !isDealing,
                           cardWidth: handCardWidth,
                           invalidPlayShakeTrigger: handShakeTrigger,
+                          scale: tableScale,
                         ),
                 ),
               ),
@@ -616,7 +643,13 @@ class _LandscapeTableLayout extends StatelessWidget {
     required this.opponentAvatarTap,
     this.isRanked = false,
     this.localAvatarFilePath,
+    this.tableScale = 1.0,
   });
+
+  /// See [_TableLayout.tableScale]. Only ever non-1.0 in practice if this
+  /// screen's landscape-mobile heuristic changes — landscape mobile is
+  /// mobile by definition today, where tableScale is always 1.0.
+  final double tableScale;
 
   final bool isRanked;
 
@@ -684,6 +717,7 @@ class _LandscapeTableLayout extends StatelessWidget {
           maxWidth: constraints.maxWidth,
           cardWidth: handCardWidth,
           isCompact: true,
+          scale: tableScale,
         );
         final hasTournamentBadges = tournamentStatusBadges.isNotEmpty;
         final opponentRowHeight = TablePortraitGrid.landscapeOpponentRowHeight(
@@ -719,6 +753,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                       ? TablePortraitGrid.landscapeOpponentRailBaseHeightWithBadge
                       : TablePortraitGrid.landscapeOpponentRailBaseHeight,
                   compact: true,
+                  scale: tableScale,
                   thinkingPlayerId: thinkingOpponentId,
                   quickChatBubblesByPlayer: quickChatBubblesByPlayer,
                   onRemoveQuickChatBubble: onRemoveQuickChatBubble,
@@ -808,7 +843,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: AppDimensions.sm),
+                              SizedBox(height: AppDimensions.sm * tableScale),
                               SizedBox(
                                 key: hudKey,
                                 width: boardConstraints.maxWidth,
@@ -827,6 +862,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                                         : null,
                                     compact: true,
                                     onPenaltyIncreased: onPenaltyIncreased,
+                                    scale: tableScale,
                                   ),
                                 ),
                               ),
@@ -895,6 +931,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                         hasLastCardsDeclared: gameState.lastCardsDeclaredBy
                             .contains(localPlayer.id),
                         compact: true,
+                        scale: tableScale,
                         skipSeatHighlight:
                             skipHighlightPlayerIds.contains(localPlayer.id),
                         chatBubble: quickChatBubblesByPlayer[localPlayer.id],
@@ -919,6 +956,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                                 enabled: isMyTurn && !isDealing,
                                 cardWidth: handCardWidth,
                                 invalidPlayShakeTrigger: handShakeTrigger,
+                                scale: tableScale,
                               ),
                       ),
                     ),

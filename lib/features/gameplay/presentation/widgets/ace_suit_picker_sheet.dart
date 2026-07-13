@@ -87,10 +87,15 @@ class _AceSuitPickerSheetState extends ConsumerState<AceSuitPickerSheet>
   Widget build(BuildContext context) {
     final theme = ref.watch(themeProvider).theme;
     final media = MediaQuery.of(context);
-    final isMobile = (media.size.width < media.size.height
-            ? media.size.width
-            : media.size.height) <
-        AppDimensions.breakpointMobile;
+    final shortestSide = media.size.width < media.size.height
+        ? media.size.width
+        : media.size.height;
+    final isMobile = shortestSide < AppDimensions.breakpointMobile;
+    // Tablet/desktop scale multiplier — matches the table screen's own
+    // tableScale curve so this picker doesn't look tiny next to the rest
+    // of the now-larger table.
+    final scale =
+        isMobile ? 1.0 : (shortestSide / 400.0).clamp(1.0, 2.2);
     final bottomInset =
         widget.presentation == AceSuitPickerPresentation.bottomSheet
             ? media.padding.bottom
@@ -100,7 +105,7 @@ class _AceSuitPickerSheetState extends ConsumerState<AceSuitPickerSheet>
       opacity: _entranceFade,
       child: Padding(
         padding: EdgeInsets.only(bottom: bottomInset),
-        child: _panel(theme, isMobile, context),
+        child: _panel(theme, isMobile, scale, context),
       ),
     );
 
@@ -114,7 +119,8 @@ class _AceSuitPickerSheetState extends ConsumerState<AceSuitPickerSheet>
     );
   }
 
-  Widget _panel(AppThemeData theme, bool isMobile, BuildContext context) {
+  Widget _panel(
+      AppThemeData theme, bool isMobile, double scale, BuildContext context) {
     final radius = widget.presentation == AceSuitPickerPresentation.bottomSheet
         ? const BorderRadius.vertical(
             top: Radius.circular(AppDimensions.radiusModal),
@@ -122,13 +128,13 @@ class _AceSuitPickerSheetState extends ConsumerState<AceSuitPickerSheet>
         : BorderRadius.circular(22);
 
     final padding = EdgeInsets.fromLTRB(
-      isMobile ? 16 : 24,
+      isMobile ? 16 : 16 * scale,
       widget.presentation == AceSuitPickerPresentation.floating
-          ? (isMobile ? 18 : 22)
+          ? (isMobile ? 18 : 18 * scale)
           : AppDimensions.md,
-      isMobile ? 16 : 24,
+      isMobile ? 16 : 16 * scale,
       widget.presentation == AceSuitPickerPresentation.floating
-          ? (isMobile ? 18 : 22)
+          ? (isMobile ? 18 : 18 * scale)
           : AppDimensions.md,
     );
 
@@ -167,9 +173,9 @@ class _AceSuitPickerSheetState extends ConsumerState<AceSuitPickerSheet>
         children: [
           if (widget.presentation == AceSuitPickerPresentation.floating) ...[
             Container(
-              width: 44,
-              height: 5,
-              margin: const EdgeInsets.only(bottom: 18),
+              width: 44 * scale,
+              height: 5 * scale,
+              margin: EdgeInsets.only(bottom: 18 * scale),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -186,8 +192,8 @@ class _AceSuitPickerSheetState extends ConsumerState<AceSuitPickerSheet>
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                width: isMobile ? 48 : 54,
-                height: isMobile ? 48 : 54,
+                width: isMobile ? 48 : 48 * scale,
+                height: isMobile ? 48 : 48 * scale,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
@@ -211,7 +217,7 @@ class _AceSuitPickerSheetState extends ConsumerState<AceSuitPickerSheet>
                 child: Text(
                   'A',
                   style: TextStyle(
-                    fontSize: isMobile ? 22 : 26,
+                    fontSize: isMobile ? 22 : 22 * scale,
                     fontWeight: FontWeight.w900,
                     color: theme.accentLight,
                     height: 1,
@@ -227,7 +233,7 @@ class _AceSuitPickerSheetState extends ConsumerState<AceSuitPickerSheet>
                       widget.title,
                       style: TextStyle(
                         color: theme.textPrimary,
-                        fontSize: isMobile ? 15 : 17,
+                        fontSize: isMobile ? 15 : 15 * scale,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.3,
                       ),
@@ -238,7 +244,7 @@ class _AceSuitPickerSheetState extends ConsumerState<AceSuitPickerSheet>
                         widget.subtitle,
                         style: TextStyle(
                           color: theme.textSecondary.withValues(alpha: 0.95),
-                          fontSize: isMobile ? 12 : 13,
+                          fontSize: isMobile ? 12 : 12 * scale,
                           height: 1.25,
                         ),
                       ),
@@ -253,7 +259,7 @@ class _AceSuitPickerSheetState extends ConsumerState<AceSuitPickerSheet>
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               for (var i = 0; i < 4; i++) ...[
-                if (i > 0) SizedBox(width: isMobile ? 8 : 10),
+                if (i > 0) SizedBox(width: isMobile ? 8 : 8 * scale),
                 Expanded(
                   child: _SuitStripButton(
                     slotIndex: i,
@@ -264,6 +270,7 @@ class _AceSuitPickerSheetState extends ConsumerState<AceSuitPickerSheet>
                     isRed: _suits[i].$4,
                     theme: theme,
                     isMobile: isMobile,
+                    scale: scale,
                     isPulsing: _pulsingSuit == _suits[i].$1,
                     onTap: _pulsingSuit != null
                         ? null
@@ -290,6 +297,7 @@ class _SuitStripButton extends StatefulWidget {
     required this.isRed,
     required this.theme,
     required this.isMobile,
+    this.scale = 1.0,
     required this.isPulsing,
     required this.onTap,
   });
@@ -302,6 +310,7 @@ class _SuitStripButton extends StatefulWidget {
   final bool isRed;
   final AppThemeData theme;
   final bool isMobile;
+  final double scale;
   final bool isPulsing;
   final VoidCallback? onTap;
 
@@ -364,7 +373,7 @@ class _SuitStripButtonState extends State<_SuitStripButton>
 
   @override
   Widget build(BuildContext context) {
-    final h = widget.isMobile ? 92.0 : 104.0;
+    final h = widget.isMobile ? 92.0 : 92.0 * widget.scale;
 
     final suitColor =
         widget.isRed ? widget.theme.suitRed : widget.theme.suitBlack;

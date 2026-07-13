@@ -27,16 +27,18 @@ import 'game_move_log_overlay.dart';
   required List<MoveLogEntry> entries,
   required double top,
   required double boardTop,
+  double scale = 1.0,
 }) {
   if (entries.isEmpty) return null;
+  final scaledMaxHeight = TablePortraitGrid.moveLogMaxHeight * scale;
   final maxHeight = math.min(
-    TablePortraitGrid.moveLogMaxHeight,
+    scaledMaxHeight,
     math.max(
       0.0,
       boardTop +
-          TablePortraitGrid.moveLogMaxHeight -
+          scaledMaxHeight -
           top -
-          TablePortraitGrid.moveLogBottomClearance,
+          TablePortraitGrid.moveLogBottomClearance * scale,
     ),
   );
   if (maxHeight <= 0) return null;
@@ -50,10 +52,12 @@ double? moveLogBottomPx({
   required List<MoveLogEntry> entries,
   required double top,
   required double boardTop,
+  double scale = 1.0,
 }) {
-  final geometry = moveLogGeometry(entries: entries, top: top, boardTop: boardTop);
+  final geometry =
+      moveLogGeometry(entries: entries, top: top, boardTop: boardTop, scale: scale);
   if (geometry == null) return null;
-  return geometry.top + geometry.maxHeight + AppDimensions.xs;
+  return geometry.top + geometry.maxHeight + AppDimensions.xs * scale;
 }
 
 /// Move log — fixed overlay, positioned by the caller via [top]/[boardTop]
@@ -64,15 +68,18 @@ class MoveLogOverlay extends StatelessWidget {
     required this.entries,
     required this.top,
     required this.boardTop,
+    this.scale = 1.0,
   });
 
   final List<MoveLogEntry> entries;
   final double top;
   final double boardTop;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
-    final geometry = moveLogGeometry(entries: entries, top: top, boardTop: boardTop);
+    final geometry =
+        moveLogGeometry(entries: entries, top: top, boardTop: boardTop, scale: scale);
     if (geometry == null) return const SizedBox.shrink();
 
     return Positioned(
@@ -82,19 +89,20 @@ class MoveLogOverlay extends StatelessWidget {
       child: Align(
         alignment: Alignment.topCenter,
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: TablePortraitGrid.moveLogHorizontalInset,
+          padding: EdgeInsets.symmetric(
+            horizontal: TablePortraitGrid.moveLogHorizontalInset * scale,
           ),
           child: ClipRect(
             child: IgnorePointer(
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth: TablePortraitGrid.moveLogMaxWidth,
+                  maxWidth: TablePortraitGrid.moveLogMaxWidth * scale,
                   maxHeight: geometry.maxHeight,
                 ),
                 child: GameMoveLogPanel(
                   entries: entries,
                   maxHeight: geometry.maxHeight,
+                  scale: scale,
                 ),
               ),
             ),
@@ -118,6 +126,7 @@ class GlobalKeyFollower extends StatefulWidget {
     this.offset = Offset.zero,
     this.maxTop,
     this.minTop,
+    this.scale = 1.0,
   });
 
   final GlobalKey targetKey;
@@ -130,6 +139,11 @@ class GlobalKeyFollower extends StatefulWidget {
   final double? maxTop;
   /// When set, floors [Positioned.top] so followers stay below the move log band.
   final double? minTop;
+
+  /// Tablet/desktop scale multiplier (1.0 on phones) — grows the follower's
+  /// own box so scaled-up child content (bigger banner text, etc) isn't
+  /// clipped by the hardcoded constraints below.
+  final double scale;
 
   @override
   State<GlobalKeyFollower> createState() => _GlobalKeyFollowerState();
@@ -198,9 +212,9 @@ class _GlobalKeyFollowerState extends State<GlobalKeyFollower> {
       left: targetPoint.dx,
       top: top,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: 360,
-          maxHeight: 220,
+        constraints: BoxConstraints(
+          maxWidth: 360 * widget.scale,
+          maxHeight: 220 * widget.scale,
         ),
         child: _ChildAnchorWrapper(
           anchor: widget.childAnchor,
@@ -309,6 +323,7 @@ class StackBlockBannerOverlay extends StatelessWidget {
     required this.discardPileKey,
     this.centerOffsetX = 0.0,
     this.minTop,
+    this.scale = 1.0,
   });
 
   final String text;
@@ -317,6 +332,7 @@ class StackBlockBannerOverlay extends StatelessWidget {
   final GlobalKey discardPileKey;
   final double centerOffsetX;
   final double? minTop;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
@@ -324,15 +340,16 @@ class StackBlockBannerOverlay extends StatelessWidget {
       targetKey: discardPileKey,
       targetAnchor: Alignment.topCenter,
       childAnchor: Alignment.bottomCenter,
-      offset: Offset(centerOffsetX, -10),
+      offset: Offset(centerOffsetX, -10 * scale),
       minTop: minTop,
+      scale: scale,
       child: IgnorePointer(
         child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 32),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          margin: EdgeInsets.symmetric(horizontal: 32 * scale),
+          padding: EdgeInsets.symmetric(horizontal: 20 * scale, vertical: 14 * scale),
           decoration: BoxDecoration(
             color: appTheme.surfacePanel.withValues(alpha: 0.92),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(16 * scale),
             border: Border.all(color: color, width: 2),
           ),
           child: Text(
@@ -340,7 +357,7 @@ class StackBlockBannerOverlay extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: appTheme.textPrimary,
-              fontSize: 17,
+              fontSize: 17 * scale,
               fontWeight: FontWeight.w900,
             ),
           ),

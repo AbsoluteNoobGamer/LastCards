@@ -1364,16 +1364,17 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   ({double top, double boardTop}) _bustMoveLogAnchors(
     BuildContext context, {
     required bool landscape,
+    double scale = 1.0,
   }) {
     final safeTop = MediaQuery.paddingOf(context).top;
     const railHeight = 96.0;
     const landscapeRailHeight = 72.0;
     const roundIndicatorHeight = 34.0;
     final top = safeTop +
-        (landscape ? landscapeRailHeight : railHeight) +
-        roundIndicatorHeight +
-        TablePortraitGrid.moveLogTopGap;
-    final boardTop = top + TablePortraitGrid.moveLogMaxHeight + 200;
+        (landscape ? landscapeRailHeight : railHeight) * scale +
+        roundIndicatorHeight * scale +
+        TablePortraitGrid.moveLogTopGap * scale;
+    final boardTop = top + TablePortraitGrid.moveLogMaxHeight * scale + 200;
     return (top: top, boardTop: boardTop);
   }
 
@@ -1381,14 +1382,16 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     required Size layoutSize,
     required bool isLandscape,
     required bool isMyTurn,
+    double scale = 1.0,
   }) {
     const portraitPileSize = 100.0;
     const portraitPileHeight = 145.0;
     const landscapePileSize = 56.0;
     const landscapePileHeight = 78.0;
-    final pileSize = isLandscape ? landscapePileSize : portraitPileSize;
-    final pileHeight = isLandscape ? landscapePileHeight : portraitPileHeight;
-    final gap = isLandscape ? 8.0 : 24.0;
+    final pileSize = (isLandscape ? landscapePileSize : portraitPileSize) * scale;
+    final pileHeight =
+        (isLandscape ? landscapePileHeight : portraitPileHeight) * scale;
+    final gap = (isLandscape ? 8.0 : 24.0) * scale;
 
     return Transform.translate(
       offset: !isLandscape && TableChromeLayout.isCompactPhone(layoutSize)
@@ -1477,12 +1480,13 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     required double handCardWidth,
     required bool isMyTurn,
     required bool compact,
+    double scale = 1.0,
   }) {
     return KeyedSubtree(
       key: _playerZoneKeys[OfflineGameState.localId],
       child: Padding(
         padding: EdgeInsets.only(
-          bottom: compact ? AppDimensions.xs : AppDimensions.sm,
+          bottom: (compact ? AppDimensions.xs : AppDimensions.sm) * scale,
         ),
         child: SizedBox(
           width: double.infinity,
@@ -1497,6 +1501,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                 ref.watch(profileProvider.select((s) => s.avatarPath)),
             isActiveTurn: isMyTurn,
             compact: compact,
+            scale: scale,
             skipSeatHighlight:
                 _skipHighlightPlayerIds.contains(OfflineGameState.localId),
             chatBubble: () {
@@ -1521,6 +1526,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
               enabled: isMyTurn && !_isDealing,
               cardWidth: handCardWidth,
               invalidPlayShakeTrigger: _handShakeNotifier,
+              scale: scale,
             ),
           ),
         ),
@@ -1536,6 +1542,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     required double handCardWidth,
     required bool isMobile,
     required BustRoundState roundState,
+    double scale = 1.0,
   }) {
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -1547,25 +1554,27 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
             slots: List<BustPlayerViewModel?>.from(opponents),
             slotKeyBuilder: (p) => _playerZoneKeys[p.id],
             height: 96,
+            scale: scale,
             thinkingPlayerId: _thinkingOpponentId,
             skipHighlightPlayerIds: _skipHighlightPlayerIds,
             quickChatBubblesByPlayer: _quickChatBubblesByPlayer,
             onRemoveQuickChatBubble: _removeQuickChatBubble,
           ),
-          _RoundIndicator(roundState: roundState),
+          _RoundIndicator(roundState: roundState, scale: scale),
           Expanded(
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const SizedBox(height: 72),
+                  SizedBox(height: 72 * scale),
                   SizedBox(
-                    height: isMobile ? AppDimensions.sm : AppDimensions.md,
+                    height: (isMobile ? AppDimensions.sm : AppDimensions.md) * scale,
                   ),
                   _buildDrawDiscardCluster(
                     layoutSize: layoutSize,
                     isLandscape: false,
                     isMyTurn: isMyTurn,
+                    scale: scale,
                   ),
                 ],
               ),
@@ -1573,7 +1582,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
           ),
           Padding(
             padding: EdgeInsets.only(
-              bottom: isMobile ? AppDimensions.sm : AppDimensions.md,
+              bottom: (isMobile ? AppDimensions.sm : AppDimensions.md) * scale,
             ),
             child: _buildFloatingActionBar(compact: false),
           ),
@@ -1582,6 +1591,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
             handCardWidth: handCardWidth,
             isMyTurn: isMyTurn,
             compact: false,
+            scale: scale,
           ),
         ],
       ),
@@ -1594,8 +1604,9 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     required PlayerModel localPlayer,
     required bool isMyTurn,
     required BustRoundState roundState,
+    double scale = 1.0,
   }) {
-    const handCardWidth = 40.0;
+    final handCardWidth = 40.0 * scale;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppDimensions.xs),
@@ -1606,14 +1617,15 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
             slotKeyBuilder: (p) => _playerZoneKeys[p.id],
             height: 72,
             compact: true,
+            scale: scale,
             thinkingPlayerId: _thinkingOpponentId,
             skipHighlightPlayerIds: _skipHighlightPlayerIds,
             quickChatBubblesByPlayer: _quickChatBubblesByPlayer,
             onRemoveQuickChatBubble: _removeQuickChatBubble,
           ),
-          _RoundIndicator(roundState: roundState),
+          _RoundIndicator(roundState: roundState, scale: scale),
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
+            padding: EdgeInsets.symmetric(vertical: 2 * scale),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -1622,8 +1634,9 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                   layoutSize: layoutSize,
                   isLandscape: true,
                   isMyTurn: isMyTurn,
+                  scale: scale,
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12 * scale),
                 Transform.translate(
                   key: _hudOverlayKey,
                   offset: const Offset(0, -1),
@@ -1632,20 +1645,22 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                     queenSuitLock: _gameState.queenSuitLock,
                     penaltyCount: _gameState.activePenaltyCount,
                     compact: true,
+                    scale: scale,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 2),
+          SizedBox(height: 2 * scale),
           _buildFloatingActionBar(compact: true),
-          const SizedBox(height: 2),
+          SizedBox(height: 2 * scale),
           Expanded(
             child: _buildLocalHand(
               localPlayer: localPlayer,
               handCardWidth: handCardWidth,
               isMyTurn: isMyTurn,
               compact: true,
+              scale: scale,
             ),
           ),
         ],
@@ -1675,8 +1690,16 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
               AppDimensions.breakpointMobile;
           final isLandscapeMobile =
               TableChromeLayout.isLandscapeMobile(layoutSize);
-          final handCardWidth = (layoutSize.width * (isMobile ? 0.12 : 0.1))
-              .clamp(44.0, 82.0);
+          // Same shared curve the main table screen uses (TableChromeLayout
+          // .scaleFor) — tablets/desktop get chrome scaled toward the
+          // available canvas instead of staying phone-sized.
+          final bustScale = TableChromeLayout.scaleFor(layoutSize);
+          // See table_screen_layout.dart's identical fix: multiply the
+          // width-percentage formula by bustScale too, not just the clamp
+          // ceiling, so actual card size keeps pace with the frame height.
+          final handCardWidth =
+              (layoutSize.width * (isMobile ? 0.12 : 0.1) * (isMobile ? 1.0 : bustScale))
+                  .clamp(44.0, 82.0 * bustScale);
 
           return Stack(
             children: [
@@ -1711,6 +1734,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                             localPlayer: localPlayer,
                             isMyTurn: isMyTurn,
                             roundState: rs,
+                            scale: bustScale,
                           )
                         : _buildBustPortraitTable(
                             layoutSize: layoutSize,
@@ -1720,6 +1744,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                             handCardWidth: handCardWidth,
                             isMobile: isMobile,
                             roundState: rs,
+                            scale: bustScale,
                           ),
                   ),
                 ),
@@ -1729,11 +1754,13 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                   final anchors = _bustMoveLogAnchors(
                     context,
                     landscape: isLandscapeMobile,
+                    scale: bustScale,
                   );
                   return MoveLogOverlay(
                     entries: _moveLogEntries,
                     top: anchors.top,
                     boardTop: anchors.boardTop,
+                    scale: bustScale,
                   );
                 }),
 
@@ -1742,6 +1769,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                   final anchors = _bustMoveLogAnchors(
                     context,
                     landscape: isLandscapeMobile,
+                    scale: bustScale,
                   );
                   return StackBlockBannerOverlay(
                     text: _stackBlockBannerText!,
@@ -1752,7 +1780,9 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                       entries: _moveLogEntries,
                       top: anchors.top,
                       boardTop: anchors.boardTop,
+                      scale: bustScale,
                     ),
+                    scale: bustScale,
                   );
                 }),
 
@@ -1768,6 +1798,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                         activeSuit: _gameState.suitLock,
                         queenSuitLock: _gameState.queenSuitLock,
                         penaltyCount: _gameState.activePenaltyCount,
+                        scale: bustScale,
                       ),
                     ),
                   ),
@@ -1776,12 +1807,26 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
               // Direction indicator — suit-lock HUD slot, same as table play.
               Positioned.fill(
                 child: IgnorePointer(
-                  child: DirectionBannerAtHud(
-                    hudKey: _hudOverlayKey,
-                    direction: _gameState.direction,
-                    kingJustPlayed: _gameState.lastPlayedThisTurn?.effectiveRank ==
-                        Rank.king,
-                  ),
+                  child: Builder(builder: (context) {
+                    final anchors = _bustMoveLogAnchors(
+                      context,
+                      landscape: isLandscapeMobile,
+                      scale: bustScale,
+                    );
+                    return DirectionBannerAtHud(
+                      hudKey: _hudOverlayKey,
+                      direction: _gameState.direction,
+                      kingJustPlayed:
+                          _gameState.lastPlayedThisTurn?.effectiveRank == Rank.king,
+                      minTop: moveLogBottomPx(
+                        entries: _moveLogEntries,
+                        top: anchors.top,
+                        boardTop: anchors.boardTop,
+                        scale: bustScale,
+                      ),
+                      scale: bustScale,
+                    );
+                  }),
                 ),
               ),
 
@@ -2039,9 +2084,10 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
 // ── Round indicator widget ─────────────────────────────────────────────────────
 
 class _RoundIndicator extends ConsumerWidget {
-  const _RoundIndicator({required this.roundState});
+  const _RoundIndicator({required this.roundState, this.scale = 1.0});
 
   final BustRoundState roundState;
+  final double scale;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -2050,13 +2096,13 @@ class _RoundIndicator extends ConsumerWidget {
     final round = roundState.roundNumber;
 
     return Padding(
-      padding: const EdgeInsets.only(top: 2, bottom: 4),
+      padding: EdgeInsets.only(top: 2 * scale, bottom: 4 * scale),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
             padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 4 * scale),
             decoration: BoxDecoration(
               color: theme.backgroundMid,
               borderRadius: BorderRadius.circular(20),
@@ -2067,7 +2113,7 @@ class _RoundIndicator extends ConsumerWidget {
             child: Text(
               'Round $round  ·  Rotation $rotation/2',
               style: GoogleFonts.outfit(
-                fontSize: 12,
+                fontSize: 12 * scale,
                 fontWeight: FontWeight.w600,
                 color: theme.accentPrimary,
                 letterSpacing: 0.5,

@@ -26,12 +26,16 @@ class TurnIndicatorOverlay extends ConsumerStatefulWidget {
   /// When set, scales the banner down so it fits within this width.
   final double? maxWidth;
 
+  /// Tablet/desktop scale multiplier (1.0 on phones).
+  final double scale;
+
   const TurnIndicatorOverlay({
     super.key,
     required this.direction,
     this.kingJustPlayed = false,
     this.bannerAlignment = const Alignment(0, 0.20),
     this.maxWidth,
+    this.scale = 1.0,
   });
 
   @override
@@ -91,15 +95,16 @@ class _TurnIndicatorOverlayState extends ConsumerState<TurnIndicatorOverlay>
   }
 
   Widget _bannerChip(String symbol) {
-    final maxWidth = widget.maxWidth ?? kDirectionReversalBannerMaxWidth;
+    final scale = widget.scale;
+    final maxWidth = (widget.maxWidth ?? kDirectionReversalBannerMaxWidth) * scale;
     final theme = ref.watch(themeProvider).theme;
 
     return Container(
       constraints: BoxConstraints(maxWidth: maxWidth),
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: 18 * scale, vertical: 10 * scale),
       decoration: BoxDecoration(
         color: theme.accentDark.withValues(alpha: 0.88),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14 * scale),
         border: Border.all(
           color: theme.accentLight.withValues(alpha: 0.95),
           width: 1.5,
@@ -119,7 +124,7 @@ class _TurnIndicatorOverlayState extends ConsumerState<TurnIndicatorOverlay>
         textAlign: TextAlign.center,
         style: TextStyle(
           color: theme.backgroundDeep,
-          fontSize: 15,
+          fontSize: 15 * scale,
           fontWeight: FontWeight.w900,
           letterSpacing: 0.5,
           height: 1.2,
@@ -177,11 +182,19 @@ class DirectionBannerAtHud extends StatelessWidget {
     required this.hudKey,
     required this.direction,
     required this.kingJustPlayed,
+    this.minTop,
+    this.scale = 1.0,
   });
 
   final GlobalKey hudKey;
   final PlayDirection direction;
   final bool kingJustPlayed;
+
+  /// Floors the banner's top so it stays below the move log band.
+  final double? minTop;
+
+  /// Tablet/desktop scale multiplier (1.0 on phones).
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
@@ -193,12 +206,15 @@ class DirectionBannerAtHud extends StatelessWidget {
           targetKey: hudKey,
           targetAnchor: Alignment.center,
           childAnchor: Alignment.center,
-          offset: const Offset(0, kDirectionReversalBannerYOffset),
+          offset: Offset(0, kDirectionReversalBannerYOffset * scale),
+          minTop: minTop,
+          scale: scale,
           child: TurnIndicatorOverlay(
             direction: direction,
             kingJustPlayed: kingJustPlayed,
             maxWidth: kDirectionReversalBannerMaxWidth,
             bannerAlignment: Alignment.center,
+            scale: scale,
           ),
         ),
       ],

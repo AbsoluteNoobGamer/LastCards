@@ -12,26 +12,28 @@ class GameMoveLogPanel extends StatelessWidget {
     super.key,
     required this.entries,
     this.maxHeight = 140,
+    this.scale = 1.0,
   });
 
   final List<MoveLogEntry> entries;
   final double maxHeight;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
     return IgnorePointer(
       child: Container(
         constraints: BoxConstraints(
-          maxWidth: TablePortraitGrid.moveLogMaxWidth,
+          maxWidth: TablePortraitGrid.moveLogMaxWidth * scale,
           maxHeight: maxHeight,
         ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 10,
-          vertical: 6,
+        padding: EdgeInsets.symmetric(
+          horizontal: 10 * scale,
+          vertical: 6 * scale,
         ),
         child: SingleChildScrollView(
           physics: const ClampingScrollPhysics(),
-          child: LastMovePanelWidget(entries: entries),
+          child: LastMovePanelWidget(entries: entries, scale: scale),
         ),
       ),
     );

@@ -247,10 +247,11 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
     required AppThemeData splashTheme,
     required bool disableAnim,
     required bool cinematic,
+    bool isMobile = true,
   }) {
     final TextStyle titleStyle = gameTitleTextStyle(
       splashTheme,
-      fontSize: 42,
+      fontSize: isMobile ? 42 : 56,
       fontWeight: FontWeight.bold,
       letterSpacing: 5.0,
       color: Colors.white,
@@ -543,6 +544,7 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                                 splashTheme: splashTheme,
                                 disableAnim: disableAnim,
                                 cinematic: cinematic,
+                                isMobile: isMobile,
                               ),
                               const SizedBox(height: 6),
                               Text(
@@ -550,7 +552,7 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                                 textAlign: TextAlign.center,
                                 style: gameTitleTextStyle(
                                   splashTheme,
-                                  fontSize: 13,
+                                  fontSize: isMobile ? 13 : 16,
                                   fontWeight: FontWeight.w400,
                                   letterSpacing: 3.0,
                                   color: splashTheme.accentPrimary

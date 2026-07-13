@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_shaders/flutter_shaders.dart';
 
 import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_theme_data.dart';
 
 /// Special card visual effects — each one is a composable AnimatedWidget
@@ -461,8 +462,15 @@ class _JokerDeclarationPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shortestSide = MediaQuery.sizeOf(context).shortestSide;
+    final isMobile = shortestSide < AppDimensions.breakpointMobile;
+    // Tablet/desktop scale multiplier — matches the table screen's own
+    // tableScale curve so this panel doesn't look tiny next to the rest
+    // of the now-larger table.
+    final scale = isMobile ? 1.0 : (shortestSide / 400.0).clamp(1.0, 2.2);
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16 * scale),
       decoration: BoxDecoration(
         color: theme.surfacePanel.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(12),
@@ -475,9 +483,11 @@ class _JokerDeclarationPanel extends StatelessWidget {
             'Declare Suit',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   color: theme.textPrimary,
+                  fontSize: (Theme.of(context).textTheme.headlineMedium?.fontSize ?? 22) *
+                      scale,
                 ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12 * scale),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -485,6 +495,7 @@ class _JokerDeclarationPanel extends StatelessWidget {
                 _SuitButton(
                   theme: theme,
                   suit: suit,
+                  scale: scale,
                   onTap: () => onDeclare(suit, 'joker'),
                 ),
             ],
@@ -499,10 +510,12 @@ class _SuitButton extends StatelessWidget {
   const _SuitButton({
     required this.theme,
     required this.suit,
+    this.scale = 1.0,
     required this.onTap,
   });
   final AppThemeData theme;
   final String suit;
+  final double scale;
   final VoidCallback onTap;
 
   static const _labels = {
@@ -518,9 +531,9 @@ class _SuitButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.all(6),
-        width: 44,
-        height: 44,
+        margin: EdgeInsets.all(6 * scale),
+        width: 44 * scale,
+        height: 44 * scale,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: theme.backgroundMid,
@@ -530,7 +543,7 @@ class _SuitButton extends StatelessWidget {
           child: Text(
             _labels[suit] ?? suit,
             style: TextStyle(
-              fontSize: 22,
+              fontSize: 22 * scale,
               color: isRed ? theme.suitRed : theme.suitBlack,
             ),
           ),
