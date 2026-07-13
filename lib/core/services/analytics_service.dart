@@ -1,5 +1,7 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
 
+import '../analytics/analytics_events.dart';
+
 // To verify events: Firebase Console → Analytics → DebugView
 // Run app with --dart-define=FLUTTER_TEST=false in debug mode
 
@@ -13,10 +15,10 @@ class AnalyticsService {
   void logGameStarted({required String mode, required int playerCount}) {
     try {
       _analytics.logEvent(
-        name: 'game_started',
+        name: AnalyticsEvents.gameStarted,
         parameters: {
-          'mode': mode,
-          'player_count': playerCount,
+          AnalyticsParams.mode: mode,
+          AnalyticsParams.playerCount: playerCount,
         },
       );
     } catch (_) {}
@@ -29,11 +31,11 @@ class AnalyticsService {
   }) {
     try {
       _analytics.logEvent(
-        name: 'game_completed',
+        name: AnalyticsEvents.gameCompleted,
         parameters: {
-          'mode': mode,
-          'is_win': isWin,
-          'duration_seconds': durationSeconds,
+          AnalyticsParams.mode: mode,
+          AnalyticsParams.isWin: isWin,
+          AnalyticsParams.durationSeconds: durationSeconds,
         },
       );
     } catch (_) {}
@@ -46,11 +48,11 @@ class AnalyticsService {
   }) {
     try {
       _analytics.logEvent(
-        name: 'ranked_game_played',
+        name: AnalyticsEvents.rankedGamePlayed,
         parameters: {
-          'is_win': isWin,
-          'mmr_before': mmrBefore,
-          'mmr_after': mmrAfter,
+          AnalyticsParams.isWin: isWin,
+          AnalyticsParams.mmrBefore: mmrBefore,
+          AnalyticsParams.mmrAfter: mmrAfter,
         },
       );
     } catch (_) {}
@@ -62,10 +64,10 @@ class AnalyticsService {
   }) {
     try {
       _analytics.logEvent(
-        name: 'tournament_completed',
+        name: AnalyticsEvents.tournamentCompleted,
         parameters: {
-          'result': result,
-          'rounds_played': roundsPlayed,
+          AnalyticsParams.result: result,
+          AnalyticsParams.roundsPlayed: roundsPlayed,
         },
       );
     } catch (_) {}
@@ -74,8 +76,8 @@ class AnalyticsService {
   void logThemeChanged({required String themeId}) {
     try {
       _analytics.logEvent(
-        name: 'theme_changed',
-        parameters: {'theme_id': themeId},
+        name: AnalyticsEvents.themeChanged,
+        parameters: {AnalyticsParams.themeId: themeId},
       );
     } catch (_) {}
   }
@@ -83,8 +85,8 @@ class AnalyticsService {
   void logCardBackChanged({required String designId}) {
     try {
       _analytics.logEvent(
-        name: 'card_back_changed',
-        parameters: {'design_id': designId},
+        name: AnalyticsEvents.cardBackChanged,
+        parameters: {AnalyticsParams.designId: designId},
       );
     } catch (_) {}
   }
@@ -92,8 +94,8 @@ class AnalyticsService {
   void logLastCardsDeclared({required String mode}) {
     try {
       _analytics.logEvent(
-        name: 'last_cards_declared',
-        parameters: {'mode': mode},
+        name: AnalyticsEvents.lastCardsDeclared,
+        parameters: {AnalyticsParams.mode: mode},
       );
     } catch (_) {}
   }
@@ -101,10 +103,10 @@ class AnalyticsService {
   void logComboPlayed({required int cardCount, required int tier}) {
     try {
       _analytics.logEvent(
-        name: 'combo_played',
+        name: AnalyticsEvents.comboPlayed,
         parameters: {
-          'card_count': cardCount,
-          'tier': tier,
+          AnalyticsParams.cardCount: cardCount,
+          AnalyticsParams.tier: tier,
         },
       );
     } catch (_) {}
@@ -113,8 +115,8 @@ class AnalyticsService {
   void logLevelUp({required int newLevel}) {
     try {
       _analytics.logEvent(
-        name: 'level_up',
-        parameters: {'new_level': newLevel},
+        name: AnalyticsEvents.levelUp,
+        parameters: {AnalyticsParams.newLevel: newLevel},
       );
     } catch (_) {}
   }
@@ -122,21 +124,21 @@ class AnalyticsService {
   void logLeaderboardViewed({required String mode}) {
     try {
       _analytics.logEvent(
-        name: 'leaderboard_viewed',
-        parameters: {'mode': mode},
+        name: AnalyticsEvents.leaderboardViewed,
+        parameters: {AnalyticsParams.mode: mode},
       );
     } catch (_) {}
   }
 
   void logSettingsOpened() {
     try {
-      _analytics.logEvent(name: 'settings_opened');
+      _analytics.logEvent(name: AnalyticsEvents.settingsOpened);
     } catch (_) {}
   }
 
   void logCardStyleMenuOpened() {
     try {
-      _analytics.logEvent(name: 'card_style_menu_opened');
+      _analytics.logEvent(name: AnalyticsEvents.cardStyleMenuOpened);
     } catch (_) {}
   }
 }

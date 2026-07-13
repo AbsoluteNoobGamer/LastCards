@@ -9,6 +9,7 @@ import '../../../../core/navigation/app_page_routes.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/services/ads_service.dart';
+import '../../../../core/services/analytics_service.dart';
 import '../../../../core/services/player_level_service.dart';
 import '../../../../services/audio_service.dart';
 import '../../../../services/game_sound.dart';
@@ -349,6 +350,11 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
               deltaLosses: 1,
               deltaGamesPlayed: 1,
             );
+
+            AnalyticsService.instance.logTournamentCompleted(
+              result: 'eliminated',
+              roundsPlayed: round.roundNumber,
+            );
           }
           if (mounted && !_isDisposed) {
             Navigator.of(context).popUntil((route) => route.isFirst);
@@ -405,6 +411,11 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
           deltaLosses: didWin ? 0 : 1,
           deltaGamesPlayed: 1,
         ),
+      );
+
+      AnalyticsService.instance.logTournamentCompleted(
+        result: didWin ? 'champion' : 'eliminated',
+        roundsPlayed: _engine.roundResults.length,
       );
     }
 
