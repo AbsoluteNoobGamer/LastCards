@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/services/analytics_consent_service.dart';
 import '../../../../core/services/card_back_service.dart';
 import '../../../gameplay/presentation/controllers/audio_service.dart';
 import '../../../../services/audio_service.dart' as game_audio;
@@ -247,6 +248,32 @@ class SettingsModal extends ConsumerWidget {
                           onChanged: (val) =>
                               audioService.setSoundEffectsEnabled(val),
                           activeThumbColor: Colors.amber,
+                        ),
+                        const Divider(height: 40, color: Colors.grey),
+                        ValueListenableBuilder<bool>(
+                          valueListenable:
+                              AnalyticsConsentService.instance.analyticsEnabled,
+                          builder: (context, analyticsEnabled, _) {
+                            return SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              dense: isMobile,
+                              title: const Text('Analytics'),
+                              subtitle: Text(
+                                'Helps us understand how the game is played '
+                                'and improve it. No personal data is sold.',
+                                style: TextStyle(
+                                  fontSize: isMobile ? 11 : 12,
+                                  color: Colors.grey.shade500,
+                                ),
+                              ),
+                              value: analyticsEnabled,
+                              onChanged: (val) => unawaited(
+                                AnalyticsConsentService.instance
+                                    .setEnabled(val),
+                              ),
+                              activeThumbColor: Colors.amber,
+                            );
+                          },
                         ),
                       ],
                     ),

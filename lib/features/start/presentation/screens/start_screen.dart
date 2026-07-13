@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:ui' as ui;
 
+import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,6 +39,7 @@ import '../../../../features/social/widgets/friends_list_sheet.dart';
 import '../../../../features/social/widgets/pending_friend_requests_banner.dart';
 import '../../../../features/social/widgets/pending_game_invites_banner.dart';
 import '../../../../core/providers/app_update_provider.dart';
+import '../../../../core/services/analytics_consent_service.dart';
 import '../../../notifications/presentation/widgets/notification_bell_button.dart';
 import '../widgets/optional_update_banner.dart';
 
@@ -121,7 +123,47 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
         _primaryEntranceController.value = 1.0;
         _godRayController.value = 0;
       }
+      unawaited(_maybeShowAnalyticsNotice());
+      unawaited(_maybeRequestTrackingAuthorization());
     });
+  }
+
+  /// One-time, non-blocking notice — analytics stays on by default; this
+  /// just tells the player it's used and that Settings has an opt-out.
+  /// Never shown again after the first launch (see
+  /// [AnalyticsConsentService.shouldShowFirstLaunchNotice]).
+  Future<void> _maybeShowAnalyticsNotice() async {
+    final shouldShow =
+        await AnalyticsConsentService.instance.shouldShowFirstLaunchNotice();
+    if (!shouldShow || !mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('Before you start'),
+        content: const Text(
+          'Last Cards uses analytics to understand how the game is played '
+          'and improve it. You can turn this off anytime in Settings.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Got it'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// iOS only — Apple requires this system prompt before IDFA-dependent ad
+  /// tracking. Safe to call every launch: the OS only ever shows the dialog
+  /// once, so this checks status first to skip the platform-channel round
+  /// trip once the player has already answered.
+  Future<void> _maybeRequestTrackingAuthorization() async {
+    final status = await AppTrackingTransparency.trackingAuthorizationStatus;
+    if (status != TrackingStatus.notDetermined) return;
+    await AppTrackingTransparency.requestTrackingAuthorization();
   }
 
   @override

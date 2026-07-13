@@ -6,6 +6,12 @@
 
 #import "GeneratedPluginRegistrant.h"
 
+#if __has_include(<app_tracking_transparency/AppTrackingTransparencyPlugin.h>)
+#import <app_tracking_transparency/AppTrackingTransparencyPlugin.h>
+#else
+@import app_tracking_transparency;
+#endif
+
 #if __has_include(<audioplayers_darwin/AudioplayersDarwinPlugin.h>)
 #import <audioplayers_darwin/AudioplayersDarwinPlugin.h>
 #else
@@ -123,6 +129,7 @@
 @implementation GeneratedPluginRegistrant
 
 + (void)registerWithRegistry:(NSObject<FlutterPluginRegistry>*)registry {
+  [AppTrackingTransparencyPlugin registerWithRegistrar:[registry registrarForPlugin:@"AppTrackingTransparencyPlugin"]];
   [AudioplayersDarwinPlugin registerWithRegistrar:[registry registrarForPlugin:@"AudioplayersDarwinPlugin"]];
   [FLTFirebaseFirestorePlugin registerWithRegistrar:[registry registrarForPlugin:@"FLTFirebaseFirestorePlugin"]];
   [FirebaseAnalyticsPlugin registerWithRegistrar:[registry registrarForPlugin:@"FirebaseAnalyticsPlugin"]];
