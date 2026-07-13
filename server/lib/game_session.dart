@@ -152,6 +152,14 @@ class GameSession {
   /// disconnect wins (where _players has already shed the leaver).
   int _startingPlayerCount = 0;
 
+  /// Stable 0-based seat index per player, captured at [_startGame] so it
+  /// survives a mid-match disconnect (which would otherwise shift `_players`
+  /// map order). Used for the `match_result` telemetry row's `seat_index`.
+  Map<String, int> _seatIndexByPlayerId = {};
+
+  /// Wall-clock match start, for `match_result`'s `duration_s`.
+  DateTime? _matchStartedAt;
+
   /// Per-turn countdown timer.
   Timer? _turnTimer;
 
@@ -171,6 +179,47 @@ class GameSession {
 
   Duration get _turnDuration =>
       Duration(seconds: isHardcore ? 30 : 60);
+
+  /// `mode` tag for `match_result` telemetry — mirrors the client's own
+  /// derivation (matchmaking_screen.dart's `_analyticsMode`) so the two
+  /// sides use the same taxonomy.
+  String get _matchResultMode => isBustMode
+      ? 'bust'
+      : (isRanked && isHardcore)
+          ? 'ranked_hardcore'
+          : isRanked
+              ? 'ranked'
+              : isPrivate
+                  ? 'private'
+                  : 'casual';
+
+  /// One `match_result` log line per seat — §4.6 balance telemetry (win
+  /// rate by seat/special, etc). Emitted from every match-end path so it
+  /// covers natural wins, Bust round-eliminations, the 1v1 Bust finale, and
+  /// disconnect-forced endings alike. Iterates [_seatIndexByPlayerId] (fixed
+  /// at match start) rather than the live `_players` map, so a player who
+  /// disconnected mid-match still gets a row instead of silently vanishing.
+  ///
+  /// Disconnect-ended matches: every still-connected player counts as a
+  /// winner, matching how [_trophyRecorder] already treats them for ranked
+  /// scoring — there's no separate "abandoned" signal in this schema (the
+  /// client's `game_completed.ended_by` already covers that side).
+  void _logMatchResult({required Set<String> winnerIds}) {
+    final durationS = _matchStartedAt == null
+        ? 0
+        : DateTime.now().difference(_matchStartedAt!).inSeconds;
+    for (final playerId in _seatIndexByPlayerId.keys) {
+      _log.event('match_result', {
+        'match_id': roomCode,
+        'mode': _matchResultMode,
+        'player_count': _startingPlayerCount,
+        'seat_index': _seatIndexByPlayerId[playerId],
+        'is_winner': winnerIds.contains(playerId),
+        'turns': _matchStats.forPlayer(playerId).turns,
+        'duration_s': durationS,
+      });
+    }
+  }
 
   // ── Test helpers ───────────────────────────────────────────────────────────
 
@@ -569,6 +618,11 @@ class GameSession {
     _turnTimer?.cancel();
     _cancelAllDisconnectGraceTimers();
     _gameOver = true;
+    _logMatchResult(
+      winnerIds: _seatIndexByPlayerId.keys
+          .where((id) => id != disconnectedPlayerId)
+          .toSet(),
+    );
 
     final trophyPenaltyForLeaver = _trophyEligible;
     if (trophyPenaltyForLeaver && isRanked) {
@@ -796,9 +850,13 @@ class GameSession {
     _wasFullRoster =
         maxPlayerCount == null || _players.length >= maxPlayerCount!;
     _startingPlayerCount = _players.length;
+    _matchStartedAt = DateTime.now();
 
     final entries = _players.entries.toList();
     final totalPlayers = entries.length;
+    _seatIndexByPlayerId = {
+      for (int i = 0; i < totalPlayers; i++) entries[i].key: i,
+    };
 
     final List<CardModel> deck;
     final int handSize;
@@ -1533,6 +1591,7 @@ class GameSession {
   /// In Bust mode, records turns and finalizes the round when complete.
   void _advanceTurn() {
     final completedPlayerId = _state.currentPlayerId;
+    _matchStats.recordTurnCompleted(completedPlayerId);
     final oldSkipCount = _state.activeSkipCount;
     final players = _state.players;
     final directionForWalk = _state.direction;
@@ -1727,6 +1786,9 @@ class GameSession {
       _cancelAllDisconnectGraceTimers();
       _gameOver = true;
       _state = _state.copyWith(phase: GamePhase.ended, winnerId: winnerId);
+      // winnerId is null only for the rare tie where every remaining
+      // survivor is eliminated in the same round — no winner that round.
+      _logMatchResult(winnerIds: winnerId != null ? {winnerId} : <String>{});
       final bustTrophyEligible = _trophyEligible;
 
       Map<String, int>? ratingChanges;
@@ -1823,6 +1885,7 @@ class GameSession {
     _cancelAllDisconnectGraceTimers();
     _gameOver = true;
     _state = _state.copyWith(phase: GamePhase.ended, winnerId: winnerId);
+    _logMatchResult(winnerIds: {winnerId});
     final bustTrophyEligible = _trophyEligible;
 
     Map<String, int>? ratingChanges;
@@ -2402,6 +2465,7 @@ class GameSession {
     required bool trophyEligible,
     Map<String, int>? ratingChanges,
   }) {
+    _logMatchResult(winnerIds: {winnerId});
     final displayNames = {
       for (final e in _players.entries) e.key: e.value.displayName,
     };
