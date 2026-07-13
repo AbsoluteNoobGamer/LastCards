@@ -19,6 +19,7 @@ import '../../../../core/network/websocket_client.dart';
 import '../../../../core/providers/game_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
+import '../../../../core/services/analytics_service.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../tournament/providers/tournament_session_provider.dart';
 import '../providers/online_session_provider.dart';
@@ -58,6 +59,13 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
 
   /// Cached for dispose — cannot use [ref] after the widget is disposed.
   WebSocketClient? _wsClientToDisconnectOnDispose;
+
+  /// Time spent waiting in the queue, for `wait_seconds` on the
+  /// matchmaking_matched/_cancelled analytics events.
+  final Stopwatch _waitStopwatch = Stopwatch();
+
+  /// `mode` tag for matchmaking analytics events, set once in [initState].
+  late final String _analyticsMode;
 
   /// Resizes [_slotNames] when [onlineSessionProvider.playerCount] changes.
   void _growOrShrinkSlots(int playerCount) {
@@ -134,6 +142,19 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     final isRankedHardcore = onlineMode == OnlineGameMode.rankedHardcore;
     final isRanked = onlineMode == OnlineGameMode.ranked || isRankedHardcore;
     final displayName = ref.read(displayNameForGameProvider);
+
+    _analyticsMode = isBust
+        ? 'bust'
+        : isRankedHardcore
+            ? 'ranked_hardcore'
+            : isRanked
+                ? 'ranked'
+                : onlineMode == OnlineGameMode.privateGame
+                    ? 'private'
+                    : 'casual';
+    _waitStopwatch.start();
+    AnalyticsService.instance.logMatchmakingStarted(mode: _analyticsMode);
+
     _connectAndRequestMatch(
       playerCount: ref.read(onlineSessionProvider).playerCount,
       displayName: displayName,
@@ -229,6 +250,12 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
   void _scheduleNavigateToLobby() {
     if (_lobbyNavigationScheduled) return;
     _lobbyNavigationScheduled = true;
+    _waitStopwatch.stop();
+    AnalyticsService.instance.logMatchmakingMatched(
+      mode: _analyticsMode,
+      waitSeconds: _waitStopwatch.elapsed.inSeconds,
+      playerCount: ref.read(onlineSessionProvider).playerCount ?? 4,
+    );
     _eventSub?.cancel();
     _eventSub = null;
     Future.delayed(const Duration(milliseconds: 600), () {
@@ -309,6 +336,16 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
   }
 
   bool _navigatedForward = false;
+
+  void _onCancelTapped() {
+    _waitStopwatch.stop();
+    AnalyticsService.instance.logMatchmakingCancelled(
+      mode: _analyticsMode,
+      waitSeconds: _waitStopwatch.elapsed.inSeconds,
+    );
+    ref.read(onlineSessionProvider.notifier).reset();
+    Navigator.of(context).popUntil((r) => r.isFirst);
+  }
 
   @override
   void dispose() {
@@ -530,13 +567,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 40),
                             child: _CancelButton(
-                              onTap: () {
-                                ref
-                                    .read(onlineSessionProvider.notifier)
-                                    .reset();
-                                Navigator.of(context)
-                                    .popUntil((r) => r.isFirst);
-                              },
+                              onTap: _onCancelTapped,
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -654,10 +685,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 40),
                           child: _CancelButton(
-                            onTap: () {
-                              ref.read(onlineSessionProvider.notifier).reset();
-                              Navigator.of(context).popUntil((r) => r.isFirst);
-                            },
+                            onTap: _onCancelTapped,
                           ),
                         ),
                         const SizedBox(height: 32),
