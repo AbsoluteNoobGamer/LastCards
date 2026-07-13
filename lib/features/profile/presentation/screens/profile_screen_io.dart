@@ -7,16 +7,17 @@ import 'package:image_picker/image_picker.dart';
 import 'package:profanity_filter/profanity_filter.dart';
 
 import '../../../../core/providers/auth_provider.dart';
+import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/services/display_name_registry_service.dart';
 import '../../../../core/services/firestore_profile_service.dart';
 import '../../../../shared/leaderboard/display_name_leaderboard_rules.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_dimensions.dart';
+import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/services/nsfw_scan_service.dart';
 import '../../../../core/utils/profile_cooldown_utils.dart';
 import '../../../../core/widgets/prestige_avatar_frame.dart';
-import '../../widgets/profile_stats_section.dart';
 
 /// The opponent display names that the local player cannot use.
 const Set<String> kReservedNames = {'Player 2', 'Player 3', 'Player 4'};
@@ -215,10 +216,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   // ── Source sheet ─────────────────────────────────────────────────────────
 
-  void _showImageSourceSheet() {
+  void _showImageSourceSheet(AppThemeData theme) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.surfacePanel,
+      backgroundColor: theme.surfacePanel,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -229,20 +230,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: const Icon(Icons.photo_library_outlined,
-                    color: AppColors.goldPrimary),
-                title: const Text('Choose from Gallery',
-                    style: TextStyle(color: AppColors.textPrimary)),
+                leading: Icon(Icons.photo_library_outlined,
+                    color: theme.accentPrimary),
+                title: Text('Choose from Gallery',
+                    style: TextStyle(color: theme.textPrimary)),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickImage(ImageSource.gallery);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.camera_alt_outlined,
-                    color: AppColors.goldPrimary),
-                title: const Text('Take a Photo',
-                    style: TextStyle(color: AppColors.textPrimary)),
+                leading: Icon(Icons.camera_alt_outlined,
+                    color: theme.accentPrimary),
+                title: Text('Take a Photo',
+                    style: TextStyle(color: theme.textPrimary)),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickImage(ImageSource.camera);
@@ -266,24 +267,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ));
   }
 
-  void _showCooldownDialog(DateTime nextEditDate) {
+  void _showCooldownDialog(DateTime nextEditDate, AppThemeData theme) {
     final formatted = formatProfileCooldownDate(nextEditDate);
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfacePanel,
-        title: const Text(
+        backgroundColor: theme.surfacePanel,
+        title: Text(
           'Profile change cooldown',
-          style: TextStyle(color: AppColors.textPrimary),
+          style: TextStyle(color: theme.textPrimary),
         ),
         content: Text(
           'You can change your profile name and photo again on $formatted.',
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 15),
+          style: TextStyle(color: theme.textSecondary, fontSize: 15),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('OK', style: TextStyle(color: AppColors.goldPrimary)),
+            child: Text('OK', style: TextStyle(color: theme.accentPrimary)),
           ),
         ],
       ),
@@ -294,26 +295,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = ref.watch(themeProvider).theme;
     final authAsync = ref.watch(authStateProvider);
     final userProfileAsync = ref.watch(userProfileProvider);
 
     // Must be signed in
     if (authAsync.value == null) {
       return Scaffold(
-        backgroundColor: AppColors.feltDeep,
+        backgroundColor: theme.backgroundDeep,
         appBar: AppBar(
-          backgroundColor: AppColors.goldDark.withValues(alpha: 0.95),
-          foregroundColor: AppColors.feltDeep,
-          iconTheme: const IconThemeData(color: AppColors.feltDeep),
+          backgroundColor: theme.backgroundDeep,
+          foregroundColor: theme.textPrimary,
+          iconTheme: IconThemeData(color: theme.accentPrimary),
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () => Navigator.of(context).pop(),
           ),
-          title: const Text(
+          title: Text(
             'YOUR PROFILE',
             style: TextStyle(
-              color: AppColors.feltDeep,
+              color: theme.accentPrimary,
               fontWeight: FontWeight.w900,
               letterSpacing: 1.4,
               fontSize: 16,
@@ -321,10 +323,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
           centerTitle: true,
         ),
-        body: const Center(
+        body: Center(
           child: Text(
             'Sign in to edit your profile',
-            style: TextStyle(color: AppColors.textPrimary, fontSize: 16),
+            style: TextStyle(color: theme.textPrimary, fontSize: 16),
           ),
         ),
       );
@@ -339,20 +341,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final nextEditDate = cooldown.nextEditDate;
 
     return Scaffold(
-      backgroundColor: AppColors.feltDeep,
+      backgroundColor: theme.backgroundDeep,
       appBar: AppBar(
-        backgroundColor: AppColors.goldDark.withValues(alpha: 0.95),
-        foregroundColor: AppColors.feltDeep,
-        iconTheme: const IconThemeData(color: AppColors.feltDeep),
+        backgroundColor: theme.backgroundDeep,
+        foregroundColor: theme.textPrimary,
+        iconTheme: IconThemeData(color: theme.accentPrimary),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
+        title: Text(
           'YOUR PROFILE',
           style: TextStyle(
-            color: AppColors.feltDeep,
+            color: theme.accentPrimary,
             fontWeight: FontWeight.w900,
             letterSpacing: 1.4,
             fontSize: 16,
@@ -366,38 +368,38 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             _AvatarSection(
+              theme: theme,
               avatarPath: displayAvatarPath,
               avatarUrl: displayAvatarUrl,
               onUpload: () {
                 if (!canEdit && nextEditDate != null) {
-                  _showCooldownDialog(nextEditDate);
+                  _showCooldownDialog(nextEditDate, theme);
                   return;
                 }
-                _showImageSourceSheet();
+                _showImageSourceSheet(theme);
               },
-            ),
-            const ProfileStatsSection(
-              statsHeaderTopSpacing: 24,
             ),
             const SizedBox(height: 32),
             _NameField(
+              theme: theme,
               controller: _nameController,
               maxLength: kMaxNameLength,
               isValid: _nameValid,
               errorText: _nameError,
               readOnly: !canEdit,
               onTapWhenLocked: (!canEdit && nextEditDate != null)
-                  ? () => _showCooldownDialog(nextEditDate)
+                  ? () => _showCooldownDialog(nextEditDate, theme)
                   : null,
             ),
             const SizedBox(height: 36),
             SizedBox(
               width: double.infinity,
               child: _SaveButton(
+                theme: theme,
                 enabled: _canSave || (!canEdit && nextEditDate != null),
                 onPressed: () {
                   if (!canEdit && nextEditDate != null) {
-                    _showCooldownDialog(nextEditDate);
+                    _showCooldownDialog(nextEditDate, theme);
                     return;
                   }
                   _saveProfile();
@@ -415,11 +417,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
 class _AvatarSection extends StatelessWidget {
   const _AvatarSection({
+    required this.theme,
     this.avatarPath,
     this.avatarUrl,
     required this.onUpload,
   });
 
+  final AppThemeData theme;
   final String? avatarPath;
   final String? avatarUrl;
   final VoidCallback onUpload;
@@ -432,21 +436,21 @@ class _AvatarSection extends StatelessWidget {
         key: const ValueKey('avatar-image-file'),
         radius: 55,
         backgroundImage: FileImage(File(avatarPath!)),
-        backgroundColor: AppColors.surfacePanel,
+        backgroundColor: theme.surfacePanel,
       );
     } else if (avatarUrl != null) {
       inner = CircleAvatar(
         key: const ValueKey('avatar-image-network'),
         radius: 55,
         backgroundImage: NetworkImage(avatarUrl!),
-        backgroundColor: AppColors.surfacePanel,
+        backgroundColor: theme.surfacePanel,
       );
     } else {
-      inner = const CircleAvatar(
-        key: ValueKey('avatar-default'),
+      inner = CircleAvatar(
+        key: const ValueKey('avatar-default'),
         radius: 55,
-        backgroundColor: AppColors.surfacePanel,
-        child: Icon(Icons.person, size: 56, color: AppColors.goldPrimary),
+        backgroundColor: theme.surfacePanel,
+        child: Icon(Icons.person, size: 56, color: theme.accentPrimary),
       );
     }
 
@@ -454,18 +458,19 @@ class _AvatarSection extends StatelessWidget {
       children: [
         PrestigeAvatarFrame(
           avatarRadius: 55,
+          inactiveBorderColor: theme.accentPrimary,
           child: inner,
         ),
         const SizedBox(height: 14),
         TextButton.icon(
           key: const ValueKey('upload-photo-button'),
           onPressed: onUpload,
-          icon: const Icon(Icons.upload_rounded,
-              color: AppColors.goldPrimary, size: 18),
-          label: const Text(
+          icon: Icon(Icons.upload_rounded,
+              color: theme.accentPrimary, size: 18),
+          label: Text(
             'Upload Photo',
             style: TextStyle(
-              color: AppColors.goldPrimary,
+              color: theme.accentPrimary,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.5,
             ),
@@ -480,6 +485,7 @@ class _AvatarSection extends StatelessWidget {
 
 class _NameField extends StatelessWidget {
   const _NameField({
+    required this.theme,
     required this.controller,
     required this.maxLength,
     required this.isValid,
@@ -488,6 +494,7 @@ class _NameField extends StatelessWidget {
     this.onTapWhenLocked,
   });
 
+  final AppThemeData theme;
   final TextEditingController controller;
   final int maxLength;
   final bool isValid;
@@ -503,16 +510,16 @@ class _NameField extends StatelessWidget {
     } else if (isValid) {
       borderColor = Colors.green;
     } else {
-      borderColor = AppColors.goldDark;
+      borderColor = theme.accentDark;
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'DISPLAY NAME',
           style: TextStyle(
-            color: AppColors.textSecondary,
+            color: theme.textSecondary,
             fontSize: 11,
             fontWeight: FontWeight.w700,
             letterSpacing: 1.4,
@@ -528,13 +535,13 @@ class _NameField extends StatelessWidget {
               controller: controller,
               maxLength: maxLength,
               readOnly: readOnly,
-              style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
+              style: TextStyle(color: theme.textPrimary, fontSize: 15),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: AppColors.surfacePanel,
+                fillColor: theme.surfacePanel,
                 counterText: '',
                 hintText: 'Enter your name…',
-                hintStyle: const TextStyle(color: AppColors.textSecondary),
+                hintStyle: TextStyle(color: theme.textSecondary),
                 enabledBorder: OutlineInputBorder(
                   borderRadius:
                       BorderRadius.circular(AppDimensions.radiusButton),
@@ -580,8 +587,13 @@ class _NameField extends StatelessWidget {
 // ── Save button ───────────────────────────────────────────────────────────────
 
 class _SaveButton extends StatelessWidget {
-  const _SaveButton({required this.enabled, required this.onPressed});
+  const _SaveButton({
+    required this.theme,
+    required this.enabled,
+    required this.onPressed,
+  });
 
+  final AppThemeData theme;
   final bool enabled;
   final VoidCallback onPressed;
 
@@ -591,9 +603,9 @@ class _SaveButton extends StatelessWidget {
       key: const ValueKey('save-profile-button'),
       onPressed: enabled ? onPressed : null,
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.goldPrimary,
-        disabledBackgroundColor: AppColors.goldDark.withValues(alpha: 0.35),
-        foregroundColor: AppColors.feltDeep,
+        backgroundColor: theme.accentPrimary,
+        disabledBackgroundColor: theme.accentDark.withValues(alpha: 0.35),
+        foregroundColor: theme.backgroundDeep,
         padding: const EdgeInsets.symmetric(vertical: 15),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppDimensions.radiusButton),
@@ -606,7 +618,7 @@ class _SaveButton extends StatelessWidget {
           fontWeight: FontWeight.w900,
           letterSpacing: 1.4,
           fontSize: 15,
-          color: enabled ? AppColors.feltDeep : AppColors.textSecondary,
+          color: enabled ? theme.backgroundDeep : theme.textSecondary,
         ),
       ),
     );

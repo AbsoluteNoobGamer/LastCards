@@ -330,25 +330,60 @@ class _AuthProfileSheetState extends ConsumerState<_AuthProfileSheet> {
                   children: [
                 Row(
                   children: [
-                    PrestigeAvatarFrame(
-                      avatarRadius: 40,
-                      inactiveBorderColor: theme.accentPrimary,
-                      inactiveBorderWidth: 2,
-                      child: avatarUrl != null
-                          ? CircleAvatar(
-                              radius: 40,
-                              backgroundImage: NetworkImage(avatarUrl),
-                              backgroundColor: theme.surfacePanel,
-                            )
-                          : CircleAvatar(
-                              radius: 40,
-                              backgroundColor: theme.surfacePanel,
-                              child: Icon(
-                                Icons.person_rounded,
-                                size: 48,
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          AppPageRoutes.fadeSlide((_) => const ProfileScreen()),
+                        );
+                      },
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          PrestigeAvatarFrame(
+                            avatarRadius: 40,
+                            inactiveBorderColor: theme.accentPrimary,
+                            inactiveBorderWidth: 2,
+                            child: avatarUrl != null
+                                ? CircleAvatar(
+                                    radius: 40,
+                                    backgroundImage: NetworkImage(avatarUrl),
+                                    backgroundColor: theme.surfacePanel,
+                                  )
+                                : CircleAvatar(
+                                    radius: 40,
+                                    backgroundColor: theme.surfacePanel,
+                                    child: Icon(
+                                      Icons.person_rounded,
+                                      size: 48,
+                                      color: theme.accentPrimary,
+                                    ),
+                                  ),
+                          ),
+                          Positioned(
+                            bottom: -2,
+                            right: -2,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
                                 color: theme.accentPrimary,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: const Color(0xFF1E1E1E),
+                                  width: 2,
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.edit_rounded,
+                                size: 14,
+                                color: Colors.black,
                               ),
                             ),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(width: 20),
                     Expanded(
@@ -376,43 +411,6 @@ class _AuthProfileSheetState extends ConsumerState<_AuthProfileSheet> {
                   statsHeaderTopSpacing: 0,
                 ),
                 const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        AppPageRoutes.fadeSlide((_) => const ProfileScreen()),
-                      );
-                    },
-                    icon: const Icon(Icons.edit_rounded),
-                    label: const Text('Edit profile'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: theme.accentPrimary,
-                      side: BorderSide(color: theme.accentPrimary),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      showLocker(context, initialTabIndex: LockerTab.reactions);
-                    },
-                    icon: const Icon(Icons.emoji_emotions_outlined),
-                    label: const Text('Reaction wheel'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: theme.accentPrimary,
-                      side: BorderSide(color: theme.accentPrimary),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(

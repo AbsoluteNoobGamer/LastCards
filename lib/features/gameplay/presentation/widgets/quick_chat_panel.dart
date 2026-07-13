@@ -5,6 +5,7 @@ import '../../../../core/providers/reaction_wheel_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/services/player_level_service.dart';
 import '../../../../shared/constants/quick_chat_messages.dart';
+import '../../../../shared/reactions/built_in_reaction_widgets.dart';
 
 export '../../../../shared/constants/quick_chat_messages.dart' show kQuickMessages;
 
@@ -88,6 +89,8 @@ class _ReactionSlotButton extends StatelessWidget {
           fit: BoxFit.cover,
         ),
       );
+    } else if (def.kind == ReactionVisualKind.builtIn && def.builtInId != null) {
+      child = BuiltInReactionIcon(builtInId: def.builtInId!, size: 34);
     } else {
       child = Text(
         def.unicodeLabel ?? '',

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/providers/reaction_wheel_provider.dart';
 import '../../../../core/services/player_level_service.dart';
+import '../../../../shared/reactions/built_in_reaction_widgets.dart';
 import '../../../../shared/reactions/reaction_catalog.dart';
 import 'locker_tile.dart';
 
@@ -37,6 +38,15 @@ class _LockerReactionsTabState extends ConsumerState<LockerReactionsTab> {
         lockedIndices.add(i);
       }
     }
+    // Display in ascending unlock-level order (top-left = lowest level),
+    // independent of wire index / catalog order.
+    int byLevel(int a, int b) {
+      final cmp = kReactionDefinitions[a].minUnlockLevel.compareTo(kReactionDefinitions[b].minUnlockLevel);
+      return cmp != 0 ? cmp : a.compareTo(b);
+    }
+
+    ownedIndices.sort(byLevel);
+    lockedIndices.sort(byLevel);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -54,7 +64,7 @@ class _LockerReactionsTabState extends ConsumerState<LockerReactionsTab> {
           ),
           itemBuilder: (context, slotIndex) {
             final catalogId = wheel[slotIndex];
-            final emoji = kReactionDefinitions[catalogId].unicodeLabel ?? '?';
+            final def = kReactionDefinitions[catalogId];
             final isActiveSlot = slotIndex == _activeSlot;
             return GestureDetector(
               onTap: () => setState(() => _activeSlot = slotIndex),
@@ -67,7 +77,9 @@ class _LockerReactionsTabState extends ConsumerState<LockerReactionsTab> {
                   ),
                 ),
                 alignment: Alignment.center,
-                child: Text(emoji, style: const TextStyle(fontSize: 20)),
+                child: def.kind == ReactionVisualKind.builtIn && def.builtInId != null
+                    ? BuiltInReactionIcon(builtInId: def.builtInId!, size: 20)
+                    : Text(def.unicodeLabel ?? '?', style: const TextStyle(fontSize: 20)),
               ),
             );
           },
@@ -129,7 +141,11 @@ class _LockerReactionsTabState extends ConsumerState<LockerReactionsTab> {
                   ? LockerTileState.selected
                   : LockerTileState.owned,
           lockCaption: locked ? 'Level ${def.minUnlockLevel}' : null,
-          preview: Center(child: Text(def.unicodeLabel ?? '?', style: const TextStyle(fontSize: 22))),
+          preview: Center(
+            child: def.kind == ReactionVisualKind.builtIn && def.builtInId != null
+                ? BuiltInReactionIcon(builtInId: def.builtInId!, size: 22)
+                : Text(def.unicodeLabel ?? '?', style: const TextStyle(fontSize: 22)),
+          ),
           onTap: () => onTap(catalogId),
         );
       },
