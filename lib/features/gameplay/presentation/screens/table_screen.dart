@@ -41,6 +41,7 @@ import '../../../../core/models/game_event.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/providers/profile_provider.dart';
+import 'package:last_cards/features/online/screens/matchmaking_screen.dart';
 import '../widgets/multi_card_play_celebration.dart';
 import '../widgets/discard_pile_widget.dart';
 import '../widgets/draw_pile_widget.dart';
@@ -441,8 +442,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   final ValueNotifier<int> _handShakeNotifier = ValueNotifier<int>(0);
 
   /// AI opponent configurations for this game session (names, personality,
-  /// avatar colors). Regenerated each time [_initNewGame] is called.
+  /// avatar colors). Regenerated each time [_initNewGame] is called, unless
+  /// [_keepAiRosterOnNextInit] is set (offline rematch — same opponents).
   List<AiPlayerConfig> _aiPlayerConfigs = [];
+
+  /// Set by the offline "Play Again" rematch so the next [_initNewGame]
+  /// reuses [_aiPlayerConfigs] instead of generating a new random roster.
+  bool _keepAiRosterOnNextInit = false;
 
   final math.Random _chatRng = math.Random();
 
@@ -822,13 +828,18 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       drawPile = List<CardModel>.from(widget.debugInitialDrawPile!);
     } else {
       // Generate fresh AI player configs for this session (names, personalities,
-      // avatar colours). Always generated — tournament mode uses them for
-      // personality scoring, avatars, and chat bubbles.
-      _aiPlayerConfigs = widget.preloadedAiPlayerConfigs ??
-          AiPlayerConfig.generateForGame(
-            count: widget.totalPlayers - 1,
-            seed: DateTime.now().millisecondsSinceEpoch,
-          );
+      // avatar colours) — unless this is a rematch, in which case the same
+      // roster from the previous game carries over. Tournament mode uses
+      // these for personality scoring, avatars, and chat bubbles.
+      if (_keepAiRosterOnNextInit && _aiPlayerConfigs.isNotEmpty) {
+        _keepAiRosterOnNextInit = false;
+      } else {
+        _aiPlayerConfigs = widget.preloadedAiPlayerConfigs ??
+            AiPlayerConfig.generateForGame(
+              count: widget.totalPlayers - 1,
+              seed: DateTime.now().millisecondsSinceEpoch,
+            );
+      }
       final aiNameMap = {
         for (final c in _aiPlayerConfigs) c.playerId: c.name,
       };
@@ -1245,6 +1256,42 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         }
       });
     }
+  }
+
+  /// Instant rematch from the post-match dialog: shows the ad (same
+  /// discipline as every other post-match path), clears this match's online
+  /// state, then requeues into a fresh search with the same mode/settings —
+  /// reusing [MatchmakingScreen]'s own initState rather than re-implementing
+  /// quickplay. Not offered during tournaments; the round-advance flow
+  /// (which depends on this exact pop-twice from [_leaveOnlineMatch]) is
+  /// left untouched there.
+  void _requeueOnlineRematch(NavigatorState navigator) {
+    unawaited(() async {
+      await AdsService.instance.maybeShowInterstitialAfterMatch();
+      if (!mounted) return;
+      ref.read(gameNotifierProvider.notifier).clearOnlineState();
+      ref.read(wsClientProvider).disconnect();
+      navigator.pop(); // close dialog
+      navigator.pushReplacement(
+        PageRouteBuilder<void>(
+          pageBuilder: (_, __, ___) => const MatchmakingScreen(),
+          transitionDuration: const Duration(milliseconds: 400),
+          transitionsBuilder: (_, animation, __, child) =>
+              FadeTransition(opacity: animation, child: child),
+        ),
+      );
+    }());
+  }
+
+  void _leaveOnlineMatch(NavigatorState navigator) {
+    unawaited(() async {
+      await AdsService.instance.maybeShowInterstitialAfterMatch();
+      if (!mounted) return;
+      ref.read(gameNotifierProvider.notifier).clearOnlineState();
+      ref.read(wsClientProvider).disconnect();
+      navigator.pop(); // close dialog
+      navigator.pop(); // leave table
+    }());
   }
 
   void _onBackPressed() {
@@ -1771,19 +1818,18 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             builder: (_) => _WinDialog(
               winnerName: winner.displayName,
               isLocalWin: isLocalWin,
-              onPlayAgain: () {
-                unawaited(() async {
-                  // Wait for the interstitial to actually be dismissed before
-                  // tearing down/navigating — otherwise the next screen loads
-                  // underneath the still-visible ad.
-                  await AdsService.instance.maybeShowInterstitialAfterMatch();
-                  if (!mounted) return;
-                  ref.read(gameNotifierProvider.notifier).clearOnlineState();
-                  ref.read(wsClientProvider).disconnect();
-                  navigator.pop(); // close dialog
-                  navigator.pop(); // leave table
-                }());
-              },
+              // Tournament rounds: onPlayAgain stays "leave" — the coordinator's
+              // round-advance flow depends on this exact pop-twice, and
+              // onBackToMenu is left null so the dialog shows its original
+              // single-button layout there. Standalone matches: onPlayAgain
+              // becomes an instant rematch requeue, with onBackToMenu as the
+              // separate "leave" action.
+              onPlayAgain: widget.isTournamentMode
+                  ? () => _leaveOnlineMatch(navigator)
+                  : () => _requeueOnlineRematch(navigator),
+              onBackToMenu: widget.isTournamentMode
+                  ? null
+                  : () => _leaveOnlineMatch(navigator),
               isOnlineMode: true,
               ratingDelta: ratingDelta,
               onSpectate:
@@ -1811,17 +1857,25 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 style: TextStyle(color: t.textPrimary),
               ),
               content: Text(
-                'You are the only one still here. Returning to the menu.',
+                widget.isTournamentMode
+                    ? 'You are the only one still here. Returning to the menu.'
+                    : 'You are the only one still here.',
                 style: TextStyle(color: t.textSecondary),
               ),
               actions: [
+                if (!widget.isTournamentMode)
+                  TextButton(
+                    onPressed: () => _requeueOnlineRematch(navigator),
+                    child: Text(
+                      'REMATCH',
+                      style: TextStyle(
+                        color: t.accentPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
                 TextButton(
-                  onPressed: () {
-                    ref.read(gameNotifierProvider.notifier).clearOnlineState();
-                    ref.read(wsClientProvider).disconnect();
-                    navigator.pop(); // close dialog
-                    navigator.pop(); // leave table
-                  },
+                  onPressed: () => _leaveOnlineMatch(navigator),
                   child: Text(
                     'BACK TO MENU',
                     style: TextStyle(color: t.accentPrimary),
@@ -4058,6 +4112,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               await AdsService.instance.maybeShowInterstitialAfterMatch();
               if (!mounted) return;
               setState(() {
+                _keepAiRosterOnNextInit = true;
                 _initNewGame();
                 _selectedCardId = null;
                 _flyingCardId = null;
