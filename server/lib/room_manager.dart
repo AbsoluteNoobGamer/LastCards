@@ -74,6 +74,19 @@ class RoomManager {
   /// 'ranked-hardcore-N' for ranked hardcore.
   final _quickplayQueues = <Object, List<_QueuedPlayer>>{};
 
+  /// Per-queue wait timer, started the moment a queue's first player joins.
+  /// Fires [_onQueueTimeout] so a table that never fills starts anyway with
+  /// whoever actually showed up, instead of waiting forever.
+  final _quickplayQueueTimers = <Object, Timer>{};
+
+  /// When each live entry in [_quickplayQueueTimers] was started — used to
+  /// compute `secondsRemaining` for the client countdown.
+  final _quickplayQueueStartedAt = <Object, DateTime>{};
+
+  /// How long a partially-filled quickplay queue waits before starting anyway
+  /// with however many players actually joined (see [_onQueueTimeout]).
+  static const _quickplayQueueTimeout = Duration(seconds: 25);
+
   /// Per-socket futures used to serialize async message handling.
   final _messageChains = <dynamic, Future<void>>{};
 
@@ -437,14 +450,27 @@ class RoomManager {
 
     final target = _targetPlayerCountForQueueKey(queueKey);
     final names = queue.map((q) => q.displayName).toList();
+    final secondsRemaining = _secondsRemainingForQueue(queueKey);
     for (var i = 0; i < queue.length; i++) {
       queue[i].ws.sink.add(jsonEncode({
         'type': 'quickplay_queue_update',
         'playerCount': target,
         'displayNames': names,
         'yourIndex': i,
+        if (secondsRemaining != null) 'secondsRemaining': secondsRemaining,
       }));
     }
+  }
+
+  /// Seconds left before [_onQueueTimeout] auto-shrinks/starts [queueKey]'s
+  /// table, for the client's waiting-room countdown. Null if the queue has no
+  /// active timer (e.g. already matched/removed).
+  int? _secondsRemainingForQueue(Object queueKey) {
+    final startedAt = _quickplayQueueStartedAt[queueKey];
+    if (startedAt == null) return null;
+    final elapsed = DateTime.now().difference(startedAt);
+    final remaining = _quickplayQueueTimeout - elapsed;
+    return remaining.isNegative ? 0 : remaining.inSeconds;
   }
 
   /// Final roster snapshot for players who just matched. Ensures everyone
@@ -531,6 +557,7 @@ class RoomManager {
           '${isBust ? "Bust" : isRankedHardcore ? "Ranked Hardcore" : isRanked ? "Ranked" : ""} match');
     }
 
+    final isNewQueue = !_quickplayQueues.containsKey(queueKey);
     final queue = _quickplayQueues.putIfAbsent(queueKey, () => []);
 
     // Prevent duplicate entries for the same websocket.
@@ -542,6 +569,12 @@ class RoomManager {
       avatarUrl: avatarUrl,
     ));
 
+    if (isNewQueue) {
+      _quickplayQueueStartedAt[queueKey] = DateTime.now();
+      _quickplayQueueTimers[queueKey] =
+          Timer(_quickplayQueueTimeout, () => _onQueueTimeout(queueKey));
+    }
+
     // Broadcast "someone is looking for players" to every subscribed device
     // (online and offline) — fired the moment they join the queue, even if
     // they end up matched instantly below; that's still the moment they
@@ -550,69 +583,159 @@ class RoomManager {
       topic: 'matchmaking_open',
       title: 'A table is open!',
       body: '$displayName is looking for players — join now!',
+      data: {
+        'type': 'matchmaking_open',
+        'gameMode': gameMode ?? '',
+        'playerCount': playerCount.toString(),
+        'joinWaitingQueue': joinWaitingQueue.toString(),
+      },
     ));
 
     _log.info('Queue($queueKey) size: ${queue.length}/$playerCount');
 
     if (queue.length >= playerCount) {
       final matched = queue.sublist(0, playerCount);
-      _notifyMatchedQuickplayRoster(matched, playerCount);
       queue.removeRange(0, playerCount);
       if (queue.isEmpty) {
         _quickplayQueues.remove(queueKey);
+        _cancelQueueTimer(queueKey);
       } else {
+        // Residual waiters stay under the same key — restart their clock so
+        // they get a fresh full wait window rather than inheriting whatever
+        // was left on the just-matched group's timer.
+        _restartQueueTimer(queueKey);
         _broadcastQuickplayQueueUpdate(queueKey);
       }
-
-      var roomCode = _uuid.v4().substring(0, 6).toUpperCase();
-      while (_rooms.containsKey(roomCode)) {
-        roomCode = _uuid.v4().substring(0, 6).toUpperCase();
-      }
-      final session = GameSession(
-        roomCode,
-        isPrivate: false,
-        maxPlayerCount: playerCount,
-        isBustMode: isBust,
+      _startMatch(
+        matched,
+        playerCount,
+        isBust: isBust,
         isRanked: isRanked,
-        isHardcore: isRankedHardcore,
-        onBecameEmpty: (_) => _rooms.remove(roomCode),
+        isRankedHardcore: isRankedHardcore,
       );
-      _rooms[roomCode] = session;
-      _log.info(
-          'Match found! Creating room $roomCode with $playerCount players');
-
-      // First pass: add all players to the session.
-      final playerIds = <String>[];
-      for (final qp in matched) {
-        final playerId = session.addPlayer(
-          qp.ws,
-          qp.displayName,
-          firebaseUid: qp.firebaseUid,
-          avatarUrl: qp.avatarUrl,
-        );
-        playerIds.add(playerId);
-        _playerRooms[qp.ws] = roomCode;
-        _playerIds[qp.ws] = playerId;
-        _log.info(
-            'Added "${qp.displayName}" ($playerId) uid=${qp.firebaseUid ?? "none"} to room $roomCode');
-      }
-
-      // Send catch-up roster so every client knows about all players.
-      for (final qp in matched) {
-        session.sendPlayerRosterTo(qp.ws);
-      }
-
-      // Second pass: mark all players ready so _startGame fires only after
-      // every player is in the session.
-      for (final playerId in playerIds) {
-        session.markReady(playerId);
-      }
-
-      _log.info(
-          'All players readied — game should start in room $roomCode');
     } else {
       _broadcastQuickplayQueueUpdate(queueKey);
     }
+  }
+
+  /// Creates the room/[GameSession] for [matched] players and starts the
+  /// game. [effectivePlayerCount] is the *actual* roster size — pass the
+  /// shrunk count (not the originally requested table size) when called from
+  /// [_onQueueTimeout], so [GameSession]'s `_wasFullRoster`/trophy-eligibility
+  /// check (keyed on `maxPlayerCount`) still evaluates true for a shrunk match.
+  void _startMatch(
+    List<_QueuedPlayer> matched,
+    int effectivePlayerCount, {
+    required bool isBust,
+    required bool isRanked,
+    required bool isRankedHardcore,
+  }) {
+    _notifyMatchedQuickplayRoster(matched, effectivePlayerCount);
+
+    var roomCode = _uuid.v4().substring(0, 6).toUpperCase();
+    while (_rooms.containsKey(roomCode)) {
+      roomCode = _uuid.v4().substring(0, 6).toUpperCase();
+    }
+    final session = GameSession(
+      roomCode,
+      isPrivate: false,
+      maxPlayerCount: effectivePlayerCount,
+      isBustMode: isBust,
+      isRanked: isRanked,
+      isHardcore: isRankedHardcore,
+      onBecameEmpty: (_) => _rooms.remove(roomCode),
+    );
+    _rooms[roomCode] = session;
+    _log.info(
+        'Match found! Creating room $roomCode with $effectivePlayerCount players');
+
+    // First pass: add all players to the session.
+    final playerIds = <String>[];
+    for (final qp in matched) {
+      final playerId = session.addPlayer(
+        qp.ws,
+        qp.displayName,
+        firebaseUid: qp.firebaseUid,
+        avatarUrl: qp.avatarUrl,
+      );
+      playerIds.add(playerId);
+      _playerRooms[qp.ws] = roomCode;
+      _playerIds[qp.ws] = playerId;
+      _log.info(
+          'Added "${qp.displayName}" ($playerId) uid=${qp.firebaseUid ?? "none"} to room $roomCode');
+    }
+
+    // Send catch-up roster so every client knows about all players.
+    for (final qp in matched) {
+      session.sendPlayerRosterTo(qp.ws);
+    }
+
+    // Second pass: mark all players ready so _startGame fires only after
+    // every player is in the session.
+    for (final playerId in playerIds) {
+      session.markReady(playerId);
+    }
+
+    _log.info('All players readied — game should start in room $roomCode');
+  }
+
+  /// Fires [_quickplayQueueTimeout] after a queue's first join. If the table
+  /// never filled, start anyway with whoever is actually waiting (min 2)
+  /// instead of leaving them stuck indefinitely — see the 4th reported bug
+  /// this addresses: a 7-player table with 3 joiners should become a
+  /// 3-player match, not force everyone to give up and quit.
+  void _onQueueTimeout(Object queueKey) {
+    _quickplayQueueTimers.remove(queueKey);
+    _quickplayQueueStartedAt.remove(queueKey);
+
+    final queue = _quickplayQueues[queueKey];
+    if (queue == null || queue.isEmpty) return;
+
+    if (queue.length < 2) {
+      for (final qp in queue) {
+        qp.ws.sink.add(jsonEncode({
+          'type': 'error',
+          'code': 'queue_timeout',
+          'message':
+              'No one else joined in time. Try again or pick a smaller table.',
+        }));
+      }
+      _quickplayQueues.remove(queueKey);
+      return;
+    }
+
+    final matched = List<_QueuedPlayer>.of(queue);
+    _quickplayQueues.remove(queueKey);
+
+    final isBust = queueKey == 'bust';
+    final isRankedHardcore =
+        queueKey is String && queueKey.startsWith('ranked-hardcore-');
+    final isRanked = isRankedHardcore ||
+        (queueKey is String &&
+            queueKey.startsWith('ranked-') &&
+            !queueKey.startsWith('ranked-hardcore-'));
+
+    _log.info(
+        'Queue($queueKey) timed out with ${matched.length} player(s) — starting a shrunk match.');
+    _startMatch(
+      matched,
+      matched.length,
+      isBust: isBust,
+      isRanked: isRanked,
+      isRankedHardcore: isRankedHardcore,
+    );
+  }
+
+  void _cancelQueueTimer(Object queueKey) {
+    _quickplayQueueTimers.remove(queueKey)?.cancel();
+    _quickplayQueueStartedAt.remove(queueKey);
+  }
+
+  void _restartQueueTimer(Object queueKey) {
+    _cancelQueueTimer(queueKey);
+    _quickplayQueueStartedAt[queueKey] = DateTime.now();
+    _quickplayQueueTimers[queueKey] =
+        Timer(_quickplayQueueTimeout, () => _onQueueTimeout(queueKey));
   }
 
   void _onDisconnect(dynamic ws) {
@@ -631,6 +754,7 @@ class RoomManager {
     }
     for (final key in emptyKeys) {
       _quickplayQueues.remove(key);
+      _cancelQueueTimer(key);
     }
 
     final roomCode = _playerRooms.remove(ws);

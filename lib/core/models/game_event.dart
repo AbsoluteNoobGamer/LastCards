@@ -171,10 +171,16 @@ final class QuickplayQueueUpdateEvent extends GameEvent {
   /// This client's index within [displayNames] (0-based).
   final int yourIndex;
 
+  /// Seconds left before the server auto-starts this table with whoever has
+  /// joined so far (shrinking it if it hasn't filled). Null if the server
+  /// didn't include one (e.g. older server build).
+  final int? secondsRemaining;
+
   const QuickplayQueueUpdateEvent({
     required this.playerCount,
     required this.displayNames,
     required this.yourIndex,
+    this.secondsRemaining,
   });
 
   @override
@@ -702,6 +708,7 @@ GameEvent parseServerEvent(String raw) {
                   .toList() ??
               const [],
           yourIndex: (json['yourIndex'] as num?)?.toInt() ?? 0,
+          secondsRemaining: (json['secondsRemaining'] as num?)?.toInt(),
         ),
       'player_left' => PlayerLeftEvent(json['playerId'] as String),
       'player_socket_lost' =>

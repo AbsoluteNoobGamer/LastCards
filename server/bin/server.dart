@@ -10,7 +10,7 @@ void main() async {
 
   final handler = webSocketHandler((webSocket, protocol) {
     roomManager.handleConnection(webSocket);
-  });
+  }, pingInterval: const Duration(seconds: 20));
 
   final server = await io.serve(handler, '0.0.0.0', 8080);
   print('Server listening on ws://${server.address.host}:${server.port}');

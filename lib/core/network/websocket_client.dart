@@ -169,10 +169,21 @@ class WebSocketClient {
 
   Future<void> disconnect() async {
     _manualDisconnect = true;
-    await _subscription?.cancel();
-    await _channel?.sink.close();
-    _channel = null;
-    _stateNotifier.value = WsConnectionState.disconnected;
+    try {
+      await _subscription?.cancel();
+      await _channel?.sink.close();
+    } catch (e) {
+      // The sink's `done` future can complete with an error if the
+      // connection already broke ungracefully (app killed, network drop) —
+      // that must not skip the state reset below, or every future connect()
+      // gets stuck re-running this same failing disconnect() first.
+      if (kDebugMode) {
+        debugPrint('[WS] disconnect() ignored error: $e');
+      }
+    } finally {
+      _channel = null;
+      _stateNotifier.value = WsConnectionState.disconnected;
+    }
   }
 
   Future<void> dispose() async {

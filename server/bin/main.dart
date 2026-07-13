@@ -28,7 +28,7 @@ void main() async {
   final wsHandler = webSocketHandler((webSocket, protocol) {
     print('[Server] New WebSocket connection');
     roomManager.handleConnection(webSocket);
-  });
+  }, pingInterval: const Duration(seconds: 20));
 
   final handler = const shelf.Pipeline()
       .addMiddleware(shelf.logRequests())

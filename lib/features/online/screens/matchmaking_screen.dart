@@ -51,6 +51,11 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
   StreamSubscription<GameEvent>? _eventSub;
   bool _lobbyNavigationScheduled = false;
 
+  /// Seconds until the server auto-starts (shrinking if needed) this table —
+  /// ticks down locally between server broadcasts for a smooth countdown.
+  int? _secondsRemaining;
+  Timer? _countdownTicker;
+
   /// Cached for dispose — cannot use [ref] after the widget is disposed.
   WebSocketClient? _wsClientToDisconnectOnDispose;
 
@@ -142,10 +147,13 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     final session = ref.read(onlineSessionProvider);
     if (!session.isJoinWaitingQueue) {
       final expected = session.playerCount ?? 4;
-      if (e.playerCount != expected) return;
+      // A server-initiated shrink only ever reduces the roster (never grows
+      // past what was requested), so only reject a *larger* count here.
+      if (e.playerCount > expected) return;
     }
     ref.read(onlineSessionProvider.notifier).setPlayerCount(e.playerCount);
     final playerCount = e.playerCount;
+    _updateCountdown(e.secondsRemaining);
     setState(() {
       final you = e.yourIndex.clamp(0, playerCount - 1);
       _yourSlotIndex = you;
@@ -153,6 +161,27 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
       for (var i = 0; i < playerCount; i++) {
         _slotNames[i] = i < e.displayNames.length ? e.displayNames[i] : null;
       }
+    });
+  }
+
+  /// Syncs the local countdown to the server's latest [secondsRemaining] and
+  /// (re)starts a 1s ticker so the displayed number counts down smoothly
+  /// between the periodic server broadcasts instead of jumping.
+  void _updateCountdown(int? secondsRemaining) {
+    _countdownTicker?.cancel();
+    _countdownTicker = null;
+    setState(() => _secondsRemaining = secondsRemaining);
+    if (secondsRemaining == null || secondsRemaining <= 0) return;
+    _countdownTicker = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        final next = (_secondsRemaining ?? 1) - 1;
+        _secondsRemaining = next <= 0 ? 0 : next;
+      });
+      if ((_secondsRemaining ?? 0) <= 0) timer.cancel();
     });
   }
 
@@ -286,6 +315,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     _rotateController.dispose();
     _pulseController.dispose();
     _eventSub?.cancel();
+    _countdownTicker?.cancel();
     // Only disconnect if the user cancelled — not on forward navigation.
     if (!_navigatedForward) {
       _wsClientToDisconnectOnDispose?.disconnect();
@@ -327,7 +357,9 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     final joinedCount = slots.where((n) => n != null).length;
     final statusLine = awaitingTableAssignment
         ? 'Finding a match…'
-        : 'Finding players… ($joinedCount/$rosterSize)';
+        : (_secondsRemaining != null && _secondsRemaining! > 0)
+            ? 'Finding players… ($joinedCount/$rosterSize) · starts in ${_secondsRemaining}s'
+            : 'Finding players… ($joinedCount/$rosterSize)';
     final headerSubtitle = awaitingTableAssignment
         ? '$modeName · Finding a match'
         : '$modeName · $rosterSize Players';

@@ -210,14 +210,14 @@ class _FirestoreClient {
         algorithm: JWTAlgorithm.RS256,
       );
 
-      final response = await http.post(
-        Uri.parse(_tokenUrl),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: {
-          'grant_type': 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-          'assertion': signed,
-        },
-      );
+      final response = await _sendWithRetry(() => http.post(
+            Uri.parse(_tokenUrl),
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: {
+              'grant_type': 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+              'assertion': signed,
+            },
+          ));
 
       if (response.statusCode != 200) {
         _log.error(
@@ -232,6 +232,31 @@ class _FirestoreClient {
     } catch (e) {
       _log.error('Error obtaining access token: $e');
       return null;
+    }
+  }
+
+  /// Retries [send] a couple of times on transient connection-level failures
+  /// (TLS handshake dropped, connection closed before headers) — seen
+  /// intermittently against Google's own endpoints from this host. Callers
+  /// don't queue or reconcile a failed write afterward, so without this a
+  /// single network blip silently drops a ranked-stat/trophy update.
+  /// Non-transient failures (bad status codes, JSON errors) are unaffected —
+  /// they're handled by the caller's own try/catch after this rethrows.
+  Future<http.Response> _sendWithRetry(
+    Future<http.Response> Function() send,
+  ) async {
+    const maxAttempts = 3;
+    for (var attempt = 1;; attempt++) {
+      try {
+        return await send();
+      } on http.ClientException {
+        if (attempt >= maxAttempts) rethrow;
+      } on HandshakeException {
+        if (attempt >= maxAttempts) rethrow;
+      } on SocketException {
+        if (attempt >= maxAttempts) rethrow;
+      }
+      await Future.delayed(Duration(milliseconds: 250 * attempt));
     }
   }
 
@@ -321,14 +346,14 @@ class _FirestoreClient {
     });
 
     try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: body,
-      );
+      final response = await _sendWithRetry(() => http.post(
+            url,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: body,
+          ));
       if (response.statusCode == 200) return true;
       // Conditional create fails when the doc already exists. Firestore may
       // return 400 or 409 (ALREADY_EXISTS). Re-send with only the transforms +
@@ -387,14 +412,14 @@ class _FirestoreClient {
     });
 
     try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: body,
-      );
+      final response = await _sendWithRetry(() => http.post(
+            url,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: body,
+          ));
       if (response.statusCode == 200) return true;
       _log.error(
           'Firestore _updateExisting failed (${response.statusCode}): ${response.body}');
@@ -430,14 +455,14 @@ class _FirestoreClient {
     });
 
     try {
-      final response = await http.patch(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: body,
-      );
+      final response = await _sendWithRetry(() => http.patch(
+            uri,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: body,
+          ));
       if (response.statusCode != 200) {
         _log.error(
             'Firestore _setDocumentFields failed (${response.statusCode}): ${response.body}');
@@ -476,10 +501,8 @@ class _FirestoreClient {
         '/databases/(default)/documents/$collection/$docId');
 
     try {
-      final response = await http.get(
-        uri,
-        headers: {'Authorization': 'Bearer $token'},
-      );
+      final response = await _sendWithRetry(
+          () => http.get(uri, headers: {'Authorization': 'Bearer $token'}));
       if (response.statusCode == 404) return null;
       if (response.statusCode != 200) {
         _log.error(
@@ -542,14 +565,14 @@ class _FirestoreClient {
     });
 
     try {
-      final response = await http.patch(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: body,
-      );
+      final response = await _sendWithRetry(() => http.patch(
+            uri,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: body,
+          ));
       if (response.statusCode == 200) return true;
       _log.error(
           'Firestore setDocumentFields failed (${response.statusCode}): ${response.body}');
