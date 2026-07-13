@@ -20,6 +20,7 @@ class BustPlayerSlot extends ConsumerWidget {
     this.onRemoveQuickChatBubble,
     this.skipSeatHighlight = false,
     this.scale = 1.0,
+    this.onTap,
   });
 
   final BustPlayerViewModel player;
@@ -39,6 +40,10 @@ class BustPlayerSlot extends ConsumerWidget {
   /// main table screen's opponent rail and Bust mode, since both reuse
   /// this widget via [BustPlayerRail].
   final double scale;
+
+  /// When set, the whole slot becomes tappable (e.g. opens the opponent's
+  /// profile / friend-request sheet). Null keeps the slot inert.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -238,6 +243,17 @@ class BustPlayerSlot extends ConsumerWidget {
         active: true,
         theme: theme,
         child: slot,
+      );
+    }
+
+    if (onTap != null) {
+      slot = Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: slot,
+        ),
       );
     }
 

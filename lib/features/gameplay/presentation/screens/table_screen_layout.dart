@@ -218,6 +218,11 @@ class _TableLayout extends StatelessWidget {
       return () => cb(p);
     }
 
+    void onOpponentSlotTap(BustPlayerViewModel viewModel) {
+      final player = players.where((p) => p.id == viewModel.id).firstOrNull;
+      opponentAvatarTap(player)?.call();
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         // Use shorter dimension: in landscape, maxWidth is the long axis.
@@ -266,7 +271,7 @@ class _TableLayout extends StatelessWidget {
             onLastCardsTap: onLastCardsTap,
             onPenaltyIncreased: onPenaltyIncreased,
             skipHighlightPlayerIds: skipHighlightPlayerIds,
-            opponentAvatarTap: opponentAvatarTap,
+            onOpponentSlotTap: onOpponentSlotTap,
             isRanked: isRanked,
             localAvatarFilePath: localAvatarFilePath,
             tableScale: tableScale,
@@ -337,6 +342,7 @@ class _TableLayout extends StatelessWidget {
                   quickChatBubblesByPlayer: quickChatBubblesByPlayer,
                   onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                   skipHighlightPlayerIds: skipHighlightPlayerIds,
+                  onSlotTap: onOpponentSlotTap,
                 ),
               ),
 
@@ -640,7 +646,7 @@ class _LandscapeTableLayout extends StatelessWidget {
     this.onLastCardsTap,
     this.onPenaltyIncreased,
     this.skipHighlightPlayerIds = const <String>{},
-    required this.opponentAvatarTap,
+    required this.onOpponentSlotTap,
     this.isRanked = false,
     this.localAvatarFilePath,
     this.tableScale = 1.0,
@@ -659,8 +665,9 @@ class _LandscapeTableLayout extends StatelessWidget {
 
   final Set<String> skipHighlightPlayerIds;
 
-  /// Parent closure: online + firebase uid → tap callback.
-  final VoidCallback? Function(PlayerModel? p) opponentAvatarTap;
+  /// Parent closure: resolves the tapped rail slot back to the real
+  /// [PlayerModel] and fires the online + firebase-uid gated tap callback.
+  final void Function(BustPlayerViewModel player) onOpponentSlotTap;
 
   final String? nextTurnLabel;
 
@@ -758,6 +765,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                   quickChatBubblesByPlayer: quickChatBubblesByPlayer,
                   onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                   skipHighlightPlayerIds: skipHighlightPlayerIds,
+                  onSlotTap: onOpponentSlotTap,
                 ),
               ),
 

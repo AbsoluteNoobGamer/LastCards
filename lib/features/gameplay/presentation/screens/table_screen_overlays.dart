@@ -198,6 +198,7 @@ class _WinDialogState extends ConsumerState<_WinDialog>
                               const SizedBox(height: AppDimensions.md),
                               _RankedResultsSection(
                                 ratingDelta: widget.ratingDelta!,
+                                isWin: widget.isLocalWin,
                                 theme: theme,
                               ),
                             ],
@@ -729,10 +730,12 @@ class _StatCell extends StatelessWidget {
 class _RankedResultsSection extends StatefulWidget {
   const _RankedResultsSection({
     required this.ratingDelta,
+    required this.isWin,
     required this.theme,
   });
 
   final int ratingDelta;
+  final bool isWin;
   final AppThemeData theme;
 
   @override
@@ -741,7 +744,15 @@ class _RankedResultsSection extends StatefulWidget {
 
 class _RankedResultsSectionState extends State<_RankedResultsSection> {
   late final Future<({int rating, int wins, int losses})?> _statsFuture =
-      _fetchRankedStats();
+      _fetchRankedStats()
+        ..then((stats) {
+          if (stats == null) return;
+          AnalyticsService.instance.logRankedGamePlayed(
+            isWin: widget.isWin,
+            mmrBefore: stats.rating - widget.ratingDelta,
+            mmrAfter: stats.rating,
+          );
+        });
 
   Future<({int rating, int wins, int losses})?> _fetchRankedStats() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
