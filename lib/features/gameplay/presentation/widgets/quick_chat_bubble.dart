@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/theme/app_dimensions.dart';
+import '../../../../shared/reactions/built_in_reaction_widgets.dart';
 import '../../../../shared/reactions/reaction_catalog.dart';
 
 /// Floating reaction bubble — Unicode emoji or animated GIF preset.
@@ -125,6 +126,8 @@ class _QuickChatBubbleState extends ConsumerState<QuickChatBubble>
           gaplessPlayback: true,
         ),
       );
+    } else if (_def.kind == ReactionVisualKind.builtIn && _def.builtInId != null) {
+      inner = BuiltInReactionIcon(builtInId: _def.builtInId!, size: 38);
     } else if (_def.unicodeLabel != null) {
       inner = Text(
         _def.unicodeLabel!,

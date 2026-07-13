@@ -2,6 +2,7 @@
 enum ReactionVisualKind {
   unicode,
   gifAsset,
+  builtIn,
 }
 
 /// One unlockable preset reaction — wire id is its index in [kReactionDefinitions].
@@ -13,6 +14,7 @@ class ReactionDefinition {
     required this.kind,
     this.unicodeLabel,
     this.gifAssetPath,
+    this.builtInId,
   });
 
   /// Plain Unicode emoji bubble (recommended for starters).
@@ -33,17 +35,32 @@ class ReactionDefinition {
           gifAssetPath: assetPath,
         );
 
+  /// Animated reaction rendered purely in code (see
+  /// `BuiltInReactionIcon` in `built_in_reaction_widgets.dart`) — no
+  /// bundled image/GIF asset required.
+  const ReactionDefinition.builtIn(String id, {required int minUnlockLevel})
+      : this._(
+          minUnlockLevel: minUnlockLevel,
+          kind: ReactionVisualKind.builtIn,
+          builtInId: id,
+        );
+
   /// Minimum player level required (see [PlayerLevelService]).
   final int minUnlockLevel;
   final ReactionVisualKind kind;
   final String? unicodeLabel;
   final String? gifAssetPath;
+  final String? builtInId;
 
-  bool get isAnimated => kind == ReactionVisualKind.gifAsset;
+  bool get isAnimated =>
+      kind == ReactionVisualKind.gifAsset || kind == ReactionVisualKind.builtIn;
 
   /// Placeholder character for logs / legacy string lists ([kQuickMessages]).
-  String get legacyWireEmoji =>
-      kind == ReactionVisualKind.unicode ? unicodeLabel! : '🎞';
+  String get legacyWireEmoji => switch (kind) {
+        ReactionVisualKind.unicode => unicodeLabel!,
+        ReactionVisualKind.gifAsset => '🎞',
+        ReactionVisualKind.builtIn => '🃏',
+      };
 }
 
 /// Authoritative preset list shared by Flutter app **and** game server validation.
@@ -88,30 +105,34 @@ const List<ReactionDefinition> kReactionDefinitions = [
   ReactionDefinition.unicode('💀', minUnlockLevel: 30),
   ReactionDefinition.unicode('🎴', minUnlockLevel: 32),
   ReactionDefinition.unicode('😈', minUnlockLevel: 34),
-  ReactionDefinition.unicode('🦄', minUnlockLevel: 37),
+  ReactionDefinition.unicode('🏆', minUnlockLevel: 37),
   ReactionDefinition.unicode('🚀', minUnlockLevel: 39),
-  ReactionDefinition.unicode('🍕', minUnlockLevel: 41),
+  ReactionDefinition.builtIn('card_flip', minUnlockLevel: 41),
   ReactionDefinition.unicode('🎖️', minUnlockLevel: 43),
   ReactionDefinition.unicode('🛡️', minUnlockLevel: 46),
-  ReactionDefinition.unicode('🐉', minUnlockLevel: 48),
-  ReactionDefinition.unicode('🎸', minUnlockLevel: 51),
-  ReactionDefinition.unicode('🕶️', minUnlockLevel: 53),
+  ReactionDefinition.unicode('♠️', minUnlockLevel: 48),
+  ReactionDefinition.unicode('♥️', minUnlockLevel: 51),
+  ReactionDefinition.unicode('♦️', minUnlockLevel: 53),
   ReactionDefinition.unicode('🏅', minUnlockLevel: 56),
-  ReactionDefinition.unicode('🌈', minUnlockLevel: 58),
-  ReactionDefinition.unicode('🦾', minUnlockLevel: 61),
-  ReactionDefinition.unicode('🧿', minUnlockLevel: 64),
-  ReactionDefinition.unicode('🦁', minUnlockLevel: 67),
-  ReactionDefinition.unicode('🎪', minUnlockLevel: 70),
-  ReactionDefinition.unicode('🦅', minUnlockLevel: 73),
-  ReactionDefinition.unicode('🛸', minUnlockLevel: 76),
-  ReactionDefinition.unicode('🧠', minUnlockLevel: 79),
+  ReactionDefinition.unicode('♣️', minUnlockLevel: 58),
+  ReactionDefinition.unicode('💰', minUnlockLevel: 61),
+  ReactionDefinition.unicode('🧧', minUnlockLevel: 64),
+  ReactionDefinition.unicode('🥂', minUnlockLevel: 67),
+  ReactionDefinition.builtIn('last_card_flare', minUnlockLevel: 70),
+  ReactionDefinition.unicode('🍾', minUnlockLevel: 73),
+  ReactionDefinition.unicode('💵', minUnlockLevel: 76),
+  ReactionDefinition.unicode('🀄️', minUnlockLevel: 79),
   ReactionDefinition.unicode('🎰', minUnlockLevel: 82),
-  ReactionDefinition.unicode('🎭', minUnlockLevel: 86),
+  ReactionDefinition.unicode('🎗️', minUnlockLevel: 86),
   ReactionDefinition.unicode('☠️', minUnlockLevel: 88),
-  ReactionDefinition.unicode('🌋', minUnlockLevel: 91),
-  ReactionDefinition.unicode('🗿', minUnlockLevel: 94),
-  ReactionDefinition.unicode('👁️', minUnlockLevel: 97),
+  ReactionDefinition.unicode('🧨', minUnlockLevel: 91),
+  ReactionDefinition.builtIn('spinning_joker', minUnlockLevel: 94),
+  ReactionDefinition.unicode('👛', minUnlockLevel: 97),
   ReactionDefinition.unicode('🏔️', minUnlockLevel: 100),
+  // "Loser" reactions — early unlocks, for when the hand doesn't go your way.
+  ReactionDefinition.unicode('😭', minUnlockLevel: 2),
+  ReactionDefinition.unicode('🤡', minUnlockLevel: 4),
+  ReactionDefinition.unicode('📉', minUnlockLevel: 6),
 ];
 
 /// Valid range for Quick Chat indices on wire.

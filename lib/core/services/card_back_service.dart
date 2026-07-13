@@ -262,14 +262,14 @@ class CardBackService {
 
   static int _unlockLevelForJokerCoverPath(String assetPath) {
     final filename = assetPath.split('/').last.toLowerCase();
-    // Keep the most common jokers together so "Red Joker" and "Black Joker"
-    // don't diverge accidentally.
-    if (filename.contains('red joker') || filename.contains('black joker')) {
-      return 3;
-    }
-
-    // Default: harder than the base classic joker cover.
-    return 5;
+    return switch (filename) {
+      'jokerface.png' => 4,
+      'joker_hearts_carbon.png' => 8,
+      'joker2_hearts_carbon.png' => 12,
+      'joker sci-fi.png' => 18,
+      // Default: harder than the base classic joker cover.
+      _ => 5,
+    };
   }
 
   Future<List<CardBackDesign>> _loadCardBackCoverDesigns() async {
