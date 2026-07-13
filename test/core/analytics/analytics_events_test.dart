@@ -23,6 +23,7 @@ const _eventNames = <String>[
   AnalyticsEvents.matchmakingStarted,
   AnalyticsEvents.matchmakingMatched,
   AnalyticsEvents.matchmakingCancelled,
+  AnalyticsEvents.matchmakingTimeout,
 ];
 
 const _paramKeys = <String>[

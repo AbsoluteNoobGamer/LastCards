@@ -130,6 +130,15 @@ class AnalyticsService {
     } catch (_) {}
   }
 
+  void logMatchmakingTimeout({required String mode}) {
+    try {
+      _analytics.logEvent(
+        name: AnalyticsEvents.matchmakingTimeout,
+        parameters: {AnalyticsParams.mode: mode},
+      );
+    } catch (_) {}
+  }
+
   void logRankedGamePlayed({
     required bool isWin,
     required int mmrBefore,

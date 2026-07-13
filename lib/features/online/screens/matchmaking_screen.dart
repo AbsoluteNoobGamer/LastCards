@@ -29,7 +29,8 @@ import 'online_opponents_splash_screen.dart';
 ///
 /// Shows a circular roster-fill indicator and player slots that fill from
 /// [QuickplayQueueUpdateEvent] while waiting, then advances when the roster is
-/// complete. The only exit is the Cancel button which pops to root.
+/// complete. Manual exit is the Cancel button (pops to root); the search also
+/// gives up on its own after a 90s timeout or a server error.
 class MatchmakingScreen extends ConsumerStatefulWidget {
   const MatchmakingScreen({super.key});
 
@@ -66,6 +67,10 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
 
   /// `mode` tag for matchmaking analytics events, set once in [initState].
   late final String _analyticsMode;
+
+  /// Give up searching after this long with no match found.
+  static const Duration _matchmakingTimeout = Duration(seconds: 90);
+  Timer? _matchmakingTimeoutTimer;
 
   /// Resizes [_slotNames] when [onlineSessionProvider.playerCount] changes.
   void _growOrShrinkSlots(int playerCount) {
@@ -154,6 +159,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                     : 'casual';
     _waitStopwatch.start();
     AnalyticsService.instance.logMatchmakingStarted(mode: _analyticsMode);
+    _matchmakingTimeoutTimer = Timer(_matchmakingTimeout, _onMatchmakingTimeout);
 
     _connectAndRequestMatch(
       playerCount: ref.read(onlineSessionProvider).playerCount,
@@ -209,6 +215,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
   void _onMatchmakingError(ErrorEvent e) {
     if (e.code != 'no_waiting_tables') return;
     if (!mounted) return;
+    _matchmakingTimeoutTimer?.cancel();
     final messenger = ScaffoldMessenger.of(context);
     ref.read(onlineSessionProvider.notifier).reset();
     Navigator.of(context).pop();
@@ -216,6 +223,23 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
       SnackBar(
         content: Text(e.message),
         backgroundColor: const Color(0xFFB71C1C),
+      ),
+    );
+  }
+
+  /// No match found within [_matchmakingTimeout] — give up and let the
+  /// player retry, rather than leaving them searching indefinitely.
+  void _onMatchmakingTimeout() {
+    if (!mounted || _lobbyNavigationScheduled) return;
+    _waitStopwatch.stop();
+    AnalyticsService.instance.logMatchmakingTimeout(mode: _analyticsMode);
+    final messenger = ScaffoldMessenger.of(context);
+    ref.read(onlineSessionProvider.notifier).reset();
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text("Couldn't find a match. Please try again."),
+        backgroundColor: Color(0xFFB71C1C),
       ),
     );
   }
@@ -250,6 +274,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
   void _scheduleNavigateToLobby() {
     if (_lobbyNavigationScheduled) return;
     _lobbyNavigationScheduled = true;
+    _matchmakingTimeoutTimer?.cancel();
     _waitStopwatch.stop();
     AnalyticsService.instance.logMatchmakingMatched(
       mode: _analyticsMode,
@@ -338,6 +363,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
   bool _navigatedForward = false;
 
   void _onCancelTapped() {
+    _matchmakingTimeoutTimer?.cancel();
     _waitStopwatch.stop();
     AnalyticsService.instance.logMatchmakingCancelled(
       mode: _analyticsMode,
@@ -353,6 +379,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     _pulseController.dispose();
     _eventSub?.cancel();
     _countdownTicker?.cancel();
+    _matchmakingTimeoutTimer?.cancel();
     // Only disconnect if the user cancelled — not on forward navigation.
     if (!_navigatedForward) {
       _wsClientToDisconnectOnDispose?.disconnect();
