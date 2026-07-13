@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -67,6 +68,20 @@ class AccountDeletionService {
     await _deleteLeaderboardEntries(uid);
     await _deleteAvatar(uid);
     await userRef.delete();
+    await _resetAnalytics();
+  }
+
+  /// Clears the Analytics identity tied to this account — a fresh app
+  /// instance ID going forward, not attributed to the deleted user.
+  Future<void> _resetAnalytics() async {
+    try {
+      await FirebaseAnalytics.instance.setUserId(id: null);
+      await FirebaseAnalytics.instance.resetAnalyticsData();
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('AccountDeletion: analytics reset failed: $e\n$st');
+      }
+    }
   }
 
   /// Clears device prefs tied to the signed-in account.

@@ -1,4 +1,3 @@
-import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -8,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
 import 'core/services/ads_service.dart';
+import 'core/services/analytics_consent_service.dart';
 import 'core/services/card_back_service.dart';
 import 'core/services/profile_service.dart';
 import 'core/services/purchase_service.dart';
@@ -30,7 +30,7 @@ Future<void> main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     firebaseReady = true;
-    await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
+    await AnalyticsConsentService.instance.init();
     // Persist auth across app restarts (web) and give Firebase time to restore (all platforms).
     if (kIsWeb) {
       await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
