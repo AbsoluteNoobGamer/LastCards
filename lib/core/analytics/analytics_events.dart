@@ -25,6 +25,7 @@ abstract final class AnalyticsEvents {
   static const String matchmakingStarted = 'matchmaking_started';
   static const String matchmakingMatched = 'matchmaking_matched';
   static const String matchmakingCancelled = 'matchmaking_cancelled';
+  static const String matchmakingTimeout = 'matchmaking_timeout';
 }
 
 abstract final class AnalyticsParams {

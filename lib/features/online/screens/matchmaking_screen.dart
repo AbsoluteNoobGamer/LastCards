@@ -29,7 +29,8 @@ import 'online_opponents_splash_screen.dart';
 ///
 /// Shows a circular roster-fill indicator and player slots that fill from
 /// [QuickplayQueueUpdateEvent] while waiting, then advances when the roster is
-/// complete. The only exit is the Cancel button which pops to root.
+/// complete. Manual exit is the Cancel button (pops to root); the search also
+/// gives up on its own after a 90s timeout or a server error.
 class MatchmakingScreen extends ConsumerStatefulWidget {
   const MatchmakingScreen({super.key});
 
@@ -66,6 +67,22 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
 
   /// `mode` tag for matchmaking analytics events, set once in [initState].
   late final String _analyticsMode;
+
+  /// Give up searching after this long with no match found.
+  static const Duration _matchmakingTimeout = Duration(seconds: 90);
+  Timer? _matchmakingTimeoutTimer;
+
+  /// True once [_matchmakingTimeout] has elapsed with no match — shows the
+  /// "No match found" card (with Retry) in place of the Cancel button.
+  bool _showTimeoutToast = false;
+
+  // Quickplay request params, captured once in initState and reused by
+  // [_retrySearch] so a retry re-sends the exact same request.
+  late final bool _searchIsBust;
+  late final bool _searchIsRanked;
+  late final bool _searchIsRankedHardcore;
+  late final String _searchDisplayName;
+  late final int? _searchPlayerCount;
 
   /// Resizes [_slotNames] when [onlineSessionProvider.playerCount] changes.
   void _growOrShrinkSlots(int playerCount) {
@@ -141,7 +158,12 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     final onlineMode = ref.read(onlineSessionProvider).mode;
     final isRankedHardcore = onlineMode == OnlineGameMode.rankedHardcore;
     final isRanked = onlineMode == OnlineGameMode.ranked || isRankedHardcore;
-    final displayName = ref.read(displayNameForGameProvider);
+
+    _searchIsBust = isBust;
+    _searchIsRanked = isRanked;
+    _searchIsRankedHardcore = isRankedHardcore;
+    _searchDisplayName = ref.read(displayNameForGameProvider);
+    _searchPlayerCount = ref.read(onlineSessionProvider).playerCount;
 
     _analyticsMode = isBust
         ? 'bust'
@@ -152,15 +174,26 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                 : onlineMode == OnlineGameMode.privateGame
                     ? 'private'
                     : 'casual';
-    _waitStopwatch.start();
-    AnalyticsService.instance.logMatchmakingStarted(mode: _analyticsMode);
 
+    _beginSearch();
+  }
+
+  /// (Re)starts the wait clock, the 90s give-up timer, and sends a fresh
+  /// quickplay request. Shared by [initState] and [_retrySearch] so a retry
+  /// behaves identically to the first attempt.
+  void _beginSearch() {
+    _waitStopwatch
+      ..reset()
+      ..start();
+    AnalyticsService.instance.logMatchmakingStarted(mode: _analyticsMode);
+    _matchmakingTimeoutTimer?.cancel();
+    _matchmakingTimeoutTimer = Timer(_matchmakingTimeout, _onMatchmakingTimeout);
     _connectAndRequestMatch(
-      playerCount: ref.read(onlineSessionProvider).playerCount,
-      displayName: displayName,
-      isBust: isBust,
-      isRanked: isRanked,
-      isRankedHardcore: isRankedHardcore,
+      playerCount: _searchPlayerCount,
+      displayName: _searchDisplayName,
+      isBust: _searchIsBust,
+      isRanked: _searchIsRanked,
+      isRankedHardcore: _searchIsRankedHardcore,
     );
   }
 
@@ -209,6 +242,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
   void _onMatchmakingError(ErrorEvent e) {
     if (e.code != 'no_waiting_tables') return;
     if (!mounted) return;
+    _matchmakingTimeoutTimer?.cancel();
     final messenger = ScaffoldMessenger.of(context);
     ref.read(onlineSessionProvider.notifier).reset();
     Navigator.of(context).pop();
@@ -218,6 +252,48 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
         backgroundColor: const Color(0xFFB71C1C),
       ),
     );
+  }
+
+  /// No match found within [_matchmakingTimeout]. Stays on this screen —
+  /// stops searching (disconnects so the server drops us from the queue)
+  /// and swaps the Cancel button for the "No match found" card, which can
+  /// retry in place via [_retrySearch] or back out via [_onCancelTapped].
+  void _onMatchmakingTimeout() {
+    if (!mounted || _lobbyNavigationScheduled) return;
+    _waitStopwatch.stop();
+    AnalyticsService.instance.logMatchmakingTimeout(mode: _analyticsMode);
+    _wsClientToDisconnectOnDispose?.disconnect();
+    _rotateController.stop();
+    _pulseController.stop();
+    setState(() => _showTimeoutToast = true);
+  }
+
+  /// Retry after a timeout — same request as the original search, starting
+  /// fresh roster/countdown state and a new 90s window.
+  void _retrySearch() {
+    final localLabel =
+        _searchDisplayName.isEmpty ? 'Player' : _searchDisplayName;
+    setState(() {
+      _showTimeoutToast = false;
+      _matchedPlayers.clear();
+      _secondsRemaining = null;
+      final onlineSession = ref.read(onlineSessionProvider);
+      if (onlineSession.isJoinWaitingQueue) {
+        _slotNames = [];
+      } else {
+        final playerCount = onlineSession.playerCount ?? 4;
+        _slotNames = List<String?>.generate(
+          playerCount,
+          (i) => i == 0 ? localLabel : null,
+        );
+      }
+      _yourSlotIndex = 0;
+    });
+    _countdownTicker?.cancel();
+    _countdownTicker = null;
+    _rotateController.repeat();
+    _pulseController.repeat(reverse: true);
+    _beginSearch();
   }
 
   void _onPlayerJoined(PlayerJoinedEvent e) {
@@ -250,6 +326,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
   void _scheduleNavigateToLobby() {
     if (_lobbyNavigationScheduled) return;
     _lobbyNavigationScheduled = true;
+    _matchmakingTimeoutTimer?.cancel();
     _waitStopwatch.stop();
     AnalyticsService.instance.logMatchmakingMatched(
       mode: _analyticsMode,
@@ -338,11 +415,16 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
   bool _navigatedForward = false;
 
   void _onCancelTapped() {
+    _matchmakingTimeoutTimer?.cancel();
     _waitStopwatch.stop();
-    AnalyticsService.instance.logMatchmakingCancelled(
-      mode: _analyticsMode,
-      waitSeconds: _waitStopwatch.elapsed.inSeconds,
-    );
+    // Already-timed-out searches logged matchmaking_timeout; don't also
+    // double-count this as a cancel — it's the same funnel drop-off.
+    if (!_showTimeoutToast) {
+      AnalyticsService.instance.logMatchmakingCancelled(
+        mode: _analyticsMode,
+        waitSeconds: _waitStopwatch.elapsed.inSeconds,
+      );
+    }
     ref.read(onlineSessionProvider.notifier).reset();
     Navigator.of(context).popUntil((r) => r.isFirst);
   }
@@ -353,6 +435,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     _pulseController.dispose();
     _eventSub?.cancel();
     _countdownTicker?.cancel();
+    _matchmakingTimeoutTimer?.cancel();
     // Only disconnect if the user cancelled — not on forward navigation.
     if (!_navigatedForward) {
       _wsClientToDisconnectOnDispose?.disconnect();
@@ -392,11 +475,13 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     }
     final slots = _slotsForDisplay(rosterSize);
     final joinedCount = slots.where((n) => n != null).length;
-    final statusLine = awaitingTableAssignment
-        ? 'Finding a match…'
-        : (_secondsRemaining != null && _secondsRemaining! > 0)
-            ? 'Finding players… ($joinedCount/$rosterSize) · starts in ${_secondsRemaining}s'
-            : 'Finding players… ($joinedCount/$rosterSize)';
+    final statusLine = _showTimeoutToast
+        ? 'No match found'
+        : awaitingTableAssignment
+            ? 'Finding a match…'
+            : (_secondsRemaining != null && _secondsRemaining! > 0)
+                ? 'Finding players… ($joinedCount/$rosterSize) · starts in ${_secondsRemaining}s'
+                : 'Finding players… ($joinedCount/$rosterSize)';
     final headerSubtitle = awaitingTableAssignment
         ? '$modeName · Finding a match'
         : '$modeName · $rosterSize Players';
@@ -566,9 +651,14 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 40),
-                            child: _CancelButton(
-                              onTap: _onCancelTapped,
-                            ),
+                            child: _showTimeoutToast
+                                ? _TimeoutCard(
+                                    onRetry: _retrySearch,
+                                    onBackToMenu: _onCancelTapped,
+                                  )
+                                : _CancelButton(
+                                    onTap: _onCancelTapped,
+                                  ),
                           ),
                           const SizedBox(height: 16),
                         ],
@@ -684,9 +774,14 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                         ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 40),
-                          child: _CancelButton(
-                            onTap: _onCancelTapped,
-                          ),
+                          child: _showTimeoutToast
+                              ? _TimeoutCard(
+                                  onRetry: _retrySearch,
+                                  onBackToMenu: _onCancelTapped,
+                                )
+                              : _CancelButton(
+                                  onTap: _onCancelTapped,
+                                ),
                         ),
                         const SizedBox(height: 32),
                       ],
@@ -1235,6 +1330,131 @@ class _CancelButton extends ConsumerWidget {
             letterSpacing: 0.4,
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Timeout Card ───────────────────────────────────────────────────────────────
+
+/// Replaces [_CancelButton] once the 90s search gives up with no match —
+/// styled like a card back (felt panel, gold hairline border, suit badge)
+/// so a failed search still reads as part of the table, not a system error.
+class _TimeoutCard extends ConsumerWidget {
+  const _TimeoutCard({required this.onRetry, required this.onBackToMenu});
+
+  final VoidCallback onRetry;
+  final VoidCallback onBackToMenu;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(themeProvider).theme;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+      decoration: BoxDecoration(
+        color: theme.surfacePanel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.accentPrimary.withValues(alpha: 0.35),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 26,
+                height: 26,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: theme.suitRed.withValues(alpha: 0.18),
+                ),
+                child: Text(
+                  '♠',
+                  style: TextStyle(color: theme.suitRed, fontSize: 13, height: 1),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'NO MATCH FOUND',
+                style: GoogleFonts.cinzel(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.4,
+                  color: theme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Nobody joined the table in time. The tables are quiet '
+            'right now — try again in a moment.',
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              height: 1.45,
+              color: theme.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: onBackToMenu,
+                  style: TextButton.styleFrom(
+                    foregroundColor: theme.textSecondary,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  child: Text(
+                    'BACK TO MENU',
+                    style: GoogleFonts.cinzel(
+                      fontSize: 11,
+                      letterSpacing: 1.1,
+                      color: theme.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: SizedBox(
+                  height: 40,
+                  child: ElevatedButton(
+                    onPressed: onRetry,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.accentPrimary,
+                      foregroundColor: theme.backgroundDeep,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    child: Text(
+                      'RETRY',
+                      style: GoogleFonts.cinzel(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.4,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
