@@ -32,6 +32,11 @@ const _eventNames = <String>[
   AnalyticsEvents.purchaseCompleted,
   AnalyticsEvents.purchaseFailed,
   AnalyticsEvents.purchaseCancelled,
+  AnalyticsEvents.friendRequestSent,
+  AnalyticsEvents.friendRequestAccepted,
+  AnalyticsEvents.inviteSent,
+  AnalyticsEvents.inviteAccepted,
+  AnalyticsEvents.shareTapped,
 ];
 
 const _paramKeys = <String>[
@@ -55,6 +60,7 @@ const _paramKeys = <String>[
   AnalyticsParams.waitSeconds,
   AnalyticsParams.placement,
   AnalyticsParams.source,
+  AnalyticsParams.channel,
 ];
 
 final _snakeCase = RegExp(r'^[a-z][a-z0-9_]*$');

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/providers/friends_provider.dart';
 import '../../../core/providers/theme_provider.dart';
+import '../../../core/services/analytics_service.dart';
 import '../../../core/services/firestore_profile_service.dart';
 import '../../../core/providers/user_profile_provider.dart';
 
@@ -133,6 +134,8 @@ class InviteFriendsSheet extends ConsumerWidget {
                                   roomCode: roomCode,
                                   fromDisplayName: fromName,
                                 );
+                                AnalyticsService.instance
+                                    .logInviteSent(channel: 'in_app');
                                 onInvited();
                                 if (context.mounted) Navigator.of(context).pop();
                                 if (context.mounted) {

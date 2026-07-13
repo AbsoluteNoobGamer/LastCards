@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/providers/friends_provider.dart';
+import '../../../core/services/analytics_service.dart';
 import '../../../core/services/friends_service.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/providers/user_profile_provider.dart';
@@ -101,6 +102,7 @@ class _OtherPlayerProfileSheetState
         case FriendRelation.none:
         case FriendRelation.notSignedIn:
           await friends.sendFriendRequest(uid);
+          AnalyticsService.instance.logFriendRequestSent();
           if (mounted) {
             messenger.showSnackBar(
               const SnackBar(content: Text('Friend request sent')),
@@ -142,6 +144,7 @@ class _OtherPlayerProfileSheetState
     final friends = ref.read(friendsServiceProvider);
     try {
       await friends.acceptFriendRequest(widget.firebaseUid);
+      AnalyticsService.instance.logFriendRequestAccepted();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('You are now friends')),

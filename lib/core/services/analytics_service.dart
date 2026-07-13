@@ -205,6 +205,39 @@ class AnalyticsService {
     } catch (_) {}
   }
 
+  void logFriendRequestSent() {
+    try {
+      _analytics.logEvent(name: AnalyticsEvents.friendRequestSent);
+    } catch (_) {}
+  }
+
+  void logFriendRequestAccepted() {
+    try {
+      _analytics.logEvent(name: AnalyticsEvents.friendRequestAccepted);
+    } catch (_) {}
+  }
+
+  void logInviteSent({required String channel}) {
+    try {
+      _analytics.logEvent(
+        name: AnalyticsEvents.inviteSent,
+        parameters: {AnalyticsParams.channel: channel},
+      );
+    } catch (_) {}
+  }
+
+  void logInviteAccepted() {
+    try {
+      _analytics.logEvent(name: AnalyticsEvents.inviteAccepted);
+    } catch (_) {}
+  }
+
+  void logShareTapped() {
+    try {
+      _analytics.logEvent(name: AnalyticsEvents.shareTapped);
+    } catch (_) {}
+  }
+
   void logRankedGamePlayed({
     required bool isWin,
     required int mmrBefore,

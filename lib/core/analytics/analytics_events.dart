@@ -34,6 +34,11 @@ abstract final class AnalyticsEvents {
   static const String purchaseCompleted = 'purchase_completed';
   static const String purchaseFailed = 'purchase_failed';
   static const String purchaseCancelled = 'purchase_cancelled';
+  static const String friendRequestSent = 'friend_request_sent';
+  static const String friendRequestAccepted = 'friend_request_accepted';
+  static const String inviteSent = 'invite_sent';
+  static const String inviteAccepted = 'invite_accepted';
+  static const String shareTapped = 'share_tapped';
 }
 
 abstract final class AnalyticsParams {
@@ -57,4 +62,5 @@ abstract final class AnalyticsParams {
   static const String waitSeconds = 'wait_seconds';
   static const String placement = 'placement';
   static const String source = 'source';
+  static const String channel = 'channel';
 }

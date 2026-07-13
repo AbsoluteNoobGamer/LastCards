@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/friends_provider.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/providers/user_profile_provider.dart';
+import '../../../core/services/analytics_service.dart';
 import '../../../core/theme/app_theme_data.dart';
 
 /// Top banner when the user has pending friend requests (Firestore-backed).
@@ -138,6 +139,7 @@ class _FriendRequestBannerCardState
   Future<void> _accept(BuildContext context) async {
     try {
       await ref.read(friendsServiceProvider).acceptFriendRequest(widget.fromUid);
+      AnalyticsService.instance.logFriendRequestAccepted();
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('You are now friends')),
