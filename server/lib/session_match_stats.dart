@@ -7,6 +7,7 @@ class PlayerSessionMatchStats {
   int penaltyCardsDrawn = 0;
   int specialsPlayed = 0;
   int stackBlocks = 0;
+  int turns = 0;
   bool lastCardsDeclared = false;
   bool lastCardsBluffed = false;
 }
@@ -38,6 +39,10 @@ class SessionMatchStats {
     forPlayer(playerId).stackBlocks++;
   }
 
+  void recordTurnCompleted(String playerId) {
+    forPlayer(playerId).turns++;
+  }
+
   void recordLastCardsDeclared(String playerId) {
     forPlayer(playerId).lastCardsDeclared = true;
   }
@@ -61,6 +66,7 @@ class SessionMatchStats {
         'penaltyCardsDrawn': s.penaltyCardsDrawn,
         'specialsPlayed': s.specialsPlayed,
         'stackBlocks': s.stackBlocks,
+        'turns': s.turns,
         'lastCardsDeclared': s.lastCardsDeclared,
         'lastCardsBluffed': s.lastCardsBluffed,
       };
