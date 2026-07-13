@@ -1871,21 +1871,39 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           final isLandscapeMobile =
               TableChromeLayout.isLandscapeMobile(layoutSize);
           final isPortraitGrid = !isLandscapeMobile;
+          // Tablets/desktop (anything not a compact phone) get chrome scaled
+          // up toward the available canvas instead of staying pinned at
+          // phone-reference pixel sizes with the surplus becoming empty felt.
+          // The board region's FittedBox can't scale content beyond this
+          // multiplier on its own — the HUD row forces its own intrinsic
+          // width to the full available width (see the board LayoutBuilder
+          // below), which caps BoxFit.contain at a no-op. So this constant
+          // multiplier is the only real scaling lever; the ceiling needs to
+          // be generous enough for large tablets (e.g. a 13" iPad's
+          // shortest side ~1024pt) to not leave a large empty gap above the
+          // board region. Shared with Bust mode via TableChromeLayout.scaleFor
+          // so both screens use the exact same curve.
+          final tableScale = TableChromeLayout.scaleFor(layoutSize);
           final mediaPadding = MediaQuery.paddingOf(context);
           final portraitSkipChipBottom = mediaPadding.bottom +
-              TablePortraitGrid.handRegionHeight +
-              TablePortraitGrid.actionBarHeight +
-              TablePortraitGrid.skipChipGapAboveHand;
-          final landscapeSkipChipBottom =
-              TablePortraitGrid.landscapeSkipChipBottom(mediaPadding.bottom);
+              (TablePortraitGrid.handRegionHeight +
+                      TablePortraitGrid.actionBarHeight +
+                      TablePortraitGrid.skipChipGapAboveHand) *
+                  tableScale;
+          final landscapeSkipChipBottom = TablePortraitGrid.landscapeSkipChipBottom(
+            mediaPadding.bottom,
+            scale: tableScale,
+          );
           final buttonBottom = isLandscapeMobile
               ? mediaPadding.bottom +
-                  TablePortraitGrid.landscapeHandRegionHeight +
-                  TablePortraitGrid.landscapeActionBarHeight +
+                  (TablePortraitGrid.landscapeHandRegionHeight +
+                          TablePortraitGrid.landscapeActionBarHeight) *
+                      tableScale +
                   AppDimensions.sm
               : mediaPadding.bottom +
-                  TablePortraitGrid.handRegionHeight +
-                  TablePortraitGrid.actionBarHeight +
+                  (TablePortraitGrid.handRegionHeight +
+                          TablePortraitGrid.actionBarHeight) *
+                      tableScale +
                   AppDimensions.sm;
           final overlayUseRail = gameState.players.length > 4;
           final overlayHasTournamentBadges =
@@ -1895,10 +1913,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               ? TablePortraitGrid.landscapeOpponentRowHeight(
                   useRail: overlayUseRail,
                   hasBadges: overlayHasTournamentBadges,
+                  scale: tableScale,
                 )
               : TablePortraitGrid.opponentRowHeight(
                   useRail: overlayUseRail,
                   hasBadges: overlayHasTournamentBadges,
+                  scale: tableScale,
                 );
           final kingJustPlayed =
               gameState.lastPlayedThisTurn?.effectiveRank == Rank.king;
@@ -2020,6 +2040,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             isOfflineMode ? null : _showOpponentProfileSheet,
                         localAvatarFilePath:
                             ref.watch(profileProvider.select((s) => s.avatarPath)),
+                        tableScale: tableScale,
                       ),
                     ),
                   ],
@@ -2053,6 +2074,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     appTheme: appTheme,
                     stackBlockBannerText: _stackBlockBannerText,
                     stackBlockBannerColor: _stackBlockBannerColor,
+                    scale: tableScale,
                   ),
                 ),
 
@@ -2071,6 +2093,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     appTheme: appTheme,
                     stackBlockBannerText: _stackBlockBannerText,
                     stackBlockBannerColor: _stackBlockBannerColor,
+                    scale: tableScale,
                   ),
                 ),
 
@@ -2382,7 +2405,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
               // ── Card flight (play / draw arcs) ─────────────────────────
               Positioned.fill(
-                child: CardFlightOverlay(key: _playFlightKey),
+                child: CardFlightOverlay(key: _playFlightKey, scale: tableScale),
               ),
 
               // ── Dealing Animation Overlay ──────────────────────────────

@@ -117,6 +117,7 @@ class PlayerZoneWidget extends ConsumerWidget {
     this.skipSeatHighlight = false,
     this.onOpponentAvatarTap,
     this.localAvatarFilePath,
+    this.scale = 1.0,
   });
 
   final PlayerModel player;
@@ -153,6 +154,11 @@ class PlayerZoneWidget extends ConsumerWidget {
 
   /// Offline / signed-out local photo path when [avatarUrl] is not set.
   final String? localAvatarFilePath;
+
+  /// Tablet/desktop scale multiplier (1.0 on phones) — applies to the
+  /// local player's avatar/name label; the opponent rail scales separately
+  /// via [BustPlayerRail]/[BustPlayerSlot].
+  final double scale;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -208,7 +214,7 @@ class PlayerZoneWidget extends ConsumerWidget {
           final glowMul =
               isLocalPlayer && isActive ? 0.26 : (isActive ? 0.22 : 0.16);
           return Container(
-            padding: EdgeInsets.all(compact ? 4 : AppDimensions.sm),
+            padding: EdgeInsets.all((compact ? 4 : AppDimensions.sm) * scale),
             decoration: BoxDecoration(
               color: isActive
                   ? appTheme.accentPrimary.withValues(alpha: gv * glowMul)
@@ -244,9 +250,10 @@ class PlayerZoneWidget extends ConsumerWidget {
               appTheme: appTheme,
               compact: compact,
               localAvatarFilePath: localAvatarFilePath,
+              scale: scale,
             ),
             if (chatBubble != null && onRemoveQuickChatBubble != null) ...[
-              const SizedBox(height: 6),
+              SizedBox(height: 6 * scale),
               Center(
                 child: QuickChatBubble(
                   key: ValueKey(chatBubble!.id),
@@ -259,7 +266,7 @@ class PlayerZoneWidget extends ConsumerWidget {
                 ),
               ),
             ],
-            SizedBox(height: compact ? 2 : AppDimensions.xs),
+            SizedBox(height: (compact ? 2 : AppDimensions.xs) * scale),
             child ?? const SizedBox.shrink(),
           ],
         ),
@@ -604,6 +611,7 @@ class _PlayerLabel extends StatelessWidget {
     this.hasLastCardsDeclared = false,
     this.compact = false,
     this.localAvatarFilePath,
+    this.scale = 1.0,
   });
 
   final PlayerModel player;
@@ -612,13 +620,14 @@ class _PlayerLabel extends StatelessWidget {
   final bool hasLastCardsDeclared;
   final bool compact;
   final String? localAvatarFilePath;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
-    final iconSize = compact ? 10.0 : 14.0;
-    final nameFontSize = compact ? 9.0 : null;
-    final countFontSize = compact ? 8.0 : 10.0;
-    final gap = compact ? 2.0 : AppDimensions.xs;
+    final iconSize = (compact ? 10.0 : 14.0) * scale;
+    final nameFontSize = (compact ? 9.0 : 12.0) * scale;
+    final countFontSize = (compact ? 8.0 : 10.0) * scale;
+    final gap = (compact ? 2.0 : AppDimensions.xs) * scale;
 
     // Active-turn state is already communicated by the zone-level accent glow
     // (see PlayerZoneWidget's outer Container) — no separate "YOUR TURN" pill
@@ -633,12 +642,12 @@ class _PlayerLabel extends StatelessWidget {
               pulse: true,
               child: Container(
                 padding: EdgeInsets.symmetric(
-                  horizontal: compact ? 5 : 8,
-                  vertical: compact ? 2 : 3,
+                  horizontal: (compact ? 5 : 8) * scale,
+                  vertical: (compact ? 2 : 3) * scale,
                 ),
                 decoration: BoxDecoration(
                   color: accentLc.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(compact ? 4 : 6),
+                  borderRadius: BorderRadius.circular((compact ? 4 : 6) * scale),
                   border: Border.all(
                     color: accentLc,
                     width: 1.5,
@@ -648,7 +657,7 @@ class _PlayerLabel extends StatelessWidget {
                   'LAST CARDS',
                   style: TextStyle(
                     color: accentLc,
-                    fontSize: compact ? 8 : 11,
+                    fontSize: (compact ? 8 : 11) * scale,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.7,
                   ),
@@ -671,7 +680,7 @@ class _PlayerLabel extends StatelessWidget {
                 pulse: hasLastCardsDeclared,
                 child: Container(
                   padding: hasLastCardsDeclared
-                      ? const EdgeInsets.all(2)
+                      ? EdgeInsets.all(2 * scale)
                       : EdgeInsets.zero,
                   decoration: hasLastCardsDeclared
                       ? BoxDecoration(
@@ -729,7 +738,7 @@ class _PlayerLabel extends StatelessWidget {
                         ]
                       : null,
                 ),
-                maxWidth: 120,
+                maxWidth: 120 * scale,
                 textAlign: TextAlign.left,
                 color: isActiveTurn
                     ? positionColor
@@ -741,12 +750,12 @@ class _PlayerLabel extends StatelessWidget {
         SizedBox(width: gap),
         Container(
           padding: EdgeInsets.symmetric(
-            horizontal: compact ? 4 : 5,
-            vertical: compact ? 0 : 1,
+            horizontal: (compact ? 4 : 5) * scale,
+            vertical: (compact ? 0 : 1) * scale,
           ),
           decoration: BoxDecoration(
             color: appTheme.surfacePanel as Color,
-            borderRadius: BorderRadius.circular(compact ? 6 : 8),
+            borderRadius: BorderRadius.circular((compact ? 6 : 8) * scale),
             border: Border.all(
               color: player.cardCount <= 2
                   ? appTheme.secondaryAccent as Color

@@ -13,6 +13,15 @@ abstract final class TableChromeLayout {
   /// Shortest side below mobile breakpoint (typical phones, any orientation).
   static bool isCompactPhone(Size size) =>
       math.min(size.width, size.height) < AppDimensions.breakpointMobile;
+
+  /// Single source of truth for the tablet/desktop chrome-scale multiplier
+  /// — 1.0 on phones, growing toward 2.2 on large tablets. Every screen
+  /// that lays out [TablePortraitGrid]-based chrome (the main table, Bust)
+  /// calls this instead of each computing its own copy of the formula.
+  static double scaleFor(Size size) {
+    if (isCompactPhone(size)) return 1.0;
+    return (math.min(size.width, size.height) / 400.0).clamp(1.0, 2.2);
+  }
 }
 
 /// Fixed portrait grid slot sizes — interactive content lives here; transient
@@ -90,22 +99,31 @@ abstract final class TablePortraitGrid {
   /// Overlay: tournament skip chip sits above the hand region with clear gap.
   static const double skipChipGapAboveHand = AppDimensions.md;
 
-  static double opponentRowHeight({required bool useRail, required bool hasBadges}) {
+  static double opponentRowHeight({
+    required bool useRail,
+    required bool hasBadges,
+    double scale = 1.0,
+  }) {
     if (useRail) {
       const chatReserve = 96.0;
-      return (hasBadges ? opponentRailBaseHeightWithBadge : opponentRailBaseHeight) +
-          chatReserve;
+      return ((hasBadges ? opponentRailBaseHeightWithBadge : opponentRailBaseHeight) +
+              chatReserve) *
+          scale;
     }
-    return hasBadges ? opponentSlotHeightWithBadge : opponentSlotHeight;
+    return (hasBadges ? opponentSlotHeightWithBadge : opponentSlotHeight) * scale;
   }
 
   /// Y offset from safe-area top to the top of the board [Expanded] region.
+  ///
+  /// [opponentRowHeight] is expected to already be pre-scaled by the caller
+  /// (see [TablePortraitGrid.opponentRowHeight]'s own `scale` parameter).
   static double boardRegionTopPx({
     required double safeTop,
     required bool hasRankedBadge,
     required double opponentRowHeight,
+    double scale = 1.0,
   }) {
-    final rankedBand = hasRankedBadge ? 28.0 : 0.0;
+    final rankedBand = hasRankedBadge ? 28.0 * scale : 0.0;
     return safeTop + rankedBand + opponentRowHeight;
   }
 
@@ -136,30 +154,33 @@ abstract final class TablePortraitGrid {
   static double landscapeOpponentRowHeight({
     required bool useRail,
     required bool hasBadges,
+    double scale = 1.0,
   }) {
     if (useRail) {
-      return hasBadges
-          ? landscapeOpponentRailBaseHeightWithBadge
-          : landscapeOpponentRailBaseHeight;
+      return (hasBadges
+              ? landscapeOpponentRailBaseHeightWithBadge
+              : landscapeOpponentRailBaseHeight) *
+          scale;
     }
-    return hasBadges
-        ? landscapeOpponentSlotHeightWithBadge
-        : landscapeOpponentSlotHeight;
+    return (hasBadges
+            ? landscapeOpponentSlotHeightWithBadge
+            : landscapeOpponentSlotHeight) *
+        scale;
   }
 
   static double landscapeBoardRegionTopPx({
     required double safeTop,
     required bool hasRankedBadge,
     required double opponentRowHeight,
+    double scale = 1.0,
   }) {
-    final rankedBand = hasRankedBadge ? landscapeRankedBandHeight : 0.0;
+    final rankedBand = hasRankedBadge ? landscapeRankedBandHeight * scale : 0.0;
     return safeTop + rankedBand + opponentRowHeight;
   }
 
   /// Tournament skip chip — above hand region (landscape branch).
-  static double landscapeSkipChipBottom(double safeBottom) =>
+  static double landscapeSkipChipBottom(double safeBottom, {double scale = 1.0}) =>
       safeBottom +
-      landscapeHandRegionHeight +
-      landscapeActionBarHeight +
-      skipChipGapAboveHand;
+      (landscapeHandRegionHeight + landscapeActionBarHeight + skipChipGapAboveHand) *
+          scale;
 }

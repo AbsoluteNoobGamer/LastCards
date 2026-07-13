@@ -12,9 +12,12 @@ import '../../../../services/game_log_formatter.dart';
 /// Move text uses hybrid formatting: compact icons for normal cards, full
 /// descriptive text for Joker / Ace / Eight-skip plays.
 class LastMovePanelWidget extends StatelessWidget {
-  const LastMovePanelWidget({super.key, required this.entries});
+  const LastMovePanelWidget({super.key, required this.entries, this.scale = 1.0});
 
   final List<MoveLogEntry> entries;
+
+  /// Tablet/desktop scale multiplier (1.0 on phones).
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +29,7 @@ class LastMovePanelWidget extends StatelessWidget {
       children: [
         for (var i = 0; i < visibleEntries.length; i++)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
+            padding: EdgeInsets.symmetric(vertical: 2 * scale),
             child: TweenAnimationBuilder<double>(
               key: ValueKey(
                 '${visibleEntries[i].playerId}_${visibleEntries[i].type}_${GameLogFormatter.formatMove(visibleEntries[i])}',
@@ -39,12 +42,12 @@ class LastMovePanelWidget extends StatelessWidget {
                 return Opacity(
                   opacity: u,
                   child: Transform.translate(
-                    offset: Offset(22 * (1 - u), 0),
+                    offset: Offset(22 * scale * (1 - u), 0),
                     child: child,
                   ),
                 );
               },
-              child: _MoveLabel(entry: visibleEntries[i]),
+              child: _MoveLabel(entry: visibleEntries[i], scale: scale),
             ),
           ),
       ],
@@ -53,9 +56,10 @@ class LastMovePanelWidget extends StatelessWidget {
 }
 
 class _MoveLabel extends ConsumerWidget {
-  const _MoveLabel({required this.entry});
+  const _MoveLabel({required this.entry, this.scale = 1.0});
 
   final MoveLogEntry entry;
+  final double scale;
 
   /// A palette of distinct, readable colours for player name highlights.
   static const _nameColors = <Color>[
@@ -88,10 +92,10 @@ class _MoveLabel extends ConsumerWidget {
     final nameColor = _playerColor(entry.playerId);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 5 * scale),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.40),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(10 * scale),
         border: Border.all(
           color: theme.accentDark.withValues(alpha: 0.45),
           width: 1,
@@ -105,15 +109,15 @@ class _MoveLabel extends ConsumerWidget {
             TextSpan(
               text: _shortName(entry.playerName),
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 12 * scale,
                 fontWeight: FontWeight.bold,
                 color: nameColor,
               ),
             ),
             TextSpan(
               text: ' $actionText',
-              style: const TextStyle(
-                fontSize: 13,
+              style: TextStyle(
+                fontSize: 13 * scale,
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
               ),

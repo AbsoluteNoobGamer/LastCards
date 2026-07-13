@@ -14,7 +14,13 @@ import 'card_widget.dart';
 /// Full-screen overlay that animates a card along a quadratic Bézier arc
 /// between two widgets identified by [GlobalKey]s (hand → discard or similar).
 class CardFlightOverlay extends ConsumerStatefulWidget {
-  const CardFlightOverlay({super.key});
+  const CardFlightOverlay({super.key, this.scale = 1.0});
+
+  /// Tablet/desktop scale multiplier (1.0 on phones) — keeps the flying
+  /// card sized to match the real (already-scaled) hand/pile it travels
+  /// between, since its screen position already tracks their real
+  /// GlobalKey geometry.
+  final double scale;
 
   @override
   CardFlightOverlayState createState() => CardFlightOverlayState();
@@ -120,8 +126,8 @@ class CardFlightOverlayState extends ConsumerState<CardFlightOverlay>
     if (_flights.isEmpty) return const SizedBox.shrink();
 
     final theme = ref.watch(themeProvider).theme;
-    const w = AppDimensions.cardWidthMedium;
-    const h = AppDimensions.cardWidthMedium * 1.4;
+    final w = AppDimensions.cardWidthMedium * widget.scale;
+    final h = AppDimensions.cardWidthMedium * 1.4 * widget.scale;
 
     return IgnorePointer(
       child: Stack(

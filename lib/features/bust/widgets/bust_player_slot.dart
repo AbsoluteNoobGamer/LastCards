@@ -19,6 +19,7 @@ class BustPlayerSlot extends ConsumerWidget {
     this.chatBubble,
     this.onRemoveQuickChatBubble,
     this.skipSeatHighlight = false,
+    this.scale = 1.0,
   });
 
   final BustPlayerViewModel player;
@@ -34,6 +35,11 @@ class BustPlayerSlot extends ConsumerWidget {
   final void Function(String id)? onRemoveQuickChatBubble;
   final bool skipSeatHighlight;
 
+  /// Tablet/desktop scale multiplier (1.0 on phones) — shared by both the
+  /// main table screen's opponent rail and Bust mode, since both reuse
+  /// this widget via [BustPlayerRail].
+  final double scale;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(themeProvider).theme;
@@ -45,12 +51,12 @@ class BustPlayerSlot extends ConsumerWidget {
 
     if (player.isEliminated) {
       borderColor = theme.textSecondary.withValues(alpha: 0.35);
-      borderWidth = 1.5;
+      borderWidth = 1.5 * scale;
       bgColor = player.color.withValues(alpha: 0.2);
       shadows = const [];
     } else if (player.isActive) {
       borderColor = theme.accentPrimary;
-      borderWidth = 3.0;
+      borderWidth = 3.0 * scale;
       bgColor = theme.accentPrimary.withValues(alpha: 0.22);
       shadows = [
         BoxShadow(
@@ -61,15 +67,15 @@ class BustPlayerSlot extends ConsumerWidget {
       ];
     } else {
       borderColor = theme.textSecondary.withValues(alpha: 0.35);
-      borderWidth = 1.5;
+      borderWidth = 1.5 * scale;
       bgColor = player.color.withValues(alpha: 0.2);
       shadows = const [];
     }
 
-    final avatarSize = compact ? 44.0 : 60.0;
-    final badgeSize = compact ? 18.0 : 22.0;
-    final slotWidth = compact ? 56.0 : 80.0;
-    final iconSize = compact ? 20.0 : 28.0;
+    final avatarSize = (compact ? 44.0 : 60.0) * scale;
+    final badgeSize = (compact ? 18.0 : 22.0) * scale;
+    final slotWidth = (compact ? 56.0 : 80.0) * scale;
+    final iconSize = (compact ? 20.0 : 28.0) * scale;
 
     Widget slot = SizedBox(
       width: slotWidth,
@@ -120,7 +126,7 @@ class BustPlayerSlot extends ConsumerWidget {
                         '···',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: compact ? 12 : 16,
+                          fontSize: (compact ? 12 : 16) * scale,
                           fontWeight: FontWeight.w900,
                           shadows: const [
                             Shadow(blurRadius: 4, color: Colors.black87),
@@ -142,14 +148,14 @@ class BustPlayerSlot extends ConsumerWidget {
                     color: theme.accentDark,
                     border: Border.all(
                       color: theme.surfacePanel,
-                      width: compact ? 1.0 : 1.5,
+                      width: (compact ? 1.0 : 1.5) * scale,
                     ),
                   ),
                   child: Text(
                     player.isEliminated ? 'X' : '${player.cardCount}',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: compact ? 9 : 11,
+                      fontSize: (compact ? 9 : 11) * scale,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -157,20 +163,21 @@ class BustPlayerSlot extends ConsumerWidget {
               ),
             ],
           ),
-          SizedBox(height: compact ? 2 : AppDimensions.xs),
+          SizedBox(height: (compact ? 2 : AppDimensions.xs) * scale),
           MarqueeName(
             text: player.displayName,
             style: AppTypography.labelSmall.copyWith(
               color: player.isActive ? player.color : theme.textPrimary,
               fontWeight: FontWeight.w700,
-              fontSize: compact ? 9 : null,
+              fontSize: (compact ? 9 : (AppTypography.labelSmall.fontSize ?? 12)) *
+                  scale,
             ),
             maxWidth: slotWidth,
             textAlign: TextAlign.center,
             color: player.isActive ? player.color : theme.textPrimary,
           ),
           if (chatBubble != null && onRemoveQuickChatBubble != null) ...[
-            const SizedBox(height: 4),
+            SizedBox(height: 4 * scale),
             Center(
               child: QuickChatBubble(
                 key: ValueKey(chatBubble!.id),
@@ -185,11 +192,11 @@ class BustPlayerSlot extends ConsumerWidget {
           ],
           // ── Tournament status badge (qualified/eliminated) ─────────────────
           if (player.isTournamentFinished) ...[
-            SizedBox(height: compact ? 2 : 4),
+            SizedBox(height: (compact ? 2 : 4) * scale),
             Container(
               padding: EdgeInsets.symmetric(
-                horizontal: compact ? 4 : 6,
-                vertical: compact ? 1 : 2,
+                horizontal: (compact ? 4 : 6) * scale,
+                vertical: (compact ? 1 : 2) * scale,
               ),
               decoration: BoxDecoration(
                 color: player.isTournamentEliminated
@@ -209,7 +216,7 @@ class BustPlayerSlot extends ConsumerWidget {
                   color: player.isTournamentEliminated
                       ? const Color(0xFFFF3333)
                       : theme.accentPrimary,
-                  fontSize: compact ? 8 : 10,
+                  fontSize: (compact ? 8 : 10) * scale,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.5,
                 ),

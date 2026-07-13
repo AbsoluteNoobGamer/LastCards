@@ -17,6 +17,7 @@ class BustPlayerRail extends StatefulWidget {
     this.onRemoveQuickChatBubble,
     this.thinkingPlayerId,
     this.skipHighlightPlayerIds = const <String>{},
+    this.scale = 1.0,
   });
 
   /// One entry per table seat; `null` keeps fixed-slot spacing when empty.
@@ -46,6 +47,10 @@ class BustPlayerRail extends StatefulWidget {
 
   /// Player IDs to show brief skip (Eight) dim/pause on the rail slot.
   final Set<String> skipHighlightPlayerIds;
+
+  /// Tablet/desktop scale multiplier (1.0 on phones) — shared by both the
+  /// main table screen and Bust mode, since both reuse this widget.
+  final double scale;
 
   @override
   State<BustPlayerRail> createState() => _BustPlayerRailState();
@@ -108,9 +113,10 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
 
   @override
   Widget build(BuildContext context) {
+    final scale = widget.scale;
     final baseHeight = widget.height ?? 96;
-    final railHeight = baseHeight + _chatBubbleReservedHeight;
-    final slotPadding = AppDimensions.xs;
+    final railHeight = (baseHeight + _chatBubbleReservedHeight) * scale;
+    final slotPadding = AppDimensions.xs * scale;
 
     Widget buildEmptySlot(double itemW) {
       return SizedBox(
@@ -129,6 +135,7 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
         chatBubble: chatBubble,
         onRemoveQuickChatBubble: widget.onRemoveQuickChatBubble,
         skipSeatHighlight: widget.skipHighlightPlayerIds.contains(player.id),
+        scale: scale,
       );
       if (slotKey != null) {
         slot = KeyedSubtree(key: slotKey, child: slot);
@@ -142,7 +149,7 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
       );
     }
 
-    final itemW = widget.compact ? _itemWidthCompact : _itemWidth;
+    final itemW = (widget.compact ? _itemWidthCompact : _itemWidth) * scale;
     final totalContentWidth =
         widget.slots.length * (itemW + slotPadding * 2);
 
@@ -173,7 +180,7 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
             clipBehavior: Clip.none,
             controller: _scrollController,
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: AppDimensions.sm),
+            padding: EdgeInsets.symmetric(horizontal: AppDimensions.sm * scale),
             itemCount: widget.slots.length,
             itemBuilder: (context, index) {
               final player = widget.slots[index];

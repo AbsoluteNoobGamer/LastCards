@@ -19,6 +19,7 @@ part of 'table_screen.dart';
   required bool hasRankedBadge,
   required bool useRail,
   required bool landscape,
+  double scale = 1.0,
 }) {
   final safeTop = MediaQuery.paddingOf(context).top;
   final boardTop = landscape
@@ -26,25 +27,27 @@ part of 'table_screen.dart';
           safeTop: safeTop,
           hasRankedBadge: hasRankedBadge,
           opponentRowHeight: opponentRowHeight,
+          scale: scale,
         )
       : TablePortraitGrid.boardRegionTopPx(
           safeTop: safeTop,
           hasRankedBadge: hasRankedBadge,
           opponentRowHeight: opponentRowHeight,
+          scale: scale,
         );
-  final railVisualHeight = hasRankedBadge
-      ? (landscape
-          ? TablePortraitGrid.landscapeOpponentRailBaseHeightWithBadge
-          : TablePortraitGrid.opponentRailBaseHeightWithBadge)
-      : (landscape
-          ? TablePortraitGrid.landscapeOpponentRailBaseHeight
-          : TablePortraitGrid.opponentRailBaseHeight);
+  final railVisualHeight = (hasRankedBadge
+          ? (landscape
+              ? TablePortraitGrid.landscapeOpponentRailBaseHeightWithBadge
+              : TablePortraitGrid.opponentRailBaseHeightWithBadge)
+          : (landscape
+              ? TablePortraitGrid.landscapeOpponentRailBaseHeight
+              : TablePortraitGrid.opponentRailBaseHeight)) *
+      scale;
   final opponentVisualHeight = useRail ? railVisualHeight : opponentRowHeight;
   final top = safeTop +
-      (hasRankedBadge ? 28.0 : 0.0) +
+      (hasRankedBadge ? 28.0 * scale : 0.0) +
       opponentVisualHeight +
-      TablePortraitGrid.moveLogTopGap +
-      TablePortraitGrid.moveLogTopNudge;
+      (TablePortraitGrid.moveLogTopGap + TablePortraitGrid.moveLogTopNudge) * scale;
   return (top: top, boardTop: boardTop);
 }
 
@@ -52,16 +55,20 @@ part of 'table_screen.dart';
 /// of the draw+discard pile row (the row is centered as a whole, but the
 /// discard pile — the wider of the two — sits right of that midpoint).
 /// Negative: the row's true centre is left of the discard pile's centre.
-double _pileRowCenterOffsetFromDiscardCenter({required bool landscape}) {
-  final drawWidth = landscape
-      ? TablePortraitGrid.landscapeDrawPileCardWidth
-      : TablePortraitGrid.drawPileCardWidth;
-  final discardWidth = landscape
-      ? TablePortraitGrid.landscapeDiscardPileCardWidth
-      : TablePortraitGrid.discardPileCardWidth;
-  final gap = landscape
-      ? TablePortraitGrid.landscapePileGap
-      : TablePortraitGrid.pileGap;
+double _pileRowCenterOffsetFromDiscardCenter({
+  required bool landscape,
+  double scale = 1.0,
+}) {
+  final drawWidth = (landscape
+          ? TablePortraitGrid.landscapeDrawPileCardWidth
+          : TablePortraitGrid.drawPileCardWidth) *
+      scale;
+  final discardWidth = (landscape
+          ? TablePortraitGrid.landscapeDiscardPileCardWidth
+          : TablePortraitGrid.discardPileCardWidth) *
+      scale;
+  final gap = (landscape ? TablePortraitGrid.landscapePileGap : TablePortraitGrid.pileGap) *
+      scale;
 
   final drawFootprint = TablePortraitGrid.drawPileFootprintWidth(drawWidth);
   final discardFootprint =
@@ -77,11 +84,19 @@ class _PortraitDirectionBannerOverlay extends StatelessWidget {
     required this.direction,
     required this.kingJustPlayed,
     required this.hudKey,
+    this.minTop,
+    this.scale = 1.0,
   });
 
   final PlayDirection direction;
   final bool kingJustPlayed;
   final GlobalKey hudKey;
+
+  /// Floors the banner's top so it stays below the move log band — the
+  /// stack-block banner and Last Cards strip already have this defense;
+  /// this was the one overlay missing it.
+  final double? minTop;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
@@ -89,12 +104,15 @@ class _PortraitDirectionBannerOverlay extends StatelessWidget {
       targetKey: hudKey,
       targetAnchor: Alignment.center,
       childAnchor: Alignment.center,
-      offset: const Offset(0, kDirectionReversalBannerYOffset),
+      offset: Offset(0, kDirectionReversalBannerYOffset * scale),
+      minTop: minTop,
+      scale: scale,
       child: TurnIndicatorOverlay(
         direction: direction,
         kingJustPlayed: kingJustPlayed,
         maxWidth: kDirectionReversalBannerMaxWidth,
         bannerAlignment: Alignment.center,
+        scale: scale,
       ),
     );
   }
@@ -119,6 +137,7 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
     required this.appTheme,
     this.stackBlockBannerText,
     this.stackBlockBannerColor,
+    this.scale = 1.0,
   });
 
   final GameState gameState;
@@ -132,6 +151,7 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
   final AppThemeData appTheme;
   final String? stackBlockBannerText;
   final Color? stackBlockBannerColor;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
@@ -142,11 +162,13 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
       hasRankedBadge: hasRankedBadge,
       useRail: useRail,
       landscape: false,
+      scale: scale,
     );
     final moveLogBottom = moveLogBottomPx(
       entries: moveLogEntries,
       top: moveLogAnchors.top,
       boardTop: moveLogAnchors.boardTop,
+      scale: scale,
     );
 
     return Stack(
@@ -157,17 +179,21 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
           entries: moveLogEntries,
           top: moveLogAnchors.top,
           boardTop: moveLogAnchors.boardTop,
+          scale: scale,
         ),
         _PortraitDirectionBannerOverlay(
           direction: gameState.direction,
           kingJustPlayed: kingJustPlayed,
           hudKey: hudKey,
+          minTop: moveLogBottom,
+          scale: scale,
         ),
         _PortraitLastCardsStripOverlay(
           players: gameState.players,
           lastCardsDeclaredBy: gameState.lastCardsDeclaredBy,
           hudKey: hudKey,
           minTop: moveLogBottom,
+          scale: scale,
         ),
         if (stackBlockBannerText != null)
           StackBlockBannerOverlay(
@@ -175,8 +201,10 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
             color: stackBlockBannerColor!,
             appTheme: appTheme,
             discardPileKey: discardPileKey,
-            centerOffsetX: _pileRowCenterOffsetFromDiscardCenter(landscape: false),
+            centerOffsetX:
+                _pileRowCenterOffsetFromDiscardCenter(landscape: false, scale: scale),
             minTop: moveLogBottom,
+            scale: scale,
           ),
       ],
     );
@@ -199,6 +227,7 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
     required this.appTheme,
     this.stackBlockBannerText,
     this.stackBlockBannerColor,
+    this.scale = 1.0,
   });
 
   final GameState gameState;
@@ -212,6 +241,7 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
   final AppThemeData appTheme;
   final String? stackBlockBannerText;
   final Color? stackBlockBannerColor;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
@@ -222,11 +252,13 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
       hasRankedBadge: hasRankedBadge,
       useRail: useRail,
       landscape: true,
+      scale: scale,
     );
     final moveLogBottom = moveLogBottomPx(
       entries: moveLogEntries,
       top: moveLogAnchors.top,
       boardTop: moveLogAnchors.boardTop,
+      scale: scale,
     );
 
     return Stack(
@@ -237,17 +269,21 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
           entries: moveLogEntries,
           top: moveLogAnchors.top,
           boardTop: moveLogAnchors.boardTop,
+          scale: scale,
         ),
         _PortraitDirectionBannerOverlay(
           direction: gameState.direction,
           kingJustPlayed: kingJustPlayed,
           hudKey: hudKey,
+          minTop: moveLogBottom,
+          scale: scale,
         ),
         _PortraitLastCardsStripOverlay(
           players: gameState.players,
           lastCardsDeclaredBy: gameState.lastCardsDeclaredBy,
           hudKey: hudKey,
           minTop: moveLogBottom,
+          scale: scale,
         ),
         if (stackBlockBannerText != null)
           StackBlockBannerOverlay(
@@ -255,8 +291,10 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
             color: stackBlockBannerColor!,
             appTheme: appTheme,
             discardPileKey: discardPileKey,
-            centerOffsetX: _pileRowCenterOffsetFromDiscardCenter(landscape: true),
+            centerOffsetX:
+                _pileRowCenterOffsetFromDiscardCenter(landscape: true, scale: scale),
             minTop: moveLogBottom,
+            scale: scale,
           ),
       ],
     );
@@ -270,12 +308,14 @@ class _PortraitLastCardsStripOverlay extends StatelessWidget {
     required this.lastCardsDeclaredBy,
     required this.hudKey,
     this.minTop,
+    this.scale = 1.0,
   });
 
   final List<PlayerModel> players;
   final Set<String> lastCardsDeclaredBy;
   final GlobalKey hudKey;
   final double? minTop;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
@@ -285,14 +325,16 @@ class _PortraitLastCardsStripOverlay extends StatelessWidget {
       targetKey: hudKey,
       targetAnchor: Alignment.bottomCenter,
       childAnchor: Alignment.topCenter,
-      offset: const Offset(0, AppDimensions.xs),
+      offset: Offset(0, AppDimensions.xs * scale),
       minTop: minTop,
+      scale: scale,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 340),
+        constraints: BoxConstraints(maxWidth: 340 * scale),
         child: LastCardsTableStrip(
           players: players,
           lastCardsDeclaredBy: lastCardsDeclaredBy,
           inline: true,
+          scale: scale,
         ),
       ),
     );

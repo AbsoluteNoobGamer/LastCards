@@ -10,6 +10,7 @@ class LastCardsTableStrip extends StatelessWidget {
     required this.players,
     required this.lastCardsDeclaredBy,
     this.inline = false,
+    this.scale = 1.0,
   });
 
   final List<PlayerModel> players;
@@ -17,6 +18,9 @@ class LastCardsTableStrip extends StatelessWidget {
 
   /// When true, omits screen-fraction [Align] — for key-anchored overlay use.
   final bool inline;
+
+  /// Tablet/desktop scale multiplier (1.0 on phones).
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
@@ -35,11 +39,11 @@ class LastCardsTableStrip extends StatelessWidget {
     }
 
     final panel = Container(
-      constraints: const BoxConstraints(maxWidth: 340),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      constraints: BoxConstraints(maxWidth: 340 * scale),
+      padding: EdgeInsets.symmetric(horizontal: 14 * scale, vertical: 8 * scale),
       decoration: BoxDecoration(
         color: AppColors.goldDark.withValues(alpha: 0.88),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14 * scale),
         border: Border.all(
           color: AppColors.goldLight.withValues(alpha: 0.95),
           width: 1.5,
@@ -57,9 +61,9 @@ class LastCardsTableStrip extends StatelessWidget {
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         textAlign: TextAlign.center,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.feltDeep,
-          fontSize: 13,
+          fontSize: 13 * scale,
           fontWeight: FontWeight.w900,
           letterSpacing: 0.4,
           height: 1.2,

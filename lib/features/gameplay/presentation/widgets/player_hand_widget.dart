@@ -31,6 +31,7 @@ class PlayerHandWidget extends StatefulWidget {
     this.cardWidth = AppDimensions.cardWidthMedium,
     this.enabled = true,
     this.invalidPlayShakeTrigger,
+    this.scale = 1.0,
   });
 
   final List<CardModel> cards;
@@ -46,6 +47,10 @@ class PlayerHandWidget extends StatefulWidget {
 
   /// Increment (e.g. `notifier.value++`) to play a short horizontal shake after an invalid play.
   final ValueNotifier<int>? invalidPlayShakeTrigger;
+
+  /// Tablet/desktop scale multiplier (1.0 on phones) — widens the fan
+  /// spread so bigger cards don't just sit more tightly packed together.
+  final double scale;
 
   /// Fixed horizontal offset between successive cards in the fan.
   static const double _fixedSpread = 45.0;
@@ -64,15 +69,18 @@ class PlayerHandWidget extends StatefulWidget {
     required double cardWidth,
     required bool isCompact,
     int cardCount = 9,
+    double scale = 1.0,
   }) {
     final minW = math.min(44.0, cardWidth);
     final targetWidth =
         (maxWidth * (isCompact ? 0.14 : 0.11)).clamp(minW, cardWidth);
     if (cardCount <= 1) return targetWidth;
+    final fixedSpread = _fixedSpread * scale;
+    final minSpread = _minSpread * scale;
     final fitSpread = (maxWidth - targetWidth) / (cardCount - 1);
-    final spread = fitSpread >= _fixedSpread
-        ? _fixedSpread
-        : fitSpread.clamp(_minSpread, _fixedSpread);
+    final spread = fitSpread >= fixedSpread
+        ? fixedSpread
+        : fitSpread.clamp(minSpread, fixedSpread);
     return targetWidth + (cardCount - 1) * spread;
   }
 
@@ -228,8 +236,9 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget>
         final double spread;
         final bool useScroll;
 
-        final baseSpread =
-            PlayerHandWidget._fixedSpread + (_hoverWiden ? 6.0 : 0.0);
+        final scaledFixedSpread = PlayerHandWidget._fixedSpread * widget.scale;
+        final scaledMinSpread = PlayerHandWidget._minSpread * widget.scale;
+        final baseSpread = scaledFixedSpread + (_hoverWiden ? 6.0 : 0.0);
         if (n <= 1) {
           spread = 0;
           useScroll = false;
@@ -242,11 +251,11 @@ class _PlayerHandWidgetState extends State<PlayerHandWidget>
           if (fitSpread >= baseSpread) {
             spread = baseSpread;
             useScroll = false;
-          } else if (fitSpread >= PlayerHandWidget._minSpread) {
+          } else if (fitSpread >= scaledMinSpread) {
             spread = fitSpread;
             useScroll = false;
           } else {
-            spread = PlayerHandWidget._minSpread;
+            spread = scaledMinSpread;
             useScroll = true;
           }
         }

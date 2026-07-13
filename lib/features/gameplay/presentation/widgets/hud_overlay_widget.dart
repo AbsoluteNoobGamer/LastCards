@@ -25,6 +25,7 @@ class HudOverlayWidget extends ConsumerWidget {
     this.penaltyTargetPosition,
     this.compact = false,
     this.onPenaltyIncreased,
+    this.scale = 1.0,
   });
 
   /// Active suit declared by Ace or Joker (null = no override).
@@ -46,10 +47,13 @@ class HudOverlayWidget extends ConsumerWidget {
   /// Fires when [penaltyCount] increases (e.g. screen-edge flash on table).
   final VoidCallback? onPenaltyIncreased;
 
+  /// Tablet/desktop scale multiplier (1.0 on phones).
+  final double scale;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(themeProvider).theme;
-    final gap = compact ? AppDimensions.xs : AppDimensions.sm;
+    final gap = (compact ? AppDimensions.xs : AppDimensions.sm) * scale;
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -61,6 +65,7 @@ class HudOverlayWidget extends ConsumerWidget {
             targetPosition: penaltyTargetPosition,
             compact: compact,
             onPenaltyIncreased: onPenaltyIncreased,
+            scale: scale,
           ),
           SizedBox(width: gap),
         ],
@@ -71,6 +76,7 @@ class HudOverlayWidget extends ConsumerWidget {
             suit: activeSuit!,
             theme: theme,
             compact: compact,
+            scale: scale,
           ),
           SizedBox(width: gap),
         ],
@@ -81,6 +87,7 @@ class HudOverlayWidget extends ConsumerWidget {
             suit: queenSuitLock!,
             theme: theme,
             compact: compact,
+            scale: scale,
           ),
           SizedBox(width: gap),
         ],
@@ -127,12 +134,14 @@ class _PenaltyBadge extends StatefulWidget {
     this.targetPosition,
     this.compact = false,
     this.onPenaltyIncreased,
+    this.scale = 1.0,
   });
 
   final int count;
   final TablePosition? targetPosition;
   final bool compact;
   final VoidCallback? onPenaltyIncreased;
+  final double scale;
 
   @override
   State<_PenaltyBadge> createState() => _PenaltyBadgeState();
@@ -179,12 +188,13 @@ class _PenaltyBadgeState extends State<_PenaltyBadge>
   @override
   Widget build(BuildContext context) {
     const badgeColor = Color(0xFFE53935);
+    final scale = widget.scale;
     final padding = widget.compact
-        ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2)
-        : const EdgeInsets.symmetric(horizontal: 8, vertical: 4);
-    final iconSize = widget.compact ? 10.0 : 12.0;
-    final fontSize = widget.compact ? 10.0 : 12.0;
-    final radius = widget.compact ? 8.0 : 12.0;
+        ? EdgeInsets.symmetric(horizontal: 6 * scale, vertical: 2 * scale)
+        : EdgeInsets.symmetric(horizontal: 8 * scale, vertical: 4 * scale);
+    final iconSize = (widget.compact ? 10.0 : 12.0) * scale;
+    final fontSize = (widget.compact ? 10.0 : 12.0) * scale;
+    final radius = (widget.compact ? 8.0 : 12.0) * scale;
 
     final child = Container(
       padding: padding,
@@ -209,7 +219,7 @@ class _PenaltyBadgeState extends State<_PenaltyBadge>
               color: Colors.white,
             ),
           ),
-          SizedBox(width: widget.compact ? 2 : 3),
+          SizedBox(width: (widget.compact ? 2 : 3) * scale),
           Text(
             '+${widget.count}',
             style: AppTypography.labelSmall.copyWith(
@@ -255,11 +265,17 @@ Color _suitSymbolColor(Suit suit) {
 /// Animated badge that pops in when an Ace or Joker declares a suit.
 /// Colors are driven entirely by [theme] — zero hardcoded theme values.
 class _AnimatedSuitBadge extends StatefulWidget {
-  const _AnimatedSuitBadge({required this.suit, required this.theme, this.compact = false});
+  const _AnimatedSuitBadge({
+    required this.suit,
+    required this.theme,
+    this.compact = false,
+    this.scale = 1.0,
+  });
 
   final Suit suit;
   final AppThemeData theme;
   final bool compact;
+  final double scale;
 
   @override
   State<_AnimatedSuitBadge> createState() => _AnimatedSuitBadgeState();
