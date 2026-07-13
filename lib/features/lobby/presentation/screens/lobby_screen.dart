@@ -27,6 +27,7 @@ import '../../../../core/providers/connection_provider.dart';
 import '../../../../core/network/websocket_client.dart';
 import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/providers/game_provider.dart';
+import '../../../../core/services/analytics_service.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/providers/theme_provider.dart';
@@ -213,6 +214,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         });
         final pending = widget.pendingGameInviteDocIdToDismiss;
         if (pending != null) {
+          AnalyticsService.instance.logInviteAccepted();
           unawaited(
             ref.read(friendsServiceProvider).deleteGameInvite(pending),
           );
@@ -877,6 +879,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     final maxP = _privateGameVariant == PrivateGameVariant.bust ? 10 : 7;
     final text = 'Join me in Last Cards (private game). Room code: $code\n'
         'We need 2–$maxP players — open the app and use Join Room with this code.';
+    AnalyticsService.instance.logShareTapped();
+    AnalyticsService.instance.logInviteSent(channel: 'share_sheet');
     await SharePlus.instance.share(
       ShareParams(
         text: text,
