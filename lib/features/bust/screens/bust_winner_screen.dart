@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:last_cards/core/models/offline_game_state.dart';
 import 'package:last_cards/core/providers/theme_provider.dart';
 import 'package:last_cards/core/providers/user_profile_provider.dart';
+import 'package:last_cards/core/services/ads_service.dart';
 import 'package:last_cards/core/theme/app_colors.dart';
 import 'package:last_cards/core/theme/app_dimensions.dart';
 import 'package:last_cards/core/theme/app_typography.dart';
@@ -14,6 +15,7 @@ import 'package:last_cards/core/theme/app_typography.dart';
 import '../../leaderboard/data/leaderboard_stats_writer.dart';
 
 import '../models/bust_round_state.dart';
+import '../widgets/bust_setup_sheet.dart' show pushOfflineBustRun;
 
 /// Shown when a Bust game is completely finished — one player remains —
 /// or when the local player is eliminated mid-tournament.
@@ -128,6 +130,18 @@ class _BustWinnerScreenState extends ConsumerState<BustWinnerScreen> {
       if (!mounted) return;
       unawaited(_recordOnce());
     });
+  }
+
+  /// "Play Again" / "Try Again" — shows the post-match ad (same discipline
+  /// as every other post-match path), then starts a fresh offline Bust run.
+  void _playAgain() {
+    final navigator = Navigator.of(context);
+    unawaited(() async {
+      await AdsService.instance.maybeShowInterstitialAfterMatch();
+      if (!mounted) return;
+      navigator.popUntil((route) => route.isFirst);
+      pushOfflineBustRun(navigator, ref);
+    }());
   }
 
   @override
@@ -257,10 +271,7 @@ class _BustWinnerScreenState extends ConsumerState<BustWinnerScreen> {
                   const SizedBox(width: AppDimensions.sm),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context)
-                            .popUntil((route) => route.isFirst);
-                      },
+                      onPressed: _playAgain,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: localWon
                             ? AppColors.goldPrimary

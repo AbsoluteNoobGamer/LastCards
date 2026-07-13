@@ -58,46 +58,7 @@ class BustSetupSheet extends ConsumerWidget {
         ),
       );
     } else {
-      const totalPlayers = 10;
-      final seed = DateTime.now().millisecondsSinceEpoch;
-      final aiConfigs = AiPlayerConfig.generateForGame(
-        count: totalPlayers - 1,
-        seed: seed,
-      );
-      final localName = ref.read(displayNameForGameProvider);
-      final localAvatarUrl =
-          ref.read(userProfileProvider).valueOrNull?.avatarUrl;
-      final participants = OpponentsSplashHelpers.fromAiConfigs(
-        localDisplayName: localName,
-        localAvatarUrl: localAvatarUrl,
-        aiConfigs: aiConfigs,
-      );
-
-      navigator.push(
-        OpponentsSplashHelpers.splashRoute(
-          child: OpponentsSplashScreen(
-            participants: participants,
-            modeLabel: 'Bust Mode · $totalPlayers Players',
-            subtitle: 'Last one standing wins',
-            onFinished: (splashContext) {
-              if (!splashContext.mounted) return;
-              Navigator.of(splashContext).pushReplacement(
-            PageRouteBuilder(
-              pageBuilder: (_, __, ___) => BustGameScreen(
-                totalPlayers: totalPlayers,
-                aiDifficulty: AiDifficulty.hard,
-                isOnline: false,
-                preloadedAiPlayerConfigs: aiConfigs,
-              ),
-              transitionDuration: const Duration(milliseconds: 600),
-              transitionsBuilder: (_, animation, __, child) =>
-                  FadeTransition(opacity: animation, child: child),
-            ),
-          );
-            },
-          ),
-        ),
-      );
+      pushOfflineBustRun(navigator, ref);
     }
   }
 
@@ -345,4 +306,50 @@ class _StartButton extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Pushes a fresh offline Bust run onto [navigator]: a fresh AI roster, the
+/// opponents splash, then a new [BustGameScreen]. Shared by [BustSetupSheet]
+/// (initial "Start Bust" tap) and [BustWinnerScreen]'s "Play Again"/"Try
+/// Again" so both start a run identically.
+void pushOfflineBustRun(NavigatorState navigator, WidgetRef ref) {
+  const totalPlayers = 10;
+  final seed = DateTime.now().millisecondsSinceEpoch;
+  final aiConfigs = AiPlayerConfig.generateForGame(
+    count: totalPlayers - 1,
+    seed: seed,
+  );
+  final localName = ref.read(displayNameForGameProvider);
+  final localAvatarUrl = ref.read(userProfileProvider).valueOrNull?.avatarUrl;
+  final participants = OpponentsSplashHelpers.fromAiConfigs(
+    localDisplayName: localName,
+    localAvatarUrl: localAvatarUrl,
+    aiConfigs: aiConfigs,
+  );
+
+  navigator.push(
+    OpponentsSplashHelpers.splashRoute(
+      child: OpponentsSplashScreen(
+        participants: participants,
+        modeLabel: 'Bust Mode · $totalPlayers Players',
+        subtitle: 'Last one standing wins',
+        onFinished: (splashContext) {
+          if (!splashContext.mounted) return;
+          Navigator.of(splashContext).pushReplacement(
+            PageRouteBuilder(
+              pageBuilder: (_, __, ___) => BustGameScreen(
+                totalPlayers: totalPlayers,
+                aiDifficulty: AiDifficulty.hard,
+                isOnline: false,
+                preloadedAiPlayerConfigs: aiConfigs,
+              ),
+              transitionDuration: const Duration(milliseconds: 600),
+              transitionsBuilder: (_, animation, __, child) =>
+                  FadeTransition(opacity: animation, child: child),
+            ),
+          );
+        },
+      ),
+    ),
+  );
 }

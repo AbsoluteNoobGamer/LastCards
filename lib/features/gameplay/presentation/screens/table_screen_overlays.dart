@@ -25,6 +25,7 @@ class _WinDialog extends ConsumerStatefulWidget {
     required this.winnerName,
     required this.isLocalWin,
     required this.onPlayAgain,
+    this.onBackToMenu,
     this.isOnlineMode = false,
     this.ratingDelta,
     this.xpAwarded,
@@ -34,7 +35,18 @@ class _WinDialog extends ConsumerStatefulWidget {
 
   final String winnerName;
   final bool isLocalWin;
+
+  /// Offline: restarts in place. Online: instant rematch requeue when
+  /// [onBackToMenu] is set, otherwise (tournament rounds) this is the
+  /// existing single "leave" action — see [onBackToMenu].
   final VoidCallback onPlayAgain;
+
+  /// Online only. When non-null, shows a second "Back to Menu" button
+  /// alongside [onPlayAgain] (now a rematch action). Null for tournament
+  /// rounds, which keep the original single-button "leave" layout since
+  /// round-advance depends on [onPlayAgain] popping exactly as before.
+  final VoidCallback? onBackToMenu;
+
   final bool isOnlineMode;
 
   /// Private online match: dismiss overlay and stay at the table (losers only).
@@ -248,31 +260,88 @@ class _WinDialogState extends ConsumerState<_WinDialog>
                                 ),
                                 const SizedBox(height: AppDimensions.sm),
                               ],
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: widget.onPlayAgain,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: theme.accentPrimary,
-                                    foregroundColor: theme.backgroundDeep,
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: AppDimensions.md),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(
-                                          AppDimensions.radiusButton),
+                              if (widget.onBackToMenu != null)
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton(
+                                        onPressed: widget.onBackToMenu,
+                                        style: OutlinedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: AppDimensions.md),
+                                          side: BorderSide(
+                                            color: theme.accentDark
+                                                .withValues(alpha: 0.5),
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                                AppDimensions.radiusButton),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          'Main Menu',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 1.0,
+                                            fontSize: 14,
+                                            color: theme.textSecondary,
+                                          ),
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                  child: Text(
-                                    'BACK TO MENU',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 1.2,
-                                      fontSize: 15,
-                                      color: theme.backgroundDeep,
+                                    const SizedBox(width: AppDimensions.sm),
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: widget.onPlayAgain,
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: theme.accentPrimary,
+                                          foregroundColor: theme.backgroundDeep,
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: AppDimensions.md),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                                AppDimensions.radiusButton),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          'REMATCH',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 1.2,
+                                            fontSize: 15,
+                                            color: theme.backgroundDeep,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              else
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: widget.onPlayAgain,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: theme.accentPrimary,
+                                      foregroundColor: theme.backgroundDeep,
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: AppDimensions.md),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                            AppDimensions.radiusButton),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'BACK TO MENU',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 1.2,
+                                        fontSize: 15,
+                                        color: theme.backgroundDeep,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
                             ],
                             if (!widget.isOnlineMode)
                               Row(
