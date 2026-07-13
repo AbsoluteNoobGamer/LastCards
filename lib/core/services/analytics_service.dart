@@ -28,6 +28,7 @@ class AnalyticsService {
     required String mode,
     required bool isWin,
     required int durationSeconds,
+    required String endedBy,
   }) {
     try {
       _analytics.logEvent(
@@ -36,7 +37,54 @@ class AnalyticsService {
           AnalyticsParams.mode: mode,
           AnalyticsParams.isWin: isWin,
           AnalyticsParams.durationSeconds: durationSeconds,
+          AnalyticsParams.endedBy: endedBy,
         },
+      );
+    } catch (_) {}
+  }
+
+  void logGameAbandoned({
+    required String mode,
+    required int secondsIn,
+    required int turnIndex,
+    required String reason,
+  }) {
+    try {
+      _analytics.logEvent(
+        name: AnalyticsEvents.gameAbandoned,
+        parameters: {
+          AnalyticsParams.mode: mode,
+          AnalyticsParams.secondsIn: secondsIn,
+          AnalyticsParams.turnIndex: turnIndex,
+          AnalyticsParams.reason: reason,
+        },
+      );
+    } catch (_) {}
+  }
+
+  void logReconnectAttempted({required String mode}) {
+    try {
+      _analytics.logEvent(
+        name: AnalyticsEvents.reconnectAttempted,
+        parameters: {AnalyticsParams.mode: mode},
+      );
+    } catch (_) {}
+  }
+
+  void logReconnectSucceeded({required String mode}) {
+    try {
+      _analytics.logEvent(
+        name: AnalyticsEvents.reconnectSucceeded,
+        parameters: {AnalyticsParams.mode: mode},
+      );
+    } catch (_) {}
+  }
+
+  void logReconnectFailed({required String mode}) {
+    try {
+      _analytics.logEvent(
+        name: AnalyticsEvents.reconnectFailed,
+        parameters: {AnalyticsParams.mode: mode},
       );
     } catch (_) {}
   }

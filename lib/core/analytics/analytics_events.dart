@@ -18,6 +18,10 @@ abstract final class AnalyticsEvents {
   static const String leaderboardViewed = 'leaderboard_viewed';
   static const String settingsOpened = 'settings_opened';
   static const String cardStyleMenuOpened = 'card_style_menu_opened';
+  static const String gameAbandoned = 'game_abandoned';
+  static const String reconnectAttempted = 'reconnect_attempted';
+  static const String reconnectSucceeded = 'reconnect_succeeded';
+  static const String reconnectFailed = 'reconnect_failed';
 }
 
 abstract final class AnalyticsParams {
@@ -34,4 +38,8 @@ abstract final class AnalyticsParams {
   static const String cardCount = 'card_count';
   static const String tier = 'tier';
   static const String newLevel = 'new_level';
+  static const String endedBy = 'ended_by';
+  static const String secondsIn = 'seconds_in';
+  static const String turnIndex = 'turn_index';
+  static const String reason = 'reason';
 }

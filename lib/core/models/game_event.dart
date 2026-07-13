@@ -328,11 +328,20 @@ final class GameEndedEvent extends GameEvent {
   /// Lifetime head-to-head vs human opponents (Firebase accounts only).
   final List<HeadToHeadRecord>? headToHead;
 
+  /// Why the game ended, e.g. `player_disconnected`. Null for a normal win.
+  final String? reason;
+
+  /// The player whose disconnect ended the game, when [reason] is
+  /// `player_disconnected`.
+  final String? disconnectedPlayerId;
+
   const GameEndedEvent(
     this.winnerId, {
     this.ratingChanges,
     this.matchStats,
     this.headToHead,
+    this.reason,
+    this.disconnectedPlayerId,
   });
 
   @override
@@ -818,5 +827,7 @@ GameEndedEvent _parseGameEnded(Map<String, dynamic> json) {
         ?.map((k, v) => MapEntry(k, (v as num).toInt())),
     matchStats: matchStats,
     headToHead: headToHead,
+    reason: json['reason'] as String?,
+    disconnectedPlayerId: json['disconnectedPlayerId'] as String?,
   );
 }

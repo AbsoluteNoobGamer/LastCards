@@ -16,6 +16,10 @@ const _eventNames = <String>[
   AnalyticsEvents.leaderboardViewed,
   AnalyticsEvents.settingsOpened,
   AnalyticsEvents.cardStyleMenuOpened,
+  AnalyticsEvents.gameAbandoned,
+  AnalyticsEvents.reconnectAttempted,
+  AnalyticsEvents.reconnectSucceeded,
+  AnalyticsEvents.reconnectFailed,
 ];
 
 const _paramKeys = <String>[
@@ -32,6 +36,10 @@ const _paramKeys = <String>[
   AnalyticsParams.cardCount,
   AnalyticsParams.tier,
   AnalyticsParams.newLevel,
+  AnalyticsParams.endedBy,
+  AnalyticsParams.secondsIn,
+  AnalyticsParams.turnIndex,
+  AnalyticsParams.reason,
 ];
 
 final _snakeCase = RegExp(r'^[a-z][a-z0-9_]*$');

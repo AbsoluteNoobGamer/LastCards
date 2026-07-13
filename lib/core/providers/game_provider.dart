@@ -35,6 +35,8 @@ class GameNotifierState {
     this.isBustSession = false,
     this.isKnockoutTournamentSession = false,
     this.socketDisconnectedPlayerIds = const <String>{},
+    this.gameEndedReason,
+    this.gameEndedDisconnectedPlayerId,
   });
 
   /// The authoritative server game state. Null until the first snapshot arrives.
@@ -89,6 +91,14 @@ class GameNotifierState {
   /// Knockout tournament UX ([session_config.isKnockoutTournament]).
   final bool isKnockoutTournamentSession;
 
+  /// [GameEndedEvent.reason] from the last game end, e.g. `player_disconnected`.
+  /// Null for a normal win.
+  final String? gameEndedReason;
+
+  /// [GameEndedEvent.disconnectedPlayerId] from the last game end, when
+  /// [gameEndedReason] is `player_disconnected`.
+  final String? gameEndedDisconnectedPlayerId;
+
   GameNotifierState copyWith({
     GameState? gameState,
     bool? pendingSuitChoice,
@@ -105,6 +115,8 @@ class GameNotifierState {
     bool? isBustSession,
     bool? isKnockoutTournamentSession,
     Set<String>? socketDisconnectedPlayerIds,
+    String? gameEndedReason,
+    String? gameEndedDisconnectedPlayerId,
     bool clearError = false,
     bool clearSuitChoice = false,
     bool clearJokerResolution = false,
@@ -136,6 +148,9 @@ class GameNotifierState {
       socketDisconnectedPlayerIds: clearSocketDisconnected
           ? const <String>{}
           : (socketDisconnectedPlayerIds ?? this.socketDisconnectedPlayerIds),
+      gameEndedReason: gameEndedReason ?? this.gameEndedReason,
+      gameEndedDisconnectedPlayerId:
+          gameEndedDisconnectedPlayerId ?? this.gameEndedDisconnectedPlayerId,
     );
   }
 }
@@ -426,6 +441,8 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
           onlineMatchStats: e.matchStats,
           headToHeadRecords: e.headToHead,
           clearSocketDisconnected: true,
+          gameEndedReason: e.reason,
+          gameEndedDisconnectedPlayerId: e.disconnectedPlayerId,
         );
       }),
     );

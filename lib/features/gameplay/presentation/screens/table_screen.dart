@@ -451,11 +451,65 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   final Map<String, int> _matchDrawsTaken = {};
   final Map<String, int> _matchSpecialsPlayed = {};
   final Stopwatch _gameStopwatch = Stopwatch();
+
+  // ── Abandon/reconnect analytics (online only) ─────────────────────────────
+  int _onlineTurnIndex = 0;
+  WsConnectionState _lastLoggedConnState = WsConnectionState.connected;
+  bool _abandonLoggedForCurrentDrop = false;
+  // Cached in initState — dispose() cannot safely use `ref` (see the wsClient
+  // disconnect cache above), so listener add/remove must share this instance.
+  late final WebSocketClient _analyticsWsClient;
+
+  String _onlineAnalyticsMode() {
+    final gnState = ref.read(gameNotifierProvider);
+    if (gnState.isRanked) return 'ranked';
+    if (gnState.isPrivateSession) return 'private';
+    return 'casual';
+  }
+
+  void _onWsConnectionStateChanged() {
+    if (!mounted || _isOfflineSession) return;
+    final connState = _analyticsWsClient.connectionState.value;
+    if (connState == WsConnectionState.reconnecting &&
+        _lastLoggedConnState == WsConnectionState.connected) {
+      final mode = _onlineAnalyticsMode();
+      AnalyticsService.instance.logReconnectAttempted(mode: mode);
+      if (!_abandonLoggedForCurrentDrop) {
+        _abandonLoggedForCurrentDrop = true;
+        AnalyticsService.instance.logGameAbandoned(
+          mode: mode,
+          secondsIn: _gameStopwatch.elapsed.inSeconds,
+          turnIndex: _onlineTurnIndex,
+          reason: 'connection_lost',
+        );
+      }
+    } else if (connState == WsConnectionState.connected &&
+        _lastLoggedConnState == WsConnectionState.reconnecting) {
+      AnalyticsService.instance.logReconnectSucceeded(mode: _onlineAnalyticsMode());
+      _abandonLoggedForCurrentDrop = false;
+    }
+    _lastLoggedConnState = connState;
+  }
+
+  void _onReconnectExhaustedChanged() {
+    if (!mounted || _isOfflineSession) return;
+    if (_analyticsWsClient.reconnectExhausted.value) {
+      AnalyticsService.instance.logReconnectFailed(mode: _onlineAnalyticsMode());
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _initNewGame();
     _subscribeToOnlineMoveLogIfNeeded();
+    // Registered unconditionally: _isOfflineSession isn't resolved until the
+    // online snapshot callback inside _initNewGame fires, so it can't gate
+    // registration here. The handlers themselves re-check it at call time.
+    _analyticsWsClient = ref.read(wsClientProvider);
+    _analyticsWsClient.connectionState.addListener(_onWsConnectionStateChanged);
+    _analyticsWsClient.reconnectExhausted
+        .addListener(_onReconnectExhaustedChanged);
   }
 
   void _subscribeToOnlineMoveLogIfNeeded() {
@@ -743,6 +797,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       _gameStopwatch
         ..reset()
         ..start();
+      _onlineTurnIndex = 0;
+      _lastLoggedConnState = WsConnectionState.connected;
+      _abandonLoggedForCurrentDrop = false;
       AnalyticsService.instance.logGameStarted(
         mode: 'online',
         playerCount: snap.players.length,
@@ -960,6 +1017,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   @override
   void dispose() {
+    _analyticsWsClient.connectionState
+        .removeListener(_onWsConnectionStateChanged);
+    _analyticsWsClient.reconnectExhausted
+        .removeListener(_onReconnectExhaustedChanged);
     // Drop online notifier state so the next matchmaking / lobby flow does not
     // inherit ended-game snapshots or session flags (Leave dialog also clears).
     if (!_isOfflineSession) {
@@ -1629,6 +1690,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       }
     });
 
+    // Track turn count for abandon-analytics (game_abandoned's turn_index).
+    ref.listen<GameState?>(gameStateProvider, (prev, next) {
+      if (_isOfflineSession || next == null) return;
+      if (prev?.currentPlayerId != next.currentPlayerId) _onlineTurnIndex++;
+    });
+
     // Online: show win overlay when game ends (same as single-player).
     ref.listen<GameState?>(gameStateProvider, (prev, next) {
       if (next == null ||
@@ -1642,6 +1709,20 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       final hasWinner = next.winnerId != null && next.winnerId!.isNotEmpty;
       final winner = hasWinner ? next.playerById(next.winnerId!) : null;
       setState(() => _onlineWinDialogShown = true);
+
+      final gnStateForAnalytics = ref.read(gameNotifierProvider);
+      final isWinForAnalytics =
+          hasWinner ? (next.localPlayer?.id == next.winnerId) : true;
+      _gameStopwatch.stop();
+      AnalyticsService.instance.logGameCompleted(
+        mode: 'online',
+        isWin: isWinForAnalytics,
+        durationSeconds: _gameStopwatch.elapsed.inSeconds,
+        endedBy: gnStateForAnalytics.gameEndedReason == 'player_disconnected'
+            ? 'disconnect'
+            : 'win',
+      );
+
       final navigator = Navigator.of(context);
 
       // Online Bust: local leaderboard mirror for instant UI. Firestore
@@ -3956,6 +4037,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       mode: _isOfflineSession ? 'offline' : 'online',
       isWin: winner.id == OfflineGameState.localId,
       durationSeconds: _gameStopwatch.elapsed.inSeconds,
+      endedBy: 'win',
     );
 
     Future.microtask(() {
