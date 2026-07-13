@@ -27,6 +27,7 @@ const List<AppThemeData> kAppThemes = [
 const _classicFelt = AppThemeData(
   id: 'classic_felt',
   name: 'Classic Felt',
+  minUnlockLevel: 1,
   backgroundDeep: Color(0xFF0D2B1A),
   backgroundMid: Color(0xFF1A3D2B),
   accentPrimary: Color(0xFFC9A84C),
@@ -51,6 +52,7 @@ const _classicFelt = AppThemeData(
 const _carbon = AppThemeData(
   id: 'carbon',
   name: 'Carbon',
+  minUnlockLevel: 5,
   backgroundDeep:  Color(0xFF0C0C0C),   // near-black graphite base
   backgroundMid:   Color(0xFF1C1C1F),   // charcoal panel (slight warm)
   accentPrimary:   Color(0xFFB0B8C1),   // chrome silver
@@ -77,6 +79,7 @@ const _carbon = AppThemeData(
 const _gold = AppThemeData(
   id: 'gold',
   name: 'Gold',
+  minUnlockLevel: 10,
   backgroundDeep: Color(0xFF0C0900),
   backgroundMid: Color(0xFF1A1300),
   accentPrimary: Color(0xFFFFD700),
@@ -104,6 +107,7 @@ const _gold = AppThemeData(
 const _midnightNavy = AppThemeData(
   id: 'midnight_navy',
   name: 'Midnight Navy',
+  minUnlockLevel: 15,
   backgroundDeep: Color(0xFF050D20),
   backgroundMid: Color(0xFF0D1A38),
   accentPrimary: Color(0xFF4A90E2),
@@ -130,6 +134,7 @@ const _midnightNavy = AppThemeData(
 const _crimsonVelvet = AppThemeData(
   id: 'crimson_velvet',
   name: 'Crimson Velvet',
+  minUnlockLevel: 20,
   backgroundDeep: Color(0xFF1A0408),
   backgroundMid: Color(0xFF2E0912),
   accentPrimary: Color(0xFFE8A0A0),   // rose gold-ish blush
@@ -156,6 +161,7 @@ const _crimsonVelvet = AppThemeData(
 const _obsidian = AppThemeData(
   id: 'obsidian',
   name: 'Obsidian',
+  minUnlockLevel: 25,
   backgroundDeep: Color(0xFF0D0D0F),
   backgroundMid: Color(0xFF18181C),
   accentPrimary: Color(0xFFC0C0C0),   // platinum silver
@@ -182,6 +188,7 @@ const _obsidian = AppThemeData(
 const _emeraldRoyale = AppThemeData(
   id: 'emerald_royale',
   name: 'Emerald Royale',
+  minUnlockLevel: 30,
   backgroundDeep: Color(0xFF062010),
   backgroundMid: Color(0xFF0E3620),
   accentPrimary: Color(0xFFD4AF37),   // champagne gold
@@ -208,6 +215,7 @@ const _emeraldRoyale = AppThemeData(
 const _sapphire = AppThemeData(
   id: 'sapphire',
   name: 'Sapphire',
+  minUnlockLevel: 40,
   backgroundDeep: Color(0xFF050820),
   backgroundMid: Color(0xFF0A1040),
   accentPrimary: Color(0xFFE8F4FD),   // ice white / pale blue
@@ -235,6 +243,7 @@ const _sapphire = AppThemeData(
 const _copperNoir = AppThemeData(
   id: 'copper_noir',
   name: 'Copper Noir',
+  minUnlockLevel: 50,
   backgroundDeep: Color(0xFF100804),
   backgroundMid: Color(0xFF1E1008),
   accentPrimary: Color(0xFFB87333),   // copper
@@ -261,6 +270,7 @@ const _copperNoir = AppThemeData(
 const _arctic = AppThemeData(
   id: 'arctic',
   name: 'Arctic',
+  minUnlockLevel: 60,
   backgroundDeep: Color(0xFF0A0E14),
   backgroundMid: Color(0xFF141C24),
   accentPrimary: Color(0xFFE8CC7A),   // pale warm gold
@@ -287,6 +297,7 @@ const _arctic = AppThemeData(
 const _volcanic = AppThemeData(
   id: 'volcanic',
   name: 'Volcanic',
+  minUnlockLevel: 70,
   backgroundDeep: Color(0xFF0D0500),
   backgroundMid: Color(0xFF1A0800),
   accentPrimary: Color(0xFFFF5722),    // molten orange
@@ -313,6 +324,7 @@ const _volcanic = AppThemeData(
 const _neonGrid = AppThemeData(
   id: 'neon_grid',
   name: 'Neon Grid',
+  minUnlockLevel: 85,
   backgroundDeep: Color(0xFF020008),
   backgroundMid: Color(0xFF080018),
   accentPrimary: Color(0xFF00E5FF),    // electric cyan
@@ -340,6 +352,7 @@ const _neonGrid = AppThemeData(
 const _monteCarlo = AppThemeData(
   id: 'monte_carlo',
   name: 'Monte Carlo',
+  minUnlockLevel: 100,
   backgroundDeep: Color(0xFF12020A),
   backgroundMid: Color(0xFF200510),
   accentPrimary: Color(0xFFE8C87A),    // champagne gold

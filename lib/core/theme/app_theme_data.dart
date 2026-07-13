@@ -41,6 +41,9 @@ class AppThemeData {
     // ── Swatch preview colors (shown in the picker) ─────────────────
     required this.swatchPreview,
 
+    // ── Progression gate ─────────────────────────────────────────────
+    required this.minUnlockLevel,
+
     // ── Optional: font family override ('playfair', 'cinzel', etc.) ─
     this.headingFontFamily = 'playfair',
 
@@ -76,6 +79,9 @@ class AppThemeData {
   final Color overlayBottom;
 
   final List<Color> swatchPreview; // 2-3 colors for the swatch tile gradient
+
+  /// Player level required to unlock this theme (see `PlayerLevelService`).
+  final int minUnlockLevel;
 
   final String headingFontFamily;
 

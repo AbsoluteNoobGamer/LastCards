@@ -26,12 +26,18 @@ class LockerCardBacksTab extends StatelessWidget {
                 return ValueListenableBuilder<int>(
                   valueListenable: PlayerLevelService.instance.currentLevel,
                   builder: (context, level, _) {
+                    final unlockedAnimated = <CardBackDesign>[];
+                    final lockedAnimated = <CardBackDesign>[];
+                    for (final d in animated) {
+                      (level >= d.unlockLevel ? unlockedAnimated : lockedAnimated).add(d);
+                    }
+
                     return ListView(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
                       children: [
-                        const LockerSectionLabel('Card backs'),
-                        _grid(
-                          covers.map((d) {
+                        const LockerSectionLabel('Unlocked'),
+                        _grid([
+                          ...covers.map((d) {
                             return LockerTile(
                               label: d.label,
                               state: d.id == selectedId
@@ -40,26 +46,27 @@ class LockerCardBacksTab extends StatelessWidget {
                               preview: _thumbnail(context, d),
                               onTap: () => service.selectDesign(d.id),
                             );
-                          }).toList(),
-                        ),
-                        const LockerSectionLabel('Animated card backs'),
-                        _grid(
-                          animated.map((d) {
-                            final unlocked = level >= d.unlockLevel;
-                            final isSelected = d.id == selectedId;
+                          }),
+                          ...unlockedAnimated.map((d) {
                             return LockerTile(
                               label: d.label,
-                              state: isSelected
+                              state: d.id == selectedId
                                   ? LockerTileState.selected
-                                  : unlocked
-                                      ? LockerTileState.owned
-                                      : LockerTileState.lockedByLevel,
-                              lockCaption: unlocked ? null : 'Level ${d.unlockLevel}',
+                                  : LockerTileState.owned,
                               preview: _thumbnail(context, d),
-                              onTap: () {
-                                if (!unlocked) return;
-                                service.selectDesign(d.id);
-                              },
+                              onTap: () => service.selectDesign(d.id),
+                            );
+                          }),
+                        ]),
+                        const LockerSectionLabel('Locked'),
+                        _grid(
+                          lockedAnimated.map((d) {
+                            return LockerTile(
+                              label: d.label,
+                              state: LockerTileState.lockedByLevel,
+                              lockCaption: 'Level ${d.unlockLevel}',
+                              preview: _thumbnail(context, d),
+                              onTap: () {},
                             );
                           }).toList(),
                         ),
@@ -93,10 +100,16 @@ class LockerJokersTab extends StatelessWidget {
             return ValueListenableBuilder<int>(
               valueListenable: PlayerLevelService.instance.currentLevel,
               builder: (context, level, _) {
+                final unlockedJokers = <CardBackDesign>[];
+                final lockedJokers = <CardBackDesign>[];
+                for (final d in jokers) {
+                  (level >= d.unlockLevel ? unlockedJokers : lockedJokers).add(d);
+                }
+
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
                   children: [
-                    const LockerSectionLabel('Joker covers'),
+                    const LockerSectionLabel('Unlocked'),
                     _grid([
                       LockerTile(
                         label: 'Classic',
@@ -106,25 +119,29 @@ class LockerJokersTab extends StatelessWidget {
                         preview: _swatch(context, 'Classic'),
                         onTap: () => service.selectJokerCover('classic'),
                       ),
-                      ...jokers.map((d) {
-                        final unlocked = level >= d.unlockLevel;
-                        final isSelected = d.id == selectedId;
+                      ...unlockedJokers.map((d) {
                         return LockerTile(
                           label: d.label,
-                          state: isSelected
+                          state: d.id == selectedId
                               ? LockerTileState.selected
-                              : unlocked
-                                  ? LockerTileState.owned
-                                  : LockerTileState.lockedByLevel,
-                          lockCaption: unlocked ? null : 'Level ${d.unlockLevel}',
+                              : LockerTileState.owned,
                           preview: _thumbnail(context, d),
-                          onTap: () {
-                            if (!unlocked) return;
-                            service.selectJokerCover(d.id);
-                          },
+                          onTap: () => service.selectJokerCover(d.id),
                         );
                       }),
                     ]),
+                    const LockerSectionLabel('Locked'),
+                    _grid(
+                      lockedJokers.map((d) {
+                        return LockerTile(
+                          label: d.label,
+                          state: LockerTileState.lockedByLevel,
+                          lockCaption: 'Level ${d.unlockLevel}',
+                          preview: _thumbnail(context, d),
+                          onTap: () {},
+                        );
+                      }).toList(),
+                    ),
                   ],
                 );
               },

@@ -4,6 +4,7 @@ import '../theme/app_theme_data.dart';
 import '../theme/app_themes.dart';
 import '../services/theme_service.dart';
 import '../services/analytics_service.dart';
+import '../services/player_level_service.dart';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -30,9 +31,16 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
   final ThemeService _service;
 
   /// Loads the persisted theme index on app start.
+  ///
+  /// Falls back to the default theme if the persisted selection is a theme
+  /// the player is no longer (or not yet) high enough level to have.
   Future<void> loadFromPrefs() async {
-    final idx = (await _service.loadThemeIndex())
+    var idx = (await _service.loadThemeIndex())
         .clamp(0, kAppThemes.length - 1);
+    final level = PlayerLevelService.instance.currentLevel.value;
+    if (kAppThemes[idx].minUnlockLevel > level) {
+      idx = 0;
+    }
     state = ThemeState(activeIndex: idx, theme: kAppThemes[idx]);
   }
 
