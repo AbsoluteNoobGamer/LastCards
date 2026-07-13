@@ -22,6 +22,9 @@ abstract final class AnalyticsEvents {
   static const String reconnectAttempted = 'reconnect_attempted';
   static const String reconnectSucceeded = 'reconnect_succeeded';
   static const String reconnectFailed = 'reconnect_failed';
+  static const String matchmakingStarted = 'matchmaking_started';
+  static const String matchmakingMatched = 'matchmaking_matched';
+  static const String matchmakingCancelled = 'matchmaking_cancelled';
 }
 
 abstract final class AnalyticsParams {
@@ -42,4 +45,5 @@ abstract final class AnalyticsParams {
   static const String secondsIn = 'seconds_in';
   static const String turnIndex = 'turn_index';
   static const String reason = 'reason';
+  static const String waitSeconds = 'wait_seconds';
 }

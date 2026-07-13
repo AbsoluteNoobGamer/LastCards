@@ -20,6 +20,9 @@ const _eventNames = <String>[
   AnalyticsEvents.reconnectAttempted,
   AnalyticsEvents.reconnectSucceeded,
   AnalyticsEvents.reconnectFailed,
+  AnalyticsEvents.matchmakingStarted,
+  AnalyticsEvents.matchmakingMatched,
+  AnalyticsEvents.matchmakingCancelled,
 ];
 
 const _paramKeys = <String>[
@@ -40,6 +43,7 @@ const _paramKeys = <String>[
   AnalyticsParams.secondsIn,
   AnalyticsParams.turnIndex,
   AnalyticsParams.reason,
+  AnalyticsParams.waitSeconds,
 ];
 
 final _snakeCase = RegExp(r'^[a-z][a-z0-9_]*$');

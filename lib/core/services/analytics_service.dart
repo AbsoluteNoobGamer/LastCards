@@ -89,6 +89,47 @@ class AnalyticsService {
     } catch (_) {}
   }
 
+  void logMatchmakingStarted({required String mode}) {
+    try {
+      _analytics.logEvent(
+        name: AnalyticsEvents.matchmakingStarted,
+        parameters: {AnalyticsParams.mode: mode},
+      );
+    } catch (_) {}
+  }
+
+  void logMatchmakingMatched({
+    required String mode,
+    required int waitSeconds,
+    required int playerCount,
+  }) {
+    try {
+      _analytics.logEvent(
+        name: AnalyticsEvents.matchmakingMatched,
+        parameters: {
+          AnalyticsParams.mode: mode,
+          AnalyticsParams.waitSeconds: waitSeconds,
+          AnalyticsParams.playerCount: playerCount,
+        },
+      );
+    } catch (_) {}
+  }
+
+  void logMatchmakingCancelled({
+    required String mode,
+    required int waitSeconds,
+  }) {
+    try {
+      _analytics.logEvent(
+        name: AnalyticsEvents.matchmakingCancelled,
+        parameters: {
+          AnalyticsParams.mode: mode,
+          AnalyticsParams.waitSeconds: waitSeconds,
+        },
+      );
+    } catch (_) {}
+  }
+
   void logRankedGamePlayed({
     required bool isWin,
     required int mmrBefore,
