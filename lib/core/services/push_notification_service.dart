@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -6,9 +7,13 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/router/navigator_key.dart';
 import '../../features/notifications/presentation/screens/notification_inbox_screen.dart';
+import '../../features/online/providers/online_session_provider.dart';
+import '../../features/online/screens/matchmaking_screen.dart';
+import '../../features/tournament/providers/tournament_session_provider.dart';
 import 'firestore_profile_service.dart';
 
 /// Background message isolate entry point — must be a top-level function,
@@ -93,7 +98,22 @@ class PushNotificationService {
                 requestSoundPermission: false,
               ),
             ),
-            onDidReceiveNotificationResponse: (_) => _openInbox(),
+            onDidReceiveNotificationResponse: (response) {
+              final payload = response.payload;
+              if (payload == null) {
+                _openInbox();
+                return;
+              }
+              try {
+                _handleNotificationData(
+                    jsonDecode(payload) as Map<String, dynamic>);
+              } catch (e) {
+                if (kDebugMode) {
+                  debugPrint('PushNotificationService: bad notification payload: $e');
+                }
+                _openInbox();
+              }
+            },
           )
           .timeout(_stepTimeout);
       if (Platform.isAndroid) {
@@ -107,11 +127,12 @@ class PushNotificationService {
     }
 
     FirebaseMessaging.onMessage.listen(_showForegroundNotification);
-    FirebaseMessaging.onMessageOpenedApp.listen((_) => _openInbox());
+    FirebaseMessaging.onMessageOpenedApp
+        .listen((message) => _handleNotificationData(message.data));
     try {
       final initialMessage =
           await FirebaseMessaging.instance.getInitialMessage().timeout(_stepTimeout);
-      if (initialMessage != null) _openInbox();
+      if (initialMessage != null) _handleNotificationData(initialMessage.data);
     } catch (e) {
       if (kDebugMode) debugPrint('PushNotificationService: getInitialMessage failed: $e');
     }
@@ -182,12 +203,60 @@ class PushNotificationService {
         ),
         iOS: const DarwinNotificationDetails(),
       ),
+      payload: message.data.isEmpty ? null : jsonEncode(message.data),
     );
   }
 
   void _openInbox() {
     rootNavigatorKey.currentState?.push(
       MaterialPageRoute(builder: (_) => const NotificationInboxScreen()),
+    );
+  }
+
+  /// Routes a tapped notification based on its data payload — a
+  /// `matchmaking_open` payload (see `RoomManager._handleQuickplay` on the
+  /// server) jumps straight into [MatchmakingScreen] for the same mode/table
+  /// size instead of the generic inbox, so the player doesn't miss the table
+  /// re-navigating manually. Anything else (friend invites, app updates,
+  /// unrecognized/empty payloads) falls back to the inbox.
+  void _handleNotificationData(Map<String, dynamic> data) {
+    if (data['type'] != 'matchmaking_open') {
+      _openInbox();
+      return;
+    }
+    final context = rootNavigatorKey.currentContext;
+    if (context == null) {
+      _openInbox();
+      return;
+    }
+
+    final container = ProviderScope.containerOf(context);
+    final gameMode = data['gameMode'] as String? ?? '';
+    final joinWaitingQueue = data['joinWaitingQueue'] == 'true';
+    final playerCount =
+        int.tryParse(data['playerCount']?.toString() ?? '') ?? 4;
+
+    if (gameMode == 'bust') {
+      container.read(tournamentSessionProvider.notifier).setSubMode(GameSubMode.bust);
+      container.read(onlineSessionProvider.notifier).setPlayerCount(10);
+    } else {
+      final mode = switch (gameMode) {
+        'ranked' => OnlineGameMode.ranked,
+        'ranked_hardcore' => OnlineGameMode.rankedHardcore,
+        _ => OnlineGameMode.quickMatchCasual,
+      };
+      final notifier = container.read(onlineSessionProvider.notifier);
+      notifier.setMode(mode);
+      notifier.setQueueJoinStyle(joinWaitingQueue
+          ? OnlineQueueJoinStyle.joinWaitingQueue
+          : OnlineQueueJoinStyle.selectTable);
+      if (!joinWaitingQueue) {
+        notifier.setPlayerCount(playerCount);
+      }
+    }
+
+    rootNavigatorKey.currentState?.push(
+      MaterialPageRoute(builder: (_) => const MatchmakingScreen()),
     );
   }
 }

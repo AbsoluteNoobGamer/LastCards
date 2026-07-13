@@ -47,11 +47,13 @@ Map<String, dynamic> buildFcmMessagePayload({
   required String deviceToken,
   required String title,
   required String body,
+  Map<String, String>? data,
 }) {
   return {
     'message': {
       'token': deviceToken,
       'notification': {'title': title, 'body': body},
+      if (data != null) 'data': data,
     },
   };
 }
@@ -64,11 +66,13 @@ Map<String, dynamic> buildFcmTopicMessagePayload({
   required String topic,
   required String title,
   required String body,
+  Map<String, String>? data,
 }) {
   return {
     'message': {
       'topic': topic,
       'notification': {'title': title, 'body': body},
+      if (data != null) 'data': data,
     },
   };
 }
@@ -169,6 +173,31 @@ class FcmSender {
   bool get _configured =>
       _projectId != null && _clientEmail != null && _privateKeyPem != null;
 
+  /// Retries [send] a couple of times on transient connection-level failures
+  /// (TLS handshake dropped, connection closed before headers) — seen
+  /// intermittently against Google's own endpoints from this host. Callers
+  /// don't queue or reconcile a failed push/write afterward, so without this
+  /// a single network blip silently drops a notification or inbox write.
+  /// Non-transient failures (bad status codes, JSON errors) are unaffected —
+  /// they're handled by the caller's own try/catch after this rethrows.
+  Future<http.Response> _sendWithRetry(
+    Future<http.Response> Function() send,
+  ) async {
+    const maxAttempts = 3;
+    for (var attempt = 1;; attempt++) {
+      try {
+        return await send();
+      } on http.ClientException {
+        if (attempt >= maxAttempts) rethrow;
+      } on HandshakeException {
+        if (attempt >= maxAttempts) rethrow;
+      } on SocketException {
+        if (attempt >= maxAttempts) rethrow;
+      }
+      await Future.delayed(Duration(milliseconds: 250 * attempt));
+    }
+  }
+
   Future<String?> _getAccessToken() async {
     if (!_configured) return null;
 
@@ -196,14 +225,14 @@ class FcmSender {
         algorithm: JWTAlgorithm.RS256,
       );
 
-      final response = await http.post(
-        Uri.parse(_tokenUrl),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: {
-          'grant_type': 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-          'assertion': signed,
-        },
-      );
+      final response = await _sendWithRetry(() => http.post(
+            Uri.parse(_tokenUrl),
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: {
+              'grant_type': 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+              'assertion': signed,
+            },
+          ));
 
       if (response.statusCode != 200) {
         _log.error(
@@ -262,13 +291,15 @@ class FcmSender {
     required String topic,
     required String title,
     required String body,
+    Map<String, String>? data,
   }) async {
     final token = await _getAccessToken();
     if (token == null) {
       _log.error('notifyTopic("$topic") skipped — no access token (see prior log for why).');
       return;
     }
-    await _sendTopicPush(accessToken: token, topic: topic, title: title, body: body);
+    await _sendTopicPush(
+        accessToken: token, topic: topic, title: title, body: body, data: data);
   }
 
   /// Reads `users/{uid}.fcmTokens` (registered device push tokens). Returns
@@ -282,10 +313,8 @@ class FcmSender {
     final url = Uri.parse('https://firestore.googleapis.com/v1/projects/$_projectId'
         '/databases/(default)/documents/users/$uid');
     try {
-      final response = await http.get(
-        url,
-        headers: {'Authorization': 'Bearer $token'},
-      );
+      final response = await _sendWithRetry(
+          () => http.get(url, headers: {'Authorization': 'Bearer $token'}));
       if (response.statusCode != 200) return const [];
       final doc = jsonDecode(response.body) as Map<String, dynamic>;
       final fields = doc['fields'] as Map<String, dynamic>?;
@@ -311,10 +340,8 @@ class FcmSender {
     final url = Uri.parse('https://firestore.googleapis.com/v1/projects/$_projectId'
         '/databases/(default)/documents/$collection/$docId');
     try {
-      final response = await http.get(
-        url,
-        headers: {'Authorization': 'Bearer $token'},
-      );
+      final response = await _sendWithRetry(
+          () => http.get(url, headers: {'Authorization': 'Bearer $token'}));
       if (response.statusCode != 200) return null;
       final doc = jsonDecode(response.body) as Map<String, dynamic>;
       final fields = doc['fields'] as Map<String, dynamic>?;
@@ -347,14 +374,14 @@ class FcmSender {
     final url = Uri.parse('https://firestore.googleapis.com/v1/projects/$_projectId'
         '/databases/(default)/documents/$collection/$docId?$maskParams');
     try {
-      final response = await http.patch(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'fields': encoded}),
-      );
+      final response = await _sendWithRetry(() => http.patch(
+            url,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'fields': encoded}),
+          ));
       if (response.statusCode != 200) {
         _log.error(
             'Failed to update $collection/$docId: ${response.statusCode} ${response.body}');
@@ -379,14 +406,17 @@ class FcmSender {
         'https://firestore.googleapis.com/v1/projects/$_projectId'
         '/databases/(default)/documents/users/$uid/notifications?documentId=$id');
     try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Authorization': 'Bearer $accessToken',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'fields': buildNotificationDocFields(type: type, title: title, body: body)}),
-      );
+      final response = await _sendWithRetry(() => http.post(
+            url,
+            headers: {
+              'Authorization': 'Bearer $accessToken',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'fields':
+                  buildNotificationDocFields(type: type, title: title, body: body)
+            }),
+          ));
       if (response.statusCode != 200) {
         _log.error(
             'Failed to write notification doc (${response.statusCode}): ${response.body}');
@@ -405,14 +435,15 @@ class FcmSender {
     final url =
         Uri.parse('https://fcm.googleapis.com/v1/projects/$_projectId/messages:send');
     try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Authorization': 'Bearer $accessToken',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(buildFcmMessagePayload(deviceToken: deviceToken, title: title, body: body)),
-      );
+      final response = await _sendWithRetry(() => http.post(
+            url,
+            headers: {
+              'Authorization': 'Bearer $accessToken',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode(buildFcmMessagePayload(
+                deviceToken: deviceToken, title: title, body: body)),
+          ));
       if (response.statusCode == 200) {
         _log.info('FCM push sent to token ...${_lastChars(deviceToken)}.');
       } else {
@@ -428,18 +459,20 @@ class FcmSender {
     required String topic,
     required String title,
     required String body,
+    Map<String, String>? data,
   }) async {
     final url =
         Uri.parse('https://fcm.googleapis.com/v1/projects/$_projectId/messages:send');
     try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Authorization': 'Bearer $accessToken',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(buildFcmTopicMessagePayload(topic: topic, title: title, body: body)),
-      );
+      final response = await _sendWithRetry(() => http.post(
+            url,
+            headers: {
+              'Authorization': 'Bearer $accessToken',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode(buildFcmTopicMessagePayload(
+                topic: topic, title: title, body: body, data: data)),
+          ));
       if (response.statusCode == 200) {
         _log.info('FCM topic push sent to "$topic".');
       } else {
