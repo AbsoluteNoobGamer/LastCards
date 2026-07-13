@@ -18,6 +18,7 @@ class BustPlayerRail extends StatefulWidget {
     this.thinkingPlayerId,
     this.skipHighlightPlayerIds = const <String>{},
     this.scale = 1.0,
+    this.onSlotTap,
   });
 
   /// One entry per table seat; `null` keeps fixed-slot spacing when empty.
@@ -51,6 +52,12 @@ class BustPlayerRail extends StatefulWidget {
   /// Tablet/desktop scale multiplier (1.0 on phones) — shared by both the
   /// main table screen and Bust mode, since both reuse this widget.
   final double scale;
+
+  /// Called when a seated player's slot is tapped (e.g. to open their
+  /// profile / friend-request sheet). Null leaves slots inert. The caller
+  /// decides per-player whether a tap should do anything (e.g. no-op for
+  /// AI bots or offline sessions) — this just wires the gesture through.
+  final void Function(BustPlayerViewModel player)? onSlotTap;
 
   @override
   State<BustPlayerRail> createState() => _BustPlayerRailState();
@@ -128,6 +135,7 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
     Widget buildSlot(BustPlayerViewModel player) {
       final slotKey = widget.slotKeyBuilder?.call(player);
       final chatBubble = widget.quickChatBubblesByPlayer[player.id];
+      final onSlotTap = widget.onSlotTap;
       Widget slot = BustPlayerSlot(
         player: player,
         compact: widget.compact,
@@ -136,6 +144,7 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
         onRemoveQuickChatBubble: widget.onRemoveQuickChatBubble,
         skipSeatHighlight: widget.skipHighlightPlayerIds.contains(player.id),
         scale: scale,
+        onTap: onSlotTap != null ? () => onSlotTap(player) : null,
       );
       if (slotKey != null) {
         slot = KeyedSubtree(key: slotKey, child: slot);
