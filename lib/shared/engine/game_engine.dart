@@ -39,6 +39,36 @@ bool kingNumericalFlowResets(GameState state) {
   return state.lastActionCardCount >= 2;
 }
 
+/// Stacked [Rank.eight]s accumulate [GameState.activeSkipCount]; once that
+/// count is enough to skip every other seat and wrap the turn back onto the
+/// current player (same math as [nextPlayerId]'s `advances`), the same-turn
+/// numerical-flow adjacency requirement resets — same treatment as
+/// [kingNumericalFlowResets] — since the turn is already guaranteed to
+/// return to this player regardless of what they play next.
+///
+/// A skip that lands on a genuinely different seat (the common case — e.g.
+/// one Eight at a 4+ player table) changes nothing here: adjacency still
+/// governs the follow-up while a different player is still due next.
+///
+/// Note: playing a non-Eight follow-up card cancels the accumulated skip
+/// entirely (see the "Eight Skip Cancellation" comment in [applyPlay]) —
+/// so using this reset to chain past the wrapping Eight with something
+/// other than another Eight trades away the guaranteed return-to-self,
+/// same as it already would without this reset.
+bool eightSkipWrapsToSelf(GameState state) {
+  if (state.lastPlayedThisTurn?.effectiveRank != Rank.eight) return false;
+  final playerCount = state.players.length;
+  if (playerCount == 0) return false;
+  return (state.activeSkipCount + 1) % playerCount == 0;
+}
+
+/// True when the same-turn numerical-flow adjacency requirement resets —
+/// either because of [kingNumericalFlowResets] or [eightSkipWrapsToSelf].
+/// The follow-up card is validated as a fresh lead against the last card
+/// played this turn, instead of being constrained by adjacency.
+bool sameTurnFreshLeadReset(GameState state) =>
+    kingNumericalFlowResets(state) || eightSkipWrapsToSelf(state);
+
 /// Shared inputs for Joker declaration (client sheet + server validation).
 ///
 /// [anchor] is the logical top card for [getValidJokerOptions] (`contextTopCard`).
@@ -57,12 +87,12 @@ bool kingNumericalFlowResets(GameState state) {
       jokerPlayContextFromCardsPlayed(state.cardsPlayedThisTurn);
   final effectivePlayContext =
       resolvedContext == JokerPlayContext.midTurnContinuance &&
-              kingNumericalFlowResets(state)
+              sameTurnFreshLeadReset(state)
           ? JokerPlayContext.turnStarter
           : resolvedContext;
   final anchor = resolvedContext == JokerPlayContext.midTurnContinuance &&
           state.lastPlayedThisTurn != null &&
-          !kingNumericalFlowResets(state)
+          !sameTurnFreshLeadReset(state)
       ? state.lastPlayedThisTurn!
       : discardTop;
   final activeSequenceSuit =
@@ -222,10 +252,13 @@ String? validatePlay({
   // same suit. Special cards (Joker, Queen) bypass this via early returns above.
   // Exception: when queenSuitLock is active (covering a Queen), this rule does
   // not apply — that state has its own distinct validation rules.
+  // Exception: sameTurnFreshLeadReset (King reset, or stacked Eights whose
+  // skip count already wraps the turn back to this seat) — the follow-up is
+  // validated as a fresh lead against the last card played instead.
   if (state.actionsThisTurn > 0 &&
       state.lastPlayedThisTurn != null &&
       state.queenSuitLock == null &&
-      !kingNumericalFlowResets(state)) {
+      !sameTurnFreshLeadReset(state)) {
     final prev = state.lastPlayedThisTurn!;
     final next = cards.first;
     // Only enforce adjacency for non-special cards continuing a same-suit flow.
@@ -288,9 +321,12 @@ String? validatePlay({
 /// 3. If discard is a penalty card and [GameState.isPenaltyChainActive], can also
 ///    stack 2s or Red/Black Jacks per penalty-on-penalty rules.
 ///
-/// **2-player King:** When [kingNumericalFlowResets] is true, Joker
-/// options use turn-starter matching (same suit or same rank as anchor), not
-/// mid-turn adjacency only.
+/// **Fresh-lead reset:** When [sameTurnFreshLeadReset] is true (2-player
+/// King, 2+ Kings played consecutively this turn, or stacked Eights whose
+/// skip count wraps the turn back to this seat — see
+/// [kingNumericalFlowResets] / [eightSkipWrapsToSelf]), Joker options use
+/// turn-starter matching (same suit or same rank as anchor), not mid-turn
+/// adjacency only.
 ///
 /// The [context] argument must be the **raw** play context (e.g.
 /// [resolveJokerPlayInputs] `resolvedContext` or [jokerPlayContextFromCardsPlayed]),
@@ -308,13 +344,13 @@ List<CardModel> getValidJokerOptions({
       context ?? jokerPlayContextFromCardsPlayed(state.cardsPlayedThisTurn);
   final effectivePlayContext =
       resolvedContext == JokerPlayContext.midTurnContinuance &&
-              kingNumericalFlowResets(state)
+              sameTurnFreshLeadReset(state)
           ? JokerPlayContext.turnStarter
           : resolvedContext;
   final anchorCard = contextTopCard ??
       (resolvedContext == JokerPlayContext.midTurnContinuance &&
               state.lastPlayedThisTurn != null &&
-              !kingNumericalFlowResets(state)
+              !sameTurnFreshLeadReset(state)
           ? state.lastPlayedThisTurn!
           : discardTop);
   final targetRank = anchorCard.effectiveRank;
