@@ -6,6 +6,7 @@ import '../../../../core/models/card_model.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../../gameplay/presentation/widgets/card_widget.dart';
+import '../../../tutorial/presentation/screens/tutorial_screen.dart';
 
 /// Section keys, in reading order — also drives the quick-nav chip row.
 enum _RuleSection {
@@ -88,6 +89,7 @@ class _RulesScreenState extends ConsumerState<RulesScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            _TutorialCta(theme: theme),
             _QuickNavRow(theme: theme, onTap: _jumpTo),
             Expanded(
               child: Scrollbar(
@@ -383,6 +385,51 @@ class _RulesScreenState extends ConsumerState<RulesScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Tutorial CTA ─────────────────────────────────────────────────────────────
+
+class _TutorialCta extends StatelessWidget {
+  const _TutorialCta({required this.theme});
+
+  final AppThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Material(
+        color: theme.accentPrimary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const TutorialScreen()),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Icon(Icons.play_circle_fill_rounded, color: theme.accentPrimary, size: 22),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Watch the tutorial',
+                    style: TextStyle(
+                      color: theme.accentPrimary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: theme.accentPrimary),
+              ],
+            ),
+          ),
         ),
       ),
     );

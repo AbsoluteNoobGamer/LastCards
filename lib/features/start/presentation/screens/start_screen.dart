@@ -40,6 +40,8 @@ import '../../../../features/social/widgets/pending_friend_requests_banner.dart'
 import '../../../../features/social/widgets/pending_game_invites_banner.dart';
 import '../../../../core/providers/app_update_provider.dart';
 import '../../../../core/services/analytics_consent_service.dart';
+import '../../../../core/services/tutorial_service.dart';
+import '../../../tutorial/presentation/screens/tutorial_screen.dart';
 import '../../../notifications/presentation/widgets/notification_bell_button.dart';
 import '../widgets/optional_update_banner.dart';
 
@@ -123,8 +125,11 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
         _primaryEntranceController.value = 1.0;
         _godRayController.value = 0;
       }
-      unawaited(_maybeShowAnalyticsNotice());
-      unawaited(_maybeRequestTrackingAuthorization());
+      unawaited(
+        _maybeShowAnalyticsNotice()
+            .then((_) => _maybeRequestTrackingAuthorization())
+            .then((_) => _maybeShowTutorialPrompt()),
+      );
     });
   }
 
@@ -164,6 +169,37 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
     final status = await AppTrackingTransparency.trackingAuthorizationStatus;
     if (status != TrackingStatus.notDetermined) return;
     await AppTrackingTransparency.requestTrackingAuthorization();
+  }
+
+  /// One-time, skippable offer to walk through the special-cards tutorial —
+  /// fires last in the first-launch prompt chain (see [initState]) so it
+  /// never stacks on top of the analytics notice or the ATT system dialog.
+  Future<void> _maybeShowTutorialPrompt() async {
+    final shouldShow = await TutorialService.instance.shouldShowFirstLaunchPrompt();
+    if (!shouldShow || !mounted) return;
+    final watchTutorial = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('New here?'),
+        content: const Text(
+          'Want a quick visual walkthrough of the special cards before you jump in?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Skip'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Show me'),
+          ),
+        ],
+      ),
+    );
+    if (watchTutorial == true && mounted) {
+      _pushWithTransition(context, const TutorialScreen());
+    }
   }
 
   @override
