@@ -85,7 +85,7 @@ class RoomManager {
 
   /// How long a partially-filled quickplay queue waits before starting anyway
   /// with however many players actually joined (see [_onQueueTimeout]).
-  static const _quickplayQueueTimeout = Duration(seconds: 25);
+  static const _quickplayQueueTimeout = Duration(minutes: 3);
 
   /// Per-socket futures used to serialize async message handling.
   final _messageChains = <dynamic, Future<void>>{};

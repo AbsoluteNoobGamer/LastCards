@@ -30,7 +30,8 @@ import 'online_opponents_splash_screen.dart';
 /// Shows a circular roster-fill indicator and player slots that fill from
 /// [QuickplayQueueUpdateEvent] while waiting, then advances when the roster is
 /// complete. Manual exit is the Cancel button (pops to root); the search also
-/// gives up on its own after a 90s timeout or a server error.
+/// gives up on its own when the server's own queue_timeout fires (currently
+/// 3 minutes), or on a server error.
 class MatchmakingScreen extends ConsumerStatefulWidget {
   const MatchmakingScreen({super.key});
 
@@ -68,8 +69,13 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
   /// `mode` tag for matchmaking analytics events, set once in [initState].
   late final String _analyticsMode;
 
-  /// Give up searching after this long with no match found.
-  static const Duration _matchmakingTimeout = Duration(seconds: 90);
+  /// Backstop only — the server's own `queue_timeout` (room_manager.dart's
+  /// _quickplayQueueTimeout, currently 3 minutes) is the real give-up signal
+  /// and is handled immediately in _onMatchmakingError. This just guarantees
+  /// the screen doesn't wait forever if that message is ever lost, so it
+  /// needs to stay safely longer than the server's own window — not the
+  /// primary timeout anymore.
+  static const Duration _matchmakingTimeout = Duration(minutes: 3, seconds: 30);
   Timer? _matchmakingTimeoutTimer;
 
   /// True once [_matchmakingTimeout] has elapsed with no match — shows the
@@ -178,8 +184,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     _beginSearch();
   }
 
-  /// (Re)starts the wait clock, the 90s give-up timer, and sends a fresh
-  /// quickplay request. Shared by [initState] and [_retrySearch] so a retry
+  /// (Re)starts the wait clock, the backstop give-up timer, and sends a
+  /// fresh quickplay request. Shared by [initState] and [_retrySearch] so a retry
   /// behaves identically to the first attempt.
   void _beginSearch() {
     _waitStopwatch
@@ -280,7 +286,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
   }
 
   /// Retry after a timeout — same request as the original search, starting
-  /// fresh roster/countdown state and a new 90s window.
+  /// fresh roster/countdown state and a new search window.
   void _retrySearch() {
     final localLabel =
         _searchDisplayName.isEmpty ? 'Player' : _searchDisplayName;
@@ -1348,7 +1354,7 @@ class _CancelButton extends ConsumerWidget {
 
 // ── Timeout Card ───────────────────────────────────────────────────────────────
 
-/// Replaces [_CancelButton] once the 90s search gives up with no match —
+/// Replaces [_CancelButton] once the search gives up with no match —
 /// styled like a card back (felt panel, gold hairline border, suit badge)
 /// so a failed search still reads as part of the table, not a system error.
 class _TimeoutCard extends ConsumerWidget {
