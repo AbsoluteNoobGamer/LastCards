@@ -77,6 +77,18 @@ void main() {
     expect(find.text('EDGE CASES'), findsOneWidget);
   });
 
+  testWidgets('tutorial CTA opens the tutorial screen', (tester) async {
+    await pumpRules(tester);
+
+    expect(find.text('Watch the tutorial'), findsOneWidget);
+
+    await tester.tap(find.text('Watch the tutorial'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(tester.takeException(), isNull);
+    expect(find.text('HOW TO PLAY'), findsOneWidget);
+  });
+
   testWidgets('back button pops the screen', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
