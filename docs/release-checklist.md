@@ -22,19 +22,39 @@ Copy the suggested `latestBuildAndroid` / `latestBuildIos` values for step 4. Th
 - [ ] `flutter build appbundle` / `flutter build ipa` (or your CI path).
 - [ ] Upload to Play Console / App Store Connect and submit for review as you normally do.
 
-## 4. Firestore `app_config` / `app_update` (after the new build is available)
+## 4. Firestore `app_config` / `app_update` — **REQUIRED, do not skip this step**
 
 The start screen uses **`appUpdateSuggestionProvider`** → **`fetchAppUpdateSuggestion()`** (`lib/core/services/app_update_suggestion.dart`). Players on an **older** build see the banner when:
 
 `PackageInfo.buildNumber` &lt; `latestBuildAndroid` (Android) or `latestBuildIos` (iOS).
 
-After the new binary is on the store (or when you want old clients to prompt):
+**This is not automatic.** Nothing about uploading a build to a store updates
+Firestore — for ~2 months and ~39 builds this step was silently skipped
+(hand-editing Firestore via Console, easy to forget), which meant **no user
+ever got an update prompt at all**, regardless of how far behind they were.
 
-- [ ] Open Firebase Console → Firestore → **`app_config`** → document **`app_update`** (create if missing).
-- [ ] Set **`latestBuildAndroid`** and **`latestBuildIos`** to the **`+N`** of the build you just shipped (same as `release_info.dart` output).
-- [ ] Optional: **`latestVersionName`** — any string for the banner (e.g. `1.0.0`).
-- [ ] **iOS:** **`iosStoreUrl`** must be a non-empty App Store URL, or the banner is **not** shown on iPhone/iPad.
-- [ ] **Android:** **`androidStoreUrl`** is optional (Play listing default exists in code).
+Once the build is **actually approved and live** on the store (not just
+uploaded — announcing it earlier sends players to a store page with nothing
+new to install), run from `server/`:
+
+```bash
+GOOGLE_CREDENTIALS_JSON="$(cat /path/to/service-account.json)" \
+  dart run bin/publish_release.dart
+```
+
+- [ ] Confirms the version from `pubspec.yaml`, shows what it's about to set, asks to confirm.
+- [ ] Sets `latestBuildAndroid` / `latestBuildIos` / `latestVersionName`.
+- [ ] Warns if `iosStoreUrl` isn't set — **that field has no code fallback**;
+      if it's ever missing, the banner and forced-update gate silently never
+      show on iOS, no matter how stale the build is. First time only (or to
+      change the link), pass `--ios-store-url=https://apps.apple.com/app/id<your-app-id>`.
+- [ ] The running server polls this doc every 10 minutes and pushes a
+      notification to the `app_updates` topic when `latestVersionName` changes
+      — no separate push step needed.
+
+Manual Firebase Console editing (`app_config` → `app_update`) still works as a
+fallback if the script can't run, but prefer the script — it's the only path
+that reliably gets exercised.
 
 ## 5. Server (if applicable)
 
