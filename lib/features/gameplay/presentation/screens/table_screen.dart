@@ -4101,7 +4101,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     final winner = state.players
         .where((p) => p.hand.isEmpty && p.cardCount == 0)
         .firstOrNull!;
-    if (winner.id == OfflineGameState.localId) {
+    final localWon = winner.id == OfflineGameState.localId;
+    if (localWon) {
       unawaited(PlayerLevelService.instance.awardWinXP());
       game_audio.AudioService.instance.playSound(GameSound.playerWin);
     } else {
@@ -4109,10 +4110,30 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       game_audio.AudioService.instance.playSound(GameSound.playerLose);
     }
 
+    if (_isOfflineSession) {
+      // Leaderboard recording is best-effort — never let it block the win
+      // dialog (e.g. in test harnesses without Firebase.initializeApp()).
+      try {
+        final firebaseUid = FirebaseAuth.instance.currentUser?.uid;
+        if (firebaseUid != null) {
+          unawaited(LeaderboardStatsWriter.instance.recordModeResult(
+            collectionName: 'leaderboard_single_player',
+            uid: firebaseUid,
+            displayName: ref.read(displayNameForGameProvider),
+            deltaWins: localWon ? 1 : 0,
+            deltaLosses: localWon ? 0 : 1,
+            deltaGamesPlayed: 1,
+          ));
+        }
+      } catch (_) {
+        // Non-fatal — see comment above.
+      }
+    }
+
     _gameStopwatch.stop();
     AnalyticsService.instance.logGameCompleted(
       mode: _isOfflineSession ? 'offline' : 'online',
-      isWin: winner.id == OfflineGameState.localId,
+      isWin: localWon,
       durationSeconds: _gameStopwatch.elapsed.inSeconds,
       endedBy: 'win',
     );

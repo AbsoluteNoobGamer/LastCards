@@ -40,7 +40,9 @@ import '../../../../features/social/widgets/pending_friend_requests_banner.dart'
 import '../../../../features/social/widgets/pending_game_invites_banner.dart';
 import '../../../../core/providers/app_update_provider.dart';
 import '../../../../core/services/analytics_consent_service.dart';
+import '../../../../core/services/guest_rename_prompt_service.dart';
 import '../../../../core/services/tutorial_service.dart';
+import '../../../../shared/leaderboard/display_name_leaderboard_rules.dart';
 import '../../../tutorial/presentation/screens/tutorial_screen.dart';
 import '../../../notifications/presentation/widgets/notification_bell_button.dart';
 import '../widgets/optional_update_banner.dart';
@@ -128,7 +130,8 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
       unawaited(
         _maybeShowAnalyticsNotice()
             .then((_) => _maybeRequestTrackingAuthorization())
-            .then((_) => _maybeShowTutorialPrompt()),
+            .then((_) => _maybeShowTutorialPrompt())
+            .then((_) => _maybeShowGuestRenamePrompt()),
       );
     });
   }
@@ -199,6 +202,49 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
     );
     if (watchTutorial == true && mounted) {
       _pushWithTransition(context, const TutorialScreen());
+    }
+  }
+
+  /// One-time, skippable nudge for guest (anonymous-auth) players still on
+  /// the literal placeholder name "Guest" — steers them toward
+  /// [ProfileScreen] so they have a leaderboard-eligible name. Fires last
+  /// in the first-launch prompt chain (see [initState]), after the
+  /// tutorial prompt, so it never stacks on top of it.
+  Future<void> _maybeShowGuestRenamePrompt() async {
+    final shouldShow =
+        await GuestRenamePromptService.instance.shouldShowFirstLaunchPrompt();
+    if (!shouldShow || !mounted) return;
+
+    final user = ref.read(authStateProvider).value;
+    if (user == null || !user.isAnonymous) return;
+
+    final profile = await ref.read(userProfileProvider.future);
+    if (!mounted) return;
+    if (isLeaderboardEligibleDisplayName(profile.displayName)) return;
+
+    final wantsRename = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('Pick a name?'),
+        content: const Text(
+          'You\'re playing as "Guest" — pick a name so you can show up on '
+          'leaderboards and other players know who beat them.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Not now'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Choose a name'),
+          ),
+        ],
+      ),
+    );
+    if (wantsRename == true && mounted) {
+      _pushWithTransition(context, const ProfileScreen());
     }
   }
 
