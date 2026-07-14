@@ -85,7 +85,7 @@ class RoomManager {
 
   /// How long a partially-filled quickplay queue waits before starting anyway
   /// with however many players actually joined (see [_onQueueTimeout]).
-  static const _quickplayQueueTimeout = Duration(seconds: 25);
+  static const _quickplayQueueTimeout = Duration(minutes: 3);
 
   /// Per-socket futures used to serialize async message handling.
   final _messageChains = <dynamic, Future<void>>{};
@@ -179,6 +179,17 @@ class RoomManager {
         if (roomCode != null && playerId != null) {
           _rooms[roomCode]?.handleQuickChat(playerId, json);
         }
+        break;
+      case 'leave_room':
+        // Explicit, deliberate leave (as opposed to a dropped connection) —
+        // skip GameSession's reconnect grace period entirely via the same
+        // forceRemove path already used when a socket switches rooms.
+        // Without this, a normal in-app "Leave"/rematch/back-to-menu tap was
+        // indistinguishable from a network drop, so the game kept running
+        // "ghost turns" for the departed seat for up to socketDisconnectGrace
+        // (90s) before ending, even when the player very clearly wasn't
+        // coming back.
+        _clearWsFromRoom(ws);
         break;
     }
   }
@@ -576,20 +587,24 @@ class RoomManager {
     }
 
     // Broadcast "someone is looking for players" to every subscribed device
-    // (online and offline) — fired the moment they join the queue, even if
-    // they end up matched instantly below; that's still the moment they
-    // "started searching" from the player's point of view.
-    unawaited(FcmSender.instance.notifyTopic(
-      topic: 'matchmaking_open',
-      title: 'A table is open!',
-      body: '$displayName is looking for players — join now!',
-      data: {
-        'type': 'matchmaking_open',
-        'gameMode': gameMode ?? '',
-        'playerCount': playerCount.toString(),
-        'joinWaitingQueue': joinWaitingQueue.toString(),
-      },
-    ));
+    // (online and offline) — only for the player who actually opened this
+    // queue (isNewQueue), not everyone who subsequently joins it. Otherwise
+    // every joiner re-fires the same notification misattributed to
+    // themselves ("X is looking for players") even though the table was
+    // already open and they were the one joining it, not opening it.
+    if (isNewQueue) {
+      unawaited(FcmSender.instance.notifyTopic(
+        topic: 'matchmaking_open',
+        title: 'A table is open!',
+        body: '$displayName is looking for players — join now!',
+        data: {
+          'type': 'matchmaking_open',
+          'gameMode': gameMode ?? '',
+          'playerCount': playerCount.toString(),
+          'joinWaitingQueue': joinWaitingQueue.toString(),
+        },
+      ));
+    }
 
     _log.info('Queue($queueKey) size: ${queue.length}/$playerCount');
 

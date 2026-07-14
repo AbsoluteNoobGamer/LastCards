@@ -63,7 +63,12 @@ class _OnlineOpponentsSplashScreenState
     final isBust = session.subMode == GameSubMode.bust;
     final isTournament = session.format != null;
 
-    ref.read(onlineSessionProvider.notifier).reset();
+    // Deliberately NOT resetting onlineSessionProvider here — a rematch from
+    // TableScreen reopens MatchmakingScreen expecting this session's
+    // mode/playerCount to still be set (see _requeueOnlineRematch). It gets
+    // cleared instead when the player actually leaves the online flow
+    // (_leaveOnlineMatch) or starts a fresh mode selection from the menu
+    // (setMode/setQueueJoinStyle already clear playerCount as a side effect).
 
     final Widget destination;
     if (isBust) {
