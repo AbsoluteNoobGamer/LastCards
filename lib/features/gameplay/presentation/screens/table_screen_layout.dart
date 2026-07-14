@@ -308,11 +308,21 @@ class _TableLayout extends StatelessWidget {
         final rankedBand = isRanked ? 34.0 * tableScale : 0.0;
         final bottomPad = isMobile ? 0.0 : AppDimensions.md;
         final scaledActionBarHeight = TablePortraitGrid.actionBarHeight * tableScale;
+        final scaledBoardToActionBarGap =
+            TablePortraitGrid.boardToActionBarGap * tableScale;
+        // Must subtract every other fixed-height sibling in the Column below
+        // (region 1 + this gap + region 3 + the trailing bottomPad SizedBox),
+        // not just some of them — otherwise, at high tableScale on tablets,
+        // the omitted amounts silently exceed the actual leftover space and
+        // the hand region (floored at 110 by the clamp below) overflows the
+        // Column instead of shrinking to fit.
         final handRegionHeight = math.min(
           TablePortraitGrid.handRegionHeight * tableScale,
           constraints.maxHeight -
               opponentRowHeight -
               scaledActionBarHeight -
+              scaledBoardToActionBarGap -
+              bottomPad -
               rankedBand,
         ).clamp(110.0, TablePortraitGrid.handRegionHeight * tableScale);
 
@@ -469,8 +479,7 @@ class _TableLayout extends StatelessWidget {
                 ),
               ),
 
-              SizedBox(
-                  height: TablePortraitGrid.boardToActionBarGap * tableScale),
+              SizedBox(height: scaledBoardToActionBarGap),
 
               // ── Region 3: Action bar (fixed height) ───────────────────────
               SizedBox(
