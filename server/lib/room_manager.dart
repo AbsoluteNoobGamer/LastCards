@@ -587,20 +587,24 @@ class RoomManager {
     }
 
     // Broadcast "someone is looking for players" to every subscribed device
-    // (online and offline) — fired the moment they join the queue, even if
-    // they end up matched instantly below; that's still the moment they
-    // "started searching" from the player's point of view.
-    unawaited(FcmSender.instance.notifyTopic(
-      topic: 'matchmaking_open',
-      title: 'A table is open!',
-      body: '$displayName is looking for players — join now!',
-      data: {
-        'type': 'matchmaking_open',
-        'gameMode': gameMode ?? '',
-        'playerCount': playerCount.toString(),
-        'joinWaitingQueue': joinWaitingQueue.toString(),
-      },
-    ));
+    // (online and offline) — only for the player who actually opened this
+    // queue (isNewQueue), not everyone who subsequently joins it. Otherwise
+    // every joiner re-fires the same notification misattributed to
+    // themselves ("X is looking for players") even though the table was
+    // already open and they were the one joining it, not opening it.
+    if (isNewQueue) {
+      unawaited(FcmSender.instance.notifyTopic(
+        topic: 'matchmaking_open',
+        title: 'A table is open!',
+        body: '$displayName is looking for players — join now!',
+        data: {
+          'type': 'matchmaking_open',
+          'gameMode': gameMode ?? '',
+          'playerCount': playerCount.toString(),
+          'joinWaitingQueue': joinWaitingQueue.toString(),
+        },
+      ));
+    }
 
     _log.info('Queue($queueKey) size: ${queue.length}/$playerCount');
 
