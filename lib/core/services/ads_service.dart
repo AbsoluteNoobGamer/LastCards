@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ad_unit_ids.dart';
 import 'analytics_service.dart';
+import 'consent_service.dart';
 import 'purchase_service.dart';
 
 /// Wraps the Google Mobile Ads SDK: interstitial/rewarded preloading +
@@ -23,25 +24,34 @@ class AdsService {
   static const int _interstitialFrequency = 1;
 
   bool _initialized = false;
+  bool _canRequestAds = false;
   InterstitialAd? _interstitialAd;
   RewardedAd? _rewardedAd;
 
   Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
+    _canRequestAds = await ConsentService.instance.requestAndShowIfRequired();
     await MobileAds.instance.initialize();
-    _loadInterstitial();
-    _loadRewarded();
+    if (_canRequestAds) {
+      _loadInterstitial();
+      _loadRewarded();
+    }
   }
 
   /// Creates and loads a banner ad. Caller owns the returned [BannerAd] and
-  /// must call `.dispose()` when done with it (see [BannerAdSlot]).
-  BannerAd createBannerAd({
+  /// must call `.dispose()` when done with it (see [BannerAdSlot]). Returns
+  /// `null` (and calls [onFailedToLoad]) without a valid consent signal.
+  BannerAd? createBannerAd({
     required String placement,
     AdSize size = AdSize.banner,
     VoidCallback? onLoaded,
     VoidCallback? onFailedToLoad,
   }) {
+    if (!_canRequestAds) {
+      onFailedToLoad?.call();
+      return null;
+    }
     final ad = BannerAd(
       adUnitId: AdUnitIds.banner,
       size: size,

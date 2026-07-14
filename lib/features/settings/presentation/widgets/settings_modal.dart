@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/services/analytics_consent_service.dart';
 import '../../../../core/services/card_back_service.dart';
+import '../../../../core/services/consent_service.dart';
 import '../../../gameplay/presentation/controllers/audio_service.dart';
 import '../../../../services/audio_service.dart' as game_audio;
 import '../../../../services/start_screen_bgm.dart';
@@ -272,6 +273,23 @@ class SettingsModal extends ConsumerWidget {
                                     .setEnabled(val),
                               ),
                               activeThumbColor: Colors.amber,
+                            );
+                          },
+                        ),
+                        FutureBuilder<bool>(
+                          future: ConsentService.instance.isPrivacyOptionsRequired,
+                          builder: (context, snapshot) {
+                            if (snapshot.data != true) {
+                              return const SizedBox.shrink();
+                            }
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              dense: isMobile,
+                              title: const Text('Ad Privacy Choices'),
+                              trailing: const Icon(Icons.chevron_right_rounded),
+                              onTap: () => unawaited(
+                                ConsentService.instance.showPrivacyOptionsForm(),
+                              ),
                             );
                           },
                         ),
