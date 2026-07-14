@@ -42,6 +42,7 @@ import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/providers/profile_provider.dart';
 import 'package:last_cards/features/online/screens/matchmaking_screen.dart';
+import 'package:last_cards/features/online/providers/online_session_provider.dart';
 import '../widgets/multi_card_play_celebration.dart';
 import '../widgets/discard_pile_widget.dart';
 import '../widgets/draw_pile_widget.dart';
@@ -1270,7 +1271,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       await AdsService.instance.maybeShowInterstitialAfterMatch();
       if (!mounted) return;
       ref.read(gameNotifierProvider.notifier).clearOnlineState();
-      ref.read(wsClientProvider).disconnect();
+      final wsClient = ref.read(wsClientProvider);
+      wsClient.send('{"type":"leave_room"}');
+      wsClient.disconnect();
       navigator.pop(); // close dialog
       navigator.pushReplacement(
         PageRouteBuilder<void>(
@@ -1288,7 +1291,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       await AdsService.instance.maybeShowInterstitialAfterMatch();
       if (!mounted) return;
       ref.read(gameNotifierProvider.notifier).clearOnlineState();
-      ref.read(wsClientProvider).disconnect();
+      // Actually leaving the online flow (as opposed to rematching) — safe to
+      // drop the mode/playerCount this session was tracking now.
+      ref.read(onlineSessionProvider.notifier).reset();
+      final wsClient = ref.read(wsClientProvider);
+      wsClient.send('{"type":"leave_room"}');
+      wsClient.disconnect();
       navigator.pop(); // close dialog
       navigator.pop(); // leave table
     }());
@@ -1322,7 +1330,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               unawaited(game_audio.AudioService.instance.stopAll());
               if (!isOfflineMode) {
                 ref.read(gameNotifierProvider.notifier).clearOnlineState();
-                ref.read(wsClientProvider).disconnect();
+                final wsClient = ref.read(wsClientProvider);
+                // Explicit leave signal — skips the server's 90s reconnect
+                // grace entirely (see room_manager.dart's 'leave_room'
+                // handling) instead of leaving remaining players staring at
+                // this seat auto-drawing/passing "ghost turns" until grace
+                // expires, or (in a 2-player game) until the game finally
+                // ends and awards the win to whoever's left.
+                wsClient.send('{"type":"leave_room"}');
+                wsClient.disconnect();
               }
               Navigator.of(context).pop(); // dismiss dialog
               final leaveResult = widget.isTournamentMode
@@ -1809,6 +1825,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             (localPlayerId != null && ratingChanges != null)
                 ? ratingChanges[localPlayerId]
                 : null;
+        final isPrivateSession = ref.read(gameNotifierProvider).isPrivateSession;
+        // Rematch requeues into public quickplay (see _requeueOnlineRematch)
+        // — meaningless for a private/friend room, which has no matching
+        // "same room" resume path yet. Treat it like tournaments: single
+        // leave-only button, not a rematch offer that silently drops the
+        // player out of their private game.
+        final offerRematch = !widget.isTournamentMode && !isPrivateSession;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           HapticFeedback.heavyImpact();
@@ -1818,27 +1841,26 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             builder: (_) => _WinDialog(
               winnerName: winner.displayName,
               isLocalWin: isLocalWin,
-              // Tournament rounds: onPlayAgain stays "leave" — the coordinator's
-              // round-advance flow depends on this exact pop-twice, and
-              // onBackToMenu is left null so the dialog shows its original
-              // single-button layout there. Standalone matches: onPlayAgain
-              // becomes an instant rematch requeue, with onBackToMenu as the
-              // separate "leave" action.
-              onPlayAgain: widget.isTournamentMode
-                  ? () => _leaveOnlineMatch(navigator)
-                  : () => _requeueOnlineRematch(navigator),
-              onBackToMenu: widget.isTournamentMode
-                  ? null
+              // Tournament rounds / private sessions: onPlayAgain stays
+              // "leave" — the coordinator's round-advance flow depends on
+              // this exact pop-twice for tournaments, and private sessions
+              // have no public-requeue rematch that makes sense. onBackToMenu
+              // is left null so the dialog shows its single-button layout.
+              // Standalone public matches: onPlayAgain becomes an instant
+              // rematch requeue, with onBackToMenu as the separate "leave".
+              onPlayAgain: offerRematch
+                  ? () => _requeueOnlineRematch(navigator)
                   : () => _leaveOnlineMatch(navigator),
+              onBackToMenu:
+                  offerRematch ? () => _leaveOnlineMatch(navigator) : null,
               isOnlineMode: true,
               ratingDelta: ratingDelta,
-              onSpectate:
-                  !isLocalWin && ref.read(gameNotifierProvider).isPrivateSession
-                      ? () {
-                          navigator.pop();
-                          setState(() => _spectating = true);
-                        }
-                      : null,
+              onSpectate: !isLocalWin && isPrivateSession
+                  ? () {
+                      navigator.pop();
+                      setState(() => _spectating = true);
+                    }
+                  : null,
             ),
           );
         });
@@ -1863,7 +1885,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 style: TextStyle(color: t.textSecondary),
               ),
               actions: [
-                if (!widget.isTournamentMode)
+                if (!widget.isTournamentMode &&
+                    !ref.read(gameNotifierProvider).isPrivateSession)
                   TextButton(
                     onPressed: () => _requeueOnlineRematch(navigator),
                     child: Text(

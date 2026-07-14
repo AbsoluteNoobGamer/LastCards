@@ -240,18 +240,29 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
   }
 
   void _onMatchmakingError(ErrorEvent e) {
-    if (e.code != 'no_waiting_tables') return;
     if (!mounted) return;
-    _matchmakingTimeoutTimer?.cancel();
-    final messenger = ScaffoldMessenger.of(context);
-    ref.read(onlineSessionProvider.notifier).reset();
-    Navigator.of(context).pop();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(e.message),
-        backgroundColor: const Color(0xFFB71C1C),
-      ),
-    );
+    switch (e.code) {
+      case 'queue_timeout':
+        // Server's own give-up signal (server/lib/room_manager.dart's
+        // _quickplayQueueTimeout, currently 25s) — react to it immediately
+        // instead of silently dropping it and leaving the player staring at
+        // a dead "still searching" screen until our own, unrelated
+        // _matchmakingTimeoutTimer backstop eventually fires. Reuses the
+        // exact same in-place retry card as that backstop.
+        _onMatchmakingTimeout();
+      case 'no_waiting_tables':
+      case 'auth_required':
+        _matchmakingTimeoutTimer?.cancel();
+        final messenger = ScaffoldMessenger.of(context);
+        ref.read(onlineSessionProvider.notifier).reset();
+        Navigator.of(context).pop();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: const Color(0xFFB71C1C),
+          ),
+        );
+    }
   }
 
   /// No match found within [_matchmakingTimeout]. Stays on this screen —
