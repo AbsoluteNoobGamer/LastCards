@@ -65,6 +65,7 @@ final List<TutorialSlide> tutorialSlides = [
     captionLines: const [
       'Reverses the direction of play.',
       'Play two Kings in a row and the reversal cancels out.',
+      'You can then play any card matching that King\'s suit — not just an adjacent rank.',
     ],
     demoBuilder: (context) => const KingDemo(),
   ),
@@ -75,7 +76,10 @@ final List<TutorialSlide> tutorialSlides = [
   ),
   TutorialSlide(
     title: 'Queen',
-    captionLines: const ['Locks the suit — the next player must match it exactly.'],
+    captionLines: const [
+      'Locks the suit on you, not the next player.',
+      'Play another card of that suit (or another Queen) before your turn ends, or draw to end it.',
+    ],
     demoBuilder: (context) => const QueenDemo(),
   ),
   TutorialSlide(
