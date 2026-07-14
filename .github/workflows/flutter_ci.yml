@@ -46,7 +46,13 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.35.4"
+          # Bundled Dart SDK must satisfy in_app_purchase's ^3.10.0 minimum
+          # (pubspec.yaml) — 3.35.4's Dart 3.9.2 fell behind this and broke
+          # `flutter pub get` in CI (while working locally on newer Flutter
+          # installs), even though nothing in this repo's own code changed.
+          # Pinned to the exact version already verified working locally
+          # throughout recent development.
+          flutter-version: "3.41.9"
           channel: stable
           cache: true
 
