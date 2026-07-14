@@ -1211,6 +1211,159 @@ void main() {
       expect(kingNumericalFlowResets(state), isFalse);
     });
 
+    test('eightSkipWrapsToSelf_fourPlayerTable_stackedEights_resetsAdjacency',
+        () {
+      // 4-player table: 3 stacked Eights skip p2, p3, p4 and wrap the turn
+      // back onto p1 itself, so the fresh-lead reset should kick in exactly
+      // like a King reset does.
+      var state = buildState(discardTop: c(Rank.five, Suit.diamonds));
+      final p2 = PlayerModel(
+          id: 'p2',
+          displayName: 'P2',
+          tablePosition: TablePosition.top,
+          hand: [],
+          cardCount: 0);
+      final p3 = PlayerModel(
+          id: 'p3',
+          displayName: 'P3',
+          tablePosition: TablePosition.left,
+          hand: [],
+          cardCount: 0);
+      final p4 = PlayerModel(
+          id: 'p4',
+          displayName: 'P4',
+          tablePosition: TablePosition.right,
+          hand: [],
+          cardCount: 0);
+      state = state.copyWith(players: [...state.players, p2, p3, p4]);
+
+      state = applyPlay(state: state, playerId: 'p1', cards: [
+        c(Rank.eight, Suit.diamonds),
+        c(Rank.eight, Suit.hearts),
+        c(Rank.eight, Suit.spades),
+      ]);
+      expect(state.activeSkipCount, 3);
+      expect(nextPlayerId(state: state), equals('p1'),
+          reason: '3 skips at a 4-player table wraps back to p1');
+      expect(eightSkipWrapsToSelf(state), isTrue);
+      expect(sameTurnFreshLeadReset(state), isTrue);
+
+      // 4♠ is not rank-adjacent to 8♠ (the last card played), but the reset
+      // means only the last Eight's suit must match.
+      expect(
+        validatePlay(
+          cards: [c(Rank.four, Suit.spades)],
+          discardTop: state.discardTopCard!,
+          state: state,
+        ),
+        isNull,
+        reason: 'Wrap-to-self reset allows any ♠ card, not just rank-adjacent',
+      );
+      expect(
+        validatePlay(
+          cards: [c(Rank.four, Suit.clubs)],
+          discardTop: state.discardTopCard!,
+          state: state,
+        ),
+        isNotNull,
+        reason: 'Reset still requires matching suit of the last Eight played',
+      );
+    });
+
+    test(
+        'eightSkipDoesNotWrap_fivePlayerTable_threeEights_normalAdjacencyApplies',
+        () {
+      // Mirrors the user-confirmed example: at a 5-player table, 3 stacked
+      // Eights skip exactly the 3 opponents without wrapping back to self,
+      // so normal rank-adjacency must still govern the follow-up card.
+      var state = buildState(discardTop: c(Rank.five, Suit.diamonds));
+      final others = ['p2', 'p3', 'p4', 'p5']
+          .asMap()
+          .entries
+          .map((e) => PlayerModel(
+                id: e.value,
+                displayName: e.value.toUpperCase(),
+                tablePosition: TablePosition.values[
+                    (e.key + 1) % TablePosition.values.length],
+                hand: [],
+                cardCount: 0,
+              ))
+          .toList();
+      state = state.copyWith(players: [...state.players, ...others]);
+
+      state = applyPlay(state: state, playerId: 'p1', cards: [
+        c(Rank.eight, Suit.diamonds),
+        c(Rank.eight, Suit.hearts),
+        c(Rank.eight, Suit.spades),
+      ]);
+      expect(state.activeSkipCount, 3);
+      expect(nextPlayerId(state: state), equals('p5'),
+          reason: 'Skips p2, p3, p4 and lands on p5 — not back to p1');
+      expect(eightSkipWrapsToSelf(state), isFalse);
+      expect(sameTurnFreshLeadReset(state), isFalse);
+
+      expect(
+        validatePlay(
+          cards: [c(Rank.four, Suit.spades)],
+          discardTop: state.discardTopCard!,
+          state: state,
+        ),
+        isNotNull,
+        reason: 'No wrap means normal rank-adjacency still applies',
+      );
+      expect(
+        validatePlay(
+          cards: [c(Rank.nine, Suit.spades)],
+          discardTop: state.discardTopCard!,
+          state: state,
+        ),
+        isNull,
+        reason: '9♠ is rank-adjacent and same-suit as the last 8♠ played',
+      );
+    });
+
+    test('eightSkipWrapsToSelf_fivePlayerTable_fourEights_resetsAdjacency',
+        () {
+      // The other half of the user-confirmed example: 4 stacked Eights at a
+      // 5-player table wraps the turn back to the same player, so the combo
+      // chain continues via the fresh-lead reset.
+      var state = buildState(discardTop: c(Rank.five, Suit.diamonds));
+      final others = ['p2', 'p3', 'p4', 'p5']
+          .asMap()
+          .entries
+          .map((e) => PlayerModel(
+                id: e.value,
+                displayName: e.value.toUpperCase(),
+                tablePosition: TablePosition.values[
+                    (e.key + 1) % TablePosition.values.length],
+                hand: [],
+                cardCount: 0,
+              ))
+          .toList();
+      state = state.copyWith(players: [...state.players, ...others]);
+
+      state = applyPlay(state: state, playerId: 'p1', cards: [
+        c(Rank.eight, Suit.diamonds),
+        c(Rank.eight, Suit.hearts),
+        c(Rank.eight, Suit.spades),
+        c(Rank.eight, Suit.clubs),
+      ]);
+      expect(state.activeSkipCount, 4);
+      expect(nextPlayerId(state: state), equals('p1'),
+          reason: '4 skips at a 5-player table wraps back to p1');
+      expect(eightSkipWrapsToSelf(state), isTrue);
+
+      expect(
+        validatePlay(
+          cards: [c(Rank.four, Suit.clubs)],
+          discardTop: state.discardTopCard!,
+          state: state,
+        ),
+        isNull,
+        reason: 'Wrap-to-self reset: any ♣ card is legal, not just rank-adjacent',
+      );
+    });
+
     test('twoPlayerKingFollowUpAceMatchesSuitOnlyNotWild', () {
       var state = buildState(discardTop: c(Rank.five, Suit.spades));
       final p2 = PlayerModel(
