@@ -1,0 +1,48 @@
+# Manually-triggered broadcast of a new app_config/app_update doc.
+#
+# Run this ONLY after both stores show the build as actually live/approved
+# (not just uploaded) — see docs/release-checklist.md. It reads the version
+# from pubspec.yaml, writes latestBuildAndroid/latestBuildIos/latestVersionName
+# (and the store URLs) to Firestore, and the deployed server picks it up on
+# its next 10-minute poll and pushes the "update available" notification.
+name: Publish release (push notification)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ios_store_url:
+        description: "iOS App Store URL (only needed if it ever changes)"
+        required: false
+        default: "https://apps.apple.com/app/id6769810523"
+      android_store_url:
+        description: "Play Store URL (only needed if it ever changes)"
+        required: false
+        default: "https://play.google.com/store/apps/details?id=com.lastcards.app.paid"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.9"
+          channel: stable
+          cache: true
+
+      - name: Pub get (server package)
+        working-directory: server
+        run: dart pub get
+
+      - name: Publish release
+        working-directory: server
+        env:
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+        run: |
+          dart run bin/publish_release.dart \
+            --yes \
+            --ios-store-url="${{ inputs.ios_store_url }}" \
+            --android-store-url="${{ inputs.android_store_url }}"
