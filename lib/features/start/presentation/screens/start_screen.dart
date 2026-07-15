@@ -40,8 +40,9 @@ import '../../../../features/social/widgets/pending_friend_requests_banner.dart'
 import '../../../../features/social/widgets/pending_game_invites_banner.dart';
 import '../../../../core/providers/app_update_provider.dart';
 import '../../../../core/services/analytics_consent_service.dart';
-import '../../../../core/services/guest_rename_prompt_service.dart';
+import '../../../../core/services/missing_name_prompt_service.dart';
 import '../../../../core/services/tutorial_service.dart';
+import '../../../../core/utils/display_name_utils.dart';
 import '../../../../shared/leaderboard/display_name_leaderboard_rules.dart';
 import '../../../tutorial/presentation/screens/tutorial_screen.dart';
 import '../../../notifications/presentation/widgets/notification_bell_button.dart';
@@ -131,7 +132,7 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
         _maybeShowAnalyticsNotice()
             .then((_) => _maybeRequestTrackingAuthorization())
             .then((_) => _maybeShowTutorialPrompt())
-            .then((_) => _maybeShowGuestRenamePrompt()),
+            .then((_) => _maybeShowMissingNamePrompt()),
       );
     });
   }
@@ -205,31 +206,47 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
     }
   }
 
-  /// One-time, skippable nudge for guest (anonymous-auth) players still on
-  /// the literal placeholder name "Guest" — steers them toward
-  /// [ProfileScreen] so they have a leaderboard-eligible name. Fires last
-  /// in the first-launch prompt chain (see [initState]), after the
-  /// tutorial prompt, so it never stacks on top of it.
-  Future<void> _maybeShowGuestRenamePrompt() async {
-    final shouldShow =
-        await GuestRenamePromptService.instance.shouldShowFirstLaunchPrompt();
+  /// One-time, skippable nudge for players who don't have a real display
+  /// name — either a guest still on the literal placeholder "Guest", or a
+  /// signed-in player whose name was silently derived from their email's
+  /// local part (see [isEmailDerivedFallbackName]) — most visibly, Apple
+  /// Sign-In without a shared name, especially with a private-relay email,
+  /// produces a random-looking alphanumeric name this way. Steers them
+  /// toward [ProfileScreen] so they have a real, leaderboard-eligible name.
+  /// Fires last in the first-launch prompt chain (see [initState]), after
+  /// the tutorial prompt, so it never stacks on top of it.
+  Future<void> _maybeShowMissingNamePrompt() async {
+    final shouldShow = await MissingNamePromptService.instance
+        .shouldShowFirstLaunchPrompt();
     if (!shouldShow || !mounted) return;
 
     final user = ref.read(authStateProvider).value;
-    if (user == null || !user.isAnonymous) return;
+    if (user == null) return;
 
     final profile = await ref.read(userProfileProvider.future);
     if (!mounted) return;
-    if (isLeaderboardEligibleDisplayName(profile.displayName)) return;
+
+    final isUnnamedGuest = user.isAnonymous &&
+        !isLeaderboardEligibleDisplayName(profile.displayName);
+    final isEmailFallbackName = !user.isAnonymous &&
+        isEmailDerivedFallbackName(
+          displayName: profile.displayName,
+          email: user.email,
+        );
+    if (!isUnnamedGuest && !isEmailFallbackName) return;
 
     final wantsRename = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E1E),
         title: const Text('Pick a name?'),
-        content: const Text(
-          'You\'re playing as "Guest" — pick a name so you can show up on '
-          'leaderboards and other players know who beat them.',
+        content: Text(
+          isUnnamedGuest
+              ? 'You\'re playing as "Guest" — pick a name so you can show '
+                  'up on leaderboards and other players know who beat them.'
+              : 'We couldn\'t get a name from your sign-in — pick one so '
+                  'you can show up on leaderboards and other players know '
+                  'who beat them.',
         ),
         actions: [
           TextButton(
