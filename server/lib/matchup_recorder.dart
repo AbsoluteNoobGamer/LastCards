@@ -65,43 +65,44 @@ class MatchupRecorder implements MatchupPersistence {
     if (humans.length < 2) return {};
 
     final out = <String, List<Map<String, dynamic>>>{};
-    for (final viewer in humans) {
-      final viewerUid = viewer.firebaseUid!;
-      final rows = <Map<String, dynamic>>[];
-      final viewerWon = winnerPlayerId == viewer.playerId;
-
-      for (final opp in humans) {
-        if (opp.playerId == viewer.playerId) continue;
-        final oppUid = opp.firebaseUid!;
-        final row = await _recordPair(
-          viewerUid: viewerUid,
-          viewerPlayerId: viewer.playerId,
-          opponentUid: oppUid,
-          opponentName: opp.displayName,
-          viewerWon: viewerWon,
+    // Each unordered pair is recorded exactly once — recording per *ordered*
+    // pair (every viewer against every opponent) would call _recordPair
+    // twice for the same two players, both writes landing on the same
+    // sorted-UID doc: every real game would double-count winsLow/winsHigh
+    // and append two duplicate entries to recentForLow instead of one.
+    for (var i = 0; i < humans.length; i++) {
+      for (var j = i + 1; j < humans.length; j++) {
+        final a = humans[i];
+        final b = humans[j];
+        final pair = await _recordPair(
+          aUid: a.firebaseUid!,
+          aName: a.displayName,
+          aWon: winnerPlayerId == a.playerId,
+          bUid: b.firebaseUid!,
+          bName: b.displayName,
         );
-        if (row != null) rows.add(row);
-      }
-      if (rows.isNotEmpty) {
-        out[viewer.playerId] = rows;
+        if (pair == null) continue;
+        out.putIfAbsent(a.playerId, () => []).add(pair.forA);
+        out.putIfAbsent(b.playerId, () => []).add(pair.forB);
       }
     }
     return out;
   }
 
-  Future<Map<String, dynamic>?> _recordPair({
-    required String viewerUid,
-    required String viewerPlayerId,
-    required String opponentUid,
-    required String opponentName,
-    required bool viewerWon,
+  Future<({Map<String, dynamic> forA, Map<String, dynamic> forB})?>
+      _recordPair({
+    required String aUid,
+    required String aName,
+    required bool aWon,
+    required String bUid,
+    required String bName,
   }) async {
-    final docId = matchupPairDocId(viewerUid, opponentUid);
-    final lowUid = viewerUid.compareTo(opponentUid) <= 0 ? viewerUid : opponentUid;
-    final viewerIsLow = viewerUid == lowUid;
-    final resultForLow = viewerIsLow
-        ? (viewerWon ? 'win' : 'loss')
-        : (viewerWon ? 'loss' : 'win');
+    final docId = matchupPairDocId(aUid, bUid);
+    final lowUid = aUid.compareTo(bUid) <= 0 ? aUid : bUid;
+    final highUid = aUid.compareTo(bUid) <= 0 ? bUid : aUid;
+    final aIsLow = aUid == lowUid;
+    final lowWon = aIsLow ? aWon : !aWon;
+    final resultForLow = lowWon ? 'win' : 'loss';
 
     final existing = await _firestore.getDocumentFields(
       collection: 'matchups',
@@ -119,9 +120,6 @@ class MatchupRecorder implements MatchupPersistence {
     }
     recentForLow = appendRecentResult(recentForLow, resultForLow);
 
-    final highUid =
-        viewerUid.compareTo(opponentUid) <= 0 ? opponentUid : viewerUid;
-
     final ok = await _firestore.setDocumentFields(
       collection: 'matchups',
       docId: docId,
@@ -136,18 +134,24 @@ class MatchupRecorder implements MatchupPersistence {
     );
     if (!ok) return null;
 
-    final yourWins = viewerIsLow ? winsLow : winsHigh;
-    final theirWins = viewerIsLow ? winsHigh : winsLow;
-    final recentResults = viewerIsLow
-        ? recentForLow
-        : recentForLow.map((r) => r == 'win' ? 'loss' : 'win').toList();
+    final recentForHigh =
+        recentForLow.map((r) => r == 'win' ? 'loss' : 'win').toList();
 
-    return headToHeadRow(
-      opponentUid: opponentUid,
-      opponentName: opponentName,
-      yourWins: yourWins,
-      theirWins: theirWins,
-      recentResults: recentResults,
+    return (
+      forA: headToHeadRow(
+        opponentUid: bUid,
+        opponentName: bName,
+        yourWins: aIsLow ? winsLow : winsHigh,
+        theirWins: aIsLow ? winsHigh : winsLow,
+        recentResults: aIsLow ? recentForLow : recentForHigh,
+      ),
+      forB: headToHeadRow(
+        opponentUid: aUid,
+        opponentName: aName,
+        yourWins: aIsLow ? winsHigh : winsLow,
+        theirWins: aIsLow ? winsLow : winsHigh,
+        recentResults: aIsLow ? recentForHigh : recentForLow,
+      ),
     );
   }
 
