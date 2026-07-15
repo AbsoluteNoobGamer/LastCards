@@ -503,7 +503,13 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
       data: (suggestion) {
         if (suggestion == null) return const SizedBox.shrink();
         return Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+          // Top inset clears the notification bell + profile badge, which are
+          // a separate Positioned(top: 0, right: 0) Stack layer painted above
+          // this content and win hit-testing wherever they overlap. This banner
+          // is near full-width, so without this gap its own dismiss button
+          // (far right of its Row) sits under that badge and every tap on it
+          // opens the profile sheet instead of dismissing the banner.
+          padding: const EdgeInsets.fromLTRB(12, 76, 12, 16),
           child: OptionalUpdateBanner(
             suggestion: suggestion,
             accentColor: splashTheme.accentPrimary,
