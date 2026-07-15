@@ -857,6 +857,47 @@ void main() {
       expect(shouldShowStandardWinOverlay(isTournamentMode: false), isTrue);
       expect(shouldShowStandardWinOverlay(isTournamentMode: true), isFalse);
     });
+
+    testWidgets(
+        'abandoning a round is treated as an elimination from that round, not a full tournament reset',
+        (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: TournamentCoordinator(
+              showStartButton: true,
+              debugInstantSplash: true,
+              playerCount: 4,
+              roundGameBuilder: ({
+                required totalPlayers,
+                required isTournamentMode,
+                required onPlayerFinished,
+                required tournamentPlayerNameByTableId,
+                required activePlayerIds,
+                required isOnline,
+                AiDifficulty? aiDifficulty,
+              }) {
+                return const _AbandonRoundGameScreen();
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Start Tournament'));
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+      await advancePastOpponentsSplash(tester);
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+
+      expect(tester.takeException(), isNull);
+      // Abandoning pops straight back to the coordinator's own root instead
+      // of showing the elimination/round-summary flow — neither should
+      // appear, and there's no lingering "Continue" button from
+      // TournamentEliminationScreen (previously: the whole tournament
+      // session was reset instead of just this round).
+      expect(find.text('Abandon Round Screen'), findsNothing);
+      expect(find.text('Continue'), findsNothing);
+    });
   });
 }
 
@@ -913,6 +954,40 @@ class _AutoFinishRoundGameScreenState extends State<_AutoFinishRoundGameScreen> 
   Widget build(BuildContext context) {
     return const Scaffold(
       body: Center(child: Text('Fake Tournament Round')),
+    );
+  }
+}
+
+/// Simulates the player confirming Leave from the tournament table —
+/// immediately pops with [TournamentRoundGameResult.abandoned].
+class _AbandonRoundGameScreen extends StatefulWidget {
+  const _AbandonRoundGameScreen();
+
+  @override
+  State<_AbandonRoundGameScreen> createState() =>
+      _AbandonRoundGameScreenState();
+}
+
+class _AbandonRoundGameScreenState extends State<_AbandonRoundGameScreen> {
+  bool _didTrigger = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didTrigger) return;
+    _didTrigger = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!Navigator.of(context).canPop()) return;
+      Navigator.of(context).pop(TournamentRoundGameResult.abandoned);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(child: Text('Abandon Round Screen')),
     );
   }
 }
