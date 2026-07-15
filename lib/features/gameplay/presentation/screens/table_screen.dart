@@ -148,8 +148,11 @@ class TournamentRoundGameResult {
   /// User left the table before the round completed (e.g. confirmed Leave).
   final bool isAbandoned;
 
-  /// Returned when the player confirms Leave from the tournament table so the
-  /// coordinator can exit the whole tournament instead of replaying the round.
+  /// Returned when the player confirms Leave from the tournament table. The
+  /// coordinator treats this as an elimination from the current round only —
+  /// a recorded loss, then back to the menu — not the whole tournament; the
+  /// underlying game session for this round is already wound down via the
+  /// same `leave_room` flow used outside tournaments.
   static const TournamentRoundGameResult abandoned = TournamentRoundGameResult(
     finishedPlayerIds: <String>[],
     eliminatedPlayerId: '',

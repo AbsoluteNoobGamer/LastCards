@@ -218,6 +218,52 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
     return completer.future;
   }
 
+  /// Records the local player's tournament exit (a loss, whether via a
+  /// natural elimination or an abandoned round) to the leaderboard and
+  /// analytics, then returns to the root menu. Shared by the mid-tournament
+  /// elimination branch, the final-round-loss branch, and the abandon branch
+  /// so all three exits are recorded consistently.
+  Future<void> _recordLocalTournamentExitAndReturnToMenu({
+    required String result,
+    required int roundsPlayed,
+  }) async {
+    if (!_tournamentLeaderboardRecorded) {
+      _tournamentLeaderboardRecorded = true;
+      // Best-effort — a Firebase/Firestore hiccup (e.g. Firebase not yet
+      // initialized) must never block the player from actually exiting.
+      try {
+        final uid =
+            FirebaseAuth.instance.currentUser?.uid ?? OfflineGameState.localId;
+        // Firestore `leaderboard_tournament_online` is server-only; this
+        // updates local cache only for instant UI until online tournaments
+        // are driven by the game server.
+        final collectionName = widget.isOnline
+            ? 'leaderboard_tournament_online'
+            : 'leaderboard_tournament_ai';
+        final displayName = _displayName(OfflineGameState.localId);
+
+        await LeaderboardStatsWriter.instance.recordModeResult(
+          collectionName: collectionName,
+          uid: uid,
+          displayName: displayName,
+          deltaWins: 0,
+          deltaLosses: 1,
+          deltaGamesPlayed: 1,
+        );
+
+        AnalyticsService.instance.logTournamentCompleted(
+          result: result,
+          roundsPlayed: roundsPlayed,
+        );
+      } catch (_) {
+        // Non-fatal — see comment above.
+      }
+    }
+    if (mounted && !_isDisposed) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
+  }
+
   Future<void> _runTournamentLoop() async {
     while (mounted && !_isDisposed && !_engine.isComplete) {
       final expectedRound = _engine.currentRound;
@@ -261,10 +307,18 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
       _enginePlayerIdsForCurrentTable = null;
       if (!mounted || _isDisposed) return;
       if (roundResult?.isAbandoned == true) {
-        ref.read(tournamentSessionProvider.notifier).reset();
-        if (mounted && !_isDisposed) {
-          Navigator.of(context).popUntil((route) => route.isFirst);
-        }
+        // Abandoning a round is treated as an elimination for the local
+        // player only — the underlying game session for this round is
+        // already correctly wound down via the leave_room flow that
+        // produced this result (see TournamentRoundGameResult.abandoned),
+        // so this is purely about this client's own tournament exit, not
+        // anyone else's bracket state.
+        AudioService.instance.playSound(GameSound.tournamentEliminate);
+        await AdsService.instance.maybeShowInterstitialAfterMatch();
+        await _recordLocalTournamentExitAndReturnToMenu(
+          result: 'abandoned',
+          roundsPlayed: expectedRound,
+        );
         return;
       }
       // Each tournament round is a completed match in its own right — same
@@ -330,35 +384,10 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
         // If you were eliminated this round, don't let the loop advance you into
         // the next round (spectating/playing after elimination was the bug).
         if (round.eliminatedPlayerId == OfflineGameState.localId) {
-          if (!_tournamentLeaderboardRecorded) {
-            _tournamentLeaderboardRecorded = true;
-            final uid = FirebaseAuth.instance.currentUser?.uid ??
-                OfflineGameState.localId;
-            // Firestore `leaderboard_tournament_online` is server-only; this
-            // updates local cache only for instant UI until online tournaments
-            // are driven by the game server.
-            final collectionName = widget.isOnline
-                ? 'leaderboard_tournament_online'
-                : 'leaderboard_tournament_ai';
-            final displayName = _displayName(OfflineGameState.localId);
-
-            await LeaderboardStatsWriter.instance.recordModeResult(
-              collectionName: collectionName,
-              uid: uid,
-              displayName: displayName,
-              deltaWins: 0,
-              deltaLosses: 1,
-              deltaGamesPlayed: 1,
-            );
-
-            AnalyticsService.instance.logTournamentCompleted(
-              result: 'eliminated',
-              roundsPlayed: round.roundNumber,
-            );
-          }
-          if (mounted && !_isDisposed) {
-            Navigator.of(context).popUntil((route) => route.isFirst);
-          }
+          await _recordLocalTournamentExitAndReturnToMenu(
+            result: 'eliminated',
+            roundsPlayed: round.roundNumber,
+          );
           return;
         }
 
@@ -394,29 +423,35 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
     // _engine.isComplete is already true when we get here.
     if (!_tournamentLeaderboardRecorded) {
       _tournamentLeaderboardRecorded = true;
-      final uid =
-          FirebaseAuth.instance.currentUser?.uid ?? OfflineGameState.localId;
-      final collectionName = widget.isOnline
-          ? 'leaderboard_tournament_online'
-          : 'leaderboard_tournament_ai';
-      final displayName = _displayName(OfflineGameState.localId);
-      final didWin = _engine.winnerId == OfflineGameState.localId;
+      // Best-effort — see the comment in
+      // _recordLocalTournamentExitAndReturnToMenu; same non-fatal reasoning.
+      try {
+        final uid =
+            FirebaseAuth.instance.currentUser?.uid ?? OfflineGameState.localId;
+        final collectionName = widget.isOnline
+            ? 'leaderboard_tournament_online'
+            : 'leaderboard_tournament_ai';
+        final displayName = _displayName(OfflineGameState.localId);
+        final didWin = _engine.winnerId == OfflineGameState.localId;
 
-      unawaited(
-        LeaderboardStatsWriter.instance.recordModeResult(
-          collectionName: collectionName,
-          uid: uid,
-          displayName: displayName,
-          deltaWins: didWin ? 1 : 0,
-          deltaLosses: didWin ? 0 : 1,
-          deltaGamesPlayed: 1,
-        ),
-      );
+        unawaited(
+          LeaderboardStatsWriter.instance.recordModeResult(
+            collectionName: collectionName,
+            uid: uid,
+            displayName: displayName,
+            deltaWins: didWin ? 1 : 0,
+            deltaLosses: didWin ? 0 : 1,
+            deltaGamesPlayed: 1,
+          ),
+        );
 
-      AnalyticsService.instance.logTournamentCompleted(
-        result: didWin ? 'champion' : 'eliminated',
-        roundsPlayed: _engine.roundResults.length,
-      );
+        AnalyticsService.instance.logTournamentCompleted(
+          result: didWin ? 'champion' : 'eliminated',
+          roundsPlayed: _engine.roundResults.length,
+        );
+      } catch (_) {
+        // Non-fatal — see comment above.
+      }
     }
 
     if (!mounted || _isDisposed) return;
