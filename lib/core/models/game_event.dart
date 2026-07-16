@@ -12,10 +12,11 @@ import 'player_model.dart';
 ///   [PlayerSocketRestoredEvent], [GameEndedEvent], [ErrorEvent],
 ///   [SuitChoiceRequiredEvent], [JokerChoiceRequiredEvent],
 ///   [TurnTimeoutEvent], [ReshuffleEvent], [BustRoundOverEvent],
-///   [BustRoundStartEvent], [QuickChatEvent]
+///   [BustRoundStartEvent], [QuickChatEvent], [TextChatEvent]
 ///
 /// Outgoing (client → server): [PlayCardsAction], [DrawCardAction],
-///   [DeclareJokerAction], [SuitChoiceAction], [EndTurnAction], [QuickChatAction]
+///   [DeclareJokerAction], [SuitChoiceAction], [EndTurnAction], [QuickChatAction],
+///   [TextChatAction]
 sealed class GameEvent {
   const GameEvent();
 
@@ -536,6 +537,21 @@ final class QuickChatEvent extends GameEvent {
   String get type => 'quick_chat';
 }
 
+/// A player sent a free-text chat line (lobby or in-game).
+final class TextChatEvent extends GameEvent {
+  final String playerId;
+  final String displayName;
+  final String text;
+  const TextChatEvent({
+    required this.playerId,
+    required this.displayName,
+    required this.text,
+  });
+
+  @override
+  String get type => 'text_chat';
+}
+
 // ── Outgoing actions (client → server) ───────────────────────────────────────
 
 /// Play one or more cards (same-rank stack allowed).
@@ -630,6 +646,17 @@ final class QuickChatAction extends GameEvent {
   String get type => 'quick_chat';
 
   String toJsonString() => jsonEncode({'type': type, 'messageIndex': messageIndex});
+}
+
+/// Send a free-text chat line (server sanitizes / may reject).
+final class TextChatAction extends GameEvent {
+  final String text;
+  const TextChatAction({required this.text});
+
+  @override
+  String get type => 'text_chat';
+
+  String toJsonString() => jsonEncode({'type': type, 'text': text});
 }
 
 // ── Event parsing ─────────────────────────────────────────────────────────────
@@ -789,6 +816,11 @@ GameEvent parseServerEvent(String raw) {
       'quick_chat' => QuickChatEvent(
           playerId: json['playerId'] as String? ?? '',
           messageIndex: json['messageIndex'] as int? ?? 0,
+        ),
+      'text_chat' => TextChatEvent(
+          playerId: json['playerId'] as String? ?? '',
+          displayName: json['displayName'] as String? ?? 'Player',
+          text: json['text'] as String? ?? '',
         ),
       'error' => ErrorEvent(
           code: json['code'] as String? ?? 'unknown',

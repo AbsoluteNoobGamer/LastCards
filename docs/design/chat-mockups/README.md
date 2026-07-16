@@ -10,3 +10,9 @@ Design references for lobby and in-game chat (casino glass + gold HUD).
 | `chat-mockup-table-tall.png` | Table Chat tab (taller) |
 
 Text moderation for chat lives in `lib/shared/moderation/chat_text_filter.dart`.
+
+## Implemented UI
+
+- Lobby: tall `LiveTextChatPanel` after the player list (when in a room).
+- Table (online): bottom-right social sheet with **Reactions | Chat** tabs.
+- Wire: `text_chat` events via WebSocket; server sanitizes with the shared filter.

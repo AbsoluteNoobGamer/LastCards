@@ -18,7 +18,10 @@ import '../../../../core/models/game_event.dart'
         PrivateLobbySettingsEvent,
         RoomCreatedEvent,
         RoomJoinedEvent,
-        StateSnapshotEvent;
+        StateSnapshotEvent,
+        TextChatAction,
+        TextChatEvent;
+import '../../../chat/presentation/widgets/live_text_chat_panel.dart';
 import '../../../../core/models/game_state.dart';
 import '../../../../core/models/player_model.dart';
 import '../../../../core/providers/auth_provider.dart';
@@ -126,6 +129,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   StreamSubscription<RoomCreatedEvent>? _roomCreatedSub;
   StreamSubscription<StateSnapshotEvent>? _stateSnapshotSub;
   StreamSubscription<GameEvent>? _lobbyEventsSub;
+  StreamSubscription<TextChatEvent>? _textChatSub;
+
+  final List<LiveChatLine> _chatMessages = [];
 
   /// Cached for dispose — cannot use [ref] after the widget is disposed.
   WebSocketClient? _wsClientToDisconnectOnDispose;
@@ -233,6 +239,49 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         return;
       }
     });
+
+    _textChatSub = handler.textChats.listen((e) {
+      if (!mounted) return;
+      _appendChatLine(
+        playerId: e.playerId,
+        displayName: e.displayName,
+        text: e.text,
+      );
+    });
+  }
+
+  void _appendChatLine({
+    required String playerId,
+    required String displayName,
+    required String text,
+  }) {
+    setState(() {
+      _chatMessages.add(
+        LiveChatLine(
+          playerId: playerId,
+          displayName: displayName,
+          text: text,
+          isLocal: playerId == _localPlayerId,
+        ),
+      );
+      if (_chatMessages.length > 80) {
+        _chatMessages.removeRange(0, _chatMessages.length - 80);
+      }
+    });
+  }
+
+  void _sendLobbyChat(String text) {
+    if (_roomCode == null) return;
+    final handler = ref.read(gameEventHandlerProvider);
+    final ok = handler.sendTextChat(TextChatAction(text: text));
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Not connected — rejoin the room to chat.'),
+          backgroundColor: Color(0xFFB71C1C),
+        ),
+      );
+    }
   }
 
   @override
@@ -240,6 +289,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     _roomCreatedSub?.cancel();
     _stateSnapshotSub?.cancel();
     _lobbyEventsSub?.cancel();
+    _textChatSub?.cancel();
     _codeController.dispose();
     // Leaving the lobby must drop the socket so the server removes this client
     // from the room; otherwise re-entry stacks duplicate "players".
@@ -638,6 +688,16 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                     isPrivateHost: _isPrivateHost,
                                     onRemoveBot: _onRemovePrivateLobbyBot,
                                   ),
+                                  if (_roomCode != null) ...[
+                                    const SizedBox(height: AppDimensions.lg),
+                                    LiveTextChatPanel(
+                                      theme: theme,
+                                      messages: _chatMessages,
+                                      onSend: _sendLobbyChat,
+                                      tall: true,
+                                      enabled: true,
+                                    ),
+                                  ],
                                   const SizedBox(height: AppDimensions.lg),
                                   Row(
                                     children: [

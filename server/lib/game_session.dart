@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
 import 'package:last_cards/core/models/table_position_layout.dart';
+import 'package:last_cards/shared/moderation/chat_text_filter.dart';
 import 'package:last_cards/shared/reactions/reaction_catalog.dart';
 import 'package:last_cards/shared/engine/game_engine.dart';
 import 'package:last_cards/shared/engine/shuffle_utils.dart';
@@ -130,6 +131,9 @@ class GameSession {
 
   /// Per-player timestamp of last quick chat message (server-side rate limit).
   final _lastQuickChatTime = <String, DateTime>{};
+
+  /// Per-player timestamp of last free-text chat (server-side rate limit).
+  final _lastTextChatTime = <String, DateTime>{};
 
   // ── Bust round state ─────────────────────────────────────────────────────
   int _bustRoundNumber = 1;
@@ -642,6 +646,7 @@ class GameSession {
 
     _lastCardsBluffedBy.remove(playerId);
     _lastQuickChatTime.remove(playerId);
+    _lastTextChatTime.remove(playerId);
 
     if (_trophyEligible && isRanked) {
       final uid = firebaseUid ?? playerId;
@@ -2594,6 +2599,49 @@ class GameSession {
       'type': 'quick_chat',
       'playerId': playerId,
       'messageIndex': messageIndex,
+    });
+  }
+
+  // ── Free-text chat (lobby + in-game) ───────────────────────────────────────
+
+  static const _textChatCooldown = Duration(seconds: 3);
+
+  /// Broadcasts a sanitized free-text line. Allowed in lobby and during play.
+  void handleTextChat(String playerId, Map<String, dynamic> json) {
+    if (_gameOver) return;
+    final slot = _players[playerId];
+    if (slot == null || slot.isAi || slot.controlledByAi) return;
+
+    final raw = json['text'] as String?;
+    if (raw == null) return;
+
+    final filtered = sanitizeChatMessage(raw);
+    if (!filtered.isAllowed || filtered.text == null) {
+      _sendError(
+        playerId,
+        'chat_rejected',
+        'Message not allowed.',
+      );
+      return;
+    }
+
+    final now = DateTime.now();
+    final lastTime = _lastTextChatTime[playerId];
+    if (lastTime != null && now.difference(lastTime) < _textChatCooldown) {
+      _sendError(
+        playerId,
+        'chat_rate_limited',
+        'Wait a moment before sending another message.',
+      );
+      return;
+    }
+    _lastTextChatTime[playerId] = now;
+
+    _broadcast({
+      'type': 'text_chat',
+      'playerId': playerId,
+      'displayName': slot.displayName,
+      'text': filtered.text,
     });
   }
 

@@ -2882,6 +2882,42 @@ void main() {
     });
   });
 
+  group('text chat', () {
+    test('lobby text_chat broadcasts sanitized message', () {
+      final (:session, :sockets, :ids) = _makeSession(2);
+      final p1ws = sockets[0];
+      final p2ws = sockets[1];
+      p2ws.clear();
+
+      session.handleTextChat(ids[0], {'type': 'text_chat', 'text': '  gl hf  '});
+
+      final msg = p2ws.lastOfType('text_chat');
+      expect(msg, isNotNull);
+      expect(msg!['playerId'], ids[0]);
+      expect(msg['displayName'], 'Player 1');
+      expect(msg['text'], 'gl hf');
+      expect(
+        p1ws.messages.any((m) => m['type'] == 'text_chat'),
+        isTrue,
+      );
+    });
+
+    test('text_chat masks fuck and rejects hate speech', () {
+      final (:session, :sockets, :ids) = _makeSession(2);
+      final p2ws = sockets[1];
+      p2ws.clear();
+
+      session.handleTextChat(ids[0], {'type': 'text_chat', 'text': 'what the fuck'});
+      expect(p2ws.lastOfType('text_chat')?['text'], 'what the Fu*k');
+
+      p2ws.clear();
+      sockets[0].clear();
+      session.handleTextChat(ids[0], {'type': 'text_chat', 'text': 'you nigger'});
+      expect(p2ws.messages.any((m) => m['type'] == 'text_chat'), isFalse);
+      expect(sockets[0].lastOfType('error')?['code'], 'chat_rejected');
+    });
+  });
+
   group('last_cards declare — server Joker bluff exemption', () {
     test('holding Joker: non-clearable hand does not record bluff penalty', () {
       final p1Hand = [
