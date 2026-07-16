@@ -90,8 +90,8 @@ When multiple effects are active together, resolve in this order:
 ### Play Online
 - Intended to use the same core gameplay rules.
 - Uses lobby/room flow for multiplayer sessions.
-- **Disconnect (standard 54-card):** A disconnect removes that player immediately (no rejoin to the same seat). If **at least two** players remain, the leaver’s hand is shuffled into the draw pile and play continues; with only one player left, the session ends.
-- **Ranked (standard / hardcore quickplay):** Abandoning a match mid-game (disconnect after the grace window, or closing out so the lobby ends before a normal finish) applies **-35 MMR**, increments **leaves**, and counts as a **loss** (including per-bracket loss stats). A normal ranked loss without leaving is **-15 MMR**; a win remains **+25**.
+- **Disconnect / leave (all online modes):** Mid-match, a dropped connection or explicit Leave keeps the seat; the **server plays that hand with AI** so the table can continue. Other clients still see the player’s normal name/avatar (not marked as a bot). An unexpected drop can **rejoin** the same seat (`rejoin_session`) and take control back; an explicit Leave is permanent AI for that seat. If **no connected humans** remain, the room is torn down.
+- **Ranked (standard / hardcore quickplay):** Explicit mid-game Leave applies **-35 MMR**, increments **leaves**, and counts as a **loss**. A brief disconnect that never rejoins is finished by AI and scores as a normal end-of-match win/loss (**+25** / **-15**). Closing a lobby before a normal finish can still apply leave handling when the seat is removed.
 - **Leaderboards:** Firestore collections `leaderboard_online` and `leaderboard_bust_online` are **server-written only** (Admin SDK); the client may cache increments locally for instant UI. Casual quickplay standard wins update `leaderboard_online` when the session is trophy-eligible (`!isPrivate`); online Bust finals update `leaderboard_bust_online` the same way.
 
 ### Bust Mode
@@ -100,6 +100,6 @@ When multiple effects are active together, resolve in this order:
 - **Round structure:** With **3+** active players, each takes exactly **2** turns per round and the round ends when everyone has played twice. The **final** round (exactly **2** players left) is a **race to empty hand**: play continues until someone legally sheds their last card; turn count does not end that round.
 - **Scoring / elimination:** Cards left in hand at round end add to that player’s **cumulative** penalty score; the **bottom two** players by cumulative penalty are eliminated each round. In the **2-player finale**, the **empty-hand** player wins and the other is eliminated (penalty comparison is not used to pick the winner).
 - **Placement pile:** When the visible discard pile reaches **5** cards, the bottom **four** are shuffled back into the draw pile, leaving only the top card showing.
-- **Reconnect / disconnect (online):** With **more than two** survivors, a disconnect removes that player and play continues; if **two or fewer** survivors would remain, the session ends like a normal disconnect.
+- **Reconnect / disconnect (online):** Same AI takeover as other online modes — the survivor seat stays and is AI-driven until rejoin (or permanently after Leave). The room ends only when no connected humans remain.
 - **Win:** Last player standing after eliminations wins.
 - **Implementation notes:** Offline Bust tracks the same cumulative penalties across rounds via `BustRoundManager` and reuses the same seat IDs each round (`player-local` for the human, unchanged `player-*` labels for surviving AIs via `BustEngine.buildRound(seatPlayerIds: …)`). Jokers are not present; online play must use `declare_joker` (not `play_cards`) for Jokers in standard 54-card modes.

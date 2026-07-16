@@ -181,14 +181,9 @@ class RoomManager {
         }
         break;
       case 'leave_room':
-        // Explicit, deliberate leave (as opposed to a dropped connection) —
-        // skip GameSession's reconnect grace period entirely via the same
-        // forceRemove path already used when a socket switches rooms.
-        // Without this, a normal in-app "Leave"/rematch/back-to-menu tap was
-        // indistinguishable from a network drop, so the game kept running
-        // "ghost turns" for the departed seat for up to socketDisconnectGrace
-        // (90s) before ending, even when the player very clearly wasn't
-        // coming back.
+        // Explicit leave → forceRemove so GameSession makes the seat a
+        // permanent AI takeover (no rejoin). Unexpected socket drops use
+        // non-forced disconnect and allow rejoin_session while AI plays.
         _clearWsFromRoom(ws);
         break;
     }

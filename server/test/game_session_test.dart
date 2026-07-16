@@ -2174,6 +2174,22 @@ void main() {
       expect(p1ws.ofType('state_snapshot'), isNotEmpty);
     });
 
+    test('socket disconnect keeps bust survivor under silent AI', () {
+      final (:session, :sockets, :ids) = _makeSession(4, isBustMode: true);
+      for (final id in ids) {
+        session.markReady(id);
+      }
+      final observer = sockets[0];
+      observer.clear();
+      session.handleSocketDisconnected(ids[3], sockets[3]);
+
+      expect(session.isControlledByAiForTesting(ids[3]), isTrue);
+      expect(observer.ofType('game_ended'), isEmpty);
+      expect(observer.ofType('player_left'), isEmpty);
+      expect(observer.ofType('player_socket_lost'), isEmpty);
+      expect(session.gameStateForTesting.players.length, 4);
+    });
+
     test(
         'disconnect when all remaining survivors already have 2 turns '
         'finalizes bust round immediately', () {
@@ -2469,56 +2485,72 @@ void main() {
   });
 
   group('disconnect (standard)', () {
-    test('forced handleSocketDisconnected ends two-player game immediately', () {
-      final g = _makeKnownGame();
-      g.p2ws.clear();
-      g.session.handleSocketDisconnected(g.p1Id, g.p1ws, forceRemove: true);
-      expect(g.p2ws.lastOfType('game_ended')?['reason'], 'player_disconnected');
-      expect(
-        g.p2ws.messages.any((m) => m['type'] == 'player_socket_lost'),
-        isFalse,
-      );
+    test('forced leave keeps two-player seat under silent AI', () {
+      fakeAsync((async) {
+        final g = _makeKnownGame();
+        g.p2ws.clear();
+        g.session.handleSocketDisconnected(g.p1Id, g.p1ws, forceRemove: true);
+        expect(g.session.isControlledByAiForTesting(g.p1Id), isTrue);
+        expect(g.p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
+        expect(
+          g.p2ws.messages.any((m) => m['type'] == 'player_socket_lost'),
+          isFalse,
+        );
+        expect(
+          g.p2ws.messages.any((m) => m['type'] == 'player_left'),
+          isFalse,
+        );
+
+        async.elapse(const Duration(milliseconds: 420));
+        // AI acts for the vacant seat; opponent still sees a human-shaped roster.
+        final snap = _latestSnapshot(g.p2ws);
+        final players = snap['players'] as List<dynamic>;
+        expect(players.length, 2);
+        final p1 = players.cast<Map<String, dynamic>>().firstWhere(
+              (p) => p['id'] == g.p1Id,
+            );
+        expect(p1['isAi'], isFalse);
+        expect(p1['displayName'], isNotNull);
+      });
     });
 
-    test('brief disconnect keeps seat until grace elapses', () {
+    test('brief disconnect uses AI then allows silent rejoin', () {
       fakeAsync((async) {
         final g = _makeKnownGame();
         g.p2ws.clear();
         g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
-        async.elapse(Duration.zero);
+        expect(g.session.isControlledByAiForTesting(g.p1Id), isTrue);
         expect(
           g.p2ws.messages.any((m) => m['type'] == 'player_socket_lost'),
-          isTrue,
+          isFalse,
         );
         expect(g.p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
 
         final newWs = _FakeWs();
         expect(g.session.tryReattachSocket(g.p1Id, newWs), isTrue);
+        expect(g.session.isControlledByAiForTesting(g.p1Id), isFalse);
         expect(
           g.p2ws.messages.any((m) => m['type'] == 'player_socket_restored'),
-          isTrue,
+          isFalse,
         );
-
-        g.p2ws.clear();
-        async.elapse(GameSession.socketDisconnectGrace);
-        expect(g.p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
+        expect(newWs.messages.any((m) => m['type'] == 'state_snapshot'), isTrue);
       });
     });
 
-    test('grace expiry removes player if they never reattach', () {
+    test('disconnect never removes seat after former grace window', () {
       fakeAsync((async) {
         final g = _makeKnownGame();
         g.p2ws.clear();
         g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
         async.elapse(Duration.zero);
         async.elapse(GameSession.socketDisconnectGrace);
-        expect(g.p2ws.lastOfType('game_ended')?['reason'], 'player_disconnected');
+        expect(g.session.isControlledByAiForTesting(g.p1Id), isTrue);
+        expect(g.p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
+        expect(g.p2ws.messages.any((m) => m['type'] == 'player_left'), isFalse);
       });
     });
 
-    test(
-        'grace disconnect on current turn auto-draws pick-up stack then advances',
-        () {
+    test('disconnect on current turn lets server AI resolve the turn', () {
       fakeAsync((async) {
         final (:session, :sockets, :ids) = _makeSession(2);
         final p1ws = sockets[0];
@@ -2564,23 +2596,29 @@ void main() {
         session.seedStateForTesting(state: state, drawPile: drawPile);
         p2ws.clear();
         session.handleSocketDisconnected(p1Id, p1ws);
-        async.elapse(Duration.zero);
+        expect(session.isControlledByAiForTesting(p1Id), isTrue);
+        async.elapse(const Duration(milliseconds: 420));
 
-        final tt = p2ws.lastOfType('turn_timeout');
-        expect(tt, isNotNull);
-        expect(tt!['cardsDrawn'], equals(4));
+        // Facing a pick-up stack with no Two, AI draws the penalty and advances.
+        expect(
+          p2ws.messages.any((m) => m['type'] == 'card_drawn'),
+          isTrue,
+        );
         expect(
           p2ws.lastOfType('turn_changed')?['currentPlayerId'],
           equals(p2Id),
         );
+        final snap = _latestSnapshot(p2ws);
+        final p1 = (snap['players'] as List)
+            .cast<Map<String, dynamic>>()
+            .firstWhere((p) => p['id'] == p1Id);
+        expect(p1['isAi'], isFalse);
       });
     });
 
-    test('grace expiry appends leaver hand to bottom of draw pile (3 players)',
-        () {
+    test('disconnect keeps three-player roster and hand (no pile dump)', () {
       fakeAsync((async) {
         final (:session, :sockets, :ids) = _makeSession(3);
-        final p1ws = sockets[0];
         final p2ws = sockets[1];
         final p3ws = sockets[2];
         final p1Id = ids[0];
@@ -2631,15 +2669,14 @@ void main() {
         session.handleSocketDisconnected(p3Id, p3ws);
         async.elapse(GameSession.socketDisconnectGrace);
 
-        final pileAfter = session.drawPileOrderForTesting;
-        expect(pileAfter.length, drawPileBefore.length + 1);
-        expect(pileAfter.last.id, leaverCard.id);
-        final snap = _latestSnapshot(p2ws);
-        expect((snap['drawPileCount'] as num).toInt(), pileAfter.length);
+        expect(session.isControlledByAiForTesting(p3Id), isTrue);
+        expect(session.drawPileCountForTesting, drawPileBefore.length);
+        expect(session.gameStateForTesting.players.length, 3);
+        expect(p2ws.messages.any((m) => m['type'] == 'player_left'), isFalse);
       });
     });
 
-    test('handleSocketDisconnected continues three-player game and returns hand to draw pile',
+    test('forced leave keeps three-player seat under AI without dumping hand',
         () {
       final (:session, :sockets, :ids) = _makeSession(3);
       final p1ws = sockets[0];
@@ -2694,84 +2731,44 @@ void main() {
       session.handleSocketDisconnected(p3Id, p3ws, forceRemove: true);
 
       expect(p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
-      expect(session.drawPileCountForTesting, drawPileBefore.length + p3Hand.length);
+      expect(session.isControlledByAiForTesting(p3Id), isTrue);
+      expect(session.drawPileCountForTesting, drawPileBefore.length);
 
       final snap = _latestSnapshot(p1ws);
       final players = snap['players'] as List<dynamic>;
-      expect(players.length, 2);
+      expect(players.length, 3);
     });
 
-    test('three-player leave infers hand into draw pile when hand list is empty',
-        () {
-      final (:session, :sockets, :ids) = _makeSession(3);
-      final p1ws = sockets[0];
-      final p2ws = sockets[1];
-      final p3ws = sockets[2];
-      final p1Id = ids[0];
-      final p2Id = ids[1];
-      final p3Id = ids[2];
-
-      final full = standardFiftyFourDeckInCanonicalOrder();
-      final p1Hand = full.sublist(0, 7).toList();
-      final p2Hand = full.sublist(7, 14).toList();
-      const p3CardCount = 7;
-      final discardTop = full[21];
-      final drawPileBefore = full.sublist(22).toList();
-
-      final state = GameState(
-        sessionId: 'TEST',
-        phase: GamePhase.playing,
-        players: [
-          PlayerModel(
-            id: p1Id,
-            displayName: 'P1',
-            tablePosition: TablePosition.bottom,
-            hand: p1Hand,
-            cardCount: p1Hand.length,
-          ),
-          PlayerModel(
-            id: p2Id,
-            displayName: 'P2',
-            tablePosition: TablePosition.top,
-            hand: p2Hand,
-            cardCount: p2Hand.length,
-          ),
-          PlayerModel(
-            id: p3Id,
-            displayName: 'P3',
-            tablePosition: TablePosition.left,
-            hand: const [],
-            cardCount: p3CardCount,
-          ),
-        ],
-        currentPlayerId: p1Id,
-        direction: PlayDirection.clockwise,
-        discardTopCard: discardTop,
-        drawPileCount: drawPileBefore.length,
-        preTurnCentreSuit: discardTop.effectiveSuit,
+    test('last connected human leaving tears down AI-only room', () {
+      var emptyCalled = false;
+      final session = GameSession(
+        'ROOM',
+        onBecameEmpty: (_) => emptyCalled = true,
       );
+      final w1 = _FakeWs();
+      final w2 = _FakeWs();
+      final id1 = session.addPlayer(w1, 'A');
+      final id2 = session.addPlayer(w2, 'B');
+      session.markReady(id1);
+      session.markReady(id2);
 
-      session.seedStateForTesting(state: state, drawPile: drawPileBefore);
+      session.handleSocketDisconnected(id1, w1);
+      expect(emptyCalled, isFalse);
+      expect(session.isControlledByAiForTesting(id1), isTrue);
 
-      p2ws.clear();
-      session.handleSocketDisconnected(p3Id, p3ws, forceRemove: true);
-
-      expect(p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
-      expect(session.drawPileCountForTesting,
-          drawPileBefore.length + p3CardCount);
-
-      final snap = _latestSnapshot(p1ws);
-      expect((snap['drawPileCount'] as num).toInt(),
-          drawPileBefore.length + p3CardCount);
+      session.handleSocketDisconnected(id2, w2);
+      expect(emptyCalled, isTrue);
+      expect(session.isEmpty, isTrue);
     });
 
-    test('tryReattachSocket fails after disconnect removed player', () {
+    test('tryReattachSocket fails after permanent leave', () {
       final g = _makeKnownGame();
       g.session.handleSocketDisconnected(g.p1Id, g.p1ws, forceRemove: true);
       g.p2ws.clear();
       final newWs = _FakeWs();
       expect(g.session.tryReattachSocket(g.p1Id, newWs), isFalse);
       expect(newWs.messages.any((m) => m['type'] == 'state_snapshot'), isFalse);
+      expect(g.session.isControlledByAiForTesting(g.p1Id), isTrue);
     });
 
     test('tryReattachSocket replaces socket when previous still connected', () {
@@ -2788,6 +2785,7 @@ void main() {
       g.p2ws.clear();
       g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
       expect(g.p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
+      expect(g.session.isControlledByAiForTesting(g.p1Id), isFalse);
     });
 
     test('onBecameEmpty when last connected player disconnects after game ended',
@@ -2810,7 +2808,7 @@ void main() {
     });
 
     test(
-        'ranked 1v1: opponent disconnect records ranked win for remaining player',
+        'ranked 1v1: opponent leave applies leave penalty and continues under AI',
         () {
       final recorder = _CapturingTrophyPersistence();
       final session = GameSession(
@@ -2862,28 +2860,16 @@ void main() {
             5, (i) => CardModel(id: 'f$i', rank: Rank.seven, suit: Suit.clubs)),
       );
 
-      // P1 disconnects — P2 should be recorded as the winner.
+      // P1 leaves — seat stays under AI; leave penalty now; match continues.
       session.handleSocketDisconnected(p1Id, p1ws, forceRemove: true);
 
-      final ended = p2ws.lastOfType('game_ended');
-      expect(ended, isNotNull);
-      final changes = ended!['ratingChanges'] as Map<String, dynamic>?;
-      expect(changes, isNotNull);
-      expect(changes![p1Id], kRankedLeaveRatingDelta);
-      expect(changes[p2Id], 25);
-
-      // Leave penalty recorded for the leaver.
+      expect(session.isControlledByAiForTesting(p1Id), isTrue);
+      expect(p2ws.messages.any((m) => m['type'] == 'game_ended'), isFalse);
       expect(recorder.leavePenaltyCalls, 1);
-
-      // Ranked win recorded for the remaining player (P2).
-      expect(recorder.rankedResultCalls, 1,
-          reason: 'disconnect win must be persisted to ranked_stats');
-      expect(recorder.lastRankedWinnerUid, 'firebase-p2');
-      expect(recorder.lastRankedAllPlayerUids, isNotNull);
-      expect(recorder.lastRankedAllPlayerUids!.length, 1);
-      expect(recorder.lastRankedAllPlayerUids!.first.uid, 'firebase-p2');
-      expect(recorder.lastRankedPlayerCount, 2,
-          reason: 'bracket key must reflect starting player count (2p)');
+      expect(recorder.rankedResultCalls, 0,
+          reason: 'match continues; end MMR waits for a natural finish');
+      expect(session.tryReattachSocket(p1Id, _FakeWs()), isFalse);
+      expect(p2Id, isNotEmpty);
     });
 
     test('declare_last_cards rejected on own turn', () {
