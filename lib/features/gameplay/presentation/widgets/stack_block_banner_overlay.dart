@@ -140,9 +140,9 @@ class GlobalKeyFollower extends StatefulWidget {
   /// When set, floors [Positioned.top] so followers stay below the move log band.
   final double? minTop;
 
-  /// Tablet/desktop scale multiplier (1.0 on phones) — grows the follower's
-  /// own box so scaled-up child content (bigger banner text, etc) isn't
-  /// clipped by the hardcoded constraints below.
+  /// Overlay scale ([TableChromeLayout.overlayScaleFor]) — grows the
+  /// follower's box so banner text isn't clipped. Intentionally capped
+  /// below full chrome scale so tablets don't bury the center piles.
   final double scale;
 
   @override

@@ -1695,6 +1695,9 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
           // .scaleFor) — tablets/desktop get chrome scaled toward the
           // available canvas instead of staying phone-sized.
           final bustScale = TableChromeLayout.scaleFor(layoutSize);
+          // Move log / banners stay near phone size on tablets so they don't
+          // cover the center piles when chrome scales up (shared with Table).
+          final overlayScale = TableChromeLayout.overlayScaleFor(layoutSize);
           // See table_screen_layout.dart's identical fix: multiply the
           // width-percentage formula by bustScale too, not just the clamp
           // ceiling, so actual card size keeps pace with the frame height.
@@ -1761,7 +1764,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                     entries: _moveLogEntries,
                     top: anchors.top,
                     boardTop: anchors.boardTop,
-                    scale: bustScale,
+                    scale: overlayScale,
                   );
                 }),
 
@@ -1781,9 +1784,9 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                       entries: _moveLogEntries,
                       top: anchors.top,
                       boardTop: anchors.boardTop,
-                      scale: bustScale,
+                      scale: overlayScale,
                     ),
-                    scale: bustScale,
+                    scale: overlayScale,
                   );
                 }),
 
@@ -1823,9 +1826,9 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                         entries: _moveLogEntries,
                         top: anchors.top,
                         boardTop: anchors.boardTop,
-                        scale: bustScale,
+                        scale: overlayScale,
                       ),
-                      scale: bustScale,
+                      scale: overlayScale,
                     );
                   }),
                 ),

@@ -96,6 +96,8 @@ class _PortraitDirectionBannerOverlay extends StatelessWidget {
   /// stack-block banner and Last Cards strip already have this defense;
   /// this was the one overlay missing it.
   final double? minTop;
+
+  /// Visual scale for the banner ([TableChromeLayout.overlayScaleFor]).
   final double scale;
 
   @override
@@ -138,6 +140,7 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
     this.stackBlockBannerText,
     this.stackBlockBannerColor,
     this.scale = 1.0,
+    this.overlayScale = 1.0,
   });
 
   final GameState gameState;
@@ -151,7 +154,13 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
   final AppThemeData appTheme;
   final String? stackBlockBannerText;
   final Color? stackBlockBannerColor;
+
+  /// Chrome scale for grid anchors / pile geometry ([TableChromeLayout.scaleFor]).
   final double scale;
+
+  /// Capped scale for floating text overlays
+  /// ([TableChromeLayout.overlayScaleFor]).
+  final double overlayScale;
 
   @override
   Widget build(BuildContext context) {
@@ -168,7 +177,7 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
       entries: moveLogEntries,
       top: moveLogAnchors.top,
       boardTop: moveLogAnchors.boardTop,
-      scale: scale,
+      scale: overlayScale,
     );
 
     return Stack(
@@ -179,21 +188,21 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
           entries: moveLogEntries,
           top: moveLogAnchors.top,
           boardTop: moveLogAnchors.boardTop,
-          scale: scale,
+          scale: overlayScale,
         ),
         _PortraitDirectionBannerOverlay(
           direction: gameState.direction,
           kingJustPlayed: kingJustPlayed,
           hudKey: hudKey,
           minTop: moveLogBottom,
-          scale: scale,
+          scale: overlayScale,
         ),
         _PortraitLastCardsStripOverlay(
           players: gameState.players,
           lastCardsDeclaredBy: gameState.lastCardsDeclaredBy,
           hudKey: hudKey,
           minTop: moveLogBottom,
-          scale: scale,
+          scale: overlayScale,
         ),
         if (stackBlockBannerText != null)
           StackBlockBannerOverlay(
@@ -204,7 +213,7 @@ class _PortraitTransientOverlayLayer extends StatelessWidget {
             centerOffsetX:
                 _pileRowCenterOffsetFromDiscardCenter(landscape: false, scale: scale),
             minTop: moveLogBottom,
-            scale: scale,
+            scale: overlayScale,
           ),
       ],
     );
@@ -228,6 +237,7 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
     this.stackBlockBannerText,
     this.stackBlockBannerColor,
     this.scale = 1.0,
+    this.overlayScale = 1.0,
   });
 
   final GameState gameState;
@@ -241,7 +251,13 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
   final AppThemeData appTheme;
   final String? stackBlockBannerText;
   final Color? stackBlockBannerColor;
+
+  /// Chrome scale for grid anchors / pile geometry ([TableChromeLayout.scaleFor]).
   final double scale;
+
+  /// Capped scale for floating text overlays
+  /// ([TableChromeLayout.overlayScaleFor]).
+  final double overlayScale;
 
   @override
   Widget build(BuildContext context) {
@@ -258,7 +274,7 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
       entries: moveLogEntries,
       top: moveLogAnchors.top,
       boardTop: moveLogAnchors.boardTop,
-      scale: scale,
+      scale: overlayScale,
     );
 
     return Stack(
@@ -269,21 +285,21 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
           entries: moveLogEntries,
           top: moveLogAnchors.top,
           boardTop: moveLogAnchors.boardTop,
-          scale: scale,
+          scale: overlayScale,
         ),
         _PortraitDirectionBannerOverlay(
           direction: gameState.direction,
           kingJustPlayed: kingJustPlayed,
           hudKey: hudKey,
           minTop: moveLogBottom,
-          scale: scale,
+          scale: overlayScale,
         ),
         _PortraitLastCardsStripOverlay(
           players: gameState.players,
           lastCardsDeclaredBy: gameState.lastCardsDeclaredBy,
           hudKey: hudKey,
           minTop: moveLogBottom,
-          scale: scale,
+          scale: overlayScale,
         ),
         if (stackBlockBannerText != null)
           StackBlockBannerOverlay(
@@ -294,7 +310,7 @@ class _LandscapeTransientOverlayLayer extends StatelessWidget {
             centerOffsetX:
                 _pileRowCenterOffsetFromDiscardCenter(landscape: true, scale: scale),
             minTop: moveLogBottom,
-            scale: scale,
+            scale: overlayScale,
           ),
       ],
     );
@@ -315,6 +331,8 @@ class _PortraitLastCardsStripOverlay extends StatelessWidget {
   final Set<String> lastCardsDeclaredBy;
   final GlobalKey hudKey;
   final double? minTop;
+
+  /// Visual scale for the strip ([TableChromeLayout.overlayScaleFor]).
   final double scale;
 
   @override

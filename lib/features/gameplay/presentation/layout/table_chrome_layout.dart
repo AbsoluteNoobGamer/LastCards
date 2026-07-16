@@ -22,6 +22,21 @@ abstract final class TableChromeLayout {
     if (isCompactPhone(size)) return 1.0;
     return (math.min(size.width, size.height) / 400.0).clamp(1.0, 2.2);
   }
+
+  /// Hard ceiling for floating text overlays (move log, stack-block banner,
+  /// Last Cards strip, direction banner).
+  ///
+  /// [scaleFor] grows avatars/piles/hand toward the tablet canvas; applying
+  /// that same multiplier to overlays lets the move log and banners cover
+  /// the center piles on ~13" tablets. Overlays stay near phone legibility
+  /// with only modest growth.
+  static const double overlayScaleMax = 1.25;
+
+  /// Scale for transient text overlays. Always ≤ [scaleFor] and capped at
+  /// [overlayScaleMax] so large-tablet chrome can expand without burying
+  /// the board. Shared by Table and Bust.
+  static double overlayScaleFor(Size size) =>
+      math.min(scaleFor(size), overlayScaleMax);
 }
 
 /// Fixed portrait grid slot sizes — interactive content lives here; transient
