@@ -67,6 +67,20 @@ void main() {
     expect((event as PlayerSocketLostEvent).playerId, 'player-1');
   });
 
+  test('text_chat parses playerId displayName and text', () {
+    final event = parseServerEvent(jsonEncode({
+      'type': 'text_chat',
+      'playerId': 'player-1',
+      'displayName': 'Alex',
+      'text': 'gl hf',
+    }));
+    expect(event, isA<TextChatEvent>());
+    final e = event as TextChatEvent;
+    expect(e.playerId, 'player-1');
+    expect(e.displayName, 'Alex');
+    expect(e.text, 'gl hf');
+  });
+
   test('player_socket_restored parses playerId', () {
     final event = parseServerEvent(jsonEncode({
       'type': 'player_socket_restored',

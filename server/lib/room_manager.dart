@@ -180,6 +180,13 @@ class RoomManager {
           _rooms[roomCode]?.handleQuickChat(playerId, json);
         }
         break;
+      case 'text_chat':
+        final roomCode = _playerRooms[ws];
+        final playerId = _playerIds[ws];
+        if (roomCode != null && playerId != null) {
+          _rooms[roomCode]?.handleTextChat(playerId, json);
+        }
+        break;
       case 'leave_room':
         // Explicit leave → forceRemove so GameSession makes the seat a
         // permanent AI takeover (no rejoin). Unexpected socket drops use

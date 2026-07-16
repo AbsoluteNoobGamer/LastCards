@@ -57,6 +57,7 @@ import 'package:last_cards/features/gameplay/presentation/layout/table_chrome_la
 import '../widgets/stack_block_banner_overlay.dart';
 import '../widgets/quick_chat_panel.dart';
 import '../widgets/felt_table_background.dart';
+import '../../../chat/presentation/widgets/live_text_chat_panel.dart';
 
 import '../../../../shared/reactions/reaction_catalog.dart';
 
@@ -257,6 +258,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   StreamSubscription<dynamic>? _onlineTurnTimeoutSub;
   StreamSubscription<dynamic>? _onlineReshuffleSub;
   StreamSubscription<QuickChatEvent>? _onlineQuickChatSub;
+  StreamSubscription<TextChatEvent>? _onlineTextChatSub;
   StreamSubscription<TurnChangedEvent>? _onlineTurnChangedSub;
   StreamSubscription<LastCardsBluffEvent>? _lastCardsBluffSub;
   StreamSubscription<LastCardsPressedEvent>? _lastCardsPressedSub;
@@ -294,6 +296,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   int? _lastTimerTickSeconds;
 
   bool _showQuickChatPanel = false;
+
+  /// 0 = Reactions tab, 1 = Chat tab (online only).
+  int _socialPanelTab = 0;
+  final List<LiveChatLine> _textChatMessages = [];
 
   /// Incremented to retrigger full-screen edge feedback animations.
   int _turnPulseTrigger = 0;
@@ -689,6 +695,24 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           isLocal: false);
     });
 
+    _onlineTextChatSub = handler.textChats.listen((e) {
+      if (!mounted) return;
+      final localId = ref.read(gameStateProvider)?.localPlayer?.id;
+      setState(() {
+        _textChatMessages.add(
+          LiveChatLine(
+            playerId: e.playerId,
+            displayName: e.displayName,
+            text: e.text,
+            isLocal: localId != null && e.playerId == localId,
+          ),
+        );
+        if (_textChatMessages.length > 80) {
+          _textChatMessages.removeRange(0, _textChatMessages.length - 80);
+        }
+      });
+    });
+
     _lastCardsBluffSub = handler.lastCardsBluffs.listen((e) {
       if (!mounted) return;
       _flashLastCardsBluffBanner(
@@ -1052,6 +1076,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _onlineTurnTimeoutSub?.cancel();
     _onlineReshuffleSub?.cancel();
     _onlineQuickChatSub?.cancel();
+    _onlineTextChatSub?.cancel();
     _onlineTurnChangedSub?.cancel();
     _lastCardsBluffSub?.cancel();
     _lastCardsPressedSub?.cancel();
@@ -2408,7 +2433,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 ),
               ),
 
-              // ── Emoji reactions toggle and panel (bottom right, opposite back)
+              // ── Reactions / chat toggle and panel (bottom right)
               if (!_isDealing && gameState.phase != GamePhase.ended)
                 Positioned(
                   bottom: buttonBottom,
@@ -2419,75 +2444,75 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                          if (_showQuickChatPanel)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  maxWidth:
-                                      MediaQuery.of(context).size.width * 0.55,
-                                  maxHeight: 260,
+                        if (_showQuickChatPanel)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth:
+                                    MediaQuery.of(context).size.width * 0.72,
+                                maxHeight: _isOfflineSession ? 260 : 340,
+                              ),
+                              child: _buildSocialPanel(appTheme),
+                            ),
+                          ),
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: _quickChatCooldownRemaining > 0 &&
+                                        _socialPanelTab == 0
+                                    ? Colors.black.withValues(alpha: 0.50)
+                                    : Colors.black.withValues(alpha: 0.30),
+                                shape: BoxShape.circle,
+                              ),
+                              child: IconButton(
+                                tooltip: _isOfflineSession
+                                    ? (_quickChatCooldownRemaining > 0
+                                        ? 'Reactions (${_quickChatCooldownRemaining}s)'
+                                        : 'Reactions')
+                                    : 'Reactions & chat',
+                                icon: Icon(
+                                  _socialPanelTab == 1 && _showQuickChatPanel
+                                      ? Icons.chat_bubble_outline_rounded
+                                      : Icons.emoji_emotions_outlined,
+                                  size: 20,
+                                  color: Colors.white,
                                 ),
-                                child: SingleChildScrollView(
-                                  child: QuickChatPanel(
-                                    onMessageSelected: _sendQuickChat,
-                                  ),
-                                ),
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () {
+                                  setState(() => _showQuickChatPanel =
+                                      !_showQuickChatPanel);
+                                },
                               ),
                             ),
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: _quickChatCooldownRemaining > 0
-                                      ? Colors.black.withValues(alpha: 0.50)
-                                      : Colors.black.withValues(alpha: 0.30),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: IconButton(
-                                  tooltip: _quickChatCooldownRemaining > 0
-                                      ? 'Reactions (${_quickChatCooldownRemaining}s)'
-                                      : 'Reactions',
-                                  icon: const Icon(
-                                    Icons.emoji_emotions_outlined,
-                                    size: 20,
-                                    color: Colors.white,
+                            if (_quickChatCooldownRemaining > 0 &&
+                                _socialPanelTab == 0)
+                              Positioned(
+                                right: -4,
+                                top: -4,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.goldDark,
+                                    shape: BoxShape.circle,
                                   ),
-                                  visualDensity: VisualDensity.compact,
-                                  onPressed: _quickChatCooldownRemaining > 0
-                                      ? null
-                                      : () {
-                                          setState(() => _showQuickChatPanel =
-                                              !_showQuickChatPanel);
-                                        },
+                                  child: Text(
+                                    '$_quickChatCooldownRemaining',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ),
                               ),
-                              if (_quickChatCooldownRemaining > 0)
-                                Positioned(
-                                  right: -4,
-                                  top: -4,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: const BoxDecoration(
-                                      color: AppColors.goldDark,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Text(
-                                      '$_quickChatCooldownRemaining',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ],
                     ),
+                  ),
                 ),
 
               if (_lastCardsDeclaredBannerText != null)
@@ -4569,6 +4594,70 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     setState(() => _quickChatBubbles.removeWhere((b) => b.id == bubbleId));
   }
 
+  Widget _buildSocialPanel(AppThemeData theme) {
+    final showChatTab = !_isOfflineSession;
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: theme.accentDark.withValues(alpha: 0.45),
+        ),
+      ),
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (showChatTab)
+            Row(
+              children: [
+                Expanded(
+                  child: _SocialTabChip(
+                    label: 'Reactions',
+                    selected: _socialPanelTab == 0,
+                    theme: theme,
+                    onTap: () => setState(() => _socialPanelTab = 0),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _SocialTabChip(
+                    label: 'Chat',
+                    selected: _socialPanelTab == 1,
+                    theme: theme,
+                    onTap: () => setState(() => _socialPanelTab = 1),
+                  ),
+                ),
+              ],
+            ),
+          if (showChatTab) const SizedBox(height: 8),
+          if (!showChatTab || _socialPanelTab == 0)
+            SingleChildScrollView(
+              child: QuickChatPanel(
+                onMessageSelected: _sendQuickChat,
+              ),
+            )
+          else
+            LiveTextChatPanel(
+              theme: theme,
+              messages: _textChatMessages,
+              onSend: _sendTextChat,
+              tall: true,
+              enabled: true,
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _sendTextChat(String text) {
+    if (_isOfflineSession) return;
+    final handler = ref.read(gameEventHandlerProvider);
+    if (!handler.sendTextChat(TextChatAction(text: text))) {
+      ref.read(gameNotifierProvider.notifier).connectionSendFailed();
+    }
+  }
+
   void _sendQuickChat(int messageIndex) {
     if (_quickChatCooldownRemaining > 0) return;
     final level = PlayerLevelService.instance.currentLevel.value;
@@ -4627,5 +4716,50 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         _quickChatCooldownTimer = null;
       }
     });
+  }
+}
+
+class _SocialTabChip extends StatelessWidget {
+  const _SocialTabChip({
+    required this.label,
+    required this.selected,
+    required this.theme,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final AppThemeData theme;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.accentPrimary.withValues(alpha: 0.22)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected
+                ? theme.accentPrimary
+                : theme.textSecondary.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? theme.accentPrimary : theme.textSecondary,
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
   }
 }
