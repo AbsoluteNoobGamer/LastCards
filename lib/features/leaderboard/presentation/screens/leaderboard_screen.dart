@@ -104,6 +104,12 @@ const _otherLeaderboardModes = [
   LeaderboardMode.bustOffline,
 ];
 
+/// Online-tab chips (casual quickplay + multi-round online tournament).
+const _onlineLeaderboardModes = [
+  LeaderboardMode.online,
+  LeaderboardMode.tournamentOnline,
+];
+
 class _TierInfo {
   const _TierInfo(this.label, this.color);
 
@@ -188,7 +194,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
           _selectedMode =
               _rankedHardcore ? LeaderboardMode.rankedHardcore : LeaderboardMode.ranked;
         case _LeaderboardTab.online:
-          _selectedMode = LeaderboardMode.online;
+          if (!_onlineLeaderboardModes.contains(_selectedMode)) {
+            _selectedMode = _onlineLeaderboardModes.first;
+          }
         case _LeaderboardTab.bust:
           _selectedMode = LeaderboardMode.bustOnline;
         case _LeaderboardTab.other:
@@ -512,6 +520,33 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                 theme: theme,
                 onStandard: () => _selectRankedVariant(hardcore: false),
                 onHardcore: () => _selectRankedVariant(hardcore: true),
+              ),
+            ),
+          if (_selectedTab == _LeaderboardTab.online)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Row(
+                children: _onlineLeaderboardModes.map((mode) {
+                  final isSelected = _selectedMode == mode;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: _SmallModeChip(
+                      label: mode.label,
+                      selected: isSelected,
+                      theme: theme,
+                      onTap: () {
+                        setState(() {
+                          _selectedMode = mode;
+                          _playerCountFilter = null;
+                        });
+                        AnalyticsService.instance.logLeaderboardViewed(
+                          mode: mode.label,
+                        );
+                      },
+                    ),
+                  );
+                }).toList(),
               ),
             ),
           if (_selectedTab == _LeaderboardTab.other)

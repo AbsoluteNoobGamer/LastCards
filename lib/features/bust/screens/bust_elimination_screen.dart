@@ -51,8 +51,7 @@ class BustEliminationScreen extends ConsumerWidget {
   /// Whether this is an online Bust session. Threaded through to subsequent
   /// [BustGameScreen] instances so the mode is preserved across rounds.
   ///
-  /// **Currently unused** — online Bust is gated behind "Coming Soon".
-  /// This field is scaffolding for future online support.
+  /// When true, labels/copy treat this as an online Bust elimination.
   final bool isOnline;
 
   /// True when the local human player was eliminated this round.
