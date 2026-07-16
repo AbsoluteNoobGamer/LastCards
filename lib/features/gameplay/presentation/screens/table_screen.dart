@@ -37,6 +37,7 @@ import '../../../../core/models/table_position_layout.dart';
 import '../../../../core/models/move_log_entry.dart';
 import '../../../../core/models/move_log_merge.dart';
 import '../../../../core/models/game_event.dart';
+import '../../../../core/providers/block_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/providers/profile_provider.dart';
@@ -71,6 +72,7 @@ import '../../../../features/leaderboard/data/combo_leaderboard_writer.dart';
 import '../../../../features/tournament/providers/tournament_session_provider.dart';
 import '../../../../features/social/widgets/other_player_profile_sheet.dart';
 import '../../../../features/social/widgets/pending_friend_requests_banner.dart';
+import '../../../../features/social/widgets/report_block_sheet.dart';
 import '../../../../features/settings/presentation/widgets/settings_modal.dart';
 part 'table_screen_background.dart';
 part 'table_screen_layout.dart';
@@ -689,6 +691,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           .where((p) => p.tablePosition == TablePosition.bottom)
           .firstOrNull;
       if (localPlayer != null && e.playerId == localPlayer.id) return;
+      if (_isBlockedSender(e.playerId)) return;
       final senderName =
           state.playerById(e.playerId)?.displayName ?? e.playerId;
       _showQuickChatBubble(e.playerId, senderName, e.messageIndex,
@@ -698,13 +701,15 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _onlineTextChatSub = handler.textChats.listen((e) {
       if (!mounted) return;
       final localId = ref.read(gameStateProvider)?.localPlayer?.id;
+      final isLocal = localId != null && e.playerId == localId;
+      if (!isLocal && _isBlockedSender(e.playerId)) return;
       setState(() {
         _textChatMessages.add(
           LiveChatLine(
             playerId: e.playerId,
             displayName: e.displayName,
             text: e.text,
-            isLocal: localId != null && e.playerId == localId,
+            isLocal: isLocal,
           ),
         );
         if (_textChatMessages.length > 80) {
@@ -4535,6 +4540,30 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     );
   }
 
+  /// True when [playerId]'s Firebase uid (if any) is on the local blocklist.
+  bool _isBlockedSender(String playerId) {
+    final uid = ref.read(gameStateProvider)?.playerById(playerId)?.firebaseUid;
+    if (uid == null) return false;
+    return (ref.read(blockedUidSetProvider).value ?? const {}).contains(uid);
+  }
+
+  void _showReportOrBlockSheet(LiveChatLine line) {
+    final uid = ref.read(gameStateProvider)?.playerById(line.playerId)?.firebaseUid;
+    final isBlocked = uid != null &&
+        (ref.read(blockedUidSetProvider).value ?? const {}).contains(uid);
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => ReportBlockSheet(
+        firebaseUid: uid,
+        displayName: line.displayName,
+        messageText: line.text,
+        isBlocked: isBlocked,
+      ),
+    );
+  }
+
   void _onDeclareLastCards() {
     final live = ref.read(gameStateProvider);
     if (live != null) {
@@ -4649,6 +4678,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               onSend: _sendTextChat,
               tall: true,
               enabled: true,
+              onReportOrBlock: _showReportOrBlockSheet,
             ),
         ],
       ),

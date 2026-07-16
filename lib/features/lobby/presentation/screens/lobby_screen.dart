@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/navigation/app_page_routes.dart';
@@ -25,6 +26,7 @@ import '../../../chat/presentation/widgets/live_text_chat_panel.dart';
 import '../../../../core/models/game_state.dart';
 import '../../../../core/models/player_model.dart';
 import '../../../../core/providers/auth_provider.dart';
+import '../../../../core/providers/block_provider.dart';
 import '../../../../core/providers/friends_provider.dart';
 import '../../../../core/providers/connection_provider.dart';
 import '../../../../core/network/websocket_client.dart';
@@ -39,6 +41,7 @@ import '../../../gameplay/presentation/opponents_splash_helpers.dart';
 import '../../../gameplay/presentation/screens/table_screen.dart';
 import '../../../social/widgets/invite_friends_sheet.dart';
 import '../../../social/widgets/pending_friend_requests_banner.dart';
+import '../../../social/widgets/report_block_sheet.dart';
 import '../../../tournament/providers/tournament_session_provider.dart';
 
 enum OnlineMode { standard, tournament }
@@ -242,6 +245,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
     _textChatSub = handler.textChats.listen((e) {
       if (!mounted) return;
+      if (e.playerId != _localPlayerId && _isBlockedSender(e.playerId)) {
+        return;
+      }
       _appendChatLine(
         playerId: e.playerId,
         displayName: e.displayName,
@@ -268,6 +274,32 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         _chatMessages.removeRange(0, _chatMessages.length - 80);
       }
     });
+  }
+
+  /// True when [playerId]'s Firebase uid (if any) is on the local blocklist.
+  bool _isBlockedSender(String playerId) {
+    final uid = _lobbyPlayers.firstWhereOrNull((p) => p.id == playerId)?.firebaseUid;
+    if (uid == null) return false;
+    return (ref.read(blockedUidSetProvider).value ?? const {}).contains(uid);
+  }
+
+  void _showReportOrBlockSheet(LiveChatLine line) {
+    final uid =
+        _lobbyPlayers.firstWhereOrNull((p) => p.id == line.playerId)?.firebaseUid;
+    final isBlocked = uid != null &&
+        (ref.read(blockedUidSetProvider).value ?? const {}).contains(uid);
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => ReportBlockSheet(
+        firebaseUid: uid,
+        displayName: line.displayName,
+        messageText: line.text,
+        roomCode: _roomCode,
+        isBlocked: isBlocked,
+      ),
+    );
   }
 
   void _sendLobbyChat(String text) {
@@ -696,6 +728,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                       onSend: _sendLobbyChat,
                                       tall: true,
                                       enabled: true,
+                                      onReportOrBlock: _showReportOrBlockSheet,
                                     ),
                                   ],
                                   const SizedBox(height: AppDimensions.lg),

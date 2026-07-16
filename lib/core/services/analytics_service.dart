@@ -217,6 +217,21 @@ class AnalyticsService {
     } catch (_) {}
   }
 
+  void logUserReported(String reason) {
+    try {
+      _analytics.logEvent(
+        name: AnalyticsEvents.userReported,
+        parameters: {AnalyticsParams.reason: reason},
+      );
+    } catch (_) {}
+  }
+
+  void logUserBlocked() {
+    try {
+      _analytics.logEvent(name: AnalyticsEvents.userBlocked);
+    } catch (_) {}
+  }
+
   void logInviteSent({required String channel}) {
     try {
       _analytics.logEvent(
