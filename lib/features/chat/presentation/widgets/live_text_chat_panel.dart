@@ -28,6 +28,7 @@ class LiveTextChatPanel extends StatefulWidget {
     this.tall = false,
     this.enabled = true,
     this.hintText = 'say something…',
+    this.onReportOrBlock,
     super.key,
   });
 
@@ -37,6 +38,10 @@ class LiveTextChatPanel extends StatefulWidget {
   final bool tall;
   final bool enabled;
   final String hintText;
+
+  /// Tapped a remote player's message; opens report/block UI. Local
+  /// messages (own) are never tappable for this.
+  final void Function(LiveChatLine line)? onReportOrBlock;
 
   @override
   State<LiveTextChatPanel> createState() => _LiveTextChatPanelState();
@@ -146,7 +151,9 @@ class _LiveTextChatPanelState extends State<LiveTextChatPanel> {
                       final nameColor = m.isLocal
                           ? theme.accentPrimary
                           : theme.textSecondary;
-                      return Padding(
+                      final canReport =
+                          !m.isLocal && widget.onReportOrBlock != null;
+                      final line = Padding(
                         padding: const EdgeInsets.only(bottom: 6),
                         child: RichText(
                           text: TextSpan(
@@ -167,6 +174,11 @@ class _LiveTextChatPanelState extends State<LiveTextChatPanel> {
                             ],
                           ),
                         ),
+                      );
+                      if (!canReport) return line;
+                      return InkWell(
+                        onTap: () => widget.onReportOrBlock!(m),
+                        child: line,
                       );
                     },
                   ),

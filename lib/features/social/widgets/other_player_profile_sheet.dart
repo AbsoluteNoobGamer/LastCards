@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/providers/block_provider.dart';
 import '../../../core/providers/friends_provider.dart';
 import '../../../core/services/analytics_service.dart';
 import '../../../core/services/friends_service.dart';
@@ -18,6 +19,7 @@ import '../../../core/utils/ranked_stats_reader.dart';
 import '../../../core/utils/ranked_tier_utils.dart';
 import '../../../core/widgets/head_to_head_stats_block.dart';
 import '../../leaderboard/data/leaderboard_collections.dart';
+import 'report_block_sheet.dart';
 
 /// Bottom sheet: opponent public profile, stats, and friend actions.
 class OtherPlayerProfileSheet extends ConsumerStatefulWidget {
@@ -45,6 +47,7 @@ class _OtherPlayerProfileSheetState
         Map<LeaderboardMode, PublicModeStats> modes,
         FriendRelation relation,
         HeadToHeadRecord? headToHead,
+        bool isBlocked,
       })> _load;
 
   @override
@@ -61,9 +64,11 @@ class _OtherPlayerProfileSheetState
         Map<LeaderboardMode, PublicModeStats> modes,
         FriendRelation relation,
         HeadToHeadRecord? headToHead,
+        bool isBlocked,
       })> _buildLoadFuture() {
     final service = ref.read(firestoreProfileServiceProvider);
     final friends = ref.read(friendsServiceProvider);
+    final block = ref.read(blockServiceProvider);
     final uid = widget.firebaseUid;
     return Future.wait([
       service.getProfileForUid(uid),
@@ -75,6 +80,7 @@ class _OtherPlayerProfileSheetState
         opponentUid: uid,
         opponentName: widget.fallbackDisplayName,
       ),
+      block.isBlocked(uid),
     ]).then(
       (results) => (
         profile: results[0] as FirestoreUserProfile?,
@@ -83,6 +89,7 @@ class _OtherPlayerProfileSheetState
         modes: results[3] as Map<LeaderboardMode, PublicModeStats>,
         relation: results[4] as FriendRelation,
         headToHead: results[5] as HeadToHeadRecord?,
+        isBlocked: results[6] as bool,
       ),
     );
   }
@@ -138,6 +145,19 @@ class _OtherPlayerProfileSheetState
         );
       }
     }
+  }
+
+  void _openReportOrBlock(bool isBlocked) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => ReportBlockSheet(
+        firebaseUid: widget.firebaseUid,
+        displayName: widget.fallbackDisplayName,
+        isBlocked: isBlocked,
+      ),
+    ).then((_) => _refresh());
   }
 
   Future<void> _acceptIncoming() async {
@@ -206,6 +226,7 @@ class _OtherPlayerProfileSheetState
               Map<LeaderboardMode, PublicModeStats> modes,
               FriendRelation relation,
               HeadToHeadRecord? headToHead,
+              bool isBlocked,
             })>(
           future: _load,
           builder: (context, snap) {
@@ -325,6 +346,19 @@ class _OtherPlayerProfileSheetState
                       ),
                     ],
                   ),
+                  if (me != null && me != widget.firebaseUid) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () => _openReportOrBlock(data.isBlocked),
+                        icon: const Icon(Icons.flag_outlined, size: 18),
+                        label: Text(
+                          data.isBlocked ? 'Report / Unblock' : 'Report / Block',
+                        ),
+                      ),
+                    ),
+                  ],
                   if (data.ranked != null) ...[
                     const SizedBox(height: 20),
                     _RankedBlock(

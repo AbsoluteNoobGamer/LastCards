@@ -114,6 +114,20 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
+    // Blocked users: owner-only, one doc per blocked uid.
+    match /users/{uid}/blockedUsers/{blockedUid} {
+      allow read, create, delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // User reports (abuse/report-message flow). Create-only from the client;
+    // review happens out-of-band (Firestore console / future Cloud Function),
+    // so no client read/update/delete.
+    match /reports/{reportId} {
+      allow create: if request.auth != null
+        && request.resource.data.reporterUid == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+
     // Leaderboards: allow authenticated reads, only server can write.
     match /ranked_stats/{uid} {
       allow read: if request.auth != null;

@@ -36,6 +36,8 @@ abstract final class AnalyticsEvents {
   static const String purchaseCancelled = 'purchase_cancelled';
   static const String friendRequestSent = 'friend_request_sent';
   static const String friendRequestAccepted = 'friend_request_accepted';
+  static const String userReported = 'user_reported';
+  static const String userBlocked = 'user_blocked';
   static const String inviteSent = 'invite_sent';
   static const String inviteAccepted = 'invite_accepted';
   static const String shareTapped = 'share_tapped';
