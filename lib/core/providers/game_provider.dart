@@ -447,7 +447,7 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
       }),
     );
 
-    // ── player_socket_lost / restored (transient disconnect vs grace expiry)
+    // ── player_socket_lost / restored (legacy; mid-game AI takeover is silent)
     _subs.add(
       _eventHandler.events
           .where((e) => e is PlayerSocketLostEvent)

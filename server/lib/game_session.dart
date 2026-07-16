@@ -47,6 +47,15 @@ class _ConnectedPlayer {
   bool isReady = false;
   final bool isAi;
   final String aiDifficulty;
+
+  /// Server-only: human seat temporarily (or permanently) driven by
+  /// [GameSession._executeAiTurn] after disconnect / leave. Never serialized
+  /// as [PlayerModel.isAi] so other clients keep seeing a normal human.
+  bool controlledByAi = false;
+
+  /// False after an explicit mid-game leave (`forceRemove`); reconnect is
+  /// rejected and the seat stays AI-driven until the match ends.
+  bool allowRejoin = true;
 }
 
 // ── GameSession ───────────────────────────────────────────────────────────────
@@ -163,13 +172,22 @@ class GameSession {
   /// Per-turn countdown timer.
   Timer? _turnTimer;
 
-  /// After an unexpected socket close during a live game, keep the seat open
-  /// briefly so mobile clients can reconnect and [tryReattachSocket] succeeds.
+  /// Legacy grace timers (no longer scheduled for mid-game disconnects; kept
+  /// so [removePlayer] / game-end cleanup can cancel any stray timers).
   final Map<String, Timer> _disconnectGraceTimers = {};
 
-  /// Wall-clock grace for [handleSocketDisconnected] (non-forced). Not tied to
-  /// turn timer so other players are not blocked by a brief app switch.
+  /// Human seats that took an explicit mid-game leave (ranked leave penalty
+  /// already applied). Excluded from end-of-match [recordRankedResult].
+  final Set<String> _permanentAiLeaveIds = {};
+
+  /// Former reconnect grace (90s). Mid-game disconnects now use AI takeover
+  /// immediately; constant retained for tests that still reference the name.
   static const Duration socketDisconnectGrace = Duration(seconds: 90);
+
+  bool _isServerDrivenSeat(String playerId) {
+    final p = _players[playerId];
+    return p != null && (p.isAi || p.controlledByAi);
+  }
 
   bool get _trophyEligible =>
       !isPrivate && (maxPlayerCount == null || _wasFullRoster);
@@ -274,6 +292,10 @@ class GameSession {
   /// Bust per-player turn counts this round (for tests).
   Map<String, int> get bustTurnsThisRoundForTesting =>
       Map<String, int>.from(_bustTurnsThisRound);
+
+  /// Whether [playerId] is currently server-AI-driven after disconnect/leave.
+  bool isControlledByAiForTesting(String playerId) =>
+      _players[playerId]?.controlledByAi ?? false;
 
   // ── Lobby ─────────────────────────────────────────────────────────────────
 
@@ -396,11 +418,10 @@ class GameSession {
   /// already replaced it, this is ignored so a late close on the old socket
   /// does not clear the new connection.
   ///
-  /// When [forceRemove] is true (e.g. the client is joining another room on
-  /// the same process), the player is removed immediately. Otherwise, during
-  /// an active standard or bust game, the seat is kept for [socketDisconnectGrace]
-  /// so the client can [rejoin_session] after a brief disconnect (mobile
-  /// backgrounding).
+  /// Mid-game human seats are kept and driven by server AI ([controlledByAi])
+  /// so the table can continue. Unexpected drops allow [rejoin_session];
+  /// [forceRemove] (explicit leave / switching rooms) makes the AI seat
+  /// permanent. Lobby, game-over, and real bot seats still use [removePlayer].
   void handleSocketDisconnected(
     String playerId,
     dynamic disconnectedWs, {
@@ -414,34 +435,58 @@ class GameSession {
       return;
     }
 
-    if (forceRemove ||
-        !_started ||
-        _gameOver ||
-        leavingPlayer.isAi) {
+    if (!_started || _gameOver || leavingPlayer.isAi) {
       _cancelDisconnectGraceTimer(playerId);
       removePlayer(playerId);
       return;
     }
 
-    _cancelDisconnectGraceTimer(playerId);
-    leavingPlayer.ws = null;
-    _broadcast({
-      'type': 'player_socket_lost',
-      'playerId': playerId,
-    });
-    _disconnectGraceTimers[playerId] = Timer(socketDisconnectGrace, () {
-      _disconnectGraceTimers.remove(playerId);
-      final p = _players[playerId];
-      if (p == null) return;
-      if (p.ws != null) return;
-      removePlayer(playerId);
-    });
+    _beginAiControlForDisconnectedHuman(
+      playerId,
+      permanent: forceRemove,
+    );
+  }
 
-    if (_started &&
-        !_gameOver &&
-        _state.currentPlayerId == playerId) {
+  /// Marks a human mid-game seat as server-AI-driven without exposing
+  /// [PlayerModel.isAi] to clients (silent takeover).
+  void _beginAiControlForDisconnectedHuman(
+    String playerId, {
+    required bool permanent,
+  }) {
+    final p = _players[playerId];
+    if (p == null || p.isAi) return;
+
+    _cancelDisconnectGraceTimer(playerId);
+    p.ws = null;
+    p.controlledByAi = true;
+    if (permanent) {
+      p.allowRejoin = false;
+      _applyRankedLeavePenaltyForPermanentAiLeave(playerId, p);
+    }
+
+    if (_clearRoomWhenNoConnectedHumansRemain()) {
+      return;
+    }
+
+    if (!_gameOver && _state.currentPlayerId == playerId) {
       _startTurnTimer();
     }
+  }
+
+  void _applyRankedLeavePenaltyForPermanentAiLeave(
+    String playerId,
+    _ConnectedPlayer p,
+  ) {
+    if (_permanentAiLeaveIds.contains(playerId)) return;
+    _permanentAiLeaveIds.add(playerId);
+    if (!_trophyEligible || !isRanked) return;
+    final uid = p.firebaseUid ?? playerId;
+    _trophyRecorder.recordLeavePenalty(
+      uid,
+      displayName: p.displayName,
+      rankedHardcore: _rankedHardcoreRecords,
+      playerCount: _startingPlayerCount.clamp(2, 7),
+    );
   }
 
   void _cancelDisconnectGraceTimer(String playerId) {
@@ -455,9 +500,8 @@ class GameSession {
     _disconnectGraceTimers.clear();
   }
 
-  /// Replaces the live WebSocket when the same client sends [rejoin_session],
-  /// including after a brief disconnect while the grace window in
-  /// [handleSocketDisconnected] still holds the seat.
+  /// Replaces the live WebSocket when the same client sends [rejoin_session]
+  /// after an unexpected disconnect (AI-controlled seat with [allowRejoin]).
   bool tryReattachSocket(
     String playerId,
     dynamic newWs, {
@@ -466,6 +510,7 @@ class GameSession {
     final p = _players[playerId];
     if (p == null) return false;
     if (p.isAi) return false;
+    if (!p.allowRejoin) return false;
 
     if (isRanked) {
       final expected = p.firebaseUid;
@@ -486,11 +531,12 @@ class GameSession {
       } catch (_) {}
     }
     p.ws = newWs;
-    _broadcast({
-      'type': 'player_socket_restored',
-      'playerId': playerId,
-    });
+    p.controlledByAi = false;
+    // Silent takeover: no player_socket_lost was broadcast, so no restore event.
     _broadcastStateSnapshots();
+    if (!_gameOver && _state.currentPlayerId == playerId) {
+      _startTurnTimer();
+    }
     return true;
   }
 
@@ -520,6 +566,20 @@ class GameSession {
   /// Call after mutating [_players] so the room is not left running with bots only.
   bool _clearRoomWhenNoHumansRemain() {
     if (_players.values.any((p) => !p.isAi)) return false;
+    _turnTimer?.cancel();
+    if (_started) {
+      _cancelAllDisconnectGraceTimers();
+      _gameOver = true;
+    }
+    _players.clear();
+    onBecameEmpty?.call(roomCode);
+    return true;
+  }
+
+  /// Tears down when no human still has a live socket — avoids simulating a
+  /// match of AI-only seats for nobody.
+  bool _clearRoomWhenNoConnectedHumansRemain() {
+    if (_players.values.any((p) => !p.isAi && p.ws != null)) return false;
     _turnTimer?.cancel();
     if (_started) {
       _cancelAllDisconnectGraceTimers();
@@ -1047,7 +1107,7 @@ class GameSession {
       _checkWin();
       _broadcastStateSnapshots();
       if (_gameOver) return;
-      if (_players[playerId]?.isAi == true) {
+      if (_isServerDrivenSeat(playerId)) {
         final suit = Suit.values[_aiRng.nextInt(Suit.values.length)];
         _handleSuitChoice(playerId, {
           'type': 'suit_choice',
@@ -1092,7 +1152,7 @@ class GameSession {
     _checkWin();
     if (!_maybeAutoAdvanceSamePlayerAfterPlay(playerId)) {
       _broadcastStateSnapshots();
-      if (_players[playerId]?.isAi == true) {
+      if (_isServerDrivenSeat(playerId)) {
         _startTurnTimer();
       }
     }
@@ -1117,7 +1177,7 @@ class GameSession {
     // Lock the declared suit onto the current state.
     _state = _state.copyWith(suitLock: suit);
     _broadcastStateSnapshots();
-    if (_players[playerId]?.isAi == true) {
+    if (_isServerDrivenSeat(playerId)) {
       _startTurnTimer();
     }
   }
@@ -1292,7 +1352,7 @@ class GameSession {
     _checkWin();
     if (!_maybeAutoAdvanceSamePlayerAfterPlay(playerId)) {
       _broadcastStateSnapshots();
-      if (_players[playerId]?.isAi == true) {
+      if (_isServerDrivenSeat(playerId)) {
         _startTurnTimer();
       }
     }
@@ -1672,7 +1732,7 @@ class GameSession {
 
     for (final p in List<PlayerModel>.from(_state.players)) {
       final pid = p.id;
-      if (_players[pid]?.isAi != true) continue;
+      if (!_isServerDrivenSeat(pid)) continue;
       if (pid == _state.currentPlayerId) continue;
       if (_state.lastCardsDeclaredBy.contains(pid)) continue;
       if (!mayDeclareLastCards(
@@ -2004,15 +2064,8 @@ class GameSession {
     if (_gameOver) return;
     final currentId = _state.currentPlayerId;
     final slot = _players[currentId];
-    if (slot != null && slot.isAi) {
+    if (slot != null && (slot.isAi || slot.controlledByAi)) {
       _turnTimer = Timer(const Duration(milliseconds: 420), _executeAiTurn);
-      return;
-    }
-    if (slot != null && !slot.isAi && slot.ws == null) {
-      _turnTimer = Timer(
-        Duration.zero,
-        () => _onGraceDisconnectedTurnTimeout(currentId),
-      );
       return;
     }
     _turnTimer = Timer(_turnDuration, _onTurnTimeout);
@@ -2022,7 +2075,7 @@ class GameSession {
     if (_gameOver) return;
     final playerId = _state.currentPlayerId;
     final slot = _players[playerId];
-    if (slot == null || !slot.isAi) return;
+    if (slot == null || !(slot.isAi || slot.controlledByAi)) return;
 
     final plan = planServerAiTurn(
       state: _state,
@@ -2046,21 +2099,6 @@ class GameSession {
   void _onTurnTimeout() {
     if (_gameOver) return;
     _executeTurnTimeoutDrawAndAdvance(_state.currentPlayerId);
-  }
-
-  /// When the current seat is in disconnect grace ([_ConnectedPlayer.ws] null),
-  /// resolves their turn immediately like [_onTurnTimeout] so others are not
-  /// blocked for the full [_turnDuration].
-  void _onGraceDisconnectedTurnTimeout(String expectedPlayerId) {
-    if (_gameOver) return;
-    if (_state.currentPlayerId != expectedPlayerId) return;
-    final slot = _players[expectedPlayerId];
-    if (slot == null) return;
-    if (slot.ws != null) {
-      _startTurnTimer();
-      return;
-    }
-    _executeTurnTimeoutDrawAndAdvance(expectedPlayerId);
   }
 
   void _executeTurnTimeoutDrawAndAdvance(String timedOutPlayerId) {
@@ -2229,31 +2267,44 @@ class GameSession {
     final trophyEligible = _trophyEligible;
 
     // Compute per-player rating deltas for ranked games.
+    // Permanent leavers already received [recordLeavePenalty] and are omitted.
     Map<String, int>? ratingChanges;
     if (trophyEligible && isRanked) {
-      ratingChanges = {
-        for (final entry in _players.entries)
-          entry.key: entry.key == winnerId ? _rankedWinDelta : _rankedLossDelta,
-      };
-      final winnerUid = _players[winnerId]?.firebaseUid ?? winnerId;
-      final allPlayerUids = _players.entries
-          .map((e) => (
-                playerId: e.key,
-                uid: e.value.firebaseUid ?? e.key,
-                displayName: e.value.displayName,
-              ))
+      final rankedEntries = _players.entries
+          .where((e) => !_permanentAiLeaveIds.contains(e.key))
           .toList();
-      _log.info(
-        '[RANKED WIN] room=$roomCode winner: id=$winnerId '
-        'uid=$winnerUid name=${_players[winnerId]?.displayName} | '
-        'all: ${allPlayerUids.map((e) => '${e.playerId}(${e.displayName})=${e.uid}').join(', ')}',
-      );
-      _trophyRecorder.recordRankedResult(
-        winnerUid: winnerUid,
-        allPlayerUids: allPlayerUids,
-        playerCount: _players.length,
-        rankedHardcore: _rankedHardcoreRecords,
-      );
+      final winnerIsPermanentLeave = _permanentAiLeaveIds.contains(winnerId);
+      ratingChanges = {
+        for (final entry in rankedEntries)
+          entry.key: (!winnerIsPermanentLeave && entry.key == winnerId)
+              ? _rankedWinDelta
+              : _rankedLossDelta,
+      };
+      if (rankedEntries.isNotEmpty) {
+        final winnerUid = winnerIsPermanentLeave
+            ? ''
+            : (_players[winnerId]?.firebaseUid ?? winnerId);
+        final allPlayerUids = rankedEntries
+            .map((e) => (
+                  playerId: e.key,
+                  uid: e.value.firebaseUid ?? e.key,
+                  displayName: e.value.displayName,
+                ))
+            .toList();
+        _log.info(
+          '[RANKED WIN] room=$roomCode winner: id=$winnerId '
+          'uid=$winnerUid name=${_players[winnerId]?.displayName} | '
+          'all: ${allPlayerUids.map((e) => '${e.playerId}(${e.displayName})=${e.uid}').join(', ')}',
+        );
+        _trophyRecorder.recordRankedResult(
+          winnerUid: winnerUid,
+          allPlayerUids: allPlayerUids,
+          playerCount: _startingPlayerCount > 0
+              ? _startingPlayerCount
+              : _players.length,
+          rankedHardcore: _rankedHardcoreRecords,
+        );
+      }
     }
 
     if (trophyEligible && !isRanked && !isBustMode) {
