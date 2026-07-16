@@ -234,9 +234,6 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
       try {
         final uid =
             FirebaseAuth.instance.currentUser?.uid ?? OfflineGameState.localId;
-        // Firestore `leaderboard_tournament_online` is server-only; this
-        // updates local cache only for instant UI until online tournaments
-        // are driven by the game server.
         final collectionName = widget.isOnline
             ? 'leaderboard_tournament_online'
             : 'leaderboard_tournament_ai';

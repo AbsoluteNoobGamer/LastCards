@@ -298,6 +298,7 @@ describe('leaderboard_online/{uid} (server-only writes)', () => {
 /** Mirrors rules: same pattern as leaderboard_single_player (auth uid === doc id). */
 const clientWritableLeaderboardCollections = [
   'leaderboard_tournament_ai',
+  'leaderboard_tournament_online',
   'leaderboard_bust_offline',
 ];
 
@@ -329,7 +330,6 @@ for (const collection of clientWritableLeaderboardCollections) {
 
 /** Same rule shape as leaderboard_online — guards copy/paste drift in firestore.rules */
 const serverOnlyLeaderboardCollections = [
-  'leaderboard_tournament_online',
   'leaderboard_bust_online',
 ];
 

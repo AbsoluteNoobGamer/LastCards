@@ -21,9 +21,11 @@ class LeaderboardStatsWriter {
   static final LeaderboardStatsWriter instance = LeaderboardStatsWriter._();
 
   /// Collections written only by the game server (`allow write: if false` in rules).
+  ///
+  /// `leaderboard_tournament_online` is client-writable (same as tournament AI):
+  /// [TournamentCoordinator] owns multi-round online tournament outcomes.
   static const Set<String> firestoreServerOnlyCollections = {
     'leaderboard_online',
-    'leaderboard_tournament_online',
     'leaderboard_bust_online',
   };
 
