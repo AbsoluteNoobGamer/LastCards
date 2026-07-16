@@ -2069,6 +2069,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           // board region. Shared with Bust mode via TableChromeLayout.scaleFor
           // so both screens use the exact same curve.
           final tableScale = TableChromeLayout.scaleFor(layoutSize);
+          // Move log / banners stay near phone size on tablets so they don't
+          // cover the center piles when chrome scales up to ~2.2×.
+          final overlayScale = TableChromeLayout.overlayScaleFor(layoutSize);
           final mediaPadding = MediaQuery.paddingOf(context);
           final portraitSkipChipBottom = mediaPadding.bottom +
               (TablePortraitGrid.handRegionHeight +
@@ -2260,6 +2263,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     stackBlockBannerText: _stackBlockBannerText,
                     stackBlockBannerColor: _stackBlockBannerColor,
                     scale: tableScale,
+                    overlayScale: overlayScale,
                   ),
                 ),
 
@@ -2279,6 +2283,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                     stackBlockBannerText: _stackBlockBannerText,
                     stackBlockBannerColor: _stackBlockBannerColor,
                     scale: tableScale,
+                    overlayScale: overlayScale,
                   ),
                 ),
 
