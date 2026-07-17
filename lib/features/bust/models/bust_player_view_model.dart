@@ -13,12 +13,14 @@ class BustPlayerViewModel {
     this.isTournamentFinished = false,
     this.isTournamentEliminated = false,
     this.avatarUrl,
+    this.avatarCosmeticId,
     this.localAvatarFilePath,
   });
 
   final String id;
   final String displayName;
   final String? avatarUrl;
+  final String? avatarCosmeticId;
   /// Offline disk path for the local player's photo when [avatarUrl] is null.
   final String? localAvatarFilePath;
   final int cardCount;
@@ -70,6 +72,7 @@ class BustPlayerViewModel {
       id: player.id,
       displayName: player.displayName,
       avatarUrl: player.avatarUrl,
+      avatarCosmeticId: player.avatarCosmeticId,
       localAvatarFilePath:
           isLocal ? localAvatarFilePath : null,
       cardCount: player.cardCount,

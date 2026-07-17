@@ -41,6 +41,22 @@ Future<void> _flushAsync() async {
 }
 
 void main() {
+  group('sanitizeAvatarCosmeticId', () {
+    test('accepts catalog-style slugs', () {
+      expect(sanitizeAvatarCosmeticId('default_chip'), 'default_chip');
+      expect(sanitizeAvatarCosmeticId('title_combo_king'), 'title_combo_king');
+    });
+
+    test('rejects use_photo sentinel and unsafe values', () {
+      expect(sanitizeAvatarCosmeticId('use_photo'), isNull);
+      expect(sanitizeAvatarCosmeticId(''), isNull);
+      expect(sanitizeAvatarCosmeticId('../x'), isNull);
+      expect(sanitizeAvatarCosmeticId('Bad-Id'), isNull);
+      expect(sanitizeAvatarCosmeticId(null), isNull);
+      expect(sanitizeAvatarCosmeticId(12), isNull);
+    });
+  });
+
   group('sanitizeDisplayName', () {
     test('trims and caps length at 20', () {
       expect(sanitizeDisplayName('  hello  '), 'hello');

@@ -64,6 +64,7 @@ abstract final class OpponentsSplashHelpers {
   static List<OpponentSplashParticipant> fromAiConfigs({
     required String localDisplayName,
     String? localAvatarUrl,
+    String? localAvatarCosmeticId,
     required List<AiPlayerConfig> aiConfigs,
   }) {
     return [
@@ -71,6 +72,7 @@ abstract final class OpponentsSplashHelpers {
         displayName: localDisplayName,
         isLocalPlayer: true,
         avatarUrl: localAvatarUrl,
+        avatarCosmeticId: localAvatarCosmeticId,
       ),
       for (final c in aiConfigs)
         OpponentSplashParticipant(
@@ -86,6 +88,7 @@ abstract final class OpponentsSplashHelpers {
     List<TournamentPlayer> players, {
     required String localPlayerId,
     String? localAvatarUrl,
+    String? localAvatarCosmeticId,
   }) {
     return [
       for (final p in players)
@@ -93,6 +96,8 @@ abstract final class OpponentsSplashHelpers {
           displayName: p.displayName,
           isLocalPlayer: p.id == localPlayerId,
           avatarUrl: p.id == localPlayerId ? localAvatarUrl : null,
+          avatarCosmeticId:
+              p.id == localPlayerId ? localAvatarCosmeticId : null,
           avatarColor: p.aiConfig?.avatarColor,
           initials: p.aiConfig?.initials,
           badgeLabel: p.aiConfig?.personality.label,
@@ -105,6 +110,7 @@ abstract final class OpponentsSplashHelpers {
     String? localPlayerId,
     String? localDisplayNameFallback,
     String? localAvatarUrl,
+    String? localAvatarCosmeticId,
   }) {
     final resolvedLocalId =
         localPlayerId ?? resolveLocalPlayerId(gameState) ?? OfflineGameState.localId;
@@ -119,6 +125,9 @@ abstract final class OpponentsSplashHelpers {
                   : 'Player'),
           isLocalPlayer: p.id == resolvedLocalId,
           avatarUrl: p.id == resolvedLocalId ? (p.avatarUrl ?? localAvatarUrl) : p.avatarUrl,
+          avatarCosmeticId: p.id == resolvedLocalId
+              ? (p.avatarCosmeticId ?? localAvatarCosmeticId)
+              : p.avatarCosmeticId,
           avatarColor: p.isAi ? null : null,
           initials: p.isAi ? null : null,
         ),
@@ -129,6 +138,7 @@ abstract final class OpponentsSplashHelpers {
     List<String?> slotNames, {
     required int localSlotIndex,
     String? localAvatarUrl,
+    String? localAvatarCosmeticId,
   }) {
     return [
       for (var i = 0; i < slotNames.length; i++)
@@ -138,6 +148,8 @@ abstract final class OpponentsSplashHelpers {
               : 'Waiting…',
           isLocalPlayer: i == localSlotIndex,
           avatarUrl: i == localSlotIndex ? localAvatarUrl : null,
+          avatarCosmeticId:
+              i == localSlotIndex ? localAvatarCosmeticId : null,
         ),
     ];
   }
@@ -146,6 +158,7 @@ abstract final class OpponentsSplashHelpers {
     List<String> names, {
     required String localDisplayName,
     String? localAvatarUrl,
+    String? localAvatarCosmeticId,
   }) {
     return [
       for (final name in names)
@@ -153,6 +166,8 @@ abstract final class OpponentsSplashHelpers {
           displayName: name,
           isLocalPlayer: name == localDisplayName,
           avatarUrl: name == localDisplayName ? localAvatarUrl : null,
+          avatarCosmeticId:
+              name == localDisplayName ? localAvatarCosmeticId : null,
         ),
     ];
   }

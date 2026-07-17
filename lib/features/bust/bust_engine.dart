@@ -62,6 +62,8 @@ abstract final class BustEngine {
   ///
   /// [localAvatarUrl] optional HTTPS profile image when the local player is
   /// signed in (Firestore avatar).
+  ///
+  /// [localAvatarCosmeticId] optional Locker cosmetic for the local seat.
   static ({GameState gameState, List<CardModel> drawPile}) buildRound({
     required int playerCount,
     List<String>? seatPlayerIds,
@@ -70,6 +72,7 @@ abstract final class BustEngine {
     int? seed,
     String localDisplayName = 'You',
     String? localAvatarUrl,
+    String? localAvatarCosmeticId,
   }) {
     assert(playerCount >= 2 && playerCount <= 10,
         'Bust playerCount must be between 2 and 10');
@@ -109,6 +112,7 @@ abstract final class BustEngine {
           hand: hand,
           cardCount: hand.length,
           avatarUrl: localAvatarUrl,
+          avatarCosmeticId: localAvatarCosmeticId,
         ));
       } else {
         players.add(PlayerModel(

@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/app.dart';
 import 'core/services/ads_service.dart';
 import 'core/services/analytics_consent_service.dart';
+import 'core/services/avatar_catalog_service.dart';
 import 'core/services/card_back_service.dart';
 import 'core/services/profile_service.dart';
 import 'core/services/purchase_service.dart';
@@ -66,6 +67,7 @@ Future<void> main() async {
   // This is a no-op on all subsequent launches.
   await const ProfileService().initDefaultIfNeeded();
   await CardBackService.instance.init();
+  await AvatarCatalogService.instance.init();
   await AudioService.instance.init();
 
   // Ads/push are both optional, network/platform-plugin-heavy services —

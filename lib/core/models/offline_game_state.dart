@@ -32,11 +32,14 @@ abstract final class OfflineGameState {
   ///
   /// [localAvatarUrl] optional HTTPS profile image for the local seat (e.g.
   /// Firestore avatar when signed in).
+  ///
+  /// [localAvatarCosmeticId] optional Locker cosmetic for the local seat.
   static (GameState gameState, List<CardModel> drawPile) buildWithDeck({
     int totalPlayers = 2,
     Map<String, String> aiNames = const {},
     String localDisplayName = 'You',
     String? localAvatarUrl,
+    String? localAvatarCosmeticId,
   }) {
     assert(totalPlayers >= 2 && totalPlayers <= 7,
         'totalPlayers must be between 2 and 7');
@@ -64,6 +67,7 @@ abstract final class OfflineGameState {
         hand: localHand,
         cardCount: localHand.length,
         avatarUrl: localAvatarUrl,
+        avatarCosmeticId: localAvatarCosmeticId,
       ),
     ];
 

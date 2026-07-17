@@ -20,6 +20,7 @@ import '../../../../core/providers/game_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/services/analytics_service.dart';
+import '../../../../core/services/avatar_catalog_service.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../tournament/providers/tournament_session_provider.dart';
 import '../providers/online_session_provider.dart';
@@ -408,6 +409,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
 
     final qpAvatar =
         ref.read(userProfileProvider).valueOrNull?.avatarUrl;
+    final qpCosmetic =
+        AvatarCatalogService.instance.equippedCosmeticId;
 
     if (!wsClient.send(jsonEncode({
       'type': 'quickplay',
@@ -417,6 +420,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
       'displayName': displayName.isEmpty ? 'Player' : displayName,
       if (idToken != null) 'idToken': idToken,
       if (qpAvatar != null && qpAvatar.isNotEmpty) 'avatarUrl': qpAvatar,
+      if (qpCosmetic != null) 'avatarCosmeticId': qpCosmetic,
     }))) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

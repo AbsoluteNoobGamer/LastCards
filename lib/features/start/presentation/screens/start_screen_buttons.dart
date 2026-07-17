@@ -75,72 +75,80 @@ class _AuthProfileBadge extends ConsumerWidget {
     final String displayName = userProfile?.displayName ?? 'Guest';
     final String? avatarUrl = userProfile?.avatarUrl;
 
-    final Widget avatarWidget = avatarUrl != null
-        ? CircleAvatar(
+    return ValueListenableBuilder<String>(
+      valueListenable: AvatarCatalogService.instance.selectedId,
+      builder: (context, selectedAvatarId, _) {
+        final cosmeticId = selectedAvatarId == kAvatarUsePhotoId
+            ? null
+            : AvatarCatalogService.instance.equippedCosmeticId;
+        final Widget avatarWidget = CircleAvatar(
+          radius: 22,
+          backgroundColor: theme.surfacePanel,
+          child: GameplayCircleAvatar(
             radius: 22,
-            backgroundImage: NetworkImage(avatarUrl),
-            backgroundColor: theme.surfacePanel,
-          )
-        : CircleAvatar(
-            radius: 22,
-            backgroundColor: theme.surfacePanel,
-            child: Icon(
-              Icons.person_rounded,
-              size: 24,
+            displayName: displayName,
+            avatarUrl: avatarUrl,
+            avatarCosmeticId: cosmeticId,
+            foregroundTextStyle: TextStyle(
               color: theme.accentPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
             ),
-          );
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(top: 8, right: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(40),
-          border: Border.all(
-            color: theme.accentPrimary.withValues(alpha: 0.7),
-            width: 1.5,
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            PrestigeAvatarFrame(
-              avatarRadius: 22,
-              inactiveBorderColor: theme.accentPrimary,
-              inactiveBorderWidth: 2,
-              child: avatarWidget,
-            ),
-            const SizedBox(width: 8),
-            PlayerLevelChip(
-              accentColor: theme.accentPrimary,
-              backgroundColor: theme.accentPrimary.withValues(alpha: 0.15),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                displayName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.3,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+        );
+
+        return GestureDetector(
+          onTap: onTap,
+          child: Container(
+            margin: const EdgeInsets.only(top: 8, right: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(40),
+              border: Border.all(
+                color: theme.accentPrimary.withValues(alpha: 0.7),
+                width: 1.5,
               ),
             ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.account_circle_rounded,
-              color: theme.accentPrimary,
-              size: 16,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PrestigeAvatarFrame(
+                  avatarRadius: 22,
+                  inactiveBorderColor: theme.accentPrimary,
+                  inactiveBorderWidth: 2,
+                  child: avatarWidget,
+                ),
+                const SizedBox(width: 8),
+                PlayerLevelChip(
+                  accentColor: theme.accentPrimary,
+                  backgroundColor: theme.accentPrimary.withValues(alpha: 0.15),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    displayName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.account_circle_rounded,
+                  color: theme.accentPrimary,
+                  size: 16,
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -346,21 +354,22 @@ class _AuthProfileSheetState extends ConsumerState<_AuthProfileSheet> {
                             avatarRadius: 40,
                             inactiveBorderColor: theme.accentPrimary,
                             inactiveBorderWidth: 2,
-                            child: avatarUrl != null
-                                ? CircleAvatar(
-                                    radius: 40,
-                                    backgroundImage: NetworkImage(avatarUrl),
-                                    backgroundColor: theme.surfacePanel,
-                                  )
-                                : CircleAvatar(
-                                    radius: 40,
-                                    backgroundColor: theme.surfacePanel,
-                                    child: Icon(
-                                      Icons.person_rounded,
-                                      size: 48,
-                                      color: theme.accentPrimary,
-                                    ),
-                                  ),
+                            child: CircleAvatar(
+                              radius: 40,
+                              backgroundColor: theme.surfacePanel,
+                              child: GameplayCircleAvatar(
+                                radius: 40,
+                                displayName: displayName,
+                                avatarUrl: avatarUrl,
+                                avatarCosmeticId: AvatarCatalogService
+                                    .instance.equippedCosmeticId,
+                                foregroundTextStyle: TextStyle(
+                                  color: theme.accentPrimary,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
                           ),
                           Positioned(
                             bottom: -2,

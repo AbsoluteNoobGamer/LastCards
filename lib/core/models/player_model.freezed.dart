@@ -44,6 +44,10 @@ mixin _$PlayerModel {
   /// may be set client-side for offline play when the user has a Firestore avatar.
   String? get avatarUrl => throw _privateConstructorUsedError;
 
+  /// In-game Locker avatar cosmetic id (e.g. `spade_ace`). When set, clients
+  /// render the catalog face instead of [avatarUrl] / initials.
+  String? get avatarCosmeticId => throw _privateConstructorUsedError;
+
   /// Server-driven bot in a private online lobby (no WebSocket).
   bool get isAi => throw _privateConstructorUsedError;
 
@@ -72,6 +76,7 @@ abstract class $PlayerModelCopyWith<$Res> {
       bool lastCardsHandWasClearableAtTurnStart,
       String? firebaseUid,
       String? avatarUrl,
+      String? avatarCosmeticId,
       bool isAi});
 }
 
@@ -98,6 +103,7 @@ class _$PlayerModelCopyWithImpl<$Res, $Val extends PlayerModel>
     Object? lastCardsHandWasClearableAtTurnStart = null,
     Object? firebaseUid = freezed,
     Object? avatarUrl = freezed,
+    Object? avatarCosmeticId = freezed,
     Object? isAi = null,
   }) {
     return _then(_value.copyWith(
@@ -134,6 +140,10 @@ class _$PlayerModelCopyWithImpl<$Res, $Val extends PlayerModel>
           ? _value.avatarUrl
           : avatarUrl // ignore: cast_nullable_to_non_nullable
               as String?,
+      avatarCosmeticId: freezed == avatarCosmeticId
+          ? _value.avatarCosmeticId
+          : avatarCosmeticId // ignore: cast_nullable_to_non_nullable
+              as String?,
       isAi: null == isAi
           ? _value.isAi
           : isAi // ignore: cast_nullable_to_non_nullable
@@ -159,6 +169,7 @@ abstract class _$$PlayerModelImplCopyWith<$Res>
       bool lastCardsHandWasClearableAtTurnStart,
       String? firebaseUid,
       String? avatarUrl,
+      String? avatarCosmeticId,
       bool isAi});
 }
 
@@ -183,6 +194,7 @@ class __$$PlayerModelImplCopyWithImpl<$Res>
     Object? lastCardsHandWasClearableAtTurnStart = null,
     Object? firebaseUid = freezed,
     Object? avatarUrl = freezed,
+    Object? avatarCosmeticId = freezed,
     Object? isAi = null,
   }) {
     return _then(_$PlayerModelImpl(
@@ -219,6 +231,10 @@ class __$$PlayerModelImplCopyWithImpl<$Res>
           ? _value.avatarUrl
           : avatarUrl // ignore: cast_nullable_to_non_nullable
               as String?,
+      avatarCosmeticId: freezed == avatarCosmeticId
+          ? _value.avatarCosmeticId
+          : avatarCosmeticId // ignore: cast_nullable_to_non_nullable
+              as String?,
       isAi: null == isAi
           ? _value.isAi
           : isAi // ignore: cast_nullable_to_non_nullable
@@ -239,6 +255,7 @@ class _$PlayerModelImpl implements _PlayerModel {
       this.lastCardsHandWasClearableAtTurnStart = false,
       this.firebaseUid,
       this.avatarUrl,
+      this.avatarCosmeticId,
       this.isAi = false})
       : _hand = hand;
 
@@ -287,6 +304,11 @@ class _$PlayerModelImpl implements _PlayerModel {
   @override
   final String? avatarUrl;
 
+  /// In-game Locker avatar cosmetic id (e.g. `spade_ace`). When set, clients
+  /// render the catalog face instead of [avatarUrl] / initials.
+  @override
+  final String? avatarCosmeticId;
+
   /// Server-driven bot in a private online lobby (no WebSocket).
   @override
   @JsonKey()
@@ -294,7 +316,7 @@ class _$PlayerModelImpl implements _PlayerModel {
 
   @override
   String toString() {
-    return 'PlayerModel(id: $id, displayName: $displayName, tablePosition: $tablePosition, hand: $hand, cardCount: $cardCount, lastCardsHandWasClearableAtTurnStart: $lastCardsHandWasClearableAtTurnStart, firebaseUid: $firebaseUid, avatarUrl: $avatarUrl, isAi: $isAi)';
+    return 'PlayerModel(id: $id, displayName: $displayName, tablePosition: $tablePosition, hand: $hand, cardCount: $cardCount, lastCardsHandWasClearableAtTurnStart: $lastCardsHandWasClearableAtTurnStart, firebaseUid: $firebaseUid, avatarUrl: $avatarUrl, avatarCosmeticId: $avatarCosmeticId, isAi: $isAi)';
   }
 
   @override
@@ -318,6 +340,8 @@ class _$PlayerModelImpl implements _PlayerModel {
                 other.firebaseUid == firebaseUid) &&
             (identical(other.avatarUrl, avatarUrl) ||
                 other.avatarUrl == avatarUrl) &&
+            (identical(other.avatarCosmeticId, avatarCosmeticId) ||
+                other.avatarCosmeticId == avatarCosmeticId) &&
             (identical(other.isAi, isAi) || other.isAi == isAi));
   }
 
@@ -333,6 +357,7 @@ class _$PlayerModelImpl implements _PlayerModel {
       lastCardsHandWasClearableAtTurnStart,
       firebaseUid,
       avatarUrl,
+      avatarCosmeticId,
       isAi);
 
   /// Create a copy of PlayerModel
@@ -361,6 +386,7 @@ abstract class _PlayerModel implements PlayerModel {
       final bool lastCardsHandWasClearableAtTurnStart,
       final String? firebaseUid,
       final String? avatarUrl,
+      final String? avatarCosmeticId,
       final bool isAi}) = _$PlayerModelImpl;
 
   factory _PlayerModel.fromJson(Map<String, dynamic> json) =
@@ -396,6 +422,11 @@ abstract class _PlayerModel implements PlayerModel {
   /// may be set client-side for offline play when the user has a Firestore avatar.
   @override
   String? get avatarUrl;
+
+  /// In-game Locker avatar cosmetic id (e.g. `spade_ace`). When set, clients
+  /// render the catalog face instead of [avatarUrl] / initials.
+  @override
+  String? get avatarCosmeticId;
 
   /// Server-driven bot in a private online lobby (no WebSocket).
   @override

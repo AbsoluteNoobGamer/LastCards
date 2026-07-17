@@ -10,6 +10,7 @@ import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/services/ads_service.dart';
 import '../../../../core/services/analytics_service.dart';
+import '../../../../core/services/avatar_catalog_service.dart';
 import '../../../../core/services/player_level_service.dart';
 import '../../../../services/audio_service.dart';
 import '../../../../services/game_sound.dart';
@@ -567,6 +568,8 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
       names,
       localDisplayName: localName,
       localAvatarUrl: localAvatarUrl,
+      localAvatarCosmeticId:
+          AvatarCatalogService.instance.equippedCosmeticId,
     );
     final diff = _aiDifficulty?.displayName;
 

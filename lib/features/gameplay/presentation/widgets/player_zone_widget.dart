@@ -445,6 +445,7 @@ class _OpponentAvatarZone extends StatelessWidget {
                           radius: 30,
                           displayName: player.displayName,
                           avatarUrl: player.avatarUrl,
+                          avatarCosmeticId: player.avatarCosmeticId,
                           initialsOverride: aiConfig?.initials ??
                               initialsFromDisplayName(player.displayName),
                           foregroundTextStyle: TextStyle(
@@ -707,6 +708,7 @@ class _PlayerLabel extends StatelessWidget {
                           radius: iconSize / 2,
                           displayName: player.displayName,
                           avatarUrl: player.avatarUrl,
+                          avatarCosmeticId: player.avatarCosmeticId,
                           localFilePath: localAvatarFilePath,
                           foregroundTextStyle: TextStyle(
                             color: positionColor,

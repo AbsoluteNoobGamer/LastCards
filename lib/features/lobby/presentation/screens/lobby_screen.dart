@@ -33,6 +33,7 @@ import '../../../../core/network/websocket_client.dart';
 import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/providers/game_provider.dart';
 import '../../../../core/services/analytics_service.dart';
+import '../../../../core/services/avatar_catalog_service.dart';
 import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/providers/theme_provider.dart';
@@ -874,12 +875,15 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     }
     if (!mounted) return;
     final avatarUrl = ref.read(userProfileProvider).valueOrNull?.avatarUrl;
+    final avatarCosmeticId =
+        AvatarCatalogService.instance.equippedCosmeticId;
     if (!wsClient.send(jsonEncode({
       'type': 'join_room',
       'roomCode': code,
       'displayName': ref.read(displayNameForGameProvider),
       if (idToken != null) 'idToken': idToken,
       if (avatarUrl != null && avatarUrl.isNotEmpty) 'avatarUrl': avatarUrl,
+      if (avatarCosmeticId != null) 'avatarCosmeticId': avatarCosmeticId,
     }))) {
       setState(() => _pendingJoin = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -925,6 +929,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     if (!mounted) return;
     final createAvatarUrl =
         ref.read(userProfileProvider).valueOrNull?.avatarUrl;
+    final createCosmeticId =
+        AvatarCatalogService.instance.equippedCosmeticId;
     if (!wsClient.send(jsonEncode({
       'type': 'create_room',
       'displayName': ref.read(displayNameForGameProvider),
@@ -933,6 +939,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       if (idToken != null) 'idToken': idToken,
       if (createAvatarUrl != null && createAvatarUrl.isNotEmpty)
         'avatarUrl': createAvatarUrl,
+      if (createCosmeticId != null) 'avatarCosmeticId': createCosmeticId,
     }))) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1141,6 +1148,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     final localName = ref.read(displayNameForGameProvider);
     final localAvatarUrl =
         ref.read(userProfileProvider).valueOrNull?.avatarUrl;
+    final localCosmetic =
+        AvatarCatalogService.instance.equippedCosmeticId;
 
     final participants = gameState != null && gameState.players.isNotEmpty
         ? OpponentsSplashHelpers.fromGameState(
@@ -1148,11 +1157,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             localPlayerId: _localPlayerId,
             localDisplayNameFallback: localName,
             localAvatarUrl: localAvatarUrl,
+            localAvatarCosmeticId: localCosmetic,
           )
         : OpponentsSplashHelpers.fromDisplayNames(
             List<String?>.generate(totalPlayers, (i) => i == 0 ? localName : null),
             localSlotIndex: 0,
             localAvatarUrl: localAvatarUrl,
+            localAvatarCosmeticId: localCosmetic,
           );
 
     final variantLabel = switch (_privateGameVariant) {

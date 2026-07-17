@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/ai_player_config.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/providers/user_profile_provider.dart';
+import '../../../core/services/avatar_catalog_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../gameplay/presentation/opponents_splash_helpers.dart';
 import '../../gameplay/presentation/screens/opponents_splash_screen.dart';
@@ -324,6 +325,7 @@ void pushOfflineBustRun(NavigatorState navigator, WidgetRef ref) {
   final participants = OpponentsSplashHelpers.fromAiConfigs(
     localDisplayName: localName,
     localAvatarUrl: localAvatarUrl,
+    localAvatarCosmeticId: AvatarCatalogService.instance.equippedCosmeticId,
     aiConfigs: aiConfigs,
   );
 

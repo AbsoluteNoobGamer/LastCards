@@ -35,6 +35,7 @@ import 'package:last_cards/features/gameplay/presentation/widgets/quick_chat_pan
     show QuickChatPanel;
 import 'package:last_cards/features/gameplay/presentation/widgets/turn_indicator_overlay.dart';
 import 'package:last_cards/core/services/ads_service.dart';
+import 'package:last_cards/core/services/avatar_catalog_service.dart';
 import 'package:last_cards/core/services/purchase_service.dart';
 import 'package:last_cards/core/services/player_level_service.dart';
 import 'package:last_cards/shared/reactions/reaction_catalog.dart';
@@ -300,6 +301,8 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     final localDisplayName = ref.read(displayNameForGameProvider);
     final localAvatarUrl =
         ref.read(userProfileProvider).valueOrNull?.avatarUrl;
+    final localCosmetic =
+        AvatarCatalogService.instance.equippedCosmeticId;
 
     if (resume != null) {
       // ── Subsequent round: reuse existing AI configs + names
@@ -328,6 +331,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
         seed: seed,
         localDisplayName: localDisplayName,
         localAvatarUrl: localAvatarUrl,
+        localAvatarCosmeticId: localCosmetic,
       );
 
       _drawPile = drawPile;
@@ -365,6 +369,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
         seed: seed,
         localDisplayName: localDisplayName,
         localAvatarUrl: localAvatarUrl,
+        localAvatarCosmeticId: localCosmetic,
       );
 
       _drawPile = drawPile;

@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/services/ads_service.dart';
 import '../../../../core/services/player_level_service.dart';
 import '../../../../core/services/purchase_service.dart';
+import '../widgets/locker_avatars_tab.dart';
 import '../widgets/locker_cosmetics_tabs.dart';
 import '../widgets/locker_effects_tab.dart';
 import '../widgets/locker_reactions_tab.dart';
@@ -37,9 +38,10 @@ abstract final class LockerTab {
   static const cardBacks = 0;
   static const jokers = 1;
   static const faces = 2;
-  static const reactions = 3;
-  static const tableTheme = 4;
-  static const effects = 5;
+  static const avatars = 3;
+  static const reactions = 4;
+  static const tableTheme = 5;
+  static const effects = 6;
 }
 
 class _LockerScreenState extends State<LockerScreen> with SingleTickerProviderStateMixin {
@@ -49,6 +51,7 @@ class _LockerScreenState extends State<LockerScreen> with SingleTickerProviderSt
     Tab(text: 'Card backs'),
     Tab(text: 'Jokers'),
     Tab(text: 'Faces'),
+    Tab(text: 'Avatars'),
     Tab(text: 'Reactions'),
     Tab(text: 'Table theme'),
     Tab(text: 'Effects'),
@@ -108,6 +111,7 @@ class _LockerScreenState extends State<LockerScreen> with SingleTickerProviderSt
           LockerCardBacksTab(),
           LockerJokersTab(),
           LockerFacesTab(),
+          LockerAvatarsTab(),
           LockerReactionsTab(),
           LockerThemeTab(),
           LockerEffectsTab(),

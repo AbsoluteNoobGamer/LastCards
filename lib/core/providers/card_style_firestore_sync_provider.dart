@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../services/avatar_catalog_service.dart';
 import '../services/card_back_service.dart';
 import '../services/firestore_profile_service.dart';
 import 'auth_provider.dart';
@@ -53,5 +54,9 @@ Future<void> applyFirestoreDeckPrefs(FirestoreUserProfile? fp) async {
   final face = fp.cardFaceSetId?.trim();
   if (face != null && face.isNotEmpty) {
     await CardBackService.instance.selectCardFaceSet(face, pushToFirestore: push);
+  }
+  final avatar = fp.avatarSelectedId?.trim();
+  if (avatar != null && avatar.isNotEmpty) {
+    await AvatarCatalogService.instance.applyFromFirestore(avatar);
   }
 }
