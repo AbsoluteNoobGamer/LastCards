@@ -1610,8 +1610,9 @@ void main() {
       expect(ended['trophyEligible'], isTrue);
       final changes = ended['ratingChanges'] as Map<String, dynamic>?;
       expect(changes, isNotNull);
-      expect(changes![p1Id], 25);
-      expect(changes[p2Id], -15);
+      // 2-player table: scaled MMR (+15 / −10), not the historic 4p +25/−15.
+      expect(changes![p1Id], 15);
+      expect(changes[p2Id], -10);
 
       expect(recorder.rankedResultCalls, 1);
       expect(recorder.lastRankedWinnerUid, 'firebase-p1');
@@ -2501,7 +2502,7 @@ void main() {
           isFalse,
         );
 
-        async.elapse(const Duration(milliseconds: 420));
+        async.elapse(GameSession.aiActionDelayUpperBound);
         // AI acts for the vacant seat; opponent still sees a human-shaped roster.
         final snap = _latestSnapshot(g.p2ws);
         final players = snap['players'] as List<dynamic>;
@@ -2597,7 +2598,18 @@ void main() {
         p2ws.clear();
         session.handleSocketDisconnected(p1Id, p1ws);
         expect(session.isControlledByAiForTesting(p1Id), isTrue);
-        async.elapse(const Duration(milliseconds: 420));
+
+        // Disconnect AI must not blaze through the turn — humans need time to
+        // declare Last Cards on an opponent's turn (offline has the same grace).
+        async.elapse(
+          Duration(milliseconds: GameSession.aiOpeningThinkMsMin - 1),
+        );
+        expect(
+          p2ws.messages.any((m) => m['type'] == 'card_drawn'),
+          isFalse,
+        );
+
+        async.elapse(GameSession.aiActionDelayUpperBound);
 
         // Facing a pick-up stack with no Two, AI draws the penalty and advances.
         expect(

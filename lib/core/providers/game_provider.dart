@@ -731,7 +731,7 @@ final gameErrorProvider = Provider<String?>((ref) {
 });
 
 /// Per-player rating deltas from the most recent ranked game, or null.
-/// Key is server player ID; value is the rating delta (+25/-15).
+/// Key is server player ID; value is the rating delta (scales with table size).
 final rankedRatingChangesProvider = Provider<Map<String, int>?>((ref) {
   return ref.watch(gameNotifierProvider).rankedRatingChanges;
 });

@@ -13,16 +13,65 @@ part 'matchup_recorder.dart';
 
 // ── Rating constants ───────────────────────────────────────────────────────────
 
-const _kWinDelta = 25;
-const _kLossDelta = -15;
+const _kInitialRating = 1000;
 
-/// Rating change for disconnecting / abandoning a ranked match mid-game.
-///
-/// Severer than [_kLossDelta] (-15) so leaving is punished more than a normal loss.
-/// Kept in sync with [GameSession]'s disconnect `ratingChanges` broadcast.
+/// 4-player leave delta (historic flat value). Prefer [rankedLeaveDelta].
 const kRankedLeaveRatingDelta = -35;
 
-const _kInitialRating = 1000;
+/// Ranked win MMR by table size. 4-player stays at the historic +25.
+int rankedWinDelta(int playerCount) {
+  switch (playerCount.clamp(2, 7)) {
+    case 2:
+      return 15;
+    case 3:
+      return 20;
+    case 4:
+      return 25;
+    case 5:
+      return 30;
+    case 6:
+      return 35;
+    default:
+      return 40;
+  }
+}
+
+/// Ranked loss MMR by table size. 4-player stays at the historic −15.
+int rankedLossDelta(int playerCount) {
+  switch (playerCount.clamp(2, 7)) {
+    case 2:
+      return -10;
+    case 3:
+      return -12;
+    case 4:
+      return -15;
+    case 5:
+      return -18;
+    case 6:
+      return -20;
+    default:
+      return -22;
+  }
+}
+
+/// Ranked leave/abandon MMR by table size. Always worse than [rankedLossDelta]
+/// at the same size. 4-player stays at the historic −35.
+int rankedLeaveDelta(int playerCount) {
+  switch (playerCount.clamp(2, 7)) {
+    case 2:
+      return -25;
+    case 3:
+      return -30;
+    case 4:
+      return -35;
+    case 5:
+      return -40;
+    case 6:
+      return -45;
+    default:
+      return -50;
+  }
+}
 
 // ── Pure stat maps (unit-tested; used by [TrophyRecorder]) ───────────────────
 
@@ -34,7 +83,8 @@ const _kInitialRating = 1000;
 }) {
   final n = playerCount.clamp(2, 7);
   final hasBracket = playerCount >= 2;
-  final ratingDelta = isWinner ? _kWinDelta : _kLossDelta;
+  final ratingDelta =
+      isWinner ? rankedWinDelta(playerCount) : rankedLossDelta(playerCount);
   return (
     increments: {
       'rating': ratingDelta,
@@ -68,7 +118,7 @@ const _kInitialRating = 1000;
   final hasBracket = playerCount >= 2;
   return (
     increments: {
-      'rating': kRankedLeaveRatingDelta,
+      'rating': rankedLeaveDelta(playerCount),
       'leaves': 1,
       'losses': 1,
       'gamesPlayed': 1,
@@ -655,8 +705,8 @@ class TrophyRecorder implements TrophyPersistence {
 
   /// Records the result of a completed ranked game for every participant.
   ///
-  /// [winnerUid] receives +[_kWinDelta] rating; all other [allPlayerUids]
-  /// receive [_kLossDelta] rating. All get gamesPlayed incremented.
+  /// [winnerUid] receives [rankedWinDelta]; all other [allPlayerUids]
+  /// receive [rankedLossDelta]. All get gamesPlayed incremented.
   /// Each player's [displayName] is persisted for leaderboard display.
   ///
   /// [playerCount] (2–7) is used to also increment per-bracket fields

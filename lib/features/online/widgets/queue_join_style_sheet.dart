@@ -137,14 +137,16 @@ class QueueJoinStyleSheet extends ConsumerWidget {
                   _JoinStyleCard(
                     emoji: '🪑',
                     label: 'Select table',
-                    description: 'Choose how many players, then find a match',
+                    description:
+                        'Choose 2–7 players, then open a table at that size',
                     onTap: () => _pickSelectTable(context, ref),
                   ),
                   const SizedBox(height: 12),
                   _JoinStyleCard(
                     emoji: '⚡',
                     label: 'Quick match',
-                    description: 'Join a table that is already waiting',
+                    description:
+                        'Jump into any open table already waiting for players',
                     onTap: () => _pickQuickMatch(context, ref),
                   ),
                 ],

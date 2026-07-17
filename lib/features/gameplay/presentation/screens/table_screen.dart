@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection' show Queue;
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -37,7 +38,9 @@ import '../../../../core/models/table_position_layout.dart';
 import '../../../../core/models/move_log_entry.dart';
 import '../../../../core/models/move_log_merge.dart';
 import '../../../../core/models/game_event.dart';
+import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/block_provider.dart';
+import '../../../../core/providers/online_rejoin_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/providers/profile_provider.dart';
@@ -1344,6 +1347,45 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }());
   }
 
+  /// Manual retry after auto-reconnect gives up — reconnect + [rejoin_session].
+  Future<void> _retryOnlineReconnect() async {
+    final wsClient = ref.read(wsClientProvider);
+    try {
+      await wsClient.connect();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Still can\'t reach the server. Try again shortly.'),
+          backgroundColor: Color(0xFFB71C1C),
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+    final creds = ref.read(onlineRejoinProvider);
+    final roomCode = creds.roomCode;
+    final playerId = creds.playerId;
+    final gs = ref.read(gameNotifierProvider).gameState;
+    if (roomCode == null ||
+        playerId == null ||
+        gs == null ||
+        gs.phase != GamePhase.playing) {
+      return;
+    }
+    final token = await ref.read(authServiceProvider).getIdToken();
+    if (!mounted) return;
+    final ok = wsClient.send(jsonEncode({
+      'type': 'rejoin_session',
+      'roomCode': roomCode,
+      'playerId': playerId,
+      if (token != null) 'idToken': token,
+    }));
+    if (!ok) {
+      ref.read(gameNotifierProvider.notifier).connectionSendFailed();
+    }
+  }
+
   void _onBackPressed() {
     final isOfflineMode = _isOfflineSession;
     final isRanked = ref.read(isRankedGameProvider);
@@ -1358,7 +1400,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               ? 'You will return to the menu and this match will end.\n\n'
                   'Are you sure you want to leave?'
               : 'You will be disconnected and the game will continue without you.'
-                  '${isRanked ? '\n\nIn ranked mode, abandoning a match counts as a loss with a larger MMR penalty than a normal defeat (-35).' : ''}'
+                  '${isRanked ? '\n\nIn ranked mode, abandoning a match counts as a loss with a larger MMR penalty than a normal defeat (worse than the loss for this table size).' : ''}'
                   '\n\nAre you sure you want to leave?',
           style: const TextStyle(color: Colors.white70),
         ),
@@ -2637,21 +2679,60 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             return const SizedBox.shrink();
                           }
                           final message = exhausted
-                              ? "Couldn't reconnect. Check your network or leave the table."
+                              ? "Couldn't reconnect. Check your network, try again, or leave the table."
                               : 'Reconnecting…';
                           return Material(
                             color: Colors.black.withValues(alpha: 0.55),
                             child: Center(
                               child: Padding(
                                 padding: const EdgeInsets.all(24),
-                                child: Text(
-                                  message,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      message,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    if (exhausted) ...[
+                                      const SizedBox(height: 20),
+                                      ConstrainedBox(
+                                        constraints:
+                                            const BoxConstraints(maxWidth: 320),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: OutlinedButton(
+                                                onPressed: _onBackPressed,
+                                                style: OutlinedButton.styleFrom(
+                                                  foregroundColor: Colors.white70,
+                                                  side: const BorderSide(
+                                                    color: Colors.white38,
+                                                  ),
+                                                ),
+                                                child: const Text('Leave'),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: ElevatedButton(
+                                                onPressed: () {
+                                                  unawaited(
+                                                    _retryOnlineReconnect(),
+                                                  );
+                                                },
+                                                child: const Text('Try again'),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
                             ),
@@ -4150,11 +4231,16 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         .where((p) => p.hand.isEmpty && p.cardCount == 0)
         .firstOrNull!;
     final localWon = winner.id == OfflineGameState.localId;
+    final xpPlayerCount = state.players.length;
     if (localWon) {
-      unawaited(PlayerLevelService.instance.awardWinXP());
+      unawaited(
+        PlayerLevelService.instance.awardWinXP(playerCount: xpPlayerCount),
+      );
       game_audio.AudioService.instance.playSound(GameSound.playerWin);
     } else {
-      unawaited(PlayerLevelService.instance.awardLossXP());
+      unawaited(
+        PlayerLevelService.instance.awardLossXP(playerCount: xpPlayerCount),
+      );
       game_audio.AudioService.instance.playSound(GameSound.playerLose);
     }
 
@@ -4212,7 +4298,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               });
             }());
           },
-          xpAwarded: winner.id == OfflineGameState.localId ? 50 : 10,
+          xpAwarded: winner.id == OfflineGameState.localId
+              ? PlayerLevelService.winXpForPlayerCount(xpPlayerCount)
+              : PlayerLevelService.lossXpForPlayerCount(xpPlayerCount),
           matchStats: _buildMatchStats(),
         ),
       );

@@ -214,7 +214,8 @@ void main() {
       expect(b.messages.any((m) => m['type'] == 'player_joined'), isTrue);
     });
 
-    test('quickplay casual matches two players and sends roster', () async {
+    test('quickplay casual matches two players and opens tournament vote',
+        () async {
       final rm = RoomManager();
       final a = FakeWs();
       final b = FakeWs();
@@ -240,12 +241,108 @@ void main() {
       expect(p2Joined, greaterThanOrEqualTo(2));
 
       expect(
-        a.messages.any((m) => m['type'] == 'state_snapshot'),
+        a.messages.any((m) => m['type'] == 'tournament_vote_open'),
         isTrue,
-        reason: 'game should start after match',
+        reason: 'public casual should vote before deal',
       );
       expect(
-        b.messages.any((m) => m['type'] == 'state_snapshot'),
+        a.messages.any((m) => m['type'] == 'state_snapshot'),
+        isFalse,
+        reason: 'deal waits for tournament vote',
+      );
+
+      a.addIncoming(jsonEncode({
+        'type': 'vote_tournament',
+        'wantTournament': true,
+      }));
+      b.addIncoming(jsonEncode({
+        'type': 'vote_tournament',
+        'wantTournament': true,
+      }));
+      await _flushAsync();
+
+      final result = a.lastOfType('tournament_vote_result');
+      expect(result, isNotNull);
+      expect(result!['isKnockoutTournament'], isTrue);
+      expect(
+        a.messages.any((m) => m['type'] == 'state_snapshot'),
+        isTrue,
+        reason: 'game starts after vote resolves',
+      );
+      expect(
+        a.lastOfType('session_config')?['isKnockoutTournament'],
+        isTrue,
+      );
+    });
+
+    test('quickplay casual tournament vote majority no stays standard',
+        () async {
+      final rm = RoomManager();
+      final a = FakeWs();
+      final b = FakeWs();
+      rm.handleConnection(a);
+      rm.handleConnection(b);
+
+      a.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'playerCount': 2,
+        'displayName': 'P1',
+      }));
+      b.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'playerCount': 2,
+        'displayName': 'P2',
+      }));
+      await _flushAsync();
+
+      a.addIncoming(jsonEncode({
+        'type': 'vote_tournament',
+        'wantTournament': false,
+      }));
+      b.addIncoming(jsonEncode({
+        'type': 'vote_tournament',
+        'wantTournament': true,
+      }));
+      await _flushAsync();
+
+      // Tie → standard (not knockout).
+      expect(
+        a.lastOfType('tournament_vote_result')?['isKnockoutTournament'],
+        isFalse,
+      );
+      expect(
+        a.lastOfType('session_config')?['isKnockoutTournament'],
+        isFalse,
+      );
+    });
+
+    test('quickplay ranked skips tournament vote and starts immediately',
+        () async {
+      final rm = RoomManager(
+        verifyIdToken: (_) async => 'firebase-u1',
+      );
+      final a = FakeWs();
+      final b = FakeWs();
+      rm.handleConnection(a);
+      rm.handleConnection(b);
+
+      final qp = {
+        'type': 'quickplay',
+        'gameMode': 'ranked',
+        'playerCount': 2,
+        'displayName': 'R',
+        'idToken': 't',
+      };
+      a.addIncoming(jsonEncode(qp));
+      b.addIncoming(jsonEncode({...qp, 'displayName': 'R2'}));
+      await _flushAsync();
+
+      expect(
+        a.messages.any((m) => m['type'] == 'tournament_vote_open'),
+        isFalse,
+      );
+      expect(
+        a.messages.any((m) => m['type'] == 'state_snapshot'),
         isTrue,
       );
     });

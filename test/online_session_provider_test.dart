@@ -2,6 +2,34 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:last_cards/features/online/providers/online_session_provider.dart';
 
 void main() {
+  group('OnlineGameMode.description', () {
+    test('ranked and hardcore descriptions call out the real differences', () {
+      expect(OnlineGameMode.ranked.description, contains('60s'));
+      expect(OnlineGameMode.ranked.description, contains('standard'));
+      expect(
+        OnlineGameMode.rankedHardcore.description,
+        contains('30s'),
+      );
+      expect(
+        OnlineGameMode.rankedHardcore.description.toLowerCase(),
+        contains('ace'),
+      );
+      expect(
+        OnlineGameMode.rankedHardcore.description.toLowerCase(),
+        contains('joker'),
+      );
+      expect(
+        OnlineGameMode.ranked.description,
+        isNot(equals(OnlineGameMode.rankedHardcore.description)),
+      );
+    });
+
+    test('casual and private descriptions stay distinct', () {
+      expect(OnlineGameMode.quickMatchCasual.description, contains('No MMR'));
+      expect(OnlineGameMode.privateGame.description, contains('code'));
+    });
+  });
+
   group('OnlineSessionNotifier.preparePublicRematch', () {
     test('switches Quick match to select-table with finished size', () {
       final notifier = OnlineSessionNotifier();

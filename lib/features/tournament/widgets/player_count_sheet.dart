@@ -10,7 +10,7 @@ import '../providers/tournament_session_provider.dart';
 import '../tournament_splash_launcher.dart';
 import 'tournament_sub_mode_sheet.dart';
 
-/// Player Count (4–7) for Knockout. Start → lobby (vs AI) or matchmaking (Online).
+/// Player Count (3–7) for Knockout. Start → lobby (vs AI) or matchmaking (Online).
 class TournamentPlayerCountSheet extends ConsumerStatefulWidget {
   const TournamentPlayerCountSheet({super.key});
 
@@ -99,20 +99,20 @@ class _TournamentPlayerCountSheetState
             ),
             const SizedBox(height: 20),
 
-            // 4–7 players (two rows: 4–5, then 6–7)
+            // 3–7 players (two rows: 3–5, then 6–7)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
-                    children: [4, 5].map((count) {
+                    children: [3, 4, 5].map((count) {
                       final isSelected = _selectedCount == count;
                       return Expanded(
                         child: Padding(
                           padding: EdgeInsets.only(
-                            left: count == 4 ? 0 : 8,
-                            right: count == 5 ? 0 : 8,
+                            left: count == 3 ? 0 : 6,
+                            right: count == 5 ? 0 : 6,
                           ),
                           child: _PlayerCountCard(
                             count: count,

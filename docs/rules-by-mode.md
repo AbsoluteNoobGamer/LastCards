@@ -78,6 +78,7 @@ When multiple effects are active together, resolve in this order:
 
 ### Tournament Mode
 - Uses all core gameplay rules above within each round.
+- Knockout player count: **3–7** (vs AI or Online).
 - Tournament progression:
   - Multiple players enter a round.
   - Players finish in order by emptying their hand.
@@ -90,8 +91,9 @@ When multiple effects are active together, resolve in this order:
 ### Play Online
 - Intended to use the same core gameplay rules.
 - Uses lobby/room flow for multiplayer sessions.
-- **Disconnect / leave (all online modes):** Mid-match, a dropped connection or explicit Leave keeps the seat; the **server plays that hand with AI** so the table can continue. Other clients still see the player’s normal name/avatar (not marked as a bot). An unexpected drop can **rejoin** the same seat (`rejoin_session`) and take control back; an explicit Leave is permanent AI for that seat. If **no connected humans** remain, the room is torn down.
-- **Ranked (standard / hardcore quickplay):** Explicit mid-game Leave applies **-35 MMR**, increments **leaves**, and counts as a **loss**. A brief disconnect that never rejoins is finished by AI and scores as a normal end-of-match win/loss (**+25** / **-15**). Closing a lobby before a normal finish can still apply leave handling when the seat is removed.
+- **Public casual (after match found):** Before cards are dealt, players get ~15s to vote whether the table should be a **knockout tournament** (finish-order UX). Majority yes → knockout; tie / majority no / timeout → standard. Ranked, hardcore, bust, and private lobbies skip this vote.
+- **Disconnect / leave (all online modes):** Mid-match, a dropped connection or explicit Leave keeps the seat; the **server plays that hand with AI** so the table can continue. Other clients still see the player’s normal name/avatar (not marked as a bot). An unexpected drop can **rejoin** the same seat (`rejoin_session`) and take control back — the client shows **Try again** if auto-reconnect fails; an explicit Leave is permanent AI for that seat. If **no connected humans** remain, the room is torn down.
+- **Ranked (standard / hardcore quickplay):** MMR scales with table size (2–7). At **4 players** the historic values still apply: win **+25**, loss **−15**, explicit Leave **−35** (Leave also increments **leaves** and counts as a **loss**). Larger tables pay more (e.g. 7p +40 / −22 / −50); smaller tables less (e.g. 2p +15 / −10 / −25). A brief disconnect that never rejoins is finished by AI and scores as a normal end-of-match win/loss. Closing a lobby before a normal finish can still apply leave handling when the seat is removed.
 - **Leaderboards:** Firestore collections `leaderboard_online` and `leaderboard_bust_online` are **server-written only** (Admin SDK); the client may cache increments locally for instant UI. Casual quickplay standard wins update `leaderboard_online` when the session is trophy-eligible (`!isPrivate`); online Bust finals update `leaderboard_bust_online` the same way. Multi-round **Tournament (Online)** results write to `leaderboard_tournament_online` from the client (`TournamentCoordinator`), same ownership model as Tournament (vs AI).
 
 ### Bust Mode
