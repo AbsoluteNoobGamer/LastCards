@@ -10,7 +10,7 @@ import 'tournament_type_sheet.dart';
 
 /// Sub-mode selection (Knockout vs Bust).
 ///
-/// Both Single Player and Online: Knockout → PlayerCount (4–7), Bust → BustSetupSheet.
+/// Both Single Player and Online: Knockout → PlayerCount (3–7), Bust → BustSetupSheet.
 /// Difficulty is auto-set to Hard for Knockout; format is Knockout.
 class TournamentSubModeSheet extends ConsumerWidget {
   const TournamentSubModeSheet({required this.type, super.key});
@@ -137,7 +137,7 @@ class TournamentSubModeSheet extends ConsumerWidget {
       return;
     }
 
-    // Knockout path — both Single Player and Online go to PlayerCount (4–7)
+    // Knockout path — both Single Player and Online go to PlayerCount (3–7)
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

@@ -43,15 +43,15 @@ enum OnlineGameMode {
   String get description {
     switch (this) {
       case OnlineGameMode.selectTableCasual:
-        return 'Choose how many players, then find a match';
+        return 'Pick a table size, then wait for players to fill it';
       case OnlineGameMode.quickMatchCasual:
-        return 'No ranking on the line — pick a table size or jump right in';
+        return 'No MMR · 60s turns · standard rules — pick a table or jump in';
       case OnlineGameMode.privateGame:
-        return 'Invite friends with a code';
+        return 'Invite friends with a code — host can choose casual or hardcore';
       case OnlineGameMode.ranked:
-        return 'Compete for MMR and climb the ladder';
+        return 'Ranked MMR · 60s turns · standard rules — can finish on Ace or Joker';
       case OnlineGameMode.rankedHardcore:
-        return 'Stricter rules, 30s turns — separate hardcore MMR';
+        return 'Separate Hardcore MMR · 30s turns · can\'t finish on Ace or Joker';
     }
   }
 

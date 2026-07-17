@@ -154,18 +154,58 @@ class PlayerLevelService {
     await prefs.setInt(_prefsTotalXpKey, _totalXp);
   }
 
-  Future<void> awardWinXP() async {
-    await awardXP(50);
+  /// Win XP by table size. 4-player stays at the historic +50.
+  static int winXpForPlayerCount(int playerCount) {
+    switch (playerCount.clamp(2, 7)) {
+      case 2:
+        return 30;
+      case 3:
+        return 40;
+      case 4:
+        return 50;
+      case 5:
+        return 60;
+      case 6:
+        return 70;
+      default:
+        return 80;
+    }
+  }
+
+  /// Loss XP by table size. 4-player stays at the historic +10.
+  static int lossXpForPlayerCount(int playerCount) {
+    switch (playerCount.clamp(2, 7)) {
+      case 2:
+        return 6;
+      case 3:
+        return 8;
+      case 4:
+        return 10;
+      case 5:
+        return 12;
+      case 6:
+        return 14;
+      default:
+        return 16;
+    }
+  }
+
+  /// Tournament win XP — 2× [winXpForPlayerCount] (4p stays +100).
+  static int tournamentWinXpForPlayerCount(int playerCount) =>
+      winXpForPlayerCount(playerCount) * 2;
+
+  Future<void> awardWinXP({int playerCount = 4}) async {
+    await awardXP(winXpForPlayerCount(playerCount));
     await _incrementStreak();
   }
 
-  Future<void> awardLossXP() async {
-    await awardXP(10);
+  Future<void> awardLossXP({int playerCount = 4}) async {
+    await awardXP(lossXpForPlayerCount(playerCount));
     await _resetStreak();
   }
 
-  Future<void> awardTournamentWinXP() async {
-    await awardXP(100);
+  Future<void> awardTournamentWinXP({int playerCount = 4}) async {
+    await awardXP(tournamentWinXpForPlayerCount(playerCount));
     await _incrementStreak();
   }
 

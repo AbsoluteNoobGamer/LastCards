@@ -2,6 +2,37 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:last_cards/core/services/player_level_service.dart';
 
 void main() {
+  group('PlayerLevelService XP by player count', () {
+    test('4-player keeps historic 50 / 10 / 100', () {
+      expect(PlayerLevelService.winXpForPlayerCount(4), 50);
+      expect(PlayerLevelService.lossXpForPlayerCount(4), 10);
+      expect(PlayerLevelService.tournamentWinXpForPlayerCount(4), 100);
+    });
+
+    test('full 2–7 win/loss table', () {
+      expect(
+        [for (var n = 2; n <= 7; n++) PlayerLevelService.winXpForPlayerCount(n)],
+        [30, 40, 50, 60, 70, 80],
+      );
+      expect(
+        [
+          for (var n = 2; n <= 7; n++)
+            PlayerLevelService.lossXpForPlayerCount(n)
+        ],
+        [6, 8, 10, 12, 14, 16],
+      );
+    });
+
+    test('tournament win is 2× win XP', () {
+      for (var n = 2; n <= 7; n++) {
+        expect(
+          PlayerLevelService.tournamentWinXpForPlayerCount(n),
+          PlayerLevelService.winXpForPlayerCount(n) * 2,
+        );
+      }
+    });
+  });
+
   group('PlayerLevelService.levelFromTotalXP', () {
     test('clamps negative XP to level 1', () {
       expect(PlayerLevelService.levelFromTotalXP(-10), 1);

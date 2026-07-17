@@ -319,7 +319,8 @@ final class GameEndedEvent extends GameEvent {
 
   /// Per-player rating deltas for ranked games.
   ///
-  /// Key is the server-side player ID; value is the rating change (+25/-15).
+  /// Key is the server-side player ID; value is the rating change (scales
+  /// with table size; 4p is +25/−15).
   /// Null when the game was not a ranked match.
   final Map<String, int>? ratingChanges;
 
@@ -550,6 +551,53 @@ final class TextChatEvent extends GameEvent {
 
   @override
   String get type => 'text_chat';
+}
+
+/// Public casual: pre-deal vote to play as knockout tournament.
+final class TournamentVoteOpenEvent extends GameEvent {
+  final int secondsRemaining;
+  final int totalVoters;
+  const TournamentVoteOpenEvent({
+    required this.secondsRemaining,
+    required this.totalVoters,
+  });
+
+  @override
+  String get type => 'tournament_vote_open';
+}
+
+/// Live tally while the pre-deal tournament vote is open.
+final class TournamentVoteUpdateEvent extends GameEvent {
+  final int yesCount;
+  final int noCount;
+  final int votedCount;
+  final int totalVoters;
+  const TournamentVoteUpdateEvent({
+    required this.yesCount,
+    required this.noCount,
+    required this.votedCount,
+    required this.totalVoters,
+  });
+
+  @override
+  String get type => 'tournament_vote_update';
+}
+
+/// Final result of the pre-deal tournament vote.
+final class TournamentVoteResultEvent extends GameEvent {
+  final bool isKnockoutTournament;
+  final int yesCount;
+  final int noCount;
+  final String reason;
+  const TournamentVoteResultEvent({
+    required this.isKnockoutTournament,
+    required this.yesCount,
+    required this.noCount,
+    required this.reason,
+  });
+
+  @override
+  String get type => 'tournament_vote_result';
 }
 
 // ── Outgoing actions (client → server) ───────────────────────────────────────
@@ -821,6 +869,23 @@ GameEvent parseServerEvent(String raw) {
           playerId: json['playerId'] as String? ?? '',
           displayName: json['displayName'] as String? ?? 'Player',
           text: json['text'] as String? ?? '',
+        ),
+      'tournament_vote_open' => TournamentVoteOpenEvent(
+          secondsRemaining: (json['secondsRemaining'] as num?)?.toInt() ?? 15,
+          totalVoters: (json['totalVoters'] as num?)?.toInt() ?? 0,
+        ),
+      'tournament_vote_update' => TournamentVoteUpdateEvent(
+          yesCount: (json['yesCount'] as num?)?.toInt() ?? 0,
+          noCount: (json['noCount'] as num?)?.toInt() ?? 0,
+          votedCount: (json['votedCount'] as num?)?.toInt() ?? 0,
+          totalVoters: (json['totalVoters'] as num?)?.toInt() ?? 0,
+        ),
+      'tournament_vote_result' => TournamentVoteResultEvent(
+          isKnockoutTournament:
+              json['isKnockoutTournament'] as bool? ?? false,
+          yesCount: (json['yesCount'] as num?)?.toInt() ?? 0,
+          noCount: (json['noCount'] as num?)?.toInt() ?? 0,
+          reason: json['reason'] as String? ?? '',
         ),
       'error' => ErrorEvent(
           code: json['code'] as String? ?? 'unknown',

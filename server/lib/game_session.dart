@@ -10,7 +10,7 @@ import 'package:last_cards/shared/engine/game_engine.dart';
 import 'package:last_cards/shared/engine/shuffle_utils.dart';
 import 'package:last_cards/shared/rules/move_log_support.dart';
 import 'package:last_cards/shared/rules/last_cards_rules.dart'
-    show mayDeclareLastCards;
+    show lastCardsMaxHandSize, mayDeclareLastCards;
 import 'package:last_cards/shared/rules/win_condition_rules.dart'
     show
         canConfirmPlayerWin,
@@ -73,11 +73,6 @@ class _ConnectedPlayer {
 ///   • Reshuffle when draw pile ≤ 5 cards.
 ///   • Win detection after every state mutation.
 ///   • Personalised state_snapshot broadcasts (each client sees own hand only).
-// ── Rating deltas for ranked mode ─────────────────────────────────────────────
-
-const _rankedWinDelta = 25;
-const _rankedLossDelta = -15;
-
 class GameSession {
   GameSession(
     this.roomCode, {
@@ -105,9 +100,10 @@ class GameSession {
   /// True for Bust mode: 10 players, 52-card deck, multi-round with elimination.
   final bool isBustMode;
 
-  /// Private lobby: knockout tournament UX (finish order) on a standard table.
+  /// Knockout tournament UX (finish order) on a standard table.
   /// Does not change server rules — only echoed for clients.
-  final bool isKnockoutTournament;
+  /// Mutable until [_startGame] so public casual tables can vote pre-deal.
+  bool isKnockoutTournament;
 
   /// True for ranked matchmaking: enables MMR recording via [TrophyPersistence].
   final bool isRanked;
@@ -187,6 +183,32 @@ class GameSession {
   /// Former reconnect grace (90s). Mid-game disconnects now use AI takeover
   /// immediately; constant retained for tests that still reference the name.
   static const Duration socketDisconnectGrace = Duration(seconds: 90);
+
+  /// Opening-turn think delay for server AI (bots + disconnect takeover).
+  /// Mirrors offline [TableScreen] pacing so humans can declare Last Cards.
+  static const int aiOpeningThinkMsMin = 1200;
+  static const int aiOpeningThinkMsMax = 2500;
+
+  /// Mid-turn follow-up delay (end turn / continue after a play).
+  static const int aiContinuationThinkMsMin = 350;
+  static const int aiContinuationThinkMsMax = 700;
+
+  /// Extra delay when a connected human may still need to declare Last Cards.
+  static const int aiLastCardsReactionGraceMsMin = 700;
+  static const int aiLastCardsReactionGraceMsMax = 1300;
+
+  /// Upper bound of one AI action delay (opening think + last-cards grace).
+  /// Tests can elapse this to guarantee [_executeAiTurn] has fired.
+  static Duration get aiActionDelayUpperBound => const Duration(
+        milliseconds: aiOpeningThinkMsMax + aiLastCardsReactionGraceMsMax,
+      );
+
+  /// Public casual pre-deal vote: play as knockout tournament?
+  static const Duration tournamentVoteDuration = Duration(seconds: 15);
+
+  Timer? _tournamentVoteTimer;
+  final Map<String, bool> _tournamentVotes = {};
+  bool _tournamentVoteOpen = false;
 
   bool _isServerDrivenSeat(String playerId) {
     final p = _players[playerId];
@@ -610,9 +632,28 @@ class GameSession {
         !isBustMode &&
         _state.currentPlayerId == playerId;
     _players.remove(playerId);
+    _tournamentVotes.remove(playerId);
     _broadcast({'type': 'player_left', 'playerId': playerId});
 
     if (_clearRoomWhenNoHumansRemain()) {
+      _tournamentVoteTimer?.cancel();
+      _tournamentVoteTimer = null;
+      _tournamentVoteOpen = false;
+      return;
+    }
+
+    if (_tournamentVoteOpen) {
+      _broadcast({
+        'type': 'tournament_vote_update',
+        'yesCount': _tournamentVotes.values.where((v) => v).length,
+        'noCount': _tournamentVotes.values.where((v) => !v).length,
+        'votedCount': _tournamentVotes.length,
+        'totalVoters': _humanPlayerCount,
+      });
+      if (_humanPlayerCount >= 2 &&
+          _tournamentVotes.length >= _humanPlayerCount) {
+        _resolveTournamentVote(reason: 'all_voted');
+      }
       return;
     }
 
@@ -724,10 +765,11 @@ class GameSession {
 
     Map<String, int>? ratingChanges;
     if (trophyPenaltyForLeaver && isRanked) {
+      final n = _startingPlayerCount.clamp(2, 7);
       ratingChanges = {
-        disconnectedPlayerId: kRankedLeaveRatingDelta,
+        disconnectedPlayerId: rankedLeaveDelta(n),
         for (final p in _state.players)
-          if (p.id != disconnectedPlayerId) p.id: _rankedWinDelta,
+          if (p.id != disconnectedPlayerId) p.id: rankedWinDelta(n),
       };
     }
 
@@ -822,7 +864,91 @@ class GameSession {
     _startTurnTimer();
   }
 
+  /// Whether this session should open a pre-deal knockout vote (public casual).
+  bool get offersPublicCasualTournamentVote =>
+      !isPrivate && !isRanked && !isBustMode && !isKnockoutTournament;
+
+  /// Opens the pre-deal tournament vote for public casual matches.
+  /// Call after the roster is seated and before any [markReady] auto-start.
+  void beginPublicCasualTournamentVote() {
+    if (_started || _tournamentVoteOpen) return;
+    if (!offersPublicCasualTournamentVote) {
+      for (final id in _players.keys) {
+        markReady(id);
+      }
+      return;
+    }
+    _tournamentVoteOpen = true;
+    _tournamentVotes.clear();
+    _tournamentVoteTimer?.cancel();
+    _tournamentVoteTimer = Timer(tournamentVoteDuration, () {
+      _resolveTournamentVote(reason: 'timeout');
+    });
+    _broadcastTournamentVoteOpen();
+  }
+
+  void castTournamentVote(String playerId, bool wantTournament) {
+    if (!_tournamentVoteOpen || _started) return;
+    final player = _players[playerId];
+    if (player == null || player.isAi) return;
+    if (_tournamentVotes.containsKey(playerId)) return;
+
+    _tournamentVotes[playerId] = wantTournament;
+    _broadcast({
+      'type': 'tournament_vote_update',
+      'yesCount': _tournamentVotes.values.where((v) => v).length,
+      'noCount': _tournamentVotes.values.where((v) => !v).length,
+      'votedCount': _tournamentVotes.length,
+      'totalVoters': _humanPlayerCount,
+    });
+
+    if (_tournamentVotes.length >= _humanPlayerCount) {
+      _resolveTournamentVote(reason: 'all_voted');
+    }
+  }
+
+  int get _humanPlayerCount =>
+      _players.values.where((p) => !p.isAi).length;
+
+  void _broadcastTournamentVoteOpen() {
+    _broadcast({
+      'type': 'tournament_vote_open',
+      'secondsRemaining': tournamentVoteDuration.inSeconds,
+      'totalVoters': _humanPlayerCount,
+    });
+  }
+
+  void _resolveTournamentVote({required String reason}) {
+    if (!_tournamentVoteOpen || _started) return;
+    _tournamentVoteTimer?.cancel();
+    _tournamentVoteTimer = null;
+    _tournamentVoteOpen = false;
+
+    final yes = _tournamentVotes.values.where((v) => v).length;
+    final no = _tournamentVotes.values.where((v) => !v).length;
+    final becomeKnockout = yes > no;
+    isKnockoutTournament = becomeKnockout;
+
+    _broadcast({
+      'type': 'tournament_vote_result',
+      'isKnockoutTournament': becomeKnockout,
+      'yesCount': yes,
+      'noCount': no,
+      'reason': reason,
+    });
+
+    _log.info(
+      'Tournament vote resolved ($reason): yes=$yes no=$no → '
+      'knockout=$becomeKnockout room=$roomCode',
+    );
+
+    for (final id in _players.keys) {
+      markReady(id);
+    }
+  }
+
   void markReady(String playerId) {
+    if (_tournamentVoteOpen) return;
     final player = _players[playerId];
     if (player != null) player.isReady = true;
 
@@ -1858,10 +1984,13 @@ class GameSession {
 
       Map<String, int>? ratingChanges;
       if (bustTrophyEligible && isRanked && winnerId != null) {
+        final n = (_startingPlayerCount > 0 ? _startingPlayerCount : _players.length)
+            .clamp(2, 7);
         ratingChanges = {
           for (final entry in _players.entries)
-            entry.key:
-                entry.key == winnerId ? _rankedWinDelta : _rankedLossDelta,
+            entry.key: entry.key == winnerId
+                ? rankedWinDelta(n)
+                : rankedLossDelta(n),
         };
         final winnerUid = _players[winnerId]?.firebaseUid ?? winnerId;
         final allPlayerUids = _players.entries
@@ -1955,10 +2084,13 @@ class GameSession {
 
     Map<String, int>? ratingChanges;
     if (bustTrophyEligible && isRanked) {
+      final n = (_startingPlayerCount > 0 ? _startingPlayerCount : _players.length)
+          .clamp(2, 7);
       ratingChanges = {
         for (final entry in _players.entries)
-          entry.key:
-              entry.key == winnerId ? _rankedWinDelta : _rankedLossDelta,
+          entry.key: entry.key == winnerId
+              ? rankedWinDelta(n)
+              : rankedLossDelta(n),
       };
       final winnerUid = _players[winnerId]?.firebaseUid ?? winnerId;
       final allPlayerUids = _players.entries
@@ -2070,10 +2202,62 @@ class GameSession {
     final currentId = _state.currentPlayerId;
     final slot = _players[currentId];
     if (slot != null && (slot.isAi || slot.controlledByAi)) {
-      _turnTimer = Timer(const Duration(milliseconds: 420), _executeAiTurn);
+      _turnTimer = Timer(_serverAiActionDelay(), _executeAiTurn);
       return;
     }
     _turnTimer = Timer(_turnDuration, _onTurnTimeout);
+  }
+
+  /// Human-paced delay before a server-driven AI action.
+  ///
+  /// Disconnect takeover used to fire in ~420ms, which left no real window to
+  /// declare Last Cards on an opponent's turn (offline already adds grace for
+  /// this — see TableScreen `_offlineLocalLastCardsReactionGraceMs`).
+  Duration _serverAiActionDelay() {
+    final openingTurn = _state.actionsThisTurn == 0;
+    final thinkMin =
+        openingTurn ? aiOpeningThinkMsMin : aiContinuationThinkMsMin;
+    final thinkMax =
+        openingTurn ? aiOpeningThinkMsMax : aiContinuationThinkMsMax;
+    var ms = _randomDelayMs(thinkMin, thinkMax);
+    if (openingTurn && _connectedHumanMayNeedLastCardsReaction()) {
+      ms += _randomDelayMs(
+        aiLastCardsReactionGraceMsMin,
+        aiLastCardsReactionGraceMsMax,
+      );
+    }
+    return Duration(milliseconds: ms);
+  }
+
+  int _randomDelayMs(int min, int max) {
+    if (max <= min) return min;
+    return min + _aiRng.nextInt((max - min) + 1);
+  }
+
+  /// True when a still-connected human might press Last Cards during this
+  /// opponent AI turn (same eligibility heuristic as offline grace).
+  bool _connectedHumanMayNeedLastCardsReaction() {
+    if (isBustMode) return false;
+    for (final entry in _players.entries) {
+      final id = entry.key;
+      final slot = entry.value;
+      if (slot.ws == null) continue;
+      if (slot.isAi || slot.controlledByAi) continue;
+      if (id == _state.currentPlayerId) continue;
+      if (_state.lastCardsDeclaredBy.contains(id)) continue;
+      final player = _state.playerById(id);
+      if (player == null) continue;
+      if (player.hand.length > lastCardsMaxHandSize &&
+          !canClearHandInOneTurn(
+            state: _state,
+            playerId: id,
+            isBustMode: isBustMode,
+          )) {
+        continue;
+      }
+      return true;
+    }
+    return false;
   }
 
   void _executeAiTurn() {
@@ -2279,11 +2463,15 @@ class GameSession {
           .where((e) => !_permanentAiLeaveIds.contains(e.key))
           .toList();
       final winnerIsPermanentLeave = _permanentAiLeaveIds.contains(winnerId);
+      final n = (_startingPlayerCount > 0
+              ? _startingPlayerCount
+              : rankedEntries.length)
+          .clamp(2, 7);
       ratingChanges = {
         for (final entry in rankedEntries)
           entry.key: (!winnerIsPermanentLeave && entry.key == winnerId)
-              ? _rankedWinDelta
-              : _rankedLossDelta,
+              ? rankedWinDelta(n)
+              : rankedLossDelta(n),
       };
       if (rankedEntries.isNotEmpty) {
         final winnerUid = winnerIsPermanentLeave

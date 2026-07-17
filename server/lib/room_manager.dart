@@ -161,6 +161,14 @@ class RoomManager {
       case 'rejoin_session':
         await _rejoinSession(ws, json);
         break;
+      case 'vote_tournament':
+        final roomCode = _playerRooms[ws];
+        final playerId = _playerIds[ws];
+        if (roomCode != null && playerId != null) {
+          final want = json['wantTournament'] == true;
+          _rooms[roomCode]?.castTournamentVote(playerId, want);
+        }
+        break;
       case 'play_cards':
       case 'draw_card':
       case 'declare_joker':
@@ -687,13 +695,20 @@ class RoomManager {
       session.sendPlayerRosterTo(qp.ws);
     }
 
-    // Second pass: mark all players ready so _startGame fires only after
-    // every player is in the session.
-    for (final playerId in playerIds) {
-      session.markReady(playerId);
+    // Public casual: short knockout vote before deal. Ranked / bust / already
+    // knockout skip the vote and auto-ready as before.
+    if (session.offersPublicCasualTournamentVote) {
+      session.beginPublicCasualTournamentVote();
+      _log.info(
+        'Match found — tournament vote open in room $roomCode '
+        '($effectivePlayerCount players)',
+      );
+    } else {
+      for (final playerId in playerIds) {
+        session.markReady(playerId);
+      }
+      _log.info('All players readied — game should start in room $roomCode');
     }
-
-    _log.info('All players readied — game should start in room $roomCode');
   }
 
   /// Fires [_quickplayQueueTimeout] after a queue's first join. If the table
