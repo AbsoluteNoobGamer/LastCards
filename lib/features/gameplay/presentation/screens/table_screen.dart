@@ -1302,7 +1302,17 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     unawaited(() async {
       await AdsService.instance.maybeShowInterstitialAfterMatch();
       if (!mounted) return;
+      // Capture size before clearing online state — rematch must open a
+      // concrete table queue (not Quick match / joinWaitingQueue), or the
+      // server returns no_waiting_tables and MatchmakingScreen pops to menu.
+      final session = ref.read(onlineSessionProvider);
+      final rematchPlayerCount = session.playerCount ??
+          ref.read(gameNotifierProvider).gameState?.players.length ??
+          widget.totalPlayers;
       ref.read(gameNotifierProvider.notifier).clearOnlineState();
+      ref.read(onlineSessionProvider.notifier).preparePublicRematch(
+            playerCount: rematchPlayerCount,
+          );
       final wsClient = ref.read(wsClientProvider);
       wsClient.send('{"type":"leave_room"}');
       wsClient.disconnect();
