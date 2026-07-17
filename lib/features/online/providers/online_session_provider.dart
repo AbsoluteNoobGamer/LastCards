@@ -161,6 +161,23 @@ class OnlineSessionNotifier extends StateNotifier<OnlineSessionState> {
     state = state.copyWith(playerCount: count);
   }
 
+  /// Rematch after a public match: always queue by concrete table size.
+  ///
+  /// Quick match (`joinWaitingQueue`) only joins tables that are already
+  /// waiting — after a game ends those are usually gone, so rematch would
+  /// immediately get `no_waiting_tables` and bounce to the start screen.
+  /// Switching to select-table with the finished match's size opens (or
+  /// joins) a real queue instead.
+  void preparePublicRematch({required int playerCount}) {
+    if (state.mode == null || state.mode == OnlineGameMode.privateGame) {
+      return;
+    }
+    state = state.copyWith(
+      queueJoinStyle: OnlineQueueJoinStyle.selectTable,
+      playerCount: playerCount,
+    );
+  }
+
   void reset() {
     state = const OnlineSessionState();
   }

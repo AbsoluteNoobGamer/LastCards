@@ -64,11 +64,10 @@ class _OnlineOpponentsSplashScreenState
     final isTournament = session.format != null;
 
     // Deliberately NOT resetting onlineSessionProvider here — a rematch from
-    // TableScreen reopens MatchmakingScreen expecting this session's
-    // mode/playerCount to still be set (see _requeueOnlineRematch). It gets
-    // cleared instead when the player actually leaves the online flow
-    // (_leaveOnlineMatch) or starts a fresh mode selection from the menu
-    // (setMode/setQueueJoinStyle already clear playerCount as a side effect).
+    // TableScreen reopens MatchmakingScreen expecting this session's mode
+    // (and then preparePublicRematch sets select-table + playerCount). It
+    // gets cleared when the player leaves (_leaveOnlineMatch) or starts a
+    // fresh mode selection from the menu.
 
     final Widget destination;
     if (isBust) {
