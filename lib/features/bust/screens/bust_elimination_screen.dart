@@ -10,6 +10,7 @@ import 'package:last_cards/core/theme/app_dimensions.dart';
 
 import '../../gameplay/presentation/opponents_splash_helpers.dart';
 import '../../../core/providers/user_profile_provider.dart';
+import '../../../core/services/avatar_catalog_service.dart';
 import '../models/bust_round_state.dart';
 import 'bust_game_screen.dart' show BustGameScreen, BustResumeState;
 import 'bust_winner_screen.dart';
@@ -336,6 +337,8 @@ class BustEliminationScreen extends ConsumerWidget {
       final participants = OpponentsSplashHelpers.fromAiConfigs(
         localDisplayName: playerNames[OfflineGameState.localId] ?? localName,
         localAvatarUrl: localAvatarUrl,
+        localAvatarCosmeticId:
+            AvatarCatalogService.instance.equippedCosmeticId,
         aiConfigs: survivorConfigs,
       );
 

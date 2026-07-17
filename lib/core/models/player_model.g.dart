@@ -20,6 +20,7 @@ _$PlayerModelImpl _$$PlayerModelImplFromJson(Map<String, dynamic> json) =>
           json['lastCardsHandWasClearableAtTurnStart'] as bool? ?? false,
       firebaseUid: json['firebaseUid'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
+      avatarCosmeticId: json['avatarCosmeticId'] as String?,
       isAi: json['isAi'] as bool? ?? false,
     );
 
@@ -34,6 +35,7 @@ Map<String, dynamic> _$$PlayerModelImplToJson(_$PlayerModelImpl instance) =>
           instance.lastCardsHandWasClearableAtTurnStart,
       'firebaseUid': instance.firebaseUid,
       'avatarUrl': instance.avatarUrl,
+      'avatarCosmeticId': instance.avatarCosmeticId,
       'isAi': instance.isAi,
     };
 

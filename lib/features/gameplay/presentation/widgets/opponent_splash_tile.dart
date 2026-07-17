@@ -13,6 +13,7 @@ class OpponentSplashParticipant {
     this.isLocalPlayer = false,
     this.avatarColor,
     this.avatarUrl,
+    this.avatarCosmeticId,
     this.initials,
     this.badgeLabel,
   });
@@ -21,6 +22,7 @@ class OpponentSplashParticipant {
   final bool isLocalPlayer;
   final Color? avatarColor;
   final String? avatarUrl;
+  final String? avatarCosmeticId;
   final String? initials;
   final String? badgeLabel;
 }
@@ -314,6 +316,7 @@ class _AvatarRing extends StatelessWidget {
             radius: size / 2 - 2,
             displayName: p.displayName,
             avatarUrl: p.avatarUrl,
+            avatarCosmeticId: p.avatarCosmeticId,
             initialsOverride: p.initials,
             foregroundTextStyle: TextStyle(
               color: Colors.white,

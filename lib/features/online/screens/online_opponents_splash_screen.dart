@@ -11,6 +11,7 @@ import '../../../core/providers/connection_provider.dart';
 import '../../../core/providers/game_provider.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/providers/user_profile_provider.dart';
+import '../../../core/services/avatar_catalog_service.dart';
 import '../../gameplay/presentation/opponents_splash_helpers.dart';
 import '../../gameplay/presentation/screens/opponents_splash_screen.dart';
 import '../../gameplay/presentation/screens/table_screen.dart';
@@ -194,11 +195,14 @@ class _OnlineOpponentsSplashScreenState
         gameState != null &&
         gameState.phase == GamePhase.playing;
 
+    final localCosmetic =
+        AvatarCatalogService.instance.equippedCosmeticId;
     final participants = gameState != null && gameState.players.isNotEmpty
         ? OpponentsSplashHelpers.fromGameState(
             gameState,
             localDisplayNameFallback: localName,
             localAvatarUrl: localAvatarUrl,
+            localAvatarCosmeticId: localCosmetic,
           )
         : OpponentsSplashHelpers.fromDisplayNames(
             List<String?>.generate(
@@ -207,6 +211,7 @@ class _OnlineOpponentsSplashScreenState
             ),
             localSlotIndex: 0,
             localAvatarUrl: localAvatarUrl,
+            localAvatarCosmeticId: localCosmetic,
           );
 
     final modeLabel = onlineSession.mode?.displayName ?? 'Online';

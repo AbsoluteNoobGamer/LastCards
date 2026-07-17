@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/ai_player_config.dart';
 import '../../../core/providers/game_provider.dart';
 import '../../../core/providers/user_profile_provider.dart';
+import '../../../core/services/avatar_catalog_service.dart';
 import '../../gameplay/presentation/opponents_splash_helpers.dart';
 import '../../gameplay/presentation/screens/opponents_splash_screen.dart';
 import '../../gameplay/presentation/screens/table_screen.dart';
@@ -36,6 +37,8 @@ class GameLoadingScreen extends ConsumerWidget {
     final participants = OpponentsSplashHelpers.fromAiConfigs(
       localDisplayName: localName,
       localAvatarUrl: localAvatarUrl,
+      localAvatarCosmeticId:
+          AvatarCatalogService.instance.equippedCosmeticId,
       aiConfigs: aiConfigs,
     );
 

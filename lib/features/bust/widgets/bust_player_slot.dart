@@ -107,6 +107,7 @@ class BustPlayerSlot extends ConsumerWidget {
                     radius: avatarSize / 2,
                     displayName: player.displayName,
                     avatarUrl: player.avatarUrl,
+                    avatarCosmeticId: player.avatarCosmeticId,
                     localFilePath: player.localAvatarFilePath,
                     foregroundTextStyle: TextStyle(
                       color: player.isEliminated

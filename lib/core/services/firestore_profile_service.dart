@@ -263,6 +263,9 @@ class FirestoreUserProfile {
   /// `default` or `classic` (see [CardBackService.selectCardFaceSet]).
   final String? cardFaceSetId;
 
+  /// In-game avatar cosmetic selection (`use_photo` or catalog id).
+  final String? avatarSelectedId;
+
   const FirestoreUserProfile({
     required this.displayName,
     this.avatarUrl,
@@ -271,6 +274,7 @@ class FirestoreUserProfile {
     this.cardBackSelectedId,
     this.selectedJokerCoverId,
     this.cardFaceSetId,
+    this.avatarSelectedId,
   });
 
   factory FirestoreUserProfile.fromDoc(DocumentSnapshot doc) {
@@ -301,6 +305,7 @@ class FirestoreUserProfile {
       cardBackSelectedId: data['cardBackSelectedId'] as String?,
       selectedJokerCoverId: data['jokerCoverSelectedId'] as String?,
       cardFaceSetId: data['cardFaceSet'] as String?,
+      avatarSelectedId: data['avatarSelectedId'] as String?,
     );
   }
 }

@@ -90,6 +90,7 @@ flutter:
     - assets/audio/bgm/
     - assets/audio/sfx/
     - assets/animated_cards/
+    - assets/avatars/
     - assets/images/
     - assets/images/cardbackcover/
     - assets/images/jokercover/

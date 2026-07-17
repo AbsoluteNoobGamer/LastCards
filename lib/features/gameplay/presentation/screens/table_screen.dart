@@ -32,6 +32,7 @@ import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/services/ads_service.dart';
 import '../../../../core/services/purchase_service.dart';
 import '../../../../core/services/analytics_service.dart';
+import '../../../../core/services/avatar_catalog_service.dart';
 import '../../../../core/services/player_level_service.dart';
 import '../../../../core/utils/ranked_tier_utils.dart';
 import '../../../../core/models/table_position_layout.dart';
@@ -885,6 +886,8 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         localDisplayName: ref.read(displayNameForGameProvider),
         localAvatarUrl:
             ref.read(userProfileProvider).valueOrNull?.avatarUrl,
+        localAvatarCosmeticId:
+            AvatarCatalogService.instance.equippedCosmeticId,
       );
       state = seeded.$1;
       drawPile = seeded.$2;

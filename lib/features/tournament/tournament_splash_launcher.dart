@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/offline_game_state.dart';
 import '../../core/providers/user_profile_provider.dart';
+import '../../core/services/avatar_catalog_service.dart';
 import '../../tournament/tournament_engine.dart';
 import '../gameplay/presentation/opponents_splash_helpers.dart';
 import '../gameplay/presentation/screens/opponents_splash_screen.dart';
@@ -35,6 +36,7 @@ void pushOfflineTournamentWithSplash({
     roster,
     localPlayerId: OfflineGameState.localId,
     localAvatarUrl: localAvatarUrl,
+    localAvatarCosmeticId: AvatarCatalogService.instance.equippedCosmeticId,
   );
 
   final diff = session.difficulty;

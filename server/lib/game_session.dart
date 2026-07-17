@@ -37,6 +37,7 @@ class _ConnectedPlayer {
     this.ws,
     this.firebaseUid,
     this.avatarUrl,
+    this.avatarCosmeticId,
     this.isAi = false,
     this.aiDifficulty = 'medium',
   });
@@ -45,6 +46,8 @@ class _ConnectedPlayer {
   final String? firebaseUid;
   /// HTTPS URL from client join payload; echoed in snapshots.
   final String? avatarUrl;
+  /// Locker cosmetic id from client join; echoed in snapshots.
+  final String? avatarCosmeticId;
   bool isReady = false;
   final bool isAi;
   final String aiDifficulty;
@@ -326,7 +329,7 @@ class GameSession {
   // ── Lobby ─────────────────────────────────────────────────────────────────
 
   String addPlayer(dynamic ws, String displayName,
-      {String? firebaseUid, String? avatarUrl}) {
+      {String? firebaseUid, String? avatarUrl, String? avatarCosmeticId}) {
     if (_started) {
       ws.sink.add(
           '{"type":"error","code":"game_started","message":"Game already in progress."}');
@@ -349,6 +352,7 @@ class GameSession {
       displayName: displayName,
       firebaseUid: firebaseUid,
       avatarUrl: avatarUrl,
+      avatarCosmeticId: avatarCosmeticId,
     );
 
     _broadcast({
@@ -360,6 +364,7 @@ class GameSession {
         cardCount: 0,
         firebaseUid: firebaseUid,
         avatarUrl: avatarUrl,
+        avatarCosmeticId: avatarCosmeticId,
         isAi: false,
       ).toJson(),
     });
@@ -581,6 +586,7 @@ class GameSession {
           cardCount: 0,
           firebaseUid: entry.value.firebaseUid,
           avatarUrl: entry.value.avatarUrl,
+          avatarCosmeticId: entry.value.avatarCosmeticId,
           isAi: entry.value.isAi,
         ).toJson(),
       }));
@@ -1077,6 +1083,7 @@ class GameSession {
         cardCount: hand.length,
         firebaseUid: entries[i].value.firebaseUid,
         avatarUrl: entries[i].value.avatarUrl,
+        avatarCosmeticId: entries[i].value.avatarCosmeticId,
         isAi: entries[i].value.isAi,
       ));
     }
@@ -2153,6 +2160,7 @@ class GameSession {
         cardCount: hand.length,
         firebaseUid: entries[i].value.firebaseUid,
         avatarUrl: entries[i].value.avatarUrl,
+        avatarCosmeticId: entries[i].value.avatarCosmeticId,
         isAi: entries[i].value.isAi,
       ));
     }

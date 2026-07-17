@@ -264,6 +264,15 @@ class MockGameEventHandler extends _i1.Mock implements _i5.GameEventHandler {
           as _i4.Stream<_i6.QuickChatEvent>);
 
   @override
+  _i4.Stream<_i6.TextChatEvent> get textChats =>
+      (super.noSuchMethod(
+            Invocation.getter(#textChats),
+            returnValue: _i4.Stream<_i6.TextChatEvent>.empty(),
+            returnValueForMissingStub: _i4.Stream<_i6.TextChatEvent>.empty(),
+          )
+          as _i4.Stream<_i6.TextChatEvent>);
+
+  @override
   _i4.Stream<_i6.InvalidPlayPenaltyEvent> get invalidPlayPenalties =>
       (super.noSuchMethod(
             Invocation.getter(#invalidPlayPenalties),
@@ -360,6 +369,15 @@ class MockGameEventHandler extends _i1.Mock implements _i5.GameEventHandler {
   bool sendQuickChat(_i6.QuickChatAction? action) =>
       (super.noSuchMethod(
             Invocation.method(#sendQuickChat, [action]),
+            returnValue: false,
+            returnValueForMissingStub: false,
+          )
+          as bool);
+
+  @override
+  bool sendTextChat(_i6.TextChatAction? action) =>
+      (super.noSuchMethod(
+            Invocation.method(#sendTextChat, [action]),
             returnValue: false,
             returnValueForMissingStub: false,
           )

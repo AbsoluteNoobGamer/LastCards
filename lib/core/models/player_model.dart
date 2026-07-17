@@ -48,6 +48,10 @@ class PlayerModel with _$PlayerModel {
     /// may be set client-side for offline play when the user has a Firestore avatar.
     String? avatarUrl,
 
+    /// In-game Locker avatar cosmetic id (e.g. `spade_ace`). When set, clients
+    /// render the catalog face instead of [avatarUrl] / initials.
+    String? avatarCosmeticId,
+
     /// Server-driven bot in a private online lobby (no WebSocket).
     @Default(false) bool isAi,
   }) = _PlayerModel;
