@@ -46,10 +46,14 @@ class AppUpdateBroadcaster {
     if (!shouldBroadcast) return;
 
     _log.info('New app version detected ($versionName) — broadcasting to app_updates topic.');
+    final title = (fields['announcementTitle'] as String?)?.trim();
+    final body = (fields['announcementBody'] as String?)?.trim();
     await _fcm.notifyTopic(
       topic: 'app_updates',
-      title: 'Update available',
-      body: 'A new version of Last Cards ($versionName) is out — update to keep playing.',
+      title: (title != null && title.isNotEmpty) ? title : 'Update available',
+      body: (body != null && body.isNotEmpty)
+          ? body
+          : 'A new version of Last Cards ($versionName) is out — update to keep playing.',
     );
   }
 }

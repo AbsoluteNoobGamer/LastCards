@@ -1,15 +1,28 @@
 # Manually-triggered broadcast of a new app_config/app_update doc.
 #
-# Run this ONLY after both stores show the build as actually live/approved
-# (not just uploaded) — see docs/release-checklist.md. It reads the version
-# from pubspec.yaml, writes latestBuildAndroid/latestBuildIos/latestVersionName
-# (and the store URLs) to Firestore, and the deployed server picks it up on
-# its next 10-minute poll and pushes the "update available" notification.
+# Run this ONLY after the store(s) you're announcing show the build as
+# actually live/approved (not just uploaded) — see docs/release-checklist.md.
+# It reads the version from pubspec.yaml, writes
+# latestBuildAndroid/latestBuildIos/latestVersionName (and the store URLs) to
+# Firestore, and the deployed server picks it up on its next 10-minute poll
+# and pushes the "update available" notification.
+#
+# If Android has cleared review but iOS hasn't yet, check "android_only" —
+# this skips writing latestBuildIos (so iOS devices don't get a stale
+# "update available" banner for a build that isn't in the App Store yet) and
+# switches the push copy to call out Android specifically. Re-run this
+# workflow with android_only unchecked once iOS clears review to announce it
+# there too.
 name: Publish release (push notification)
 
 on:
   workflow_dispatch:
     inputs:
+      android_only:
+        description: "iOS build for this version isn't live yet (e.g. still in App Review) — announce Android only"
+        type: boolean
+        required: false
+        default: false
       ios_store_url:
         description: "iOS App Store URL (only needed if it ever changes)"
         required: false
@@ -45,4 +58,5 @@ jobs:
           dart run bin/publish_release.dart \
             --yes \
             --ios-store-url="${{ inputs.ios_store_url }}" \
-            --android-store-url="${{ inputs.android_store_url }}"
+            --android-store-url="${{ inputs.android_store_url }}" \
+            ${{ inputs.android_only == 'true' && '--android-only' || '' }}
