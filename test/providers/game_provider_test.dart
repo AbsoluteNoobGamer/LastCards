@@ -248,4 +248,56 @@ void main() {
     expect(notifier.state.gameState!.phase, GamePhase.ended);
     expect(notifier.state.gameState!.winnerId, 'p1');
   });
+
+  test('tournament_vote_open is retained for splash after matchmaking handoff',
+      () async {
+    fakeWs.injectServerMessage(jsonEncode({
+      'type': 'tournament_vote_open',
+      'secondsRemaining': 15,
+      'totalVoters': 3,
+    }));
+    await flushEvents();
+
+    expect(notifier.state.tournamentVote.isOpen, isTrue);
+    expect(notifier.state.tournamentVote.totalVoters, 3);
+    expect(notifier.state.tournamentVote.secondsRemaining, greaterThan(0));
+    expect(notifier.state.tournamentVote.deadline, isNotNull);
+
+    fakeWs.injectServerMessage(jsonEncode({
+      'type': 'tournament_vote_update',
+      'yesCount': 2,
+      'noCount': 0,
+      'votedCount': 2,
+      'totalVoters': 3,
+    }));
+    await flushEvents();
+    expect(notifier.state.tournamentVote.yesCount, 2);
+    expect(notifier.state.tournamentVote.votedCount, 2);
+
+    fakeWs.injectServerMessage(jsonEncode({
+      'type': 'tournament_vote_result',
+      'isKnockoutTournament': true,
+      'yesCount': 2,
+      'noCount': 1,
+      'reason': 'all_voted',
+    }));
+    await flushEvents();
+    expect(notifier.state.tournamentVote.isOpen, isFalse);
+    expect(notifier.state.tournamentVote.resultIsKnockout, isTrue);
+    expect(notifier.state.isKnockoutTournamentSession, isTrue);
+  });
+
+  test('clearOnlineState clears tournament vote phase', () async {
+    fakeWs.injectServerMessage(jsonEncode({
+      'type': 'tournament_vote_open',
+      'secondsRemaining': 15,
+      'totalVoters': 2,
+    }));
+    await flushEvents();
+    expect(notifier.state.tournamentVote.isOpen, isTrue);
+
+    notifier.clearOnlineState();
+    expect(notifier.state.tournamentVote.isOpen, isFalse);
+    expect(notifier.state.tournamentVote.deadline, isNull);
+  });
 }

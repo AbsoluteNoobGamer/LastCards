@@ -19,12 +19,45 @@ void main() {
       expect(avatarDesignById(''), isNull);
     });
 
-    test('title exclusives cover the planned boards', () {
-      final kinds = kAvatarCatalog
-          .where((d) => d.isTitleExclusive)
-          .map((d) => d.exclusiveKind)
-          .toSet();
+    test('title exclusives cover the planned boards with labels', () {
+      final titles =
+          kAvatarCatalog.where((d) => d.isTitleExclusive).toList();
+      final kinds = titles.map((d) => d.exclusiveKind).toSet();
       expect(kinds, containsAll(AvatarExclusiveKind.values));
+      for (final d in titles) {
+        expect(d.leaderboardLabel, isNotNull);
+        expect(d.leaderboardLabel, isNotEmpty);
+        // Titles must not unlock via the normal level path.
+        expect(d.unlockLevel, 1);
+        expect(d.isTitleExclusive, isTrue);
+        // Leaderboard titles always loop an aura in AvatarFace.
+        expect(d.animated, isTrue);
+      }
+    });
+
+    test('leaderboardLabelForKind matches catalog copy', () {
+      expect(
+        leaderboardLabelForKind(AvatarExclusiveKind.comboKing),
+        'Combo leaderboard',
+      );
+      expect(
+        leaderboardLabelForKind(AvatarExclusiveKind.casualAce),
+        'Casual Online wins',
+      );
+      expect(
+        leaderboardLabelForKind(AvatarExclusiveKind.rankedCrown),
+        'Ranked MMR',
+      );
+    });
+
+    test('level unlocks are not title exclusives', () {
+      final levelOnly =
+          kAvatarCatalog.where((d) => !d.isTitleExclusive).toList();
+      expect(levelOnly, isNotEmpty);
+      for (final d in levelOnly) {
+        expect(d.exclusiveKind, isNull);
+        expect(d.leaderboardLabel, isNull);
+      }
     });
   });
 }

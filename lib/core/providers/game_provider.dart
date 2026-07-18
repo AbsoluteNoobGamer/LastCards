@@ -14,6 +14,65 @@ import '../network/game_event_handler.dart';
 import 'connection_provider.dart';
 import 'online_rejoin_provider.dart';
 
+// ── Pre-deal knockout vote (public casual) ───────────────────────────────────
+
+/// Captures [tournament_vote_*] while matchmaking is still on screen so the
+/// opponents splash can show the ballot after navigation (broadcast streams
+/// drop events for late subscribers).
+class TournamentVotePhase {
+  const TournamentVotePhase({
+    this.isOpen = false,
+    this.deadline,
+    this.yesCount = 0,
+    this.noCount = 0,
+    this.votedCount = 0,
+    this.totalVoters = 0,
+    this.resultIsKnockout,
+  });
+
+  final bool isOpen;
+
+  /// Absolute end of the vote window (client clock). Null when closed.
+  final DateTime? deadline;
+  final int yesCount;
+  final int noCount;
+  final int votedCount;
+  final int totalVoters;
+
+  /// Set when [tournament_vote_result] arrives; null while voting / idle.
+  final bool? resultIsKnockout;
+
+  int get secondsRemaining {
+    final d = deadline;
+    if (d == null) return 0;
+    final s = d.difference(DateTime.now()).inSeconds;
+    return s < 0 ? 0 : s;
+  }
+
+  TournamentVotePhase copyWith({
+    bool? isOpen,
+    DateTime? deadline,
+    int? yesCount,
+    int? noCount,
+    int? votedCount,
+    int? totalVoters,
+    bool? resultIsKnockout,
+    bool clearDeadline = false,
+    bool clearResult = false,
+  }) {
+    return TournamentVotePhase(
+      isOpen: isOpen ?? this.isOpen,
+      deadline: clearDeadline ? null : (deadline ?? this.deadline),
+      yesCount: yesCount ?? this.yesCount,
+      noCount: noCount ?? this.noCount,
+      votedCount: votedCount ?? this.votedCount,
+      totalVoters: totalVoters ?? this.totalVoters,
+      resultIsKnockout:
+          clearResult ? null : (resultIsKnockout ?? this.resultIsKnockout),
+    );
+  }
+}
+
 // ── Notifier state wrapper ────────────────────────────────────────────────────
 
 /// Wraps [GameState] with extra UI-facing fields that are not part of the
@@ -34,6 +93,7 @@ class GameNotifierState {
     this.isPrivateSession = false,
     this.isBustSession = false,
     this.isKnockoutTournamentSession = false,
+    this.tournamentVote = const TournamentVotePhase(),
     this.socketDisconnectedPlayerIds = const <String>{},
     this.gameEndedReason,
     this.gameEndedDisconnectedPlayerId,
@@ -91,6 +151,9 @@ class GameNotifierState {
   /// Knockout tournament UX ([session_config.isKnockoutTournament]).
   final bool isKnockoutTournamentSession;
 
+  /// Public casual pre-deal knockout vote (survives matchmaking → splash).
+  final TournamentVotePhase tournamentVote;
+
   /// [GameEndedEvent.reason] from the last game end, e.g. `player_disconnected`.
   /// Null for a normal win.
   final String? gameEndedReason;
@@ -114,6 +177,7 @@ class GameNotifierState {
     bool? isPrivateSession,
     bool? isBustSession,
     bool? isKnockoutTournamentSession,
+    TournamentVotePhase? tournamentVote,
     Set<String>? socketDisconnectedPlayerIds,
     String? gameEndedReason,
     String? gameEndedDisconnectedPlayerId,
@@ -145,6 +209,7 @@ class GameNotifierState {
       isBustSession: isBustSession ?? this.isBustSession,
       isKnockoutTournamentSession:
           isKnockoutTournamentSession ?? this.isKnockoutTournamentSession,
+      tournamentVote: tournamentVote ?? this.tournamentVote,
       socketDisconnectedPlayerIds: clearSocketDisconnected
           ? const <String>{}
           : (socketDisconnectedPlayerIds ?? this.socketDisconnectedPlayerIds),
@@ -564,6 +629,45 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
       }),
     );
 
+    // ── tournament_vote_* (public casual pre-deal) ──────────────────────────
+    // Subscribed here (not only on the splash) so the open event is not lost
+    // during the matchmaking → OnlineOpponentsSplashScreen handoff.
+    _subs.add(
+      _eventHandler.events.listen((e) {
+        if (e is TournamentVoteOpenEvent) {
+          state = state.copyWith(
+            tournamentVote: TournamentVotePhase(
+              isOpen: true,
+              deadline: DateTime.now()
+                  .add(Duration(seconds: e.secondsRemaining)),
+              totalVoters: e.totalVoters,
+            ),
+          );
+        } else if (e is TournamentVoteUpdateEvent) {
+          state = state.copyWith(
+            tournamentVote: state.tournamentVote.copyWith(
+              isOpen: true,
+              yesCount: e.yesCount,
+              noCount: e.noCount,
+              votedCount: e.votedCount,
+              totalVoters: e.totalVoters,
+            ),
+          );
+        } else if (e is TournamentVoteResultEvent) {
+          state = state.copyWith(
+            isKnockoutTournamentSession: e.isKnockoutTournament,
+            tournamentVote: state.tournamentVote.copyWith(
+              isOpen: false,
+              clearDeadline: true,
+              yesCount: e.yesCount,
+              noCount: e.noCount,
+              resultIsKnockout: e.isKnockoutTournament,
+            ),
+          );
+        }
+      }),
+    );
+
     // ── error ───────────────────────────────────────────────────────────────
     _subs.add(
       _eventHandler.errors.listen((e) {
@@ -690,6 +794,11 @@ final gameNotifierProvider =
 /// Convenience selector — the current game state (may be null before connect).
 final gameStateProvider = Provider<GameState?>((ref) {
   return ref.watch(gameNotifierProvider).gameState;
+});
+
+/// Public casual pre-deal knockout vote (captured even during matchmaking).
+final tournamentVoteProvider = Provider<TournamentVotePhase>((ref) {
+  return ref.watch(gameNotifierProvider).tournamentVote;
 });
 
 /// Whether it's the local player's turn.

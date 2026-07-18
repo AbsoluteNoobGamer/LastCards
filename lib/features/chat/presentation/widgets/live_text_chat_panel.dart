@@ -29,6 +29,7 @@ class LiveTextChatPanel extends StatefulWidget {
     this.enabled = true,
     this.hintText = 'say something…',
     this.onReportOrBlock,
+    this.autofocus = false,
     super.key,
   });
 
@@ -38,6 +39,9 @@ class LiveTextChatPanel extends StatefulWidget {
   final bool tall;
   final bool enabled;
   final String hintText;
+
+  /// Focus the composer when the panel is first built (e.g. table Chat tab).
+  final bool autofocus;
 
   /// Tapped a remote player's message; opens report/block UI. Local
   /// messages (own) are never tappable for this.
@@ -51,6 +55,16 @@ class _LiveTextChatPanelState extends State<LiveTextChatPanel> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   final _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.autofocus && widget.enabled) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusNode.requestFocus();
+      });
+    }
+  }
 
   @override
   void didUpdateWidget(covariant LiveTextChatPanel oldWidget) {
@@ -94,6 +108,7 @@ class _LiveTextChatPanelState extends State<LiveTextChatPanel> {
     }
     widget.onSend(filtered.text!);
     _controller.clear();
+    _focusNode.requestFocus();
   }
 
   @override
@@ -102,161 +117,180 @@ class _LiveTextChatPanelState extends State<LiveTextChatPanel> {
     final minHeight = widget.tall ? 220.0 : 140.0;
     final maxHeight = widget.tall ? 320.0 : 200.0;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: theme.accentDark.withValues(alpha: 0.55),
-          width: 1.2,
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'CHAT',
-            style: GoogleFonts.inter(
-              color: theme.accentPrimary,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.4,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: minHeight,
-              maxHeight: maxHeight,
-            ),
-            child: widget.messages.isEmpty
-                ? Center(
-                    child: Text(
-                      widget.enabled
-                          ? 'Say hi — keep it friendly.'
-                          : 'Join a room to chat.',
-                      style: GoogleFonts.inter(
-                        color: theme.textSecondary.withValues(alpha: 0.75),
-                        fontSize: 13,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    itemCount: widget.messages.length,
-                    itemBuilder: (context, i) {
-                      final m = widget.messages[i];
-                      final nameColor = m.isLocal
-                          ? theme.accentPrimary
-                          : theme.textSecondary;
-                      final canReport =
-                          !m.isLocal && widget.onReportOrBlock != null;
-                      final line = Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: RichText(
-                          text: TextSpan(
-                            style: GoogleFonts.inter(
-                              color: theme.textPrimary,
-                              fontSize: 13,
-                              height: 1.3,
-                            ),
-                            children: [
-                              TextSpan(
-                                text: '${m.displayName}  ',
-                                style: TextStyle(
-                                  color: nameColor,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              TextSpan(text: m.text),
-                            ],
-                          ),
-                        ),
-                      );
-                      if (!canReport) return line;
-                      return InkWell(
-                        onTap: () => widget.onReportOrBlock!(m),
-                        child: line,
-                      );
-                    },
-                  ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  enabled: widget.enabled,
-                  maxLength: kChatMessageMaxLength,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => _submit(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Table sheet gives a bounded height; lobby scroll views do not.
+        // In bounded mode the transcript must flex so the TextField stays
+        // inside the hit-testable bounds (overflow paints but is not tappable).
+        final expand = constraints.hasBoundedHeight;
+
+        Widget messageBody = widget.messages.isEmpty
+            ? Center(
+                child: Text(
+                  widget.enabled
+                      ? 'Say hi — keep it friendly.'
+                      : 'Join a room to chat.',
                   style: GoogleFonts.inter(
-                    color: theme.textPrimary,
-                    fontSize: 14,
+                    color: theme.textSecondary.withValues(alpha: 0.75),
+                    fontSize: 13,
                   ),
-                  decoration: InputDecoration(
-                    counterText: '',
-                    hintText: widget.hintText,
-                    hintStyle: GoogleFonts.inter(
-                      color: theme.textSecondary.withValues(alpha: 0.55),
-                      fontSize: 13,
-                    ),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    filled: true,
-                    fillColor: Colors.black.withValues(alpha: 0.35),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: theme.accentDark.withValues(alpha: 0.45),
+                  textAlign: TextAlign.center,
+                ),
+              )
+            : ListView.builder(
+                controller: _scrollController,
+                padding: EdgeInsets.zero,
+                itemCount: widget.messages.length,
+                itemBuilder: (context, i) {
+                  final m = widget.messages[i];
+                  final nameColor =
+                      m.isLocal ? theme.accentPrimary : theme.textSecondary;
+                  final canReport =
+                      !m.isLocal && widget.onReportOrBlock != null;
+                  final line = Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: RichText(
+                      text: TextSpan(
+                        style: GoogleFonts.inter(
+                          color: theme.textPrimary,
+                          fontSize: 13,
+                          height: 1.3,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: '${m.displayName}  ',
+                            style: TextStyle(
+                              color: nameColor,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          TextSpan(text: m.text),
+                        ],
                       ),
                     ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: theme.accentPrimary),
-                    ),
-                    disabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: theme.textSecondary.withValues(alpha: 0.2),
-                      ),
-                    ),
-                  ),
+                  );
+                  if (!canReport) return line;
+                  return InkWell(
+                    onTap: () => widget.onReportOrBlock!(m),
+                    child: line,
+                  );
+                },
+              );
+
+        final Widget messageArea = expand
+            ? Expanded(child: messageBody)
+            : ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: minHeight,
+                  maxHeight: maxHeight,
+                ),
+                child: messageBody,
+              );
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: theme.accentDark.withValues(alpha: 0.55),
+              width: 1.2,
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
+            children: [
+              Text(
+                'CHAT',
+                style: GoogleFonts.inter(
+                  color: theme.accentPrimary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.4,
                 ),
               ),
-              const SizedBox(width: 8),
-              Material(
-                color: widget.enabled
-                    ? theme.accentPrimary
-                    : theme.textSecondary.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(12),
-                child: InkWell(
-                  onTap: widget.enabled ? _submit : null,
-                  borderRadius: BorderRadius.circular(12),
-                  child: SizedBox(
-                    width: 42,
-                    height: 42,
-                    child: Icon(
-                      Icons.send_rounded,
-                      size: 18,
-                      color: widget.enabled
-                          ? theme.backgroundDeep
-                          : theme.textSecondary,
+              const SizedBox(height: 8),
+              messageArea,
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      focusNode: _focusNode,
+                      enabled: widget.enabled,
+                      autofocus: widget.autofocus,
+                      maxLength: kChatMessageMaxLength,
+                      textInputAction: TextInputAction.send,
+                      keyboardType: TextInputType.text,
+                      onSubmitted: (_) => _submit(),
+                      style: GoogleFonts.inter(
+                        color: theme.textPrimary,
+                        fontSize: 14,
+                      ),
+                      decoration: InputDecoration(
+                        counterText: '',
+                        hintText: widget.hintText,
+                        hintStyle: GoogleFonts.inter(
+                          color: theme.textSecondary.withValues(alpha: 0.55),
+                          fontSize: 13,
+                        ),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        filled: true,
+                        fillColor: Colors.black.withValues(alpha: 0.35),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: theme.accentDark.withValues(alpha: 0.45),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: theme.accentPrimary),
+                        ),
+                        disabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color:
+                                theme.textSecondary.withValues(alpha: 0.2),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Material(
+                    color: widget.enabled
+                        ? theme.accentPrimary
+                        : theme.textSecondary.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      onTap: widget.enabled ? _submit : null,
+                      borderRadius: BorderRadius.circular(12),
+                      child: SizedBox(
+                        width: 42,
+                        height: 42,
+                        child: Icon(
+                          Icons.send_rounded,
+                          size: 18,
+                          color: widget.enabled
+                              ? theme.backgroundDeep
+                              : theme.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
