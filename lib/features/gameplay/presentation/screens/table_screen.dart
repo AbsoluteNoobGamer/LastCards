@@ -2512,13 +2512,30 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         if (_showQuickChatPanel)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 8),
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxWidth:
-                                    MediaQuery.of(context).size.width * 0.72,
-                                maxHeight: _isOfflineSession ? 260 : 340,
-                              ),
-                              child: _buildSocialPanel(appTheme),
+                            child: Builder(
+                              builder: (context) {
+                                final panelW =
+                                    MediaQuery.of(context).size.width * 0.72;
+                                final panelH =
+                                    _isOfflineSession ? 260.0 : 340.0;
+                                // Chat needs a tight height so the composer
+                                // stays inside hit-test bounds (Expanded).
+                                final chatOpen =
+                                    !_isOfflineSession && _socialPanelTab == 1;
+                                return ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth: panelW,
+                                    maxHeight: panelH,
+                                  ),
+                                  child: chatOpen
+                                      ? SizedBox(
+                                          width: panelW,
+                                          height: panelH,
+                                          child: _buildSocialPanel(appTheme),
+                                        )
+                                      : _buildSocialPanel(appTheme),
+                                );
+                              },
                             ),
                           ),
                         Stack(
@@ -4731,6 +4748,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   Widget _buildSocialPanel(AppThemeData theme) {
     final showChatTab = !_isOfflineSession;
+    final showChat = showChatTab && _socialPanelTab == 1;
     return Container(
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.55),
@@ -4741,7 +4759,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       ),
       padding: const EdgeInsets.all(8),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: showChat ? MainAxisSize.max : MainAxisSize.min,
         children: [
           if (showChatTab)
             Row(
@@ -4766,20 +4784,23 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               ],
             ),
           if (showChatTab) const SizedBox(height: 8),
-          if (!showChatTab || _socialPanelTab == 0)
+          if (!showChat)
             SingleChildScrollView(
               child: QuickChatPanel(
                 onMessageSelected: _sendQuickChat,
               ),
             )
           else
-            LiveTextChatPanel(
-              theme: theme,
-              messages: _textChatMessages,
-              onSend: _sendTextChat,
-              tall: true,
-              enabled: true,
-              onReportOrBlock: _showReportOrBlockSheet,
+            Expanded(
+              child: LiveTextChatPanel(
+                theme: theme,
+                messages: _textChatMessages,
+                onSend: _sendTextChat,
+                tall: true,
+                enabled: true,
+                autofocus: true,
+                onReportOrBlock: _showReportOrBlockSheet,
+              ),
             ),
         ],
       ),
