@@ -257,6 +257,54 @@ void main() {
     });
   });
 
+  group('Queen uncovered cannot win', () {
+    test('emptyHandOnUncoveredQueenDoesNotConfirmWin', () {
+      var state = buildState(
+        discardTop: c(Rank.two, Suit.spades),
+        p1Hand: [c(Rank.queen, Suit.spades)],
+        p2Hand: [c(Rank.king, Suit.hearts)],
+      ).copyWith(lastCardsDeclaredBy: {'p1'});
+
+      state = applyPlay(
+        state: state,
+        playerId: 'p1',
+        cards: [c(Rank.queen, Suit.spades)],
+      );
+      expect(state.players.firstWhere((p) => p.id == 'p1').hand, isEmpty);
+      expect(state.queenSuitLock, Suit.spades);
+      expect(
+        wouldConfirmWin(state),
+        isFalse,
+        reason: 'Cannot win while Queen suit lock is unresolved',
+      );
+    });
+
+    test('emptyHandWithQueenOnDiscardStillBlockedAfterAdvanceTurn', () {
+      // Regression: AI win-awareness used to play a lone Queen then call
+      // advanceTurn, which clears queenSuitLock — win must still be blocked
+      // because the discard top remains an uncovered Queen.
+      var state = buildState(
+        discardTop: c(Rank.two, Suit.spades),
+        p1Hand: [c(Rank.queen, Suit.spades)],
+        p2Hand: [c(Rank.king, Suit.hearts)],
+      ).copyWith(lastCardsDeclaredBy: {'p1'});
+
+      state = applyPlay(
+        state: state,
+        playerId: 'p1',
+        cards: [c(Rank.queen, Suit.spades)],
+      );
+      final advanced = advanceTurn(state);
+      expect(advanced.queenSuitLock, isNull);
+      expect(advanced.discardTopCard?.effectiveRank, Rank.queen);
+      expect(
+        canConfirmPlayerWin(state: advanced, playerId: 'p1'),
+        isFalse,
+        reason: 'Queen on discard can never be a legal winning play',
+      );
+    });
+  });
+
   group('Last Cards', () {
     test('empty hand without declaration cannot confirm win', () {
       final state = buildState(

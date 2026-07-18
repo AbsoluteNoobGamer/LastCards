@@ -1,3 +1,4 @@
+import '../models/card_model.dart';
 import '../models/game_state_model.dart';
 
 /// Returns `true` when [playerId] can be safely confirmed as winner right now.
@@ -22,8 +23,15 @@ bool canConfirmPlayerWin({
     return false;
   }
 
-  // Queen lock deferral: must be covered first by the active player.
+  // Queen lock deferral: must be covered (or drawn) before a win can confirm.
+  // Block the active player while the lock is set, and also anyone who emptied
+  // leaving a Queen on top — a Queen always re-locks, so it can never be a
+  // legal final discard. This remains true even if [advanceTurn] cleared
+  // [queenSuitLock] incorrectly.
   if (state.queenSuitLock != null && playerId == state.currentPlayerId) {
+    return false;
+  }
+  if (state.discardTopCard?.effectiveRank == Rank.queen) {
     return false;
   }
 
