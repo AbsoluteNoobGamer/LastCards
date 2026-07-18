@@ -21,6 +21,13 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Align with Android 15+ edge-to-edge (MainActivity also calls enableEdgeToEdge()).
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+    ),
+  );
   // Register before runApp so Android lifecycle reaches BGM pause logic even if
   // playback starts later (singleton self-registration was too late on some devices).
   registerStartScreenBgmAppLifecycleObserver();
