@@ -1169,8 +1169,8 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
 
   void _pushMoveLog(MoveLogEntry entry) {
     _moveLogEntries.insert(0, entry);
-    if (_moveLogEntries.length > 3) {
-      _moveLogEntries.removeRange(3, _moveLogEntries.length);
+    if (_moveLogEntries.length > kMoveLogMaxEntries) {
+      _moveLogEntries.removeRange(kMoveLogMaxEntries, _moveLogEntries.length);
     }
   }
 

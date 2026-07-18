@@ -76,6 +76,12 @@ class _TableLayout extends StatelessWidget {
     this.finishedPlayerIds = const <String>{},
     this.aiConfigs = const <String, AiPlayerConfig>{},
     this.isRanked = false,
+    required this.matchModeLabel,
+    this.showLiveChip = false,
+    this.isHardcore = false,
+    required this.eventTicker,
+    this.eventTickerFallback,
+    this.moveLogEntries = const <MoveLogEntry>[],
     this.quickChatBubblesByPlayer = const {},
     this.onRemoveQuickChatBubble,
     this.nextTurnLabel,
@@ -89,6 +95,7 @@ class _TableLayout extends StatelessWidget {
     this.onOpponentProfileTap,
     this.localAvatarFilePath,
     this.tableScale = 1.0,
+    this.comboLiveCount = 0,
   });
 
   /// Multiplier applied to every [TablePortraitGrid] reference size —
@@ -96,6 +103,10 @@ class _TableLayout extends StatelessWidget {
   /// canvas instead of leaving it as bare felt (see [TableScreen]'s
   /// top-level `tableScale` computation).
   final double tableScale;
+
+  /// Cards played this turn — drives the soft-gold live `×N` chip under the
+  /// info band (visible at [kComboLiveChipMinCards]+).
+  final int comboLiveCount;
 
   /// Online: tap opponent avatar to open profile / friend actions.
   final void Function(PlayerModel player)? onOpponentProfileTap;
@@ -125,6 +136,24 @@ class _TableLayout extends StatelessWidget {
 
   /// True when this is a ranked online match (from session_config).
   final bool isRanked;
+
+  /// Primary mode chip for [MatchBroadcastHeader] (`SOLO`, `CASUAL`, …).
+  final String matchModeLabel;
+
+  /// Online sessions show a pulsing LIVE pip in the match header.
+  final bool showLiveChip;
+
+  /// Hardcore (30s) urgency chip in the match header.
+  final bool isHardcore;
+
+  /// Reserved event ticker lane controller.
+  final TableEventTickerController eventTicker;
+
+  /// Idle fallback for the ticker (e.g. Last Cards strip summary).
+  final String? eventTickerFallback;
+
+  /// Persistent move log lines for the left FEED dock.
+  final List<MoveLogEntry> moveLogEntries;
 
   /// Active quick chat bubble per player id (most recent per player).
   final Map<String, QuickChatBubbleData> quickChatBubblesByPlayer;
@@ -273,8 +302,15 @@ class _TableLayout extends StatelessWidget {
             skipHighlightPlayerIds: skipHighlightPlayerIds,
             onOpponentSlotTap: onOpponentSlotTap,
             isRanked: isRanked,
+            matchModeLabel: matchModeLabel,
+            showLiveChip: showLiveChip,
+            isHardcore: isHardcore,
+            eventTicker: eventTicker,
+            eventTickerFallback: eventTickerFallback,
+            moveLogEntries: moveLogEntries,
             localAvatarFilePath: localAvatarFilePath,
             tableScale: tableScale,
+            comboLiveCount: comboLiveCount,
           );
         }
 
@@ -287,201 +323,161 @@ class _TableLayout extends StatelessWidget {
         // size keeps pace with the reserved hand-region frame height
         // below, instead of leaving a growing empty gap under a
         // top-aligned, comparatively small card fan.
+        // Corner settings / leave / reactions FABs sit in side gutters —
+        // keep the hand lane clear so edge cards stay tappable.
+        final chromeInset = ArenaChromeFab.handClearance;
+        final handLaneWidth =
+            math.max(160.0, effectiveWidth - chromeInset * 2);
         final handCardWidth =
-            (effectiveWidth * (isMobile ? 0.12 : 0.1) * (isMobile ? 1.0 : tableScale))
+            (handLaneWidth * (isMobile ? 0.12 : 0.1) * (isMobile ? 1.0 : tableScale))
                 .clamp(44.0, 82.0 * tableScale);
         // Fixed footprint sized to a reference 9-card hand — the local hand
         // region stays the same size turn to turn regardless of actual hand
         // count, instead of visibly resizing as cards are played/drawn.
         final referenceHandWidth = PlayerHandWidget.referenceFanWidth(
-          maxWidth: effectiveWidth,
+          maxWidth: handLaneWidth,
           cardWidth: handCardWidth,
           isCompact: isMobile,
           scale: tableScale,
         );
         final hasTournamentBadges = tournamentStatusBadges.isNotEmpty;
-        final opponentRowHeight = TablePortraitGrid.opponentRowHeight(
-          useRail: true,
-          hasBadges: hasTournamentBadges,
-          scale: tableScale,
-        );
-        final rankedBand = isRanked ? 34.0 * tableScale : 0.0;
+        // Phones: skip the 96px chat reserve so seats don't steal the board.
+        // Quick-chat may clip; moves/piles stay roomy.
+        final railChatReserve = isMobile ? 0.0 : 96.0;
+        final railBase = hasTournamentBadges
+            ? TablePortraitGrid.opponentRailBaseHeightWithBadge
+            : TablePortraitGrid.opponentRailBaseHeight;
+        final cappedOpponentHeight =
+            (railBase + railChatReserve) * tableScale;
+        final matchHeaderBand =
+            TablePortraitGrid.matchHeaderHeight * tableScale;
+        final infoBand =
+            ArenaInfoBand.heightFor(compact: isMobile, scale: tableScale) +
+                8 * tableScale;
+        final hudSlot =
+            HudOverlayWidget.slotHeight(compact: isMobile, scale: tableScale);
         final bottomPad = isMobile ? 0.0 : AppDimensions.md;
-        final scaledActionBarHeight = TablePortraitGrid.actionBarHeight * tableScale;
-        final scaledBoardToActionBarGap =
-            TablePortraitGrid.boardToActionBarGap * tableScale;
-        // Must subtract every other fixed-height sibling in the Column below
-        // (region 1 + this gap + region 3 + the trailing bottomPad SizedBox),
-        // not just some of them — otherwise, at high tableScale on tablets,
-        // the omitted amounts silently exceed the actual leftover space and
-        // the hand region (floored at 110 by the clamp below) overflows the
-        // Column instead of shrinking to fit.
+        final scaledActionBarHeight =
+            TablePortraitGrid.actionBarHeight * tableScale;
+        // Info band + HUD live inside the board Expanded stack — do not
+        // subtract them again here or the hero stage gets starved.
         final handRegionHeight = math.min(
           TablePortraitGrid.handRegionHeight * tableScale,
           constraints.maxHeight -
-              opponentRowHeight -
+              cappedOpponentHeight -
               scaledActionBarHeight -
-              scaledBoardToActionBarGap -
               bottomPad -
-              rankedBand,
-        ).clamp(110.0, TablePortraitGrid.handRegionHeight * tableScale);
+              matchHeaderBand -
+              12 * tableScale,
+        ).clamp(120.0, TablePortraitGrid.handRegionHeight * tableScale);
 
+        final penaltyTarget = penaltyCount > 0
+            ? gameState.players
+                .where((p) => p.id == nextPlayerId(state: gameState))
+                .firstOrNull
+                ?.tablePosition
+            : null;
+
+        // Phone-first vertical table — full width board, no side docks.
+        // Info band sits in a Stack above the piles so the expanded move log
+        // paints over the hero stage (Column siblings would cover it).
         return Padding(
           padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
           child: Column(
             children: [
-              // ── Region 1: Opponent seats (fixed height) ───────────────────
-              if (isRanked)
-                Padding(
-                  padding: EdgeInsets.only(
-                    top: isMobile ? 2 : 4,
-                    bottom: isMobile ? 6 : 8,
-                  ),
-                  child: Center(child: _RankedBadge(isMobile: isMobile)),
-                ),
+              MatchBroadcastHeader(
+                modeLabel: matchModeLabel,
+                showLive: showLiveChip,
+                isHardcore: isHardcore,
+                compact: isMobile,
+                scale: tableScale,
+              ),
               SizedBox(
-                height: opponentRowHeight,
+                height: cappedOpponentHeight,
                 child: BustPlayerRail(
                   slots: opponentRailSlots,
                   slotKeyBuilder: (player) => playerZoneKeys[player.id],
-                  height: hasTournamentBadges
-                      ? TablePortraitGrid.opponentRailBaseHeightWithBadge
-                      : TablePortraitGrid.opponentRailBaseHeight,
+                  height: railBase,
                   scale: tableScale,
                   thinkingPlayerId: thinkingOpponentId,
                   quickChatBubblesByPlayer: quickChatBubblesByPlayer,
                   onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                   skipHighlightPlayerIds: skipHighlightPlayerIds,
                   onSlotTap: onOpponentSlotTap,
+                  chatReserveHeight: railChatReserve,
                 ),
               ),
-
-              // ── Region 2: Board — piles above HUD (Expanded) ──────────────
               Expanded(
-                child: LayoutBuilder(
-                  builder: (context, boardConstraints) {
-                    final scaledDrawWidth =
-                        TablePortraitGrid.drawPileCardWidth * tableScale;
-                    final scaledDiscardWidth =
-                        TablePortraitGrid.discardPileCardWidth * tableScale;
-                    return ClipRect(
-                      child: FittedBox(
-                        // contain (not scaleDown): on tablets this lets the
-                        // whole piles+HUD block grow to fill the Expanded
-                        // region instead of staying pinned at its natural
-                        // (already tableScale-multiplied) size — a safety
-                        // net for any residual slack, now that the
-                        // constants themselves are pre-scaled above.
-                        fit: BoxFit.contain,
-                        // Anchor to the bottom, not the centre: the board's
-                        // content (piles+HUD) is much shorter than this
-                        // Expanded region, and centering it split the slack
-                        // evenly — leaving a dead gap floating between the
-                        // HUD and the action bar. Bottom-anchoring puts the
-                        // piles flush against the action bar/hand below, and
-                        // any leftover space becomes felt above, near the
-                        // opponents, which reads as intentional breathing
-                        // room rather than a broken void.
-                        alignment: Alignment.bottomCenter,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: boardConstraints.maxWidth,
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Opacity(
-                                opacity: 0,
-                                child: Text(
-                                  isDealing ? 'DEALING...' : 'DEALER',
-                                  key: const ValueKey('dealer-status'),
-                                  style: TextStyle(
-                                    fontSize: (isMobile ? 8 : 9) * tableScale,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(height: AppDimensions.xs * tableScale),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  SizedBox(
-                                    width: TablePortraitGrid
-                                        .drawPileFootprintWidth(scaledDrawWidth),
-                                    height: TablePortraitGrid
-                                        .drawPileFootprintHeight(scaledDrawWidth),
-                                    child: DrawPileWidget(
-                                      key: drawPileKey,
-                                      cardCount: gameState.drawPileCount,
-                                      onTap: onDrawTap,
-                                      cardWidth: scaledDrawWidth,
-                                      enabled: isMyTurn &&
-                                          (gameState.actionsThisTurn == 0 ||
-                                              gameState.queenSuitLock != null) &&
-                                          selectedCardId == null &&
-                                          !isDealing,
-                                      reshuffleNotifier: reshuffleNotifier,
-                                    ),
-                                  ),
-                                  SizedBox(
-                                      width: TablePortraitGrid.pileGap * tableScale),
-                                  SizedBox(
-                                    width: TablePortraitGrid
-                                        .discardPileFootprintWidth(scaledDiscardWidth),
-                                    height: TablePortraitGrid
-                                        .discardPileFootprintHeight(scaledDiscardWidth),
-                                    child: DiscardPileWidget(
-                                      key: discardPileKey,
-                                      topCard: gameState.discardTopCard,
-                                      secondCard: gameState
-                                              .discardPileHistory.isNotEmpty
-                                          ? gameState.discardPileHistory.first
-                                          : null,
-                                      discardPileHistory:
-                                          gameState.discardPileHistory,
-                                      cardWidth: scaledDiscardWidth,
-                                      discardPileCount: discardPileCount,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: AppDimensions.sm * tableScale),
-                              SizedBox(
-                                key: hudKey,
-                                width: boardConstraints.maxWidth,
-                                child: Center(
-                                  child: HudOverlayWidget(
-                                    activeSuit: gameState.suitLock,
-                                    queenSuitLock: gameState.queenSuitLock,
-                                    penaltyCount: penaltyCount,
-                                    penaltyTargetPosition: penaltyCount > 0
-                                        ? gameState.players
-                                            .where((p) =>
-                                                p.id ==
-                                                nextPlayerId(state: gameState))
-                                            .firstOrNull
-                                            ?.tablePosition
-                                        : null,
-                                    compact: isMobile,
-                                    onPenaltyIncreased: onPenaltyIncreased,
-                                    scale: tableScale,
-                                  ),
-                                ),
-                              ),
-                            ],
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Column(
+                      children: [
+                        // Reserve collapsed band height; overlay draws on top.
+                        SizedBox(height: infoBand),
+                        Expanded(
+                          child: _ArenaHeroStage(
+                            gameState: gameState,
+                            isMyTurn: isMyTurn,
+                            isDealing: isDealing,
+                            selectedCardId: selectedCardId,
+                            discardPileCount: discardPileCount,
+                            drawPileKey: drawPileKey,
+                            discardPileKey: discardPileKey,
+                            onDrawTap: onDrawTap,
+                            reshuffleNotifier: reshuffleNotifier,
+                            compact: isMobile,
+                            scale: tableScale,
                           ),
                         ),
+                        SizedBox(
+                          key: hudKey,
+                          height: hudSlot,
+                          width: double.infinity,
+                          child: Center(
+                            child: HudOverlayWidget(
+                              activeSuit: gameState.suitLock,
+                              queenSuitLock: gameState.queenSuitLock,
+                              penaltyCount: penaltyCount,
+                              penaltyTargetPosition: penaltyTarget,
+                              onPenaltyIncreased: onPenaltyIncreased,
+                              compact: isMobile,
+                              scale: tableScale,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: ArenaInfoBand(
+                        moveLogEntries: moveLogEntries,
+                        eventTicker: eventTicker,
+                        eventTickerFallback: eventTickerFallback,
+                        compact: isMobile,
+                        scale: tableScale,
                       ),
-                    );
-                  },
+                    ),
+                    Positioned(
+                      top: ArenaInfoBand.heightFor(
+                            compact: isMobile,
+                            scale: tableScale,
+                          ) -
+                          2 * tableScale,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: ComboLiveChip(
+                          count: comboLiveCount,
+                          scale: tableScale,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-
-              SizedBox(height: scaledBoardToActionBarGap),
-
-              // ── Region 3: Action bar (fixed height) ───────────────────────
               SizedBox(
                 height: scaledActionBarHeight,
                 child: Column(
@@ -509,48 +505,49 @@ class _TableLayout extends StatelessWidget {
                   ],
                 ),
               ),
-
-              // ── Region 4: Local hand (fixed height) ───────────────────────
-              _localHandRegionSlot(
-                height: handRegionHeight,
-                contentWidth: referenceHandWidth,
-                child: PlayerZoneWidget(
-                  key: playerZoneKeys[localPlayer.id],
-                  player: localPlayer,
-                  isLocalPlayer: true,
-                  localAvatarFilePath: localAvatarFilePath,
-                  isActiveTurn:
-                      gameState.currentPlayerId == localPlayer.id,
-                  compact: false,
-                  scale: tableScale,
-                  hasLastCardsDeclared: gameState.lastCardsDeclaredBy
-                      .contains(localPlayer.id),
-                  skipSeatHighlight:
-                      skipHighlightPlayerIds.contains(localPlayer.id),
-                  chatBubble: quickChatBubblesByPlayer[localPlayer.id],
-                  onRemoveQuickChatBubble: onRemoveQuickChatBubble,
-                  child: finishedPlayerIds.contains(localPlayer.id)
-                      ? _TournamentLocalStatusBanner(
-                          isEliminated: _isEliminatedBadge(
-                            tournamentStatusBadges[localPlayer.id],
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: chromeInset),
+                child: _localHandRegionSlot(
+                  height: handRegionHeight,
+                  contentWidth: referenceHandWidth,
+                  child: PlayerZoneWidget(
+                    key: playerZoneKeys[localPlayer.id],
+                    player: localPlayer,
+                    isLocalPlayer: true,
+                    localAvatarFilePath: localAvatarFilePath,
+                    isActiveTurn:
+                        gameState.currentPlayerId == localPlayer.id,
+                    compact: false,
+                    scale: tableScale,
+                    hasLastCardsDeclared: gameState.lastCardsDeclaredBy
+                        .contains(localPlayer.id),
+                    skipSeatHighlight:
+                        skipHighlightPlayerIds.contains(localPlayer.id),
+                    chatBubble: quickChatBubblesByPlayer[localPlayer.id],
+                    onRemoveQuickChatBubble: onRemoveQuickChatBubble,
+                    child: finishedPlayerIds.contains(localPlayer.id)
+                        ? _TournamentLocalStatusBanner(
+                            isEliminated: _isEliminatedBadge(
+                              tournamentStatusBadges[localPlayer.id],
+                            ),
+                          )
+                        : PlayerHandWidget(
+                            cards: isDealing
+                                ? orderedHand
+                                    .take(visibleCardCounts[
+                                            localPlayer.id] ??
+                                        0)
+                                    .toList()
+                                : orderedHand,
+                            selectedCardId: selectedCardId,
+                            onCardTap: onCardTap,
+                            onReorder: onHandReorder,
+                            enabled: isMyTurn && !isDealing,
+                            cardWidth: handCardWidth,
+                            invalidPlayShakeTrigger: handShakeTrigger,
+                            scale: tableScale,
                           ),
-                        )
-                      : PlayerHandWidget(
-                          cards: isDealing
-                              ? orderedHand
-                                  .take(visibleCardCounts[
-                                          localPlayer.id] ??
-                                      0)
-                                  .toList()
-                              : orderedHand,
-                          selectedCardId: selectedCardId,
-                          onCardTap: onCardTap,
-                          onReorder: onHandReorder,
-                          enabled: isMyTurn && !isDealing,
-                          cardWidth: handCardWidth,
-                          invalidPlayShakeTrigger: handShakeTrigger,
-                          scale: tableScale,
-                        ),
+                  ),
                 ),
               ),
               SizedBox(height: bottomPad),
@@ -611,10 +608,130 @@ class _TableLayout extends StatelessWidget {
   }
 }
 
-// ── Dedicated landscape layout (mobile) ───────────────────────────────────────
-//
-// Fixed grid: opponent row → board (HUD + piles) → action bar → hand.
-// Transient chrome lives in [_LandscapeTransientOverlayLayer].
+/// Centre playfield: draw + discard side-by-side, scale-down to fit.
+/// Suit/penalty live in the fixed HUD slot under this stage — never here.
+class _ArenaHeroStage extends ConsumerWidget {
+  const _ArenaHeroStage({
+    required this.gameState,
+    required this.isMyTurn,
+    required this.isDealing,
+    required this.selectedCardId,
+    required this.discardPileCount,
+    required this.drawPileKey,
+    required this.discardPileKey,
+    required this.onDrawTap,
+    required this.reshuffleNotifier,
+    required this.compact,
+    required this.scale,
+  });
+
+  final GameState gameState;
+  final bool isMyTurn;
+  final bool isDealing;
+  final String? selectedCardId;
+  final int discardPileCount;
+  final GlobalKey drawPileKey;
+  final GlobalKey discardPileKey;
+  final VoidCallback onDrawTap;
+  final ValueNotifier<bool>? reshuffleNotifier;
+  final bool compact;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(themeProvider).theme;
+    // Prefer classic asymmetric sizes; FittedBox shrinks when the Expanded
+    // slot is short so phones never paint a yellow overflow stripe.
+    final discardW = (compact ? 104.0 : 120.0) * scale;
+    final drawW = (compact ? 72.0 : 84.0) * scale;
+    final gap = 20.0 * scale;
+    final drawFootW = TablePortraitGrid.drawPileFootprintWidth(drawW);
+    final drawFootH = TablePortraitGrid.drawPileFootprintHeight(drawW);
+    final discardFootW = TablePortraitGrid.discardPileFootprintWidth(discardW);
+    final discardFootH =
+        TablePortraitGrid.discardPileFootprintHeight(discardW);
+    final rowW = drawFootW + gap + discardFootW;
+    final rowH = math.max(drawFootH, discardFootH);
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 4 * scale, vertical: 4 * scale),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18 * scale),
+          gradient: RadialGradient(
+            center: Alignment.center,
+            radius: 0.9,
+            colors: [
+              theme.accentPrimary.withValues(alpha: 0.05),
+              theme.backgroundDeep.withValues(alpha: 0.0),
+            ],
+          ),
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Opacity(
+              opacity: 0,
+              child: Text(
+                isDealing ? 'DEALING...' : 'DEALER',
+                key: const ValueKey('dealer-status'),
+              ),
+            ),
+            ClipRect(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.center,
+                child: SizedBox(
+                  width: rowW,
+                  height: rowH,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: drawFootW,
+                        height: drawFootH,
+                        child: DrawPileWidget(
+                          key: drawPileKey,
+                          cardCount: gameState.drawPileCount,
+                          onTap: onDrawTap,
+                          cardWidth: drawW,
+                          enabled: isMyTurn &&
+                              (gameState.actionsThisTurn == 0 ||
+                                  gameState.queenSuitLock != null) &&
+                              selectedCardId == null &&
+                              !isDealing,
+                          reshuffleNotifier: reshuffleNotifier,
+                        ),
+                      ),
+                      SizedBox(width: gap),
+                      SizedBox(
+                        width: discardFootW,
+                        height: discardFootH,
+                        child: DiscardPileWidget(
+                          key: discardPileKey,
+                          topCard: gameState.discardTopCard,
+                          secondCard: gameState.discardPileHistory.isNotEmpty
+                              ? gameState.discardPileHistory.first
+                              : null,
+                          discardPileHistory: gameState.discardPileHistory,
+                          cardWidth: discardW,
+                          discardPileCount: discardPileCount,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Fixed grid: header → opponents → [docks + hero] → action → hand.
 
 class _LandscapeTableLayout extends StatelessWidget {
   const _LandscapeTableLayout({
@@ -657,8 +774,15 @@ class _LandscapeTableLayout extends StatelessWidget {
     this.skipHighlightPlayerIds = const <String>{},
     required this.onOpponentSlotTap,
     this.isRanked = false,
+    required this.matchModeLabel,
+    this.showLiveChip = false,
+    this.isHardcore = false,
+    required this.eventTicker,
+    this.eventTickerFallback,
+    this.moveLogEntries = const <MoveLogEntry>[],
     this.localAvatarFilePath,
     this.tableScale = 1.0,
+    this.comboLiveCount = 0,
   });
 
   /// See [_TableLayout.tableScale]. Only ever non-1.0 in practice if this
@@ -666,7 +790,16 @@ class _LandscapeTableLayout extends StatelessWidget {
   /// mobile by definition today, where tableScale is always 1.0.
   final double tableScale;
 
+  /// See [_TableLayout.comboLiveCount].
+  final int comboLiveCount;
+
   final bool isRanked;
+  final String matchModeLabel;
+  final bool showLiveChip;
+  final bool isHardcore;
+  final TableEventTickerController eventTicker;
+  final String? eventTickerFallback;
+  final List<MoveLogEntry> moveLogEntries;
 
   final String? localAvatarFilePath;
 
@@ -722,52 +855,62 @@ class _LandscapeTableLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const handCardWidth = 40.0;
-    const drawCardWidth = TablePortraitGrid.landscapeDrawPileCardWidth;
-    const discardCardWidth = TablePortraitGrid.landscapeDiscardPileCardWidth;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Fixed footprint sized to a reference 9-card hand — same rationale
-        // as portrait's referenceHandWidth.
+        final chromeInset = ArenaChromeFab.handClearance;
+        final handLaneWidth =
+            math.max(160.0, constraints.maxWidth - chromeInset * 2);
         final referenceHandWidth = PlayerHandWidget.referenceFanWidth(
-          maxWidth: constraints.maxWidth,
+          maxWidth: handLaneWidth,
           cardWidth: handCardWidth,
           isCompact: true,
           scale: tableScale,
         );
         final hasTournamentBadges = tournamentStatusBadges.isNotEmpty;
-        final opponentRowHeight = TablePortraitGrid.landscapeOpponentRowHeight(
-          useRail: true,
-          hasBadges: hasTournamentBadges,
-        );
-        final rankedBand =
-            isRanked ? TablePortraitGrid.landscapeRankedBandHeight : 0.0;
+        final landscapeRailBase = hasTournamentBadges
+            ? TablePortraitGrid.landscapeOpponentRailBaseHeightWithBadge
+            : TablePortraitGrid.landscapeOpponentRailBaseHeight;
+        final opponentRowHeight = landscapeRailBase * tableScale;
+        const matchHeaderBand = TablePortraitGrid.matchHeaderHeight;
+        final infoBand =
+            ArenaInfoBand.heightFor(compact: true, scale: tableScale) +
+                8 * tableScale;
+        final hudSlot =
+            HudOverlayWidget.slotHeight(compact: true, scale: tableScale);
         final handRegionHeight = math.min(
           TablePortraitGrid.landscapeHandRegionHeight,
           constraints.maxHeight -
               opponentRowHeight -
               TablePortraitGrid.landscapeActionBarHeight -
-              rankedBand,
+              matchHeaderBand,
         ).clamp(80.0, TablePortraitGrid.landscapeHandRegionHeight);
 
+        final penaltyTarget = penaltyCount > 0
+            ? gameState.players
+                .where((p) => p.id == nextPlayerId(state: gameState))
+                .firstOrNull
+                ?.tablePosition
+            : null;
+
+        // Landscape mirrors portrait: info band stacked above piles.
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppDimensions.xs),
           child: Column(
             children: [
-              // ── Region 1: Opponent seats (fixed height) ───────────────────
-              if (isRanked)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2, bottom: 4),
-                  child: Center(child: _RankedBadge(isMobile: true)),
-                ),
+              MatchBroadcastHeader(
+                modeLabel: matchModeLabel,
+                showLive: showLiveChip,
+                isHardcore: isHardcore,
+                compact: true,
+                scale: tableScale,
+              ),
               SizedBox(
                 height: opponentRowHeight,
                 child: BustPlayerRail(
                   slots: opponentRailSlots,
                   slotKeyBuilder: (player) => playerZoneKeys[player.id],
-                  height: hasTournamentBadges
-                      ? TablePortraitGrid.landscapeOpponentRailBaseHeightWithBadge
-                      : TablePortraitGrid.landscapeOpponentRailBaseHeight,
+                  height: landscapeRailBase,
                   compact: true,
                   scale: tableScale,
                   thinkingPlayerId: thinkingOpponentId,
@@ -775,127 +918,79 @@ class _LandscapeTableLayout extends StatelessWidget {
                   onRemoveQuickChatBubble: onRemoveQuickChatBubble,
                   skipHighlightPlayerIds: skipHighlightPlayerIds,
                   onSlotTap: onOpponentSlotTap,
+                  chatReserveHeight: 0,
                 ),
               ),
-
-              // ── Region 2: Board — piles above HUD (Expanded) ──────────────
               Expanded(
-                child: LayoutBuilder(
-                  builder: (context, boardConstraints) {
-                    return ClipRect(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        // Anchor to the bottom, not the centre: the board's
-                        // content (piles+HUD) is much shorter than this
-                        // Expanded region, and centering it split the slack
-                        // evenly — leaving a dead gap floating between the
-                        // HUD and the action bar. Bottom-anchoring puts the
-                        // piles flush against the action bar/hand below, and
-                        // any leftover space becomes felt above, near the
-                        // opponents, which reads as intentional breathing
-                        // room rather than a broken void.
-                        alignment: Alignment.bottomCenter,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: boardConstraints.maxWidth,
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Opacity(
-                                opacity: 0,
-                                child: Text(
-                                  isDealing ? 'DEALING...' : 'DEALER',
-                                  key: const ValueKey('dealer-status'),
-                                  style: const TextStyle(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: AppDimensions.xs),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  SizedBox(
-                                    width: TablePortraitGrid
-                                        .drawPileFootprintWidth(drawCardWidth),
-                                    height: TablePortraitGrid
-                                        .drawPileFootprintHeight(drawCardWidth),
-                                    child: DrawPileWidget(
-                                      key: drawPileKey,
-                                      cardCount: gameState.drawPileCount,
-                                      onTap: onDrawTap,
-                                      cardWidth: drawCardWidth,
-                                      enabled: isMyTurn &&
-                                          (gameState.actionsThisTurn == 0 ||
-                                              gameState.queenSuitLock != null) &&
-                                          selectedCardId == null &&
-                                          !isDealing,
-                                      reshuffleNotifier: reshuffleNotifier,
-                                    ),
-                                  ),
-                                  const SizedBox(
-                                      width: TablePortraitGrid.landscapePileGap),
-                                  SizedBox(
-                                    width: TablePortraitGrid
-                                        .discardPileFootprintWidth(discardCardWidth),
-                                    height: TablePortraitGrid
-                                        .discardPileFootprintHeight(
-                                            discardCardWidth),
-                                    child: DiscardPileWidget(
-                                      key: discardPileKey,
-                                      topCard: gameState.discardTopCard,
-                                      secondCard: gameState
-                                              .discardPileHistory.isNotEmpty
-                                          ? gameState.discardPileHistory.first
-                                          : null,
-                                      discardPileHistory:
-                                          gameState.discardPileHistory,
-                                      cardWidth: discardCardWidth,
-                                      discardPileCount: discardPileCount,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: AppDimensions.sm * tableScale),
-                              SizedBox(
-                                key: hudKey,
-                                width: boardConstraints.maxWidth,
-                                child: Center(
-                                  child: HudOverlayWidget(
-                                    activeSuit: gameState.suitLock,
-                                    queenSuitLock: gameState.queenSuitLock,
-                                    penaltyCount: penaltyCount,
-                                    penaltyTargetPosition: penaltyCount > 0
-                                        ? gameState.players
-                                            .where((p) =>
-                                                p.id ==
-                                                nextPlayerId(state: gameState))
-                                            .firstOrNull
-                                            ?.tablePosition
-                                        : null,
-                                    compact: true,
-                                    onPenaltyIncreased: onPenaltyIncreased,
-                                    scale: tableScale,
-                                  ),
-                                ),
-                              ),
-                            ],
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Column(
+                      children: [
+                        SizedBox(height: infoBand),
+                        Expanded(
+                          child: _ArenaHeroStage(
+                            gameState: gameState,
+                            isMyTurn: isMyTurn,
+                            isDealing: isDealing,
+                            selectedCardId: selectedCardId,
+                            discardPileCount: discardPileCount,
+                            drawPileKey: drawPileKey,
+                            discardPileKey: discardPileKey,
+                            onDrawTap: onDrawTap,
+                            reshuffleNotifier: reshuffleNotifier,
+                            compact: true,
+                            scale: tableScale,
                           ),
                         ),
+                        SizedBox(
+                          key: hudKey,
+                          height: hudSlot,
+                          width: double.infinity,
+                          child: Center(
+                            child: HudOverlayWidget(
+                              activeSuit: gameState.suitLock,
+                              queenSuitLock: gameState.queenSuitLock,
+                              penaltyCount: penaltyCount,
+                              penaltyTargetPosition: penaltyTarget,
+                              onPenaltyIncreased: onPenaltyIncreased,
+                              compact: true,
+                              scale: tableScale,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: ArenaInfoBand(
+                        moveLogEntries: moveLogEntries,
+                        eventTicker: eventTicker,
+                        eventTickerFallback: eventTickerFallback,
+                        compact: true,
+                        scale: tableScale,
                       ),
-                    );
-                  },
+                    ),
+                    Positioned(
+                      top: ArenaInfoBand.heightFor(
+                            compact: true,
+                            scale: tableScale,
+                          ) -
+                          2 * tableScale,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: ComboLiveChip(
+                          count: comboLiveCount,
+                          scale: tableScale,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-
-              const SizedBox(
-                  height: TablePortraitGrid.landscapeBoardToActionBarGap),
-
-              // ── Region 3: Action bar (fixed height) ───────────────────────
               SizedBox(
                 height: TablePortraitGrid.landscapeActionBarHeight,
                 child: Column(
@@ -925,56 +1020,55 @@ class _LandscapeTableLayout extends StatelessWidget {
                   ],
                 ),
               ),
-
-              // ── Region 4: Local hand (fixed height) ───────────────────────
-              SizedBox(
-                height: handRegionHeight,
-                width: double.infinity,
-                child: ClipRect(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.bottomCenter,
-                    // Fixed width (reference 9-card hand) — same rationale as
-                    // portrait: keeps the zone's footprint stable turn to turn.
-                    child: SizedBox(
-                      width: referenceHandWidth,
-                      child: PlayerZoneWidget(
-                        key: playerZoneKeys[localPlayer.id],
-                        player: localPlayer,
-                        isLocalPlayer: true,
-                        localAvatarFilePath: localAvatarFilePath,
-                        isActiveTurn:
-                            gameState.currentPlayerId == localPlayer.id,
-                        hasLastCardsDeclared: gameState.lastCardsDeclaredBy
-                            .contains(localPlayer.id),
-                        compact: true,
-                        scale: tableScale,
-                        skipSeatHighlight:
-                            skipHighlightPlayerIds.contains(localPlayer.id),
-                        chatBubble: quickChatBubblesByPlayer[localPlayer.id],
-                        onRemoveQuickChatBubble: onRemoveQuickChatBubble,
-                        child: finishedPlayerIds.contains(localPlayer.id)
-                            ? _TournamentLocalStatusBanner(
-                                isEliminated: _isEliminatedBadge(
-                                  tournamentStatusBadges[localPlayer.id],
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: chromeInset),
+                child: SizedBox(
+                  height: handRegionHeight,
+                  width: double.infinity,
+                  child: ClipRect(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.bottomCenter,
+                      child: SizedBox(
+                        width: referenceHandWidth,
+                        child: PlayerZoneWidget(
+                          key: playerZoneKeys[localPlayer.id],
+                          player: localPlayer,
+                          isLocalPlayer: true,
+                          localAvatarFilePath: localAvatarFilePath,
+                          isActiveTurn:
+                              gameState.currentPlayerId == localPlayer.id,
+                          hasLastCardsDeclared: gameState.lastCardsDeclaredBy
+                              .contains(localPlayer.id),
+                          compact: true,
+                          scale: tableScale,
+                          skipSeatHighlight:
+                              skipHighlightPlayerIds.contains(localPlayer.id),
+                          chatBubble: quickChatBubblesByPlayer[localPlayer.id],
+                          onRemoveQuickChatBubble: onRemoveQuickChatBubble,
+                          child: finishedPlayerIds.contains(localPlayer.id)
+                              ? _TournamentLocalStatusBanner(
+                                  isEliminated: _isEliminatedBadge(
+                                    tournamentStatusBadges[localPlayer.id],
+                                  ),
+                                )
+                              : PlayerHandWidget(
+                                  cards: isDealing
+                                      ? orderedHand
+                                          .take(visibleCardCounts[
+                                                  localPlayer.id] ??
+                                              0)
+                                          .toList()
+                                      : orderedHand,
+                                  selectedCardId: selectedCardId,
+                                  onCardTap: onCardTap,
+                                  onReorder: onHandReorder,
+                                  enabled: isMyTurn && !isDealing,
+                                  cardWidth: handCardWidth,
+                                  invalidPlayShakeTrigger: handShakeTrigger,
+                                  scale: tableScale,
                                 ),
-                              )
-                            : PlayerHandWidget(
-                                cards: isDealing
-                                    ? orderedHand
-                                        .take(visibleCardCounts[
-                                                localPlayer.id] ??
-                                            0)
-                                        .toList()
-                                    : orderedHand,
-                                selectedCardId: selectedCardId,
-                                onCardTap: onCardTap,
-                                onReorder: onHandReorder,
-                                enabled: isMyTurn && !isDealing,
-                                cardWidth: handCardWidth,
-                                invalidPlayShakeTrigger: handShakeTrigger,
-                                scale: tableScale,
-                              ),
+                        ),
                       ),
                     ),
                   ),
@@ -1063,43 +1157,3 @@ class _TournamentLocalStatusBanner extends StatelessWidget {
   }
 }
 
-// ── RANKED badge (theme-aware) ────────────────────────────────────────────────
-
-/// Badge shown during ranked online matches. Uses theme.accentPrimary and
-/// theme.surfacePanel to match HUD badge patterns.
-class _RankedBadge extends ConsumerWidget {
-  const _RankedBadge({required this.isMobile});
-
-  final bool isMobile;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = ref.watch(themeProvider).theme;
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: AppDimensions.sm + 2,
-        vertical: 3,
-      ),
-      decoration: BoxDecoration(
-        color: theme.surfacePanel.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(AppDimensions.radiusButton),
-        border: Border.all(color: theme.accentPrimary, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: theme.accentPrimary.withValues(alpha: 0.3),
-            blurRadius: 8,
-          ),
-        ],
-      ),
-      child: Text(
-        'RANKED',
-        style: TextStyle(
-          color: theme.accentPrimary,
-          fontSize: isMobile ? 8 : 9,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.5,
-        ),
-      ),
-    );
-  }
-}

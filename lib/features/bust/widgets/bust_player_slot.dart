@@ -60,20 +60,27 @@ class BustPlayerSlot extends ConsumerWidget {
       bgColor = player.color.withValues(alpha: 0.2);
       shadows = const [];
     } else if (player.isActive) {
+      // Broadcast "seat spotlight" — stronger ring + dual glow.
       borderColor = theme.accentPrimary;
-      borderWidth = 3.0 * scale;
-      bgColor = theme.accentPrimary.withValues(alpha: 0.22);
+      borderWidth = 3.5 * scale;
+      bgColor = theme.accentPrimary.withValues(alpha: 0.28);
       shadows = [
         BoxShadow(
-          color: theme.accentPrimary.withValues(alpha: 0.55),
-          blurRadius: 14,
-          spreadRadius: 2,
+          color: theme.accentPrimary.withValues(alpha: 0.7),
+          blurRadius: 18,
+          spreadRadius: 3,
+        ),
+        BoxShadow(
+          color: theme.secondaryAccent.withValues(alpha: 0.35),
+          blurRadius: 28,
+          spreadRadius: 1,
         ),
       ];
     } else {
-      borderColor = theme.textSecondary.withValues(alpha: 0.35);
+      // Dim inactive seats so the active spotlight reads clearly.
+      borderColor = theme.textSecondary.withValues(alpha: 0.28);
       borderWidth = 1.5 * scale;
-      bgColor = player.color.withValues(alpha: 0.2);
+      bgColor = player.color.withValues(alpha: 0.14);
       shadows = const [];
     }
 
@@ -82,154 +89,170 @@ class BustPlayerSlot extends ConsumerWidget {
     final slotWidth = (compact ? 56.0 : 80.0) * scale;
     final iconSize = (compact ? 20.0 : 28.0) * scale;
 
-    Widget slot = SizedBox(
-      width: slotWidth,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                width: avatarSize,
-                height: avatarSize,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: bgColor,
-                  border: Border.all(color: borderColor, width: borderWidth),
-                  boxShadow: shadows,
-                ),
-                child: CircleAvatar(
+    final slotBody = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              width: avatarSize,
+              height: avatarSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: bgColor,
+                border: Border.all(color: borderColor, width: borderWidth),
+                boxShadow: shadows,
+              ),
+              child: CircleAvatar(
+                radius: avatarSize / 2,
+                backgroundColor: Colors.transparent,
+                child: GameplayCircleAvatar(
                   radius: avatarSize / 2,
-                  backgroundColor: Colors.transparent,
-                  child: GameplayCircleAvatar(
-                    radius: avatarSize / 2,
-                    displayName: player.displayName,
-                    avatarUrl: player.avatarUrl,
-                    avatarCosmeticId: player.avatarCosmeticId,
-                    localFilePath: player.localAvatarFilePath,
-                    foregroundTextStyle: TextStyle(
-                      color: player.isEliminated
-                          ? player.color.withValues(alpha: 0.7)
-                          : Colors.white.withValues(
-                              alpha: player.isActive ? 1.0 : 0.9),
-                      fontSize: iconSize * 0.85,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
+                  displayName: player.displayName,
+                  avatarUrl: player.avatarUrl,
+                  avatarCosmeticId: player.avatarCosmeticId,
+                  localFilePath: player.localAvatarFilePath,
+                  foregroundTextStyle: TextStyle(
+                    color: player.isEliminated
+                        ? player.color.withValues(alpha: 0.7)
+                        : Colors.white.withValues(
+                            alpha: player.isActive ? 1.0 : 0.9),
+                    fontSize: iconSize * 0.85,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
                   ),
                 ),
               ),
-              if (showThinking)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 2,
-                  child: IgnorePointer(
-                    child: Center(
-                      child: Text(
-                        '···',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: (compact ? 12 : 16) * scale,
-                          fontWeight: FontWeight.w900,
-                          shadows: const [
-                            Shadow(blurRadius: 4, color: Colors.black87),
-                          ],
-                        ),
+            ),
+            if (showThinking)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 2,
+                child: IgnorePointer(
+                  child: Center(
+                    child: Text(
+                      '···',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: (compact ? 12 : 16) * scale,
+                        fontWeight: FontWeight.w900,
+                        shadows: const [
+                          Shadow(blurRadius: 4, color: Colors.black87),
+                        ],
                       ),
                     ),
                   ),
                 ),
-              Positioned(
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  width: badgeSize,
-                  height: badgeSize,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: theme.accentDark,
-                    border: Border.all(
-                      color: theme.surfacePanel,
-                      width: (compact ? 1.0 : 1.5) * scale,
-                    ),
+              ),
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Container(
+                width: badgeSize,
+                height: badgeSize,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: theme.accentDark,
+                  border: Border.all(
+                    color: theme.surfacePanel,
+                    width: (compact ? 1.0 : 1.5) * scale,
                   ),
-                  child: Text(
-                    player.isEliminated ? 'X' : '${player.cardCount}',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: (compact ? 9 : 11) * scale,
-                      fontWeight: FontWeight.w900,
-                    ),
+                ),
+                child: Text(
+                  player.isEliminated ? 'X' : '${player.cardCount}',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: (compact ? 9 : 11) * scale,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
-            ],
-          ),
-          SizedBox(height: (compact ? 2 : AppDimensions.xs) * scale),
-          MarqueeName(
-            text: player.displayName,
-            style: AppTypography.labelSmall.copyWith(
-              color: player.isActive ? player.color : theme.textPrimary,
-              fontWeight: FontWeight.w700,
-              fontSize: (compact ? 9 : (AppTypography.labelSmall.fontSize ?? 12)) *
-                  scale,
             ),
-            maxWidth: slotWidth,
-            textAlign: TextAlign.center,
+          ],
+        ),
+        SizedBox(height: (compact ? 2 : AppDimensions.xs) * scale),
+        MarqueeName(
+          text: player.displayName,
+          style: AppTypography.labelSmall.copyWith(
             color: player.isActive ? player.color : theme.textPrimary,
+            fontWeight: FontWeight.w700,
+            fontSize: (compact ? 9 : (AppTypography.labelSmall.fontSize ?? 12)) *
+                scale,
           ),
-          if (chatBubble != null && onRemoveQuickChatBubble != null) ...[
-            SizedBox(height: 4 * scale),
-            Center(
-              child: QuickChatBubble(
-                key: ValueKey(chatBubble!.id),
-                playerName: chatBubble!.playerName,
-                reactionWireIndex: chatBubble!.reactionWireIndex,
-                isLocal: chatBubble!.isLocal,
-                tailPointsUp: true,
-                onDismiss: () =>
-                    onRemoveQuickChatBubble!(chatBubble!.id),
-              ),
+          maxWidth: slotWidth,
+          textAlign: TextAlign.center,
+          color: player.isActive ? player.color : theme.textPrimary,
+        ),
+        if (chatBubble != null && onRemoveQuickChatBubble != null) ...[
+          SizedBox(height: 4 * scale),
+          Center(
+            child: QuickChatBubble(
+              key: ValueKey(chatBubble!.id),
+              playerName: chatBubble!.playerName,
+              reactionWireIndex: chatBubble!.reactionWireIndex,
+              isLocal: chatBubble!.isLocal,
+              tailPointsUp: true,
+              onDismiss: () => onRemoveQuickChatBubble!(chatBubble!.id),
             ),
-          ],
-          // ── Tournament status badge (qualified/eliminated) ─────────────────
-          if (player.isTournamentFinished) ...[
-            SizedBox(height: (compact ? 2 : 4) * scale),
-            Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: (compact ? 4 : 6) * scale,
-                vertical: (compact ? 1 : 2) * scale,
-              ),
-              decoration: BoxDecoration(
-                color: player.isTournamentEliminated
-                    ? const Color(0x22FF3333)
-                    : theme.accentPrimary.withValues(alpha: 0.13),
-                border: Border.all(
-                  color: player.isTournamentEliminated
-                      ? const Color(0xFFFF3333)
-                      : theme.accentPrimary,
-                  width: 1,
-                ),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                player.isTournamentEliminated ? '✗ Eliminated' : '✓ Qualified',
-                style: TextStyle(
-                  color: player.isTournamentEliminated
-                      ? const Color(0xFFFF3333)
-                      : theme.accentPrimary,
-                  fontSize: (compact ? 8 : 10) * scale,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ),
-          ],
+          ),
         ],
+        if (player.isTournamentFinished) ...[
+          SizedBox(height: (compact ? 2 : 4) * scale),
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: (compact ? 4 : 6) * scale,
+              vertical: (compact ? 1 : 2) * scale,
+            ),
+            decoration: BoxDecoration(
+              color: player.isTournamentEliminated
+                  ? const Color(0x22FF3333)
+                  : theme.accentPrimary.withValues(alpha: 0.13),
+              border: Border.all(
+                color: player.isTournamentEliminated
+                    ? const Color(0xFFFF3333)
+                    : theme.accentPrimary,
+                width: 1,
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              player.isTournamentEliminated ? '✗ Eliminated' : '✓ Qualified',
+              style: TextStyle(
+                color: player.isTournamentEliminated
+                    ? const Color(0xFFFF3333)
+                    : theme.accentPrimary,
+                fontSize: (compact ? 8 : 10) * scale,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+
+    // Phone table rails may reserve 0 chat height — scale down instead of
+    // overflowing the rail (was BOTTOM OVERFLOWED BY ~45px).
+    Widget slot = SizedBox(
+      width: slotWidth,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (!constraints.maxHeight.isFinite) return slotBody;
+          return ClipRect(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: slotWidth),
+                child: slotBody,
+              ),
+            ),
+          );
+        },
       ),
     );
 

@@ -16,6 +16,9 @@ import '../../../../core/providers/theme_provider.dart';
 /// - Active suit badge (from Ace/Joker declaration) — premium theme-aware badge
 /// - Queen suit lock — same badge as active suit
 /// - Draw penalty counter badge
+///
+/// Always occupies a fixed [slotHeight] so suit/penalty badges appearing or
+/// clearing never reflow the pile row above.
 class HudOverlayWidget extends ConsumerWidget {
   const HudOverlayWidget({
     super.key,
@@ -50,50 +53,65 @@ class HudOverlayWidget extends ConsumerWidget {
   /// Tablet/desktop scale multiplier (1.0 on phones).
   final double scale;
 
+  /// Fixed vertical reservation — matches largest badge (suit circle) + pad.
+  /// Callers should also size their [SizedBox] to this so the board stage
+  /// never grows/shrinks when status badges toggle.
+  static double slotHeight({required bool compact, double scale = 1.0}) {
+    // Compact: circle only (36). Non-compact: circle + label.
+    return ((compact ? 44.0 : 74.0) * scale);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(themeProvider).theme;
     final gap = (compact ? AppDimensions.xs : AppDimensions.sm) * scale;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // Penalty counter — arrow points toward the player who picks up
-        if (penaltyCount > 0) ...[
-          _PenaltyBadge(
-            count: penaltyCount,
-            targetPosition: penaltyTargetPosition,
-            compact: compact,
-            onPenaltyIncreased: onPenaltyIncreased,
-            scale: scale,
-          ),
-          SizedBox(width: gap),
-        ],
+    final height = slotHeight(compact: compact, scale: scale);
+    final hasStatus =
+        penaltyCount > 0 || activeSuit != null || queenSuitLock != null;
 
-        // Active suit badge (Ace/Joker declaration) — premium badge with pop-in
-        if (activeSuit != null) ...[
-          _AnimatedSuitBadge(
-            suit: activeSuit!,
-            theme: theme,
-            compact: compact,
-            scale: scale,
-          ),
-          SizedBox(width: gap),
-        ],
-
-        // Queen suit lock — same premium badge as active suit (Ace/Joker)
-        if (queenSuitLock != null) ...[
-          _AnimatedSuitBadge(
-            suit: queenSuitLock!,
-            theme: theme,
-            compact: compact,
-            scale: scale,
-          ),
-          SizedBox(width: gap),
-        ],
-
-        SizedBox(width: gap),
-      ],
+    // Height is reserved; clip so elastic scale/glow never paints overflow
+    // stripes into neighbouring layout regions.
+    return SizedBox(
+      height: height,
+      child: ClipRect(
+        child: Center(
+          child: hasStatus
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (penaltyCount > 0) ...[
+                      _PenaltyBadge(
+                        count: penaltyCount,
+                        targetPosition: penaltyTargetPosition,
+                        compact: compact,
+                        onPenaltyIncreased: onPenaltyIncreased,
+                        scale: scale,
+                      ),
+                      SizedBox(width: gap),
+                    ],
+                    if (activeSuit != null) ...[
+                      _AnimatedSuitBadge(
+                        suit: activeSuit!,
+                        theme: theme,
+                        compact: compact,
+                        scale: scale,
+                      ),
+                      SizedBox(width: gap),
+                    ],
+                    if (queenSuitLock != null) ...[
+                      _AnimatedSuitBadge(
+                        suit: queenSuitLock!,
+                        theme: theme,
+                        compact: compact,
+                        scale: scale,
+                      ),
+                    ],
+                  ],
+                )
+              : const SizedBox.shrink(),
+        ),
+      ),
     );
   }
 }
@@ -196,15 +214,26 @@ class _PenaltyBadgeState extends State<_PenaltyBadge>
     final fontSize = (widget.compact ? 10.0 : 12.0) * scale;
     final radius = (widget.compact ? 8.0 : 12.0) * scale;
 
+    // Danger meter: fill grows with stack depth (caps visually at 8).
+    final meterFill = (widget.count / 8.0).clamp(0.2, 1.0);
     final child = Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: badgeColor,
         borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: badgeColor, width: 1.5 * scale),
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            badgeColor.withValues(alpha: 0.95),
+            badgeColor.withValues(alpha: 0.55 + 0.4 * meterFill),
+          ],
+        ),
         boxShadow: [
           BoxShadow(
-            color: badgeColor.withValues(alpha: 0.5),
-            blurRadius: 8,
+            color: badgeColor.withValues(alpha: 0.45 + 0.25 * meterFill),
+            blurRadius: 8 + 6 * meterFill,
+            spreadRadius: 1,
           ),
         ],
       ),
@@ -224,8 +253,29 @@ class _PenaltyBadgeState extends State<_PenaltyBadge>
             '+${widget.count}',
             style: AppTypography.labelSmall.copyWith(
               color: Colors.white,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
               fontSize: fontSize,
+              letterSpacing: 0.4,
+            ),
+          ),
+          SizedBox(width: (widget.compact ? 4 : 6) * scale),
+          // Compact fill bar — reads as escalating danger.
+          SizedBox(
+            width: (widget.compact ? 28.0 : 36.0) * scale,
+            height: (widget.compact ? 4.0 : 5.0) * scale,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(2 * scale),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ColoredBox(color: Colors.white.withValues(alpha: 0.2)),
+                  FractionallySizedBox(
+                    widthFactor: meterFill,
+                    alignment: Alignment.centerLeft,
+                    child: const ColoredBox(color: Colors.white),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -298,9 +348,11 @@ class _AnimatedSuitBadgeState extends State<_AnimatedSuitBadge> {
     final suitColor = _suitSymbolColor(widget.suit);
     final primaryColor = widget.theme.accentPrimary;
     final bgColor = widget.theme.surfacePanel;
-    final size = widget.compact ? 40.0 : 56.0;
-    final fontSize = widget.compact ? 20.0 : 26.0;
-    final labelSize = widget.compact ? 8.0 : 9.0;
+    // Compact phones: circle only — label+circle was overflowing the HUD slot.
+    final size = widget.compact ? 36.0 : 56.0;
+    final fontSize = widget.compact ? 18.0 : 26.0;
+    final labelSize = 9.0;
+    final showLabel = !widget.compact;
 
     final badge = Container(
       width: size,
@@ -334,29 +386,33 @@ class _AnimatedSuitBadgeState extends State<_AnimatedSuitBadge> {
       ),
     );
 
+    final content = showLabel
+        ? Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              badge,
+              const SizedBox(height: 4),
+              Text(
+                'ACTIVE SUIT',
+                style: TextStyle(
+                  fontSize: labelSize,
+                  color: primaryColor.withValues(alpha: 0.7),
+                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          )
+        : badge;
+
     return AnimatedScale(
       scale: _visible ? 1.0 : 0.0,
       duration: const Duration(milliseconds: 300),
-      curve: Curves.elasticOut,
+      curve: Curves.easeOutBack,
       child: AnimatedOpacity(
         opacity: _visible ? 1.0 : 0.0,
         duration: const Duration(milliseconds: 400),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            badge,
-            SizedBox(height: widget.compact ? 2 : 4),
-            Text(
-              'ACTIVE SUIT',
-              style: TextStyle(
-                fontSize: labelSize,
-                color: primaryColor.withValues(alpha: 0.7),
-                letterSpacing: 1.5,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
+        child: content,
       ),
     );
   }

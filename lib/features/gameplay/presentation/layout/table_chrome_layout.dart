@@ -53,11 +53,16 @@ abstract final class TablePortraitGrid {
   /// Turn timer + floating action bar band.
   static const double actionBarHeight = 108;
 
-  /// Gap between the board region and the action bar — clears room for the
-  /// "Last cards: (names)" strip, which floats just below the HUD and would
-  /// otherwise overlap the turn timer bar now that the board sits close to
-  /// the action bar (see the bottom-anchored board FittedBox alignment).
-  static const double boardToActionBarGap = 24;
+  /// Match mode chip strip.
+  static const double matchHeaderHeight = 40;
+
+  /// Move log + event ticker band between opponent rail and board.
+  static const double eventTickerHeight = 56;
+
+  /// Gap between the board region and the action bar. Trimmed now that Last
+  /// Cards / stack banners live in the event ticker slot instead of floating
+  /// between HUD and timer.
+  static const double boardToActionBarGap = 12;
 
   /// Local [PlayerZoneWidget] + hand fan.
   static const double handRegionHeight = 156;

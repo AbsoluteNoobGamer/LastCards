@@ -35,7 +35,8 @@ class AnalyticsService {
         name: AnalyticsEvents.gameCompleted,
         parameters: {
           AnalyticsParams.mode: mode,
-          AnalyticsParams.isWin: isWin,
+          // Firebase Analytics rejects bool params — send 1/0.
+          AnalyticsParams.isWin: isWin ? 1 : 0,
           AnalyticsParams.durationSeconds: durationSeconds,
           AnalyticsParams.endedBy: endedBy,
         },
@@ -262,7 +263,8 @@ class AnalyticsService {
       _analytics.logEvent(
         name: AnalyticsEvents.rankedGamePlayed,
         parameters: {
-          AnalyticsParams.isWin: isWin,
+          // Firebase Analytics rejects bool params — send 1/0.
+          AnalyticsParams.isWin: isWin ? 1 : 0,
           AnalyticsParams.mmrBefore: mmrBefore,
           AnalyticsParams.mmrAfter: mmrAfter,
         },

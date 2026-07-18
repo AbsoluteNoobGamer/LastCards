@@ -1,5 +1,9 @@
 import 'move_log_entry.dart';
 
+/// How many newest move-log lines to keep in session memory / UI.
+/// Collapsed band still previews a couple; the expandable panel shows these.
+const int kMoveLogMaxEntries = 40;
+
 /// Merges [playEntry] into the newest log line when it is the same player's
 /// continued turn; otherwise prepends a new line. Keeps at most [maxEntries].
 ///
@@ -8,7 +12,7 @@ import 'move_log_entry.dart';
 void mergeOrPrependPlayLog(
   List<MoveLogEntry> entries,
   MoveLogEntry playEntry, {
-  int maxEntries = 3,
+  int maxEntries = kMoveLogMaxEntries,
 }) {
   assert(playEntry.type == MoveLogEntryType.play);
   if (entries.isNotEmpty) {
@@ -35,7 +39,7 @@ void mergeOrPrependPlayLog(
 void mergeOrPrependDrawLog(
   List<MoveLogEntry> entries,
   MoveLogEntry drawEntry, {
-  int maxEntries = 3,
+  int maxEntries = kMoveLogMaxEntries,
 }) {
   assert(drawEntry.type == MoveLogEntryType.draw);
   if (entries.isNotEmpty) {
