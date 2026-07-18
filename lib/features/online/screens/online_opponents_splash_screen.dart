@@ -22,6 +22,8 @@ import '../providers/online_session_provider.dart';
 /// then navigates to [TableScreen] (or tournament/bust variants).
 ///
 /// Public casual matches may open a short knockout vote before the deal.
+/// Vote events are captured on [gameNotifierProvider] during matchmaking so
+/// this screen still sees an in-progress ballot after navigation.
 class OnlineOpponentsSplashScreen extends ConsumerStatefulWidget {
   const OnlineOpponentsSplashScreen({super.key});
 
@@ -33,18 +35,11 @@ class OnlineOpponentsSplashScreen extends ConsumerStatefulWidget {
 class _OnlineOpponentsSplashScreenState
     extends ConsumerState<OnlineOpponentsSplashScreen> {
   StreamSubscription<StateSnapshotEvent>? _snapshotSub;
-  StreamSubscription<GameEvent>? _eventSub;
   bool _snapshotReceived = false;
 
-  bool _voteOpen = false;
   bool _hasVoted = false;
-  int _secondsRemaining = 15;
-  int _yesCount = 0;
-  int _noCount = 0;
-  int _votedCount = 0;
-  int _totalVoters = 0;
   Timer? _countdownTicker;
-  bool? _voteResultKnockout;
+  int _secondsRemaining = 0;
 
   @override
   void initState() {
@@ -62,61 +57,32 @@ class _OnlineOpponentsSplashScreenState
         setState(() {});
       }
     });
-    _eventSub = handler.events.listen(_onGameEvent);
+
+    _syncCountdownFromVote(ref.read(tournamentVoteProvider));
   }
 
-  void _onGameEvent(GameEvent event) {
-    if (!mounted) return;
-    if (event is TournamentVoteOpenEvent) {
-      _countdownTicker?.cancel();
-      setState(() {
-        _voteOpen = true;
-        _hasVoted = false;
-        _secondsRemaining = event.secondsRemaining;
-        _totalVoters = event.totalVoters;
-        _yesCount = 0;
-        _noCount = 0;
-        _votedCount = 0;
-        _voteResultKnockout = null;
-      });
-      _countdownTicker = Timer.periodic(const Duration(seconds: 1), (t) {
-        if (!mounted) {
-          t.cancel();
-          return;
-        }
-        setState(() {
-          _secondsRemaining =
-              _secondsRemaining > 0 ? _secondsRemaining - 1 : 0;
-        });
-        if (_secondsRemaining <= 0) t.cancel();
-      });
-    } else if (event is TournamentVoteUpdateEvent) {
-      setState(() {
-        _yesCount = event.yesCount;
-        _noCount = event.noCount;
-        _votedCount = event.votedCount;
-        _totalVoters = event.totalVoters;
-      });
-    } else if (event is TournamentVoteResultEvent) {
-      _countdownTicker?.cancel();
-      if (event.isKnockoutTournament) {
-        final n = ref.read(tournamentSessionProvider.notifier);
-        n.setFormat(TournamentFormat.knockout);
-        n.setSubMode(GameSubMode.knockout);
-      }
-      setState(() {
-        _voteOpen = false;
-        _voteResultKnockout = event.isKnockoutTournament;
-      });
-    } else if (event is SessionConfigEvent && event.isKnockoutTournament) {
-      final n = ref.read(tournamentSessionProvider.notifier);
-      n.setFormat(TournamentFormat.knockout);
-      n.setSubMode(GameSubMode.knockout);
+  void _syncCountdownFromVote(TournamentVotePhase vote) {
+    _countdownTicker?.cancel();
+    _countdownTicker = null;
+    if (!vote.isOpen) {
+      _secondsRemaining = 0;
+      return;
     }
+    _secondsRemaining = vote.secondsRemaining;
+    _countdownTicker = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      final next = ref.read(tournamentVoteProvider).secondsRemaining;
+      setState(() => _secondsRemaining = next);
+      if (next <= 0) t.cancel();
+    });
   }
 
   void _castVote(bool wantTournament) {
-    if (_hasVoted || !_voteOpen) return;
+    final vote = ref.read(tournamentVoteProvider);
+    if (_hasVoted || !vote.isOpen) return;
     final ws = ref.read(wsClientProvider);
     if (!ws.send(jsonEncode({
       'type': 'vote_tournament',
@@ -130,7 +96,6 @@ class _OnlineOpponentsSplashScreenState
   @override
   void dispose() {
     _snapshotSub?.cancel();
-    _eventSub?.cancel();
     _countdownTicker?.cancel();
     super.dispose();
   }
@@ -139,15 +104,14 @@ class _OnlineOpponentsSplashScreenState
     if (!splashContext.mounted) return;
     _snapshotSub?.cancel();
     _snapshotSub = null;
-    _eventSub?.cancel();
-    _eventSub = null;
 
     final playerCount = ref.read(onlineSessionProvider).playerCount ?? 4;
     final session = ref.read(tournamentSessionProvider);
     final isBust = session.subMode == GameSubMode.bust;
+    final voteResult = ref.read(tournamentVoteProvider).resultIsKnockout;
     final isTournament = session.format != null ||
         ref.read(gameNotifierProvider).isKnockoutTournamentSession ||
-        _voteResultKnockout == true;
+        voteResult == true;
 
     // Deliberately NOT resetting onlineSessionProvider here — a rematch from
     // TableScreen reopens MatchmakingScreen expecting this session's mode
@@ -186,11 +150,24 @@ class _OnlineOpponentsSplashScreenState
     final theme = ref.watch(themeProvider).theme;
     final onlineSession = ref.watch(onlineSessionProvider);
     final gameState = ref.watch(gameStateProvider);
+    final vote = ref.watch(tournamentVoteProvider);
     final localName = ref.watch(displayNameForGameProvider);
     final localAvatarUrl =
         ref.watch(userProfileProvider).valueOrNull?.avatarUrl;
 
-    final ready = !_voteOpen &&
+    ref.listen<TournamentVotePhase>(tournamentVoteProvider, (prev, next) {
+      if (prev?.isOpen != next.isOpen || prev?.deadline != next.deadline) {
+        _syncCountdownFromVote(next);
+      }
+      if (next.resultIsKnockout == true) {
+        final n = ref.read(tournamentSessionProvider.notifier);
+        n.setFormat(TournamentFormat.knockout);
+        n.setSubMode(GameSubMode.knockout);
+      }
+    });
+
+    final voteOpen = vote.isOpen;
+    final ready = !voteOpen &&
         _snapshotReceived &&
         gameState != null &&
         gameState.phase == GamePhase.playing;
@@ -215,10 +192,11 @@ class _OnlineOpponentsSplashScreenState
           );
 
     final modeLabel = onlineSession.mode?.displayName ?? 'Online';
-    final subtitle = _voteOpen
-        ? 'Vote: knockout tournament? (${_secondsRemaining}s)'
+    final seconds = voteOpen ? _secondsRemaining : vote.secondsRemaining;
+    final subtitle = voteOpen
+        ? 'Vote: knockout tournament? (${seconds}s)'
         : ready
-            ? (_voteResultKnockout == true
+            ? (vote.resultIsKnockout == true
                 ? 'Knockout it is — let\'s play'
                 : 'Everyone is in — let\'s play')
             : 'Syncing table…';
@@ -232,7 +210,7 @@ class _OnlineOpponentsSplashScreenState
           holdCountdown: !ready,
           onFinished: _navigateToGame,
         ),
-        if (_voteOpen)
+        if (voteOpen)
           Positioned.fill(
             child: Material(
               color: Colors.black.withValues(alpha: 0.55),
@@ -279,9 +257,9 @@ class _OnlineOpponentsSplashScreenState
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                'Yes $_yesCount · No $_noCount'
-                                ' · $_votedCount/$_totalVoters voted'
-                                ' · ${_secondsRemaining}s',
+                                'Yes ${vote.yesCount} · No ${vote.noCount}'
+                                ' · ${vote.votedCount}/${vote.totalVoters} voted'
+                                ' · ${seconds}s',
                                 textAlign: TextAlign.center,
                                 style: GoogleFonts.inter(
                                   fontSize: 12,

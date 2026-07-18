@@ -154,6 +154,10 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
         _onQueueUpdate(event);
       } else if (event is PlayerJoinedEvent) {
         _onPlayerJoined(event);
+      } else if (event is TournamentVoteOpenEvent) {
+        // Vote opens as soon as the casual table is seated — navigate even if
+        // a roster-count race delayed the usual player_joined trigger.
+        _scheduleNavigateToLobby();
       } else if (event is ErrorEvent) {
         _onMatchmakingError(event);
       }
