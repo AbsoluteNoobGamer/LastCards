@@ -106,7 +106,11 @@ bool aiHasPlayableTurn({
   final discardTop = s.discardTopCard!;
 
   // Win awareness: if only one card remains and it's playable, take the win now.
+  // Queens are excluded — playing a Queen always requires a cover or draw, so
+  // emptying on a Queen is not a win (fall through to the normal path which
+  // runs the Queen-cover loop).
   if (ai.hand.length == 1 &&
+      ai.hand.first.effectiveRank != Rank.queen &&
       validatePlay(
               cards: [ai.hand.first], discardTop: discardTop, state: s) ==
           null) {
@@ -250,6 +254,12 @@ bool aiHasPlayableTurn({
   int queenCoverDrawCount = 0,
   Suit? aceDeclaredSuit,
 }) {
+  // Never advance while a Queen is still uncovered — that would clear the
+  // lock via [advanceTurn] and let an empty hand look like a legal win.
+  assert(
+    state.queenSuitLock == null,
+    'AI finalized turn with unresolved Queen suit lock',
+  );
   return (
     state: advanceTurn(state),
     playedCards: playedCards,

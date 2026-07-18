@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:last_cards/core/models/offline_game_engine.dart';
+import 'package:last_cards/shared/rules/win_condition_rules.dart';
 
 CardModel c(Rank r, Suit s, String id) => CardModel(id: id, rank: r, suit: s);
 
@@ -171,6 +172,37 @@ void main() {
       expect(result.playedCards.length, 1);
       expect(result.playedCards.first.id, last.id);
       expect(aiAfter.hand, isEmpty);
+    });
+
+    test('AI cannot win by playing an uncovered Queen as last card', () {
+      final queen = c(Rank.queen, Suit.spades, 'qs');
+      final state = buildState(
+        discardTop: c(Rank.nine, Suit.spades, 'd_qs'),
+        aiHand: [queen],
+      );
+
+      final result = aiTakeTurn(
+        state: state,
+        aiPlayerId: 'ai',
+        cardFactory: (_) => [c(Rank.three, Suit.clubs, 'drawn_cover')],
+      );
+
+      final aiAfter =
+          result.preTurnAdvanceState.players.firstWhere((p) => p.id == 'ai');
+      expect(result.playedCards.first.id, queen.id);
+      expect(result.queenCoverDrawCount, 1,
+          reason: 'Must draw to clear uncovered Queen');
+      expect(aiAfter.hand, isNotEmpty,
+          reason: 'AI must still hold the drawn cover card');
+      expect(result.preTurnAdvanceState.queenSuitLock, isNull);
+      expect(
+        canConfirmPlayerWin(
+          state: result.preTurnAdvanceState,
+          playerId: 'ai',
+          skipLastCardsCheck: true,
+        ),
+        isFalse,
+      );
     });
 
     test('AI plays Black Jack only when many cards or a draw chain is active', () {

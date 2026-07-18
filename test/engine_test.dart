@@ -604,6 +604,46 @@ void main() {
       expect(() => attemptEndTurn(), throwsStateError,
           reason: 'attemptEndTurn() must throw StateError');
     });
+
+    test('queenIsNotMidTurnWildBypass', () {
+      // Regression: A♥ → Q♥ is not a legal mid-turn continuation — Queen is
+      // not adjacent to Ace (rank gap of 2). Old bug treated Queen as a
+      // special override that skipped numerical flow.
+      var state = buildState(discardTop: c(Rank.ace, Suit.spades));
+      state = applyPlay(
+        state: state,
+        playerId: 'p1',
+        cards: [c(Rank.ace, Suit.hearts)],
+        declaredSuit: Suit.hearts,
+      );
+      expect(state.actionsThisTurn, 1);
+      expect(state.lastPlayedThisTurn?.effectiveRank, Rank.ace);
+
+      final err = validatePlay(
+        cards: [c(Rank.queen, Suit.hearts)],
+        discardTop: state.discardTopCard!,
+        state: state,
+      );
+      expect(err, isNotNull,
+          reason: 'Q♥ after A♥ must be rejected (not adjacent)');
+
+      // Adjacent Queen mid-turn remains legal (J♥ → Q♥).
+      var jackState = buildState(discardTop: c(Rank.jack, Suit.spades));
+      jackState = applyPlay(
+        state: jackState,
+        playerId: 'p1',
+        cards: [c(Rank.jack, Suit.hearts)],
+      );
+      expect(
+        validatePlay(
+          cards: [c(Rank.queen, Suit.hearts)],
+          discardTop: jackState.discardTopCard!,
+          state: jackState,
+        ),
+        isNull,
+        reason: 'Q♥ after J♥ is a legal same-suit continuation',
+      );
+    });
   });
 
   group('5. Special Card Stacking', () {

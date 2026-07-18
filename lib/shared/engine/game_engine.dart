@@ -119,7 +119,9 @@ bool sameTurnFreshLeadReset(GameState state) =>
 /// Same-turn sequential rule:
 ///   • If a card has already been played this turn (actionsThisTurn > 0),
 ///     a single-card follow-up must be rank-adjacent (±1) to the last played
-///     card AND share the same suit (Numerical Flow continuation).
+///     card AND share the same suit (Numerical Flow continuation), or match
+///     its rank (value chain). Queens follow this rule like normal cards —
+///     they are not a mid-turn wild bypass.
 ///   • Exception: in a **2-player** game, after a played [Rank.king] (same seat
 ///     again), the immediate next play matches the discard top with normal
 ///     suit/rank rules — numerical flow does not step from the King.
@@ -249,7 +251,8 @@ String? validatePlay({
   // ── Same-turn sequential adjacency (Numerical Flow Rule) ──────────────
   // If the player has already played a card this turn, a single follow-up card
   // must be rank-adjacent (±1) to the last card played this turn AND share the
-  // same suit. Special cards (Joker, Queen) bypass this via early returns above.
+  // same suit (or match rank for a value chain). Jokers bypass this (declare
+  // into a legal continuation). Queens do not — they must chain normally.
   // Exception: when queenSuitLock is active (covering a Queen), this rule does
   // not apply — that state has its own distinct validation rules.
   // Exception: sameTurnFreshLeadReset (King reset, or stacked Eights whose
@@ -261,9 +264,12 @@ String? validatePlay({
       !sameTurnFreshLeadReset(state)) {
     final prev = state.lastPlayedThisTurn!;
     final next = cards.first;
-    // Only enforce adjacency for non-special cards continuing a same-suit flow.
-    // Aces are no longer special overrides mid-turn; they must exactly follow numerical flow.
-    final isSpecialOverride = next.effectiveRank == Rank.queen || next.isJoker;
+    // Only Jokers bypass mid-turn numerical flow (they declare into a legal
+    // continuation). Queens are NOT wild mid-turn — they must continue by
+    // same-suit adjacency or same-rank value chain, matching
+    // [last_cards_rules._validChainStep]. After a Queen is played,
+    // [queenSuitLock] skips this block so covers need not be adjacent.
+    final isSpecialOverride = next.isJoker;
 
     // Penalty chaining bypass (when [GameState.isPenaltyChainActive]):
     // If the previous card was a penalty card (2 or Jack) and the next card is
