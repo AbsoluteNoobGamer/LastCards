@@ -19,7 +19,9 @@ pluginManagement {
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "8.11.1" apply false
+    // 8.13 enables android.r8.optimizedResourceShrinking (Play R8 guidance).
+    // AGP 9.x needs Gradle 9.1 + Flutter tooling migration — deferred for now.
+    id("com.android.application") version "8.13.0" apply false
     id("org.jetbrains.kotlin.android") version "2.2.20" apply false
     id("com.google.gms.google-services") version "4.4.2" apply false
     id("org.gradle.toolchains.foojay-resolver-convention") version "0.10.0"
