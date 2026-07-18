@@ -50,18 +50,23 @@ import 'package:last_cards/features/online/providers/online_session_provider.dar
 import '../widgets/multi_card_play_celebration.dart';
 import '../widgets/discard_pile_widget.dart';
 import '../widgets/draw_pile_widget.dart';
-import '../widgets/hud_overlay_widget.dart';
 import '../widgets/player_hand_widget.dart';
 import '../widgets/ace_suit_picker_sheet.dart';
 import '../widgets/player_zone_widget.dart';
 import '../widgets/card_widget.dart';
 import '../widgets/floating_action_bar_widget.dart';
-import '../widgets/last_cards_table_strip.dart';
-import '../widgets/turn_indicator_overlay.dart';
+import '../widgets/match_broadcast_header.dart';
+import '../widgets/table_event_ticker.dart';
+import '../widgets/arena_chrome_fab.dart';
+import '../widgets/arena_info_band.dart';
+import '../widgets/hud_overlay_widget.dart';
+import '../widgets/direction_sweep_overlay.dart';
+import '../widgets/special_moment_overlays.dart';
 import 'package:last_cards/features/gameplay/presentation/layout/table_chrome_layout.dart';
 import '../widgets/stack_block_banner_overlay.dart';
 import '../widgets/quick_chat_panel.dart';
 import '../widgets/felt_table_background.dart';
+import '../../../../services/game_log_formatter.dart';
 import '../../../chat/presentation/widgets/live_text_chat_panel.dart';
 
 import '../../../../shared/reactions/reaction_catalog.dart';
@@ -197,7 +202,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   final Map<String, GlobalKey> _playerZoneKeys = {};
   final Set<String> _skipHighlightPlayerIds = <String>{};
   Timer? _skipHighlightClearTimer;
-  Timer? _stackBlockBannerClearTimer;
 
   /// Mutable offline state — set by initState via buildWithDeck().
   late GameState _offlineState;
@@ -269,8 +273,22 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   StreamSubscription<LastCardsBluffEvent>? _lastCardsBluffSub;
   StreamSubscription<LastCardsPressedEvent>? _lastCardsPressedSub;
   StreamSubscription<GameMomentEvent>? _gameMomentSub;
-  String? _stackBlockBannerText;
-  Color? _stackBlockBannerColor;
+  /// Reserved event-lane controller (broadcast ticker). Replaces floating
+  /// move-log / stack-block / Last Cards center banners.
+  final TableEventTickerController _eventTicker = TableEventTickerController();
+
+  /// Bumped when a King reverses play direction (direction sweep FX).
+  int _directionSweepTrigger = 0;
+  PlayDirection _directionSweepDirection = PlayDirection.clockwise;
+
+  /// Soft special-card moments (Ace/Joker bloom, skip arc, draw-pile FX).
+  int _suitBloomTrigger = 0;
+  Suit? _suitBloomSuit;
+  int _skipArcTrigger = 0;
+  String? _skipArcFromPlayerId;
+  List<String> _skipArcToPlayerIds = const [];
+  int _drawPileFxTrigger = 0;
+  DrawPileFxKind _drawPileFxKind = DrawPileFxKind.none;
 
   int _multiPlayCelebrationTrigger = 0;
   int _multiPlayCelebrationTier = 0;
@@ -283,12 +301,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   /// time) — tracked purely for the longest-combo leaderboard, independent of
   /// [GameState.discardPileHistory] (which is capped and shared/synced).
   List<CardModel> _localComboCardsThisTurn = [];
-
-  String? _lastCardsBluffBannerText;
-  String? _lastCardsDeclaredBannerText;
-
-  /// Clears the declare banner only for the latest [_announceLastCardsDeclaration] call.
-  int _lastCardsDeclaredBannerSeq = 0;
 
   /// Offline: [applyOpeningSeatLastCardsSeedIfNeeded] ran at deal — show banner/move log.
   bool _pendingOpeningLastCardsAnnouncement = false;
@@ -357,6 +369,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     _bumpPenaltyFlashForHud();
     HapticFeedback.mediumImpact();
+    _maybeAnnouncePenaltyFx(
+      beforeState: beforeState,
+      afterState: afterState,
+      playedCard: playedCard,
+    );
     setState(() {
       _multiPlayCelebrationTier = 1;
       _multiPlayCelebrationCardCount = null;
@@ -365,25 +382,67 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _showStackBlockBanner(message.text, message.color);
   }
 
-  /// Shows [text] in the stack-block banner for a beat, then clears it.
+  /// Shows [text] in the reserved event ticker for a beat.
   /// Generic display helper — unlike [_announcePenaltyChainAction], this
   /// carries no penalty-specific side effects (HUD flash, haptics).
   void _showStackBlockBanner(String text, Color color) {
     if (_tournamentSimulatingRest) return;
-    _stackBlockBannerClearTimer?.cancel();
-    setState(() {
-      _stackBlockBannerText = text;
-      _stackBlockBannerColor = color;
-    });
-    _stackBlockBannerClearTimer =
-        Timer(const Duration(milliseconds: 1800), () {
-      if (mounted) {
-        setState(() {
-          _stackBlockBannerText = null;
-          _stackBlockBannerColor = null;
-        });
-      }
-    });
+    final isReshuffle = text.toLowerCase().contains('reshuffl');
+    _eventTicker.push(
+      text,
+      priority: isReshuffle
+          ? TableEventPriority.reshuffle
+          : TableEventPriority.stack,
+      accent: color,
+    );
+  }
+
+  void _announceDirectionReverse(PlayDirection newDirection) {
+    if (_tournamentSimulatingRest) return;
+    _directionSweepDirection = newDirection;
+    setState(() => _directionSweepTrigger++);
+    final arrow =
+        newDirection == PlayDirection.clockwise ? '→' : '←';
+    _eventTicker.push(
+      'REVERSED $arrow',
+      priority: TableEventPriority.reverse,
+    );
+  }
+
+  void _announceSuitBloom(Suit suit) {
+    if (_tournamentSimulatingRest) return;
+    _suitBloomSuit = suit;
+    setState(() => _suitBloomTrigger++);
+  }
+
+  void _maybeAnnounceSuitBloom(GameState before, GameState after) {
+    final next = after.suitLock;
+    if (next != null && next != before.suitLock) {
+      _announceSuitBloom(next);
+    }
+  }
+
+  void _announceDrawPileFx(DrawPileFxKind kind) {
+    if (_tournamentSimulatingRest) return;
+    if (kind == DrawPileFxKind.none) return;
+    _drawPileFxKind = kind;
+    setState(() => _drawPileFxTrigger++);
+  }
+
+  void _maybeAnnouncePenaltyFx({
+    required GameState beforeState,
+    required GameState afterState,
+    required CardModel playedCard,
+  }) {
+    final before = beforeState.activePenaltyCount;
+    final after = afterState.activePenaltyCount;
+    if (playedCard.isRedJack || after < before) {
+      _announceDrawPileFx(DrawPileFxKind.redJackClear);
+    } else if (after > before ||
+        playedCard.effectiveRank == Rank.two ||
+        playedCard.isBlackJack) {
+      _announceDrawPileFx(DrawPileFxKind.penaltyBump);
+    }
   }
 
   void _announceOnlinePenaltyChainFromCardPlay(CardPlayedEvent e) {
@@ -564,6 +623,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (!mounted) return;
       final state = ref.read(gameStateProvider);
       if (state == null) return;
+      if (!_isOfflineSession &&
+          e.cards.any((c) => c.effectiveRank == Rank.king)) {
+        _announceDirectionReverse(state.direction);
+      }
       final name = state.playerById(e.playerId)?.displayName ?? e.playerId;
       final actions = e.cards.map((c) => MoveCardAction(card: c)).toList();
       setState(() {
@@ -582,7 +645,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       if (e.skippedPlayers.isNotEmpty) {
         _flashSkipHighlight(
           _playerIdsForSkippedNames(state, e.skippedPlayers),
+          fromPlayerId: e.playerId,
         );
+      }
+      if (state.suitLock != null &&
+          e.cards.any((c) =>
+              c.effectiveRank == Rank.ace || c.isJoker)) {
+        _announceSuitBloom(state.suitLock!);
       }
       final turnTotal = e.cardsPlayedThisTurnAfter;
       if (turnTotal != null) {
@@ -1094,10 +1163,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _gameMomentSub?.cancel();
     _quickChatCooldownTimer?.cancel();
     _skipHighlightClearTimer?.cancel();
-    _stackBlockBannerClearTimer?.cancel();
     _engineTimer.dispose();
     _reshuffleNotifier.dispose();
     _handShakeNotifier.dispose();
+    _eventTicker.dispose();
     clearSuitInference(_offlineState.sessionId);
     unawaited(game_audio.AudioService.instance.stopAll());
     super.dispose();
@@ -1661,6 +1730,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           chosenSuit: chosenAceSuit!,
         );
       });
+      _announceSuitBloom(chosenAceSuit);
     }
 
     final err = validateEndTurn(_offlineState);
@@ -1714,6 +1784,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       ref.read(gameNotifierProvider.notifier).declareSuit(chosenAceSuit.name);
       await _waitForOnlineSuitLock();
       if (!mounted) return;
+      // Suit bloom fires via gameStateProvider suitLock listen.
     }
 
     final err = validateEndTurn(ref.read(gameStateProvider) ?? gameState);
@@ -1844,6 +1915,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     ref.listen<GameState?>(gameStateProvider, (prev, next) {
       if (_isOfflineSession || next == null) return;
       if (prev?.currentPlayerId != next.currentPlayerId) _onlineTurnIndex++;
+      if (next.suitLock != null && next.suitLock != prev?.suitLock) {
+        _announceSuitBloom(next.suitLock!);
+      }
     });
 
     // Online: show win overlay when game ends (same as single-player).
@@ -2115,7 +2189,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               Size(constraints.maxWidth, constraints.maxHeight);
           final isLandscapeMobile =
               TableChromeLayout.isLandscapeMobile(layoutSize);
-          final isPortraitGrid = !isLandscapeMobile;
           // Tablets/desktop (anything not a compact phone) get chrome scaled
           // up toward the available canvas instead of staying pinned at
           // phone-reference pixel sizes with the surplus becoming empty felt.
@@ -2129,9 +2202,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           // board region. Shared with Bust mode via TableChromeLayout.scaleFor
           // so both screens use the exact same curve.
           final tableScale = TableChromeLayout.scaleFor(layoutSize);
-          // Move log / banners stay near phone size on tablets so they don't
-          // cover the center piles when chrome scales up to ~2.2×.
-          final overlayScale = TableChromeLayout.overlayScaleFor(layoutSize);
           final mediaPadding = MediaQuery.paddingOf(context);
           final portraitSkipChipBottom = mediaPadding.bottom +
               (TablePortraitGrid.handRegionHeight +
@@ -2142,34 +2212,31 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             mediaPadding.bottom,
             scale: tableScale,
           );
-          final buttonBottom = isLandscapeMobile
-              ? mediaPadding.bottom +
-                  (TablePortraitGrid.landscapeHandRegionHeight +
-                          TablePortraitGrid.landscapeActionBarHeight) *
-                      tableScale +
-                  AppDimensions.sm
-              : mediaPadding.bottom +
-                  (TablePortraitGrid.handRegionHeight +
-                          TablePortraitGrid.actionBarHeight) *
-                      tableScale +
-                  AppDimensions.sm;
-          final overlayUseRail = gameState.players.length > 4;
-          final overlayHasTournamentBadges =
-              _buildTournamentStatusBadges().isNotEmpty;
-          final overlayIsRanked = ref.watch(isRankedGameProvider);
-          final overlayOpponentRowHeight = isLandscapeMobile
-              ? TablePortraitGrid.landscapeOpponentRowHeight(
-                  useRail: overlayUseRail,
-                  hasBadges: overlayHasTournamentBadges,
-                  scale: tableScale,
-                )
-              : TablePortraitGrid.opponentRowHeight(
-                  useRail: overlayUseRail,
-                  hasBadges: overlayHasTournamentBadges,
-                  scale: tableScale,
-                );
-          final kingJustPlayed =
-              gameState.lastPlayedThisTurn?.effectiveRank == Rank.king;
+          // Corner FABs sit in gutters beside the hand (hand lane is inset by
+          // [ArenaChromeFab.handClearance] so edge cards stay tappable).
+          final buttonBottom = mediaPadding.bottom + 10;
+          final isRankedMatch = ref.watch(isRankedGameProvider);
+          final isBustMatch =
+              ref.watch(tournamentSessionProvider).subMode == GameSubMode.bust;
+          final isHardcoreMatch = gameState.isHardcore ||
+              (!_isOfflineSession &&
+                  ref.watch(gameNotifierProvider).isHardcoreSession);
+          final matchModeLabel = resolveMatchModeLabel(
+            isOnline: !isOfflineMode,
+            isTournamentMode: widget.isTournamentMode,
+            isRanked: isRankedMatch,
+            isBust: isBustMatch && !widget.isTournamentMode,
+          );
+          final lastCardsFallback = () {
+            final ids = gameState.lastCardsDeclaredBy;
+            if (ids.isEmpty) return null;
+            final names = gameState.players
+                .where((p) => ids.contains(p.id))
+                .map((p) => p.displayName.split(RegExp(r'\s+')).first)
+                .toList();
+            if (names.isEmpty) return null;
+            return 'Last cards: ${names.join(' · ')}';
+          }();
 
           final stack = Stack(
             children: [
@@ -2265,7 +2332,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         aiConfigs: {
                           for (final c in _aiPlayerConfigs) c.playerId: c,
                         },
-                        isRanked: ref.watch(isRankedGameProvider),
+                        isRanked: isRankedMatch,
+                        matchModeLabel: matchModeLabel,
+                        showLiveChip: !isOfflineMode,
+                        isHardcore: isHardcoreMatch,
+                        eventTicker: _eventTicker,
+                        eventTickerFallback: lastCardsFallback,
+                        moveLogEntries: _moveLogEntries,
                         quickChatBubblesByPlayer: {
                           for (final b in _quickChatBubbles)
                             b.playerId: (
@@ -2289,14 +2362,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         localAvatarFilePath:
                             ref.watch(profileProvider.select((s) => s.avatarPath)),
                         tableScale: tableScale,
+                        comboLiveCount: gameState.cardsPlayedThisTurn,
                       ),
                     ),
                   ],
                 ),
               ),
 
-              // ── Multi-card combo celebration — above the table so the badge
-              // and embers aren't hidden behind the piles ────────────────────
+              // ── Multi-card combo celebration (lower-third stinger) ─────────
               Positioned.fill(
                 child: IgnorePointer(
                   child: MultiCardPlayCelebrationOverlay(
@@ -2307,45 +2380,58 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 ),
               ),
 
-              // ── Portrait transient overlay (move log, direction) ──────────
-              if (isPortraitGrid)
-                Positioned.fill(
-                  child: _PortraitTransientOverlayLayer(
-                    gameState: gameState,
-                    kingJustPlayed: kingJustPlayed,
-                    playerZoneKeys: _playerZoneKeys,
-                    hudKey: _hudKey,
-                    discardPileKey: _discardPileKey,
-                    opponentRowHeight: overlayOpponentRowHeight,
-                    hasRankedBadge: overlayIsRanked,
-                    moveLogEntries: _moveLogEntries,
-                    appTheme: appTheme,
-                    stackBlockBannerText: _stackBlockBannerText,
-                    stackBlockBannerColor: _stackBlockBannerColor,
-                    scale: tableScale,
-                    overlayScale: overlayScale,
-                  ),
+              // ── King direction sweep (no text banner over piles) ───────────
+              Positioned.fill(
+                child: DirectionSweepOverlay(
+                  trigger: _directionSweepTrigger,
+                  direction: _directionSweepDirection,
                 ),
+              ),
 
-              // ── Landscape transient overlay (move log, direction) ─────────
-              if (isLandscapeMobile)
-                Positioned.fill(
-                  child: _LandscapeTransientOverlayLayer(
-                    gameState: gameState,
-                    kingJustPlayed: kingJustPlayed,
-                    playerZoneKeys: _playerZoneKeys,
-                    hudKey: _hudKey,
-                    discardPileKey: _discardPileKey,
-                    opponentRowHeight: overlayOpponentRowHeight,
-                    hasRankedBadge: overlayIsRanked,
-                    moveLogEntries: _moveLogEntries,
-                    appTheme: appTheme,
-                    stackBlockBannerText: _stackBlockBannerText,
-                    stackBlockBannerColor: _stackBlockBannerColor,
-                    scale: tableScale,
-                    overlayScale: overlayScale,
-                  ),
+              // ── Ace / Joker suit bloom ─────────────────────────────────────
+              Positioned.fill(
+                child: SuitBloomOverlay(
+                  trigger: _suitBloomTrigger,
+                  suit: _suitBloomSuit,
+                  anchorKey: _discardPileKey,
                 ),
+              ),
+
+              // ── Eight skip arcs ────────────────────────────────────────────
+              Positioned.fill(
+                child: SkipArcOverlay(
+                  trigger: _skipArcTrigger,
+                  fromKey: _skipArcFromPlayerId != null
+                      ? _playerZoneKeys[_skipArcFromPlayerId!]
+                      : null,
+                  toKeys: [
+                    for (final id in _skipArcToPlayerIds)
+                      if (_playerZoneKeys[id] != null) _playerZoneKeys[id]!,
+                  ],
+                ),
+              ),
+
+              // ── Draw-pile penalty / Red Jack clear ─────────────────────────
+              Positioned.fill(
+                child: DrawPileFxOverlay(
+                  trigger: _drawPileFxTrigger,
+                  kind: _drawPileFxKind,
+                  drawPileKey: _drawPileKey,
+                ),
+              ),
+
+              // ── Queen suit-lock ring on locked seat ────────────────────────
+              Positioned.fill(
+                child: QueenLockRingOverlay(
+                  active: gameState.queenSuitLock != null,
+                  targetKey: _playerZoneKeys[gameState.currentPlayerId],
+                  suit: gameState.queenSuitLock,
+                ),
+              ),
+
+              // Transient move-log / stack-block / Last Cards / direction
+              // banners removed — reserved Match Header + Event Ticker slots
+              // in [_TableLayout] own that feedback (no overlapping floaters).
 
               // ── Tournament Skip (offline, when qualified) ───────────────────
               // Always mounted — toggling via `if (...) Positioned(...)`
@@ -2451,60 +2537,50 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 ),
               ),
 
-              // ── Settings + back (single-player and online) ──────────────────
+              // ── Card flight / deal (below chrome so FABs stay tappable) ──
+              Positioned.fill(
+                child: CardFlightOverlay(key: _playFlightKey, scale: tableScale),
+              ),
+              Positioned.fill(
+                child: DealingAnimationOverlay(
+                  key: _overlayKey,
+                  drawPileKey: _drawPileKey,
+                  playerKeys: _playerZoneKeys,
+                ),
+              ),
+
+              // ── Settings + leave (bottom-left, above overlays) ───────────
               Positioned(
                 bottom: buttonBottom,
-                left: 0,
-                child: Padding(
-                  padding: const EdgeInsets.all(AppDimensions.xs),
+                left: 8,
+                child: SafeArea(
+                  top: false,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.30),
-                          shape: BoxShape.circle,
-                        ),
-                        child: IconButton(
-                          tooltip: 'Settings',
-                          icon: const Icon(
-                            Icons.settings_rounded,
-                            size: 20,
-                            color: Colors.white,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                          onPressed: () => _showSettingsSheet(context),
-                        ),
+                      ArenaChromeFab(
+                        tooltip: 'Settings',
+                        icon: Icons.settings_rounded,
+                        onPressed: () => _showSettingsSheet(context),
                       ),
-                      const SizedBox(height: 8),
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.30),
-                          shape: BoxShape.circle,
-                        ),
-                        child: IconButton(
-                          tooltip: isOfflineMode ? 'Exit game' : 'Leave game',
-                          icon: const Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            size: 18,
-                            color: Colors.white,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                          onPressed: _onBackPressed,
-                        ),
+                      const SizedBox(height: 10),
+                      ArenaChromeFab(
+                        tooltip: isOfflineMode ? 'Exit game' : 'Leave game',
+                        icon: Icons.arrow_back_ios_new_rounded,
+                        onPressed: _onBackPressed,
                       ),
                     ],
                   ),
                 ),
               ),
 
-              // ── Reactions / chat toggle and panel (bottom right)
+              // ── Chat + reactions (bottom-right; mirrors left settings stack)
               if (!_isDealing && gameState.phase != GamePhase.ended)
                 Positioned(
                   bottom: buttonBottom,
-                  right: 0,
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppDimensions.xs),
+                  right: 8,
+                  child: SafeArea(
+                    top: false,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -2516,173 +2592,67 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                               builder: (context) {
                                 final panelW =
                                     MediaQuery.of(context).size.width * 0.72;
-                                final panelH =
-                                    _isOfflineSession ? 260.0 : 340.0;
-                                // Chat needs a tight height so the composer
-                                // stays inside hit-test bounds (Expanded).
-                                final chatOpen =
-                                    !_isOfflineSession && _socialPanelTab == 1;
-                                return ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxWidth: panelW,
-                                    maxHeight: panelH,
+                                // Fixed height so Reactions/Chat both use
+                                // Expanded scroll regions (no bottom overflow).
+                                final panelH = _socialPanelTab == 1
+                                    ? 340.0
+                                    : 280.0;
+                                return SizedBox(
+                                  width: panelW,
+                                  height: panelH,
+                                  child: ClipRect(
+                                    child: _buildSocialPanel(appTheme),
                                   ),
-                                  child: chatOpen
-                                      ? SizedBox(
-                                          width: panelW,
-                                          height: panelH,
-                                          child: _buildSocialPanel(appTheme),
-                                        )
-                                      : _buildSocialPanel(appTheme),
                                 );
                               },
                             ),
                           ),
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: _quickChatCooldownRemaining > 0 &&
-                                        _socialPanelTab == 0
-                                    ? Colors.black.withValues(alpha: 0.50)
-                                    : Colors.black.withValues(alpha: 0.30),
-                                shape: BoxShape.circle,
-                              ),
-                              child: IconButton(
-                                tooltip: _isOfflineSession
-                                    ? (_quickChatCooldownRemaining > 0
-                                        ? 'Reactions (${_quickChatCooldownRemaining}s)'
-                                        : 'Reactions')
-                                    : 'Reactions & chat',
-                                icon: Icon(
-                                  _socialPanelTab == 1 && _showQuickChatPanel
-                                      ? Icons.chat_bubble_outline_rounded
-                                      : Icons.emoji_emotions_outlined,
-                                  size: 20,
-                                  color: Colors.white,
-                                ),
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () {
-                                  setState(() => _showQuickChatPanel =
-                                      !_showQuickChatPanel);
-                                },
-                              ),
-                            ),
-                            if (_quickChatCooldownRemaining > 0 &&
-                                _socialPanelTab == 0)
-                              Positioned(
-                                right: -4,
-                                top: -4,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: AppColors.goldDark,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Text(
-                                    '$_quickChatCooldownRemaining',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
+                        ArenaChromeFab(
+                          tooltip: _isOfflineSession
+                              ? 'Chat (online games)'
+                              : 'Live chat',
+                          icon: Icons.chat_bubble_rounded,
+                          emphasized: _showQuickChatPanel &&
+                              _socialPanelTab == 1,
+                          onPressed: () {
+                            setState(() {
+                              if (_showQuickChatPanel &&
+                                  _socialPanelTab == 1) {
+                                _showQuickChatPanel = false;
+                              } else {
+                                _socialPanelTab = 1;
+                                _showQuickChatPanel = true;
+                              }
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                        ArenaChromeFab(
+                          tooltip: _quickChatCooldownRemaining > 0
+                              ? 'Reactions (${_quickChatCooldownRemaining}s)'
+                              : 'Reactions',
+                          icon: Icons.emoji_emotions_rounded,
+                          emphasized: !(_showQuickChatPanel &&
+                              _socialPanelTab == 1),
+                          badge: _quickChatCooldownRemaining > 0
+                              ? '$_quickChatCooldownRemaining'
+                              : null,
+                          onPressed: () {
+                            setState(() {
+                              if (_showQuickChatPanel &&
+                                  _socialPanelTab == 0) {
+                                _showQuickChatPanel = false;
+                              } else {
+                                _socialPanelTab = 0;
+                                _showQuickChatPanel = true;
+                              }
+                            });
+                          },
                         ),
                       ],
                     ),
                   ),
                 ),
-
-              if (_lastCardsDeclaredBannerText != null)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: Center(
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 32),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          color: appTheme.surfacePanel.withValues(alpha: 0.92),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: appTheme.accentPrimary.withValues(alpha: 0.95),
-                            width: 2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: appTheme.accentPrimary
-                                  .withValues(alpha: 0.35),
-                              blurRadius: 24,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          _lastCardsDeclaredBannerText!,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: appTheme.textPrimary,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-              if (_lastCardsBluffBannerText != null)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: Center(
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 32),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          color: appTheme.surfacePanel.withValues(alpha: 0.9),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            // Bad news for the bluffer — same red as a penalty
-                            // escalation, not the theme accent.
-                            color: const Color(0xFFE53935).withValues(alpha: 0.8),
-                          ),
-                        ),
-                        child: Text(
-                          _lastCardsBluffBannerText!,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: appTheme.textPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-              // ── Card flight (play / draw arcs) ─────────────────────────
-              Positioned.fill(
-                child: CardFlightOverlay(key: _playFlightKey, scale: tableScale),
-              ),
-
-              // ── Dealing Animation Overlay ──────────────────────────────
-              Positioned.fill(
-                child: DealingAnimationOverlay(
-                  key: _overlayKey,
-                  drawPileKey: _drawPileKey,
-                  playerKeys: _playerZoneKeys,
-                ),
-              ),
 
               // ── Connection lost / reconnecting (blocks interaction) ───────
               if (!isOfflineMode)
@@ -3062,6 +3032,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           playerId: playerId,
           playerName: previousState.playerById(playerId)?.displayName,
         );
+        _maybeAnnounceSuitBloom(previousState, newState);
 
         // Allow the player to continue their turn (stack more cards if they want).
         if (newState.currentPlayerId == playerId) {
@@ -3098,6 +3069,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         playerId: playerId,
         playerName: previousState.playerById(playerId)?.displayName,
       );
+      _maybeAnnounceSuitBloom(previousState, newState);
       _engineTimer.cancel();
       final resumeMidTurn = _engineTimer.secondsRemaining;
 
@@ -3111,6 +3083,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       // Direction reversed by King
       if (newState.direction != previousState.direction) {
         game_audio.AudioService.instance.playSound(GameSound.directionReversed);
+        _announceDirectionReverse(newState.direction);
       }
       // Skip accumulated by Eight
       if (newState.activeSkipCount > previousState.activeSkipCount) {
@@ -3648,6 +3621,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
               playerName:
                   _offlineState.playerById(aiId)?.displayName ?? aiId,
             );
+            _maybeAnnounceSuitBloom(beforeCard, working);
             _discardPile.add(c);
             if (mounted) {
               setState(() {
@@ -3658,6 +3632,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             if (working.direction != dirBefore) {
               game_audio.AudioService.instance
                   .playSound(GameSound.directionReversed);
+              _announceDirectionReverse(working.direction);
             }
             if (working.activeSkipCount != skipBefore) {
               game_audio.AudioService.instance.playSound(GameSound.skipApplied);
@@ -3687,9 +3662,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             playerId: aiId,
             playerName: _offlineState.playerById(aiId)?.displayName ?? aiId,
           );
+          _maybeAnnounceSuitBloom(
+            stateBeforeAiTurn,
+            result.preTurnAdvanceState,
+          );
           if (result.state.direction != stateBeforeAiTurn.direction) {
             game_audio.AudioService.instance
                 .playSound(GameSound.directionReversed);
+            _announceDirectionReverse(result.state.direction);
           }
           // preTurnAdvanceState — result.state has activeSkipCount cleared by advanceTurn.
           if (result.preTurnAdvanceState.activeSkipCount >
@@ -4538,14 +4518,23 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     return skippedPlayerDisplayNamesForSkipState(state);
   }
 
-  void _flashSkipHighlight(Iterable<String> playerIds) {
+  void _flashSkipHighlight(
+    Iterable<String> playerIds, {
+    String? fromPlayerId,
+  }) {
     final set = playerIds.toSet();
     if (set.isEmpty) return;
     _skipHighlightClearTimer?.cancel();
+    final gs =
+        _isOfflineSession ? _offlineState : ref.read(gameStateProvider);
+    final fromId = fromPlayerId ?? gs?.currentPlayerId;
     setState(() {
       _skipHighlightPlayerIds
         ..clear()
         ..addAll(set);
+      _skipArcFromPlayerId = fromId;
+      _skipArcToPlayerIds = set.toList(growable: false);
+      _skipArcTrigger++;
     });
     _skipHighlightClearTimer = Timer(const Duration(milliseconds: 720), () {
       _skipHighlightClearTimer = null;
@@ -4569,9 +4558,20 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   void _pushMoveLog(MoveLogEntry entry) {
     _moveLogEntries.insert(0, entry);
-    if (_moveLogEntries.length > 3) {
-      _moveLogEntries.removeRange(3, _moveLogEntries.length);
+    if (_moveLogEntries.length > kMoveLogMaxEntries) {
+      _moveLogEntries.removeRange(kMoveLogMaxEntries, _moveLogEntries.length);
     }
+    // Last Cards declare/bluff already push a dedicated ticker line.
+    if (entry.type == MoveLogEntryType.lastCardsDeclared ||
+        entry.type == MoveLogEntryType.lastCardsBluff) {
+      return;
+    }
+    final name = entry.playerName.split(RegExp(r'\s+')).first;
+    final move = GameLogFormatter.formatMove(entry);
+    _eventTicker.push(
+      '$name · $move',
+      priority: TableEventPriority.move,
+    );
   }
 
   void _onOnlineGameMoment(GameMomentEvent e) {
@@ -4615,33 +4615,24 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     }
     HapticFeedback.mediumImpact();
     game_audio.AudioService.instance.playSound(GameSound.tournamentQualify);
-    final seq = ++_lastCardsDeclaredBannerSeq;
-    setState(() {
-      _lastCardsDeclaredBannerText = '"$playerName" declared Last Cards!';
-      _lastCardsBluffBannerText = null;
-      if (pushMoveLog) {
-        _pushMoveLog(MoveLogEntry.lastCardsDeclared(
-          playerId: playerId,
-          playerName: playerName,
-        ));
-      }
-    });
-    Future.delayed(const Duration(milliseconds: 2200), () {
-      if (mounted && seq == _lastCardsDeclaredBannerSeq) {
-        setState(() => _lastCardsDeclaredBannerText = null);
-      }
-    });
+    if (pushMoveLog) {
+      _pushMoveLog(MoveLogEntry.lastCardsDeclared(
+        playerId: playerId,
+        playerName: playerName,
+      ));
+    }
+    _eventTicker.push(
+      '"$playerName" declared Last Cards!',
+      priority: TableEventPriority.lastCards,
+    );
   }
 
   void _flashLastCardsBluffBanner(String text) {
-    _lastCardsDeclaredBannerSeq++;
-    setState(() {
-      _lastCardsBluffBannerText = text;
-      _lastCardsDeclaredBannerText = null;
-    });
-    Future.delayed(const Duration(milliseconds: 2500), () {
-      if (mounted) setState(() => _lastCardsBluffBannerText = null);
-    });
+    _eventTicker.push(
+      text,
+      priority: TableEventPriority.bluff,
+      accent: const Color(0xFFE53935),
+    );
   }
 
   void _showOpponentProfileSheet(PlayerModel player) {
@@ -4747,11 +4738,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   }
 
   Widget _buildSocialPanel(AppThemeData theme) {
-    final showChatTab = !_isOfflineSession;
-    final showChat = showChatTab && _socialPanelTab == 1;
+    // Always show Reactions / Chat tabs (matches table chat mockup). Live
+    // text chat only works online — offline shows a clear empty state.
+    final chatLive = !_isOfflineSession;
+    final showChat = _socialPanelTab == 1;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.55),
+        color: theme.surfacePanel,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: theme.accentDark.withValues(alpha: 0.45),
@@ -4759,49 +4752,85 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       ),
       padding: const EdgeInsets.all(8),
       child: Column(
-        mainAxisSize: showChat ? MainAxisSize.max : MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (showChatTab)
-            Row(
-              children: [
-                Expanded(
-                  child: _SocialTabChip(
-                    label: 'Reactions',
-                    selected: _socialPanelTab == 0,
-                    theme: theme,
-                    onTap: () => setState(() => _socialPanelTab = 0),
-                  ),
+          Row(
+            children: [
+              Expanded(
+                child: _SocialTabChip(
+                  label: 'Reactions',
+                  selected: _socialPanelTab == 0,
+                  theme: theme,
+                  onTap: () => setState(() => _socialPanelTab = 0),
                 ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: _SocialTabChip(
-                    label: 'Chat',
-                    selected: _socialPanelTab == 1,
-                    theme: theme,
-                    onTap: () => setState(() => _socialPanelTab = 1),
-                  ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _SocialTabChip(
+                  label: 'Chat',
+                  selected: _socialPanelTab == 1,
+                  theme: theme,
+                  onTap: () => setState(() => _socialPanelTab = 1),
                 ),
-              ],
-            ),
-          if (showChatTab) const SizedBox(height: 8),
-          if (!showChat)
-            SingleChildScrollView(
-              child: QuickChatPanel(
-                onMessageSelected: _sendQuickChat,
               ),
-            )
-          else
-            Expanded(
-              child: LiveTextChatPanel(
-                theme: theme,
-                messages: _textChatMessages,
-                onSend: _sendTextChat,
-                tall: true,
-                enabled: true,
-                autofocus: true,
-                onReportOrBlock: _showReportOrBlockSheet,
-              ),
-            ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: !showChat
+                ? SingleChildScrollView(
+                    child: QuickChatPanel(
+                      onMessageSelected: _sendQuickChat,
+                      embedded: true,
+                    ),
+                  )
+                : !chatLive
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.chat_bubble_outline_rounded,
+                                color:
+                                    theme.accentPrimary.withValues(alpha: 0.7),
+                                size: 28,
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                'Live chat',
+                                style: TextStyle(
+                                  color: theme.textPrimary,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Available in online games — Casual, Ranked, and private tables.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: theme.textSecondary
+                                      .withValues(alpha: 0.85),
+                                  fontSize: 12,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : LiveTextChatPanel(
+                        theme: theme,
+                        messages: _textChatMessages,
+                        onSend: _sendTextChat,
+                        tall: true,
+                        enabled: true,
+                        autofocus: true,
+                        onReportOrBlock: _showReportOrBlockSheet,
+                      ),
+          ),
         ],
       ),
     );

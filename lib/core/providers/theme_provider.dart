@@ -26,7 +26,10 @@ class ThemeState {
 
 class ThemeNotifier extends StateNotifier<ThemeState> {
   ThemeNotifier(this._service)
-      : super(ThemeState(activeIndex: 0, theme: kAppThemes[0]));
+      : super(ThemeState(
+          activeIndex: ThemeService.defaultThemeIndex,
+          theme: kAppThemes[ThemeService.defaultThemeIndex],
+        ));
 
   final ThemeService _service;
 
@@ -39,7 +42,7 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
         .clamp(0, kAppThemes.length - 1);
     final level = PlayerLevelService.instance.currentLevel.value;
     if (kAppThemes[idx].minUnlockLevel > level) {
-      idx = 0;
+      idx = ThemeService.defaultThemeIndex;
     }
     state = ThemeState(activeIndex: idx, theme: kAppThemes[idx]);
   }

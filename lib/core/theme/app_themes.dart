@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'app_theme_data.dart';
 
-/// All 13 built-in Stack & Flow themes.
+/// All built-in Stack & Flow themes.
 ///
 /// Index 0 is the default (Classic Felt). Order here determines the display
 /// order in the Locker's "Table theme" tab and maps to the persisted index
-/// integer.
+/// integer. New themes are appended so existing persisted indices stay stable.
 const List<AppThemeData> kAppThemes = [
   _classicFelt,
   _carbon,
@@ -20,6 +20,7 @@ const List<AppThemeData> kAppThemes = [
   _volcanic,
   _neonGrid,
   _monteCarlo,
+  _arenaNeon,
 ];
 
 // ── 1. Classic Felt (default) ────────────────────────────────────────────────
@@ -373,4 +374,32 @@ const _monteCarlo = AppThemeData(
   jokerBackgroundColors: [Color(0xFF12020A), Color(0xFF0A0105)],
   jokerBorderColor: Color(0xFFA88A40),
   jokerAccentColor: Color(0xFFE8C87A),
+);
+
+// ── 14. Arena Neon (broadcast / esports table — unlocked for everyone) ───────
+
+const _arenaNeon = AppThemeData(
+  id: 'arena_neon',
+  name: 'Arena Neon',
+  minUnlockLevel: 1,
+  backgroundDeep: Color(0xFF05010C),
+  backgroundMid: Color(0xFF0E0520),
+  accentPrimary: Color(0xFF00F0FF), // electric cyan
+  accentLight: Color(0xFF7AFFFF),
+  accentDark: Color(0xFF0099AA),
+  secondaryAccent: Color(0xFFFF2BD6), // hot magenta
+  surfaceDark: Color(0xFF030008),
+  surfacePanel: Color(0xFF140828),
+  textPrimary: Color(0xFFF2FBFF),
+  textSecondary: Color(0xFF8AB8D0),
+  cardFace: Color(0xFFF5FEFF),
+  suitRed: Color(0xFFFF2A55),
+  suitBlack: Color(0xFF0A0614),
+  overlayTop: Color(0x99050010),
+  overlayBottom: Color(0xCC020008),
+  swatchPreview: [Color(0xFF05010C), Color(0xFF00F0FF), Color(0xFFFF2BD6)],
+  headingFontFamily: 'cinzel',
+  jokerBackgroundColors: [Color(0xFF0E0520), Color(0xFF05010C)],
+  jokerBorderColor: Color(0xFF0099AA),
+  jokerAccentColor: Color(0xFF00F0FF),
 );

@@ -316,6 +316,8 @@ class TableBackgroundPainter extends CustomPainter {
         _paintNeonGrid(canvas, size);
       case 'monte_carlo':
         _paintMonteCarlo(canvas, size);
+      case 'arena_neon':
+        _paintArenaNeon(canvas, size);
       default:
         _paintGeneric(canvas, size);
     }
@@ -1027,6 +1029,53 @@ class TableBackgroundPainter extends CustomPainter {
           center: Offset(size.width / 2, vanishY),
           radius: size.shortestSide * 0.6,
         )),
+    );
+  }
+
+  // ── Arena Neon (lounge table — soft glow, no FPS floor grid) ───────────────
+  void _paintArenaNeon(Canvas canvas, Size size) {
+    // 1. Deep indigo void
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()..color = const Color(0xFF05010C),
+    );
+
+    // 2. Soft vertical wash (felt atmosphere, not scanlines)
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            const Color(0xFF0E0520).withValues(alpha: 0.85),
+            const Color(0xFF05010C),
+            const Color(0xFF0A1830).withValues(alpha: 0.55),
+          ],
+          stops: const [0.0, 0.45, 1.0],
+        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
+    );
+
+    // 3. Soft corner blooms (magenta — quiet, not HUD-bright)
+    final corner = Paint()
+      ..color = const Color(0xFFFF2BD6).withValues(alpha: 0.07)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 56);
+    canvas.drawCircle(Offset(0, size.height), size.shortestSide * 0.5, corner);
+    canvas.drawCircle(
+        Offset(size.width, size.height), size.shortestSide * 0.5, corner);
+
+    // 4. Gentle cyan table spotlight
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(0, 0.1),
+          radius: 0.75,
+          colors: [
+            const Color(0xFF00F0FF).withValues(alpha: 0.08),
+            Colors.transparent,
+          ],
+        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
     );
   }
 

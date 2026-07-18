@@ -409,24 +409,25 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
           );
         }
 
+        final barRadius = useCompact ? 18.0 : 24.0;
         return Container(
           padding: EdgeInsets.symmetric(
             horizontal: useCompact ? 8 : (isMobile ? AppDimensions.sm : AppDimensions.md),
-            vertical: useCompact ? 4 : (isMobile ? 6 : 8),
+            vertical: useCompact ? 5 : (isMobile ? 7 : 9),
           ),
           decoration: BoxDecoration(
-            color: surface.withValues(alpha: 0.95),
-            borderRadius: BorderRadius.circular(useCompact ? 20 : 32),
+            color: surface.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(barRadius),
             border: Border.all(
-              color: accentDark.withValues(alpha: 0.6),
-              width: 1.5,
+              color: accent.withValues(alpha: 0.45),
+              width: 1.3,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.6),
-                blurRadius: 10,
+                color: Colors.black.withValues(alpha: 0.45),
+                blurRadius: 12,
                 offset: const Offset(0, 4),
-              )
+              ),
             ],
           ),
           child: Row(
@@ -460,14 +461,14 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
                         children: [
                           Text(
                             widget.activePlayerName == 'You'
-                                ? 'Your Turn'
-                                : "${widget.activePlayerName}'s Turn",
+                                ? 'Your turn'
+                                : "${widget.activePlayerName}'s turn",
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: accent,
                               fontSize: useCompact ? 12 : (isMobile ? 14 : 16),
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.3,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

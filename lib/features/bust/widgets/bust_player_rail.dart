@@ -19,7 +19,11 @@ class BustPlayerRail extends StatefulWidget {
     this.skipHighlightPlayerIds = const <String>{},
     this.scale = 1.0,
     this.onSlotTap,
+    this.chatReserveHeight = defaultChatReserveHeight,
   });
+
+  /// Reserved under names so quick-chat bubbles never resize the rail.
+  static const double defaultChatReserveHeight = 96;
 
   /// One entry per table seat; `null` keeps fixed-slot spacing when empty.
   final List<BustPlayerViewModel?> slots;
@@ -39,6 +43,11 @@ class BustPlayerRail extends StatefulWidget {
 
   /// When true, uses compact slots (smaller avatar/name) for landscape.
   final bool compact;
+
+  /// Extra vertical space reserved under names for quick-chat bubbles.
+  /// Pass `0` on cramped table layouts; bubbles may clip instead of crushing
+  /// the board. Defaults to [defaultChatReserveHeight].
+  final double chatReserveHeight;
 
   /// Active quick chat bubble per player id (most recent per player).
   final Map<String, QuickChatBubbleData> quickChatBubblesByPlayer;
@@ -113,16 +122,11 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
     super.dispose();
   }
 
-  /// Reserved **always** so quick-chat bubbles (below names) never change rail
-  /// height — move log, piles, and turn bar stay fixed when chat appears/updates.
-  /// Must fit avatar + label + [QuickChatBubble] under [ListView] cross-axis max.
-  static const double _chatBubbleReservedHeight = 96;
-
   @override
   Widget build(BuildContext context) {
     final scale = widget.scale;
     final baseHeight = widget.height ?? 96;
-    final railHeight = (baseHeight + _chatBubbleReservedHeight) * scale;
+    final railHeight = (baseHeight + widget.chatReserveHeight) * scale;
     final slotPadding = AppDimensions.xs * scale;
 
     Widget buildEmptySlot(double itemW) {
@@ -168,36 +172,39 @@ class _BustPlayerRailState extends State<BustPlayerRail> {
     // (5+ opponents), which is the only case that actually needs it.
     return SizedBox(
       height: railHeight,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final fits = totalContentWidth <= constraints.maxWidth;
-          if (fits) {
-            return Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (final player in widget.slots)
-                    player == null
-                        ? buildEmptySlot(itemW)
-                        : buildSlot(player),
-                ],
-              ),
+      child: ClipRect(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final fits = totalContentWidth <= constraints.maxWidth;
+            if (fits) {
+              return Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final player in widget.slots)
+                      player == null
+                          ? buildEmptySlot(itemW)
+                          : buildSlot(player),
+                  ],
+                ),
+              );
+            }
+            return ListView.builder(
+              clipBehavior: Clip.hardEdge,
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              padding:
+                  EdgeInsets.symmetric(horizontal: AppDimensions.sm * scale),
+              itemCount: widget.slots.length,
+              itemBuilder: (context, index) {
+                final player = widget.slots[index];
+                if (player == null) return buildEmptySlot(itemW);
+                return buildSlot(player);
+              },
             );
-          }
-          return ListView.builder(
-            clipBehavior: Clip.none,
-            controller: _scrollController,
-            scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.symmetric(horizontal: AppDimensions.sm * scale),
-            itemCount: widget.slots.length,
-            itemBuilder: (context, index) {
-              final player = widget.slots[index];
-              if (player == null) return buildEmptySlot(itemW);
-              return buildSlot(player);
-            },
-          );
-        },
+          },
+        ),
       ),
     );
   }

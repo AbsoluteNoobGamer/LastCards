@@ -13,17 +13,46 @@ export '../../../../shared/constants/quick_chat_messages.dart' show kQuickMessag
 class QuickChatPanel extends ConsumerWidget {
   const QuickChatPanel({
     required this.onMessageSelected,
+    this.embedded = false,
     super.key,
   });
 
   /// Receives catalog **wire index** (`messageIndex` / `QuickChatAction`).
   final void Function(int messageWireIndex) onMessageSelected;
 
+  /// When true, skips the outer glass chrome (parent panel already provides it).
+  final bool embedded;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(themeProvider).theme;
     final wheel = ref.watch(reactionWheelProvider);
     final level = PlayerLevelService.instance.currentLevel.value;
+
+    final grid = ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 240),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        alignment: WrapAlignment.center,
+        children: [
+          for (var i = 0; i < wheel.length; i++)
+            _ReactionSlotButton(
+              catalogId: wheel[i],
+              playerLevel: level,
+              accent: theme.accentDark,
+              onTap: () {
+                if (!isReactionUnlockedForLevel(wheel[i], level)) return;
+                onMessageSelected(wheel[i]);
+              },
+            ),
+        ],
+      ),
+    );
+
+    if (embedded) {
+      return Align(alignment: Alignment.topCenter, child: grid);
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -35,26 +64,7 @@ class QuickChatPanel extends ConsumerWidget {
           width: 1,
         ),
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 240),
-        child: Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          alignment: WrapAlignment.center,
-          children: [
-            for (var i = 0; i < wheel.length; i++)
-              _ReactionSlotButton(
-                catalogId: wheel[i],
-                playerLevel: level,
-                accent: theme.accentDark,
-                onTap: () {
-                  if (!isReactionUnlockedForLevel(wheel[i], level)) return;
-                  onMessageSelected(wheel[i]);
-                },
-              ),
-          ],
-        ),
-      ),
+      child: grid,
     );
   }
 }

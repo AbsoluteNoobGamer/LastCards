@@ -4,7 +4,7 @@ import '../../../../core/models/move_log_entry.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../services/game_log_formatter.dart';
 
-/// Displays the latest three move log entries (newest first).
+/// Displays recent move log entries (newest first).
 ///
 /// Player names use the first word only; if that word is longer than 17
 /// characters it is shortened to half its length plus an ellipsis. Each name is
@@ -12,16 +12,24 @@ import '../../../../services/game_log_formatter.dart';
 /// Move text uses hybrid formatting: compact icons for normal cards, full
 /// descriptive text for Joker / Ace / Eight-skip plays.
 class LastMovePanelWidget extends StatelessWidget {
-  const LastMovePanelWidget({super.key, required this.entries, this.scale = 1.0});
+  const LastMovePanelWidget({
+    super.key,
+    required this.entries,
+    this.scale = 1.0,
+    this.maxVisible = 3,
+  });
 
   final List<MoveLogEntry> entries;
 
   /// Tablet/desktop scale multiplier (1.0 on phones).
   final double scale;
 
+  /// Cap on how many newest entries to render.
+  final int maxVisible;
+
   @override
   Widget build(BuildContext context) {
-    final visibleEntries = entries.take(3).toList(growable: false);
+    final visibleEntries = entries.take(maxVisible).toList(growable: false);
     if (visibleEntries.isEmpty) return const SizedBox.shrink();
     return Column(
       mainAxisSize: MainAxisSize.min,

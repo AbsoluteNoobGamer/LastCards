@@ -1,12 +1,14 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/providers/theme_provider.dart';
 import '../core/theme/app_colors.dart';
 import '../core/utils/shadow_blur.dart';
 import '../shared/engine/game_turn_timer.dart';
 
-class TurnTimerBar extends StatefulWidget {
+class TurnTimerBar extends ConsumerStatefulWidget {
   final Stream<int>? timeRemainingStream;
   final bool isVisible;
 
@@ -25,10 +27,10 @@ class TurnTimerBar extends StatefulWidget {
   });
 
   @override
-  State<TurnTimerBar> createState() => _TurnTimerBarState();
+  ConsumerState<TurnTimerBar> createState() => _TurnTimerBarState();
 }
 
-class _TurnTimerBarState extends State<TurnTimerBar>
+class _TurnTimerBarState extends ConsumerState<TurnTimerBar>
     with SingleTickerProviderStateMixin {
   late AnimationController _urgentCtrl;
 
@@ -72,15 +74,16 @@ class _TurnTimerBarState extends State<TurnTimerBar>
           _urgentCtrl.value = 0;
         }
 
-        Color barColor = AppColors.goldPrimary;
+        final theme = ref.watch(themeProvider).theme;
+        Color barColor = theme.accentPrimary;
         if (seconds <= 10) {
           barColor = AppColors.redSoft;
         } else if (seconds <= 20) {
-          barColor = Colors.amber;
+          barColor = theme.secondaryAccent;
         }
 
-        final barHeight = widget.compact ? 6.0 : 10.0;
-        final radius = widget.compact ? 3.0 : 5.0;
+        final barHeight = widget.compact ? 7.0 : 11.0;
+        final radius = widget.compact ? 2.0 : 3.0;
 
         return AnimatedBuilder(
           animation: _urgentCtrl,
