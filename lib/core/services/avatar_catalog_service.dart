@@ -17,6 +17,10 @@ class AvatarCatalogService {
 
   bool _initialized = false;
 
+  /// False until the first [refreshTitleEntitlements] finishes for this session.
+  /// Title exclusives stay locked while this is false (fail-closed).
+  final ValueNotifier<bool> entitlementsReady = ValueNotifier<bool>(false);
+
   /// `use_photo` or a catalog id. Never null after [init].
   final ValueNotifier<String> selectedId =
       ValueNotifier<String>(kAvatarUsePhotoId);
@@ -24,6 +28,8 @@ class AvatarCatalogService {
   /// Title exclusives currently owned (refreshed via [refreshTitleEntitlements]).
   final ValueNotifier<Set<AvatarExclusiveKind>> ownedTitles =
       ValueNotifier<Set<AvatarExclusiveKind>>(<AvatarExclusiveKind>{});
+
+  Future<void>? _refreshInFlight;
 
   Future<void> init() async {
     if (_initialized) return;
@@ -35,7 +41,9 @@ class AvatarCatalogService {
     await PlayerLevelService.instance.init();
     PlayerLevelService.instance.currentLevel.addListener(_onLevelChanged);
     _initialized = true;
-    await sanitizeSelection();
+    // Strip level-locked picks immediately; title picks wait for entitlements.
+    await sanitizeSelection(allowPendingTitles: true);
+    unawaited(refreshTitleEntitlements());
   }
 
   void _onLevelChanged() {
@@ -44,7 +52,11 @@ class AvatarCatalogService {
 
   bool isUnlocked(AvatarDesign design) {
     if (design.isTitleExclusive) {
-      return ownedTitles.value.contains(design.exclusiveKind);
+      // Never gate titles by player level — only live #1 entitlement.
+      if (!entitlementsReady.value) return false;
+      final kind = design.exclusiveKind;
+      if (kind == null) return false;
+      return ownedTitles.value.contains(kind);
     }
     return PlayerLevelService.instance.currentLevel.value >= design.unlockLevel;
   }
@@ -64,7 +76,11 @@ class AvatarCatalogService {
     if (!isKnownAvatarId(id)) return;
     if (id != kAvatarUsePhotoId) {
       final design = avatarDesignById(id);
-      if (design == null || !isUnlocked(design)) return;
+      if (design == null) return;
+      if (design.isTitleExclusive && !entitlementsReady.value) {
+        await refreshTitleEntitlements();
+      }
+      if (!isUnlocked(design)) return;
     }
     selectedId.value = id;
     final prefs = await SharedPreferences.getInstance();
@@ -78,24 +94,67 @@ class AvatarCatalogService {
     await init();
     final id = firestoreId?.trim();
     if (id == null || id.isEmpty || !isKnownAvatarId(id)) return;
+    final design = avatarDesignById(id);
+    if (design != null && design.isTitleExclusive) {
+      await refreshTitleEntitlements();
+      if (!isUnlocked(design)) return;
+    }
     await select(id, pushToFirestore: false);
   }
 
-  Future<void> sanitizeSelection() async {
+  /// When [allowPendingTitles] is true, keep a title selection only until
+  /// entitlements resolve (used during cold start before Firestore answers).
+  Future<void> sanitizeSelection({bool allowPendingTitles = false}) async {
     await init();
     final id = selectedId.value;
     if (id == kAvatarUsePhotoId) return;
     final design = avatarDesignById(id);
-    if (design == null || !isUnlocked(design)) {
+    if (design == null) {
+      await select(kAvatarUsePhotoId, pushToFirestore: true);
+      return;
+    }
+    if (design.isTitleExclusive) {
+      if (allowPendingTitles && !entitlementsReady.value) return;
+      if (!isUnlocked(design)) {
+        await select(kAvatarUsePhotoId, pushToFirestore: true);
+      }
+      return;
+    }
+    if (!isUnlocked(design)) {
       await select(kAvatarUsePhotoId, pushToFirestore: true);
     }
   }
 
+  /// Clears #1 titles (e.g. on sign-out) so the next account never inherits them.
+  Future<void> clearTitleEntitlements() async {
+    entitlementsReady.value = true;
+    ownedTitles.value = {};
+    await sanitizeSelection();
+  }
+
   Future<void> refreshTitleEntitlements() async {
     await init();
+    final existing = _refreshInFlight;
+    if (existing != null) {
+      await existing;
+      return;
+    }
+    final future = _refreshTitleEntitlementsBody();
+    _refreshInFlight = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_refreshInFlight, future)) {
+        _refreshInFlight = null;
+      }
+    }
+  }
+
+  Future<void> _refreshTitleEntitlementsBody() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
       ownedTitles.value = {};
+      entitlementsReady.value = true;
       await sanitizeSelection();
       return;
     }
@@ -104,19 +163,37 @@ class AvatarCatalogService {
     Future<void> check({
       required String collection,
       required String orderField,
-      required bool descending,
       required AvatarExclusiveKind kind,
     }) async {
       try {
         final snap = await FirebaseFirestore.instance
             .collection(collection)
-            .orderBy(orderField, descending: descending)
+            .orderBy(orderField, descending: true)
             .limit(1)
             .get();
         if (snap.docs.isEmpty) return;
-        if (snap.docs.first.id == uid) owned.add(kind);
-      } catch (_) {
-        // Best-effort — offline / rules may block; titles stay locked.
+        final top = snap.docs.first;
+        if (top.id != uid) return;
+        final data = top.data();
+        // Require a positive score so an empty/zero stub doc cannot grant #1.
+        final raw = data[orderField];
+        final score = raw is num ? raw.toDouble() : 0;
+        if (score <= 0) return;
+        // Ranked boards seed a default rating — also require a win so idle
+        // stub docs never unlock the crown.
+        if (orderField == 'rating') {
+          final wins = data['wins'];
+          final winCount = wins is num ? wins.toDouble() : 0;
+          if (winCount <= 0) return;
+        }
+        owned.add(kind);
+      } catch (e, st) {
+        // Fail closed for this board — do not grant the title.
+        if (kDebugMode) {
+          debugPrint(
+            'Avatar title check failed ($collection / $orderField): $e\n$st',
+          );
+        }
       }
     }
 
@@ -124,48 +201,46 @@ class AvatarCatalogService {
       check(
         collection: 'leaderboard_combos',
         orderField: 'comboCount',
-        descending: true,
         kind: AvatarExclusiveKind.comboKing,
       ),
       check(
         collection: 'ranked_stats',
         orderField: 'rating',
-        descending: true,
         kind: AvatarExclusiveKind.rankedCrown,
       ),
       check(
         collection: 'ranked_hardcore_stats',
         orderField: 'rating',
-        descending: true,
         kind: AvatarExclusiveKind.hardcoreCrown,
       ),
       check(
         collection: 'leaderboard_online',
         orderField: 'wins',
-        descending: true,
         kind: AvatarExclusiveKind.casualAce,
       ),
       check(
         collection: 'leaderboard_tournament_ai',
         orderField: 'wins',
-        descending: true,
         kind: AvatarExclusiveKind.tourneyAi,
       ),
       check(
         collection: 'leaderboard_tournament_online',
         orderField: 'wins',
-        descending: true,
         kind: AvatarExclusiveKind.tourneyOnline,
       ),
       check(
         collection: 'leaderboard_bust_online',
         orderField: 'wins',
-        descending: true,
         kind: AvatarExclusiveKind.bustOnline,
       ),
     ]);
 
+    // If auth changed mid-flight, drop results for the stale uid.
+    final still = FirebaseAuth.instance.currentUser?.uid;
+    if (still != uid) return;
+
     ownedTitles.value = owned;
+    entitlementsReady.value = true;
     await sanitizeSelection();
   }
 

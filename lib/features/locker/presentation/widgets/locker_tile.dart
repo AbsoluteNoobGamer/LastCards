@@ -148,9 +148,12 @@ class _LockerTileState extends State<LockerTile> {
               else if (widget.lockCaption != null)
                 Text(
                   widget.lockCaption!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.dmSans(
                     fontSize: 9.5,
+                    height: 1.15,
                     color: colors.onSurface.withValues(alpha: 0.55),
                   ),
                 )
