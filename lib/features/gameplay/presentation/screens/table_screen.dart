@@ -2212,9 +2212,6 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             mediaPadding.bottom,
             scale: tableScale,
           );
-          // Corner FABs sit in gutters beside the hand (hand lane is inset by
-          // [ArenaChromeFab.handClearance] so edge cards stay tappable).
-          final buttonBottom = mediaPadding.bottom + 10;
           final isRankedMatch = ref.watch(isRankedGameProvider);
           final isBustMatch =
               ref.watch(tournamentSessionProvider).subMode == GameSubMode.bust;
@@ -2556,9 +2553,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 ),
               ),
 
-              // ── Settings + leave (bottom-left, above overlays) ───────────
+              // ── Settings + leave (above the action bar/timer, not beside
+              // the hand — keeps them clear of edge-card taps) ─────────────
               Positioned(
-                bottom: buttonBottom,
+                bottom: isLandscapeMobile
+                    ? landscapeSkipChipBottom
+                    : portraitSkipChipBottom,
                 left: 8,
                 child: SafeArea(
                   top: false,
@@ -2581,10 +2581,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 ),
               ),
 
-              // ── Chat + reactions (bottom-right; mirrors left settings stack)
+              // ── Chat + reactions (mirrors left settings stack, above the
+              // action bar/timer) ─────────────────────────────────────────
               if (!_isDealing && gameState.phase != GamePhase.ended)
                 Positioned(
-                  bottom: buttonBottom,
+                  bottom: isLandscapeMobile
+                      ? landscapeSkipChipBottom
+                      : portraitSkipChipBottom,
                   right: 8,
                   child: SafeArea(
                     top: false,

@@ -18,10 +18,6 @@ class ArenaChromeFab extends ConsumerWidget {
   /// Button footprint (matches [Ink] size below).
   static const double size = 48;
 
-  /// Horizontal clearance the local hand must leave on each side so edge
-  /// cards stay tappable under the corner FAB stacks.
-  static const double handClearance = size + 12;
-
   final IconData icon;
   final String tooltip;
   final VoidCallback onPressed;

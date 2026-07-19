@@ -323,9 +323,9 @@ class _TableLayout extends StatelessWidget {
         // size keeps pace with the reserved hand-region frame height
         // below, instead of leaving a growing empty gap under a
         // top-aligned, comparatively small card fan.
-        // Corner settings / leave / reactions FABs sit in side gutters —
-        // keep the hand lane clear so edge cards stay tappable.
-        final chromeInset = ArenaChromeFab.handClearance;
+        // Settings/leave/chat/reactions FABs live above the action bar (see
+        // table_screen.dart), not beside the hand — just a small edge margin.
+        final chromeInset = AppDimensions.md;
         final handLaneWidth =
             math.max(160.0, effectiveWidth - chromeInset * 2);
         final handCardWidth =
@@ -877,7 +877,9 @@ class _LandscapeTableLayout extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final chromeInset = ArenaChromeFab.handClearance;
+        // Settings/leave/chat/reactions FABs live above the action bar (see
+        // table_screen.dart), not beside the hand — just a small edge margin.
+        final chromeInset = AppDimensions.md;
         final handLaneWidth =
             math.max(160.0, constraints.maxWidth - chromeInset * 2);
         final referenceHandWidth = PlayerHandWidget.referenceFanWidth(
