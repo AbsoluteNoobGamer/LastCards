@@ -2466,15 +2466,22 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                         builder: (context) {
                           final busy =
                               _tournamentSimulatingRest || _tournamentSkipAdShowing;
+                          // A loaded rewarded ad isn't guaranteed to be sitting
+                          // there when this button renders — don't offer a tap
+                          // that can only end in a "try again" snackbar.
+                          final adReady = AdsService.instance.isRewardedAdReady;
+                          final disabled = busy || !adReady;
                           final label = _tournamentSimulatingRest
                               ? 'Simulating…'
                               : _tournamentSkipAdShowing
                                   ? 'Loading ad…'
-                                  : 'Watch ad to skip';
+                                  : !adReady
+                                      ? 'Ad loading…'
+                                      : 'Watch ad to skip';
                           return Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              onTap: busy
+                              onTap: disabled
                                   ? null
                                   : () {
                                       unawaited(_onTournamentSkipTapped());
@@ -2484,13 +2491,13 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 16, vertical: 10),
                                 decoration: BoxDecoration(
-                                  color: busy
+                                  color: disabled
                                       ? Colors.white24
                                       : AppColors.goldPrimary
                                           .withValues(alpha: 0.9),
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(
-                                    color: busy
+                                    color: disabled
                                         ? Colors.white38
                                         : AppColors.goldDark,
                                     width: 1.5,
@@ -2520,7 +2527,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w700,
-                                        color: busy
+                                        color: disabled
                                             ? Colors.white70
                                             : Colors.black87,
                                       ),

@@ -81,16 +81,22 @@ Future<void> main() async {
   // never let either block startup. A timeout is required in addition to
   // try/catch: a hung (never-completing) platform call isn't an exception,
   // so only the timeout — not the catch — protects runApp() from it.
+  //
+  // PurchaseService must init before AdsService: it loads the persisted
+  // "Remove Ads" entitlement, which AdsService reads to decide whether to
+  // preload ads at all. Doing it the other way round meant paying users'
+  // apps always preloaded interstitial/rewarded ads that could then never
+  // be shown (every show-call site correctly checks adsRemoved first).
   const initTimeout = Duration(seconds: 8);
-  try {
-    await AdsService.instance.init().timeout(initTimeout);
-  } catch (e) {
-    if (kDebugMode) debugPrint('AdsService init skipped: $e');
-  }
   try {
     await PurchaseService.instance.init().timeout(initTimeout);
   } catch (e) {
     if (kDebugMode) debugPrint('PurchaseService init skipped: $e');
+  }
+  try {
+    await AdsService.instance.init().timeout(initTimeout);
+  } catch (e) {
+    if (kDebugMode) debugPrint('AdsService init skipped: $e');
   }
   if (firebaseReady) {
     try {

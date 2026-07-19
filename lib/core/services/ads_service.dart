@@ -27,13 +27,18 @@ class AdsService {
   bool _canRequestAds = false;
   InterstitialAd? _interstitialAd;
   RewardedAd? _rewardedAd;
+  bool _interstitialLoading = false;
+  bool _rewardedLoading = false;
 
   Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
     _canRequestAds = await ConsentService.instance.requestAndShowIfRequired();
     await MobileAds.instance.initialize();
-    if (_canRequestAds) {
+    // Skip preloading entirely for "Remove Ads" purchasers — every show-call
+    // site already blocks on this, so a preloaded ad here could never be
+    // shown anyway; it was just a guaranteed-wasted request every session.
+    if (_canRequestAds && !PurchaseService.instance.adsRemoved.value) {
       _loadInterstitial();
       _loadRewarded();
     }
@@ -74,12 +79,18 @@ class AdsService {
     return ad;
   }
 
+  /// No-ops if a load is already in flight or a loaded ad is already sitting
+  /// there unused — otherwise every "not ready yet" retry would stack up
+  /// duplicate concurrent load requests.
   void _loadInterstitial() {
+    if (_interstitialLoading || _interstitialAd != null) return;
+    _interstitialLoading = true;
     InterstitialAd.load(
       adUnitId: AdUnitIds.interstitial,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
+          _interstitialLoading = false;
           _interstitialAd = ad;
           ad.fullScreenContentCallback = FullScreenContentCallback(
             onAdDismissedFullScreenContent: (ad) {
@@ -95,6 +106,7 @@ class AdsService {
           );
         },
         onAdFailedToLoad: (error) {
+          _interstitialLoading = false;
           _interstitialAd = null;
           if (kDebugMode) debugPrint('AdsService: interstitial failed to load: $error');
         },
@@ -127,6 +139,10 @@ class AdsService {
     if (ad == null) {
       AnalyticsService.instance
           .logAdFailed(placement: placement, reason: 'not_loaded');
+      // The previous load didn't win the race against this match ending —
+      // kick off another one now so the *next* match has a fresh shot,
+      // instead of leaving it to chance whether one gets triggered again.
+      _loadInterstitial();
       return;
     }
     _interstitialAd = null;
@@ -156,15 +172,22 @@ class AdsService {
     await dismissed.future;
   }
 
+  /// No-ops if a load is already in flight or a loaded ad is already sitting
+  /// there unused — otherwise every "not ready yet" retry would stack up
+  /// duplicate concurrent load requests.
   void _loadRewarded() {
+    if (_rewardedLoading || _rewardedAd != null) return;
+    _rewardedLoading = true;
     RewardedAd.load(
       adUnitId: AdUnitIds.rewarded,
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
+          _rewardedLoading = false;
           _rewardedAd = ad;
         },
         onAdFailedToLoad: (error) {
+          _rewardedLoading = false;
           _rewardedAd = null;
           if (kDebugMode) debugPrint('AdsService: rewarded ad failed to load: $error');
         },
@@ -188,6 +211,9 @@ class AdsService {
     if (ad == null) {
       AnalyticsService.instance
           .logAdFailed(placement: placement, reason: 'not_loaded');
+      // Kick off another load so a subsequent attempt (or the next screen
+      // that offers a rewarded placement) has a fresh shot at one being ready.
+      _loadRewarded();
       return false;
     }
     _rewardedAd = null;
