@@ -110,7 +110,13 @@ class CardFlightOverlayState extends ConsumerState<CardFlightOverlay>
     final box = key?.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return null;
     final o = box.localToGlobal(Offset.zero);
-    return Offset(o.dx + box.size.width / 2, o.dy + box.size.height / 2);
+    final center = Offset(o.dx + box.size.width / 2, o.dy + box.size.height / 2);
+    // A degenerate (zero-height/width) ancestor upstream can make an inner
+    // FittedBox's scale resolve to NaN, which poisons this offset. Treat that
+    // the same as "key not resolvable yet" — flyCard already skips the
+    // animation gracefully rather than feeding NaN into Positioned/painting.
+    if (!center.dx.isFinite || !center.dy.isFinite) return null;
+    return center;
   }
 
   @override
@@ -233,7 +239,15 @@ class CardFlightOverlayState extends ConsumerState<CardFlightOverlay>
               return Positioned(
                 left: x - w / 2,
                 top: y - h / 2,
-                child: Transform.scale(scale: scale, child: child),
+                // Isolates this widget's compositing layer (Transform + the
+                // shadow/glow decorations above both force their own layer)
+                // from whatever else the shared render tree retains — without
+                // this, a stale layer from an unrelated widget elsewhere can
+                // trip Flutter's internal 'debugOldOffset == updatedLayer.offset'
+                // consistency assertion as this repositions every frame.
+                child: RepaintBoundary(
+                  child: Transform.scale(scale: scale, child: child),
+                ),
               );
             },
           );

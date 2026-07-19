@@ -48,6 +48,17 @@ class DealingAnimationOverlayState extends State<DealingAnimationOverlay>
     final targetPos = targetBox.localToGlobal(
         Offset(targetBox.size.width / 2, targetBox.size.height / 2));
 
+    // A degenerate (zero-height/width) ancestor upstream can make an inner
+    // FittedBox's scale resolve to NaN, which poisons these offsets. Treat
+    // that the same as "layout rects not found yet" above rather than
+    // feeding NaN into Positioned/painting.
+    if (!originPos.dx.isFinite ||
+        !originPos.dy.isFinite ||
+        !targetPos.dx.isFinite ||
+        !targetPos.dy.isFinite) {
+      return Future.delayed(const Duration(milliseconds: 150));
+    }
+
     // 2. Setup the animation
     final controller = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 400));

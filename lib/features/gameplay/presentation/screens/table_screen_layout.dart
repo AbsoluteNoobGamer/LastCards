@@ -351,16 +351,24 @@ class _TableLayout extends StatelessWidget {
             (railBase + railChatReserve) * tableScale;
         final matchHeaderBand =
             TablePortraitGrid.matchHeaderHeight * tableScale;
+        // Capped below tableScale — see TableChromeLayout.chromeScaleFor.
+        final chromeScale = TableChromeLayout.chromeScaleFor(
+          Size(constraints.maxWidth, constraints.maxHeight),
+        );
         final infoBand =
-            ArenaInfoBand.heightFor(compact: isMobile, scale: tableScale) +
-                8 * tableScale;
+            ArenaInfoBand.heightFor(compact: isMobile, scale: chromeScale) +
+                8 * chromeScale;
         final hudSlot =
-            HudOverlayWidget.slotHeight(compact: isMobile, scale: tableScale);
+            HudOverlayWidget.slotHeight(compact: isMobile, scale: chromeScale);
         final bottomPad = isMobile ? 0.0 : AppDimensions.md;
         final scaledActionBarHeight =
             TablePortraitGrid.actionBarHeight * tableScale;
-        // Info band + HUD live inside the board Expanded stack — do not
-        // subtract them again here or the hero stage gets starved.
+        // Info band + HUD live inside the board Expanded stack alongside the
+        // hero stage (draw/discard piles) — they must be subtracted here too,
+        // otherwise this budget only accounts for the chrome *outside* that
+        // Expanded and can let handRegionHeight claim space the hero stage
+        // actually needs, squeezing it toward 0 (which sends its FittedBox
+        // scale to NaN — see _ArenaHeroStage's minHeight guard below).
         final handRegionHeight = math.min(
           TablePortraitGrid.handRegionHeight * tableScale,
           constraints.maxHeight -
@@ -368,6 +376,8 @@ class _TableLayout extends StatelessWidget {
               scaledActionBarHeight -
               bottomPad -
               matchHeaderBand -
+              infoBand -
+              hudSlot -
               12 * tableScale,
         ).clamp(120.0, TablePortraitGrid.handRegionHeight * tableScale);
 
@@ -416,18 +426,27 @@ class _TableLayout extends StatelessWidget {
                         // Reserve collapsed band height; overlay draws on top.
                         SizedBox(height: infoBand),
                         Expanded(
-                          child: _ArenaHeroStage(
-                            gameState: gameState,
-                            isMyTurn: isMyTurn,
-                            isDealing: isDealing,
-                            selectedCardId: selectedCardId,
-                            discardPileCount: discardPileCount,
-                            drawPileKey: drawPileKey,
-                            discardPileKey: discardPileKey,
-                            onDrawTap: onDrawTap,
-                            reshuffleNotifier: reshuffleNotifier,
-                            compact: isMobile,
-                            scale: tableScale,
+                          // A hard floor so this can never be squeezed to
+                          // exactly 0 by a budgeting mistake elsewhere —
+                          // _ArenaHeroStage's inner FittedBox divides by this
+                          // height, and 0/0 resolves to a NaN scale that
+                          // silently makes the draw/discard piles untappable
+                          // and breaks card-flight/dealing animations.
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 48.0),
+                            child: _ArenaHeroStage(
+                              gameState: gameState,
+                              isMyTurn: isMyTurn,
+                              isDealing: isDealing,
+                              selectedCardId: selectedCardId,
+                              discardPileCount: discardPileCount,
+                              drawPileKey: drawPileKey,
+                              discardPileKey: discardPileKey,
+                              onDrawTap: onDrawTap,
+                              reshuffleNotifier: reshuffleNotifier,
+                              compact: isMobile,
+                              scale: tableScale,
+                            ),
                           ),
                         ),
                         SizedBox(
@@ -442,7 +461,7 @@ class _TableLayout extends StatelessWidget {
                               penaltyTargetPosition: penaltyTarget,
                               onPenaltyIncreased: onPenaltyIncreased,
                               compact: isMobile,
-                              scale: tableScale,
+                              scale: chromeScale,
                             ),
                           ),
                         ),
@@ -457,21 +476,21 @@ class _TableLayout extends StatelessWidget {
                         eventTicker: eventTicker,
                         eventTickerFallback: eventTickerFallback,
                         compact: isMobile,
-                        scale: tableScale,
+                        scale: chromeScale,
                       ),
                     ),
                     Positioned(
                       top: ArenaInfoBand.heightFor(
                             compact: isMobile,
-                            scale: tableScale,
+                            scale: chromeScale,
                           ) -
-                          2 * tableScale,
+                          2 * chromeScale,
                       left: 0,
                       right: 0,
                       child: Center(
                         child: ComboLiveChip(
                           count: comboLiveCount,
-                          scale: tableScale,
+                          scale: chromeScale,
                         ),
                       ),
                     ),
@@ -873,17 +892,26 @@ class _LandscapeTableLayout extends StatelessWidget {
             : TablePortraitGrid.landscapeOpponentRailBaseHeight;
         final opponentRowHeight = landscapeRailBase * tableScale;
         const matchHeaderBand = TablePortraitGrid.matchHeaderHeight;
+        // Capped below tableScale — see TableChromeLayout.chromeScaleFor.
+        final chromeScale = TableChromeLayout.chromeScaleFor(
+          Size(constraints.maxWidth, constraints.maxHeight),
+        );
         final infoBand =
-            ArenaInfoBand.heightFor(compact: true, scale: tableScale) +
-                8 * tableScale;
+            ArenaInfoBand.heightFor(compact: true, scale: chromeScale) +
+                8 * chromeScale;
         final hudSlot =
-            HudOverlayWidget.slotHeight(compact: true, scale: tableScale);
+            HudOverlayWidget.slotHeight(compact: true, scale: chromeScale);
+        // See the portrait _TableLayout counterpart: infoBand/hudSlot live
+        // inside the same board Expanded as the hero stage and must be
+        // subtracted here too, or handRegionHeight can starve it to 0.
         final handRegionHeight = math.min(
           TablePortraitGrid.landscapeHandRegionHeight,
           constraints.maxHeight -
               opponentRowHeight -
               TablePortraitGrid.landscapeActionBarHeight -
-              matchHeaderBand,
+              matchHeaderBand -
+              infoBand -
+              hudSlot,
         ).clamp(80.0, TablePortraitGrid.landscapeHandRegionHeight);
 
         final penaltyTarget = penaltyCount > 0
@@ -929,18 +957,23 @@ class _LandscapeTableLayout extends StatelessWidget {
                       children: [
                         SizedBox(height: infoBand),
                         Expanded(
-                          child: _ArenaHeroStage(
-                            gameState: gameState,
-                            isMyTurn: isMyTurn,
-                            isDealing: isDealing,
-                            selectedCardId: selectedCardId,
-                            discardPileCount: discardPileCount,
-                            drawPileKey: drawPileKey,
-                            discardPileKey: discardPileKey,
-                            onDrawTap: onDrawTap,
-                            reshuffleNotifier: reshuffleNotifier,
-                            compact: true,
-                            scale: tableScale,
+                          // See the portrait _TableLayout counterpart for why
+                          // this floor exists.
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 48.0),
+                            child: _ArenaHeroStage(
+                              gameState: gameState,
+                              isMyTurn: isMyTurn,
+                              isDealing: isDealing,
+                              selectedCardId: selectedCardId,
+                              discardPileCount: discardPileCount,
+                              drawPileKey: drawPileKey,
+                              discardPileKey: discardPileKey,
+                              onDrawTap: onDrawTap,
+                              reshuffleNotifier: reshuffleNotifier,
+                              compact: true,
+                              scale: tableScale,
+                            ),
                           ),
                         ),
                         SizedBox(
@@ -955,7 +988,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                               penaltyTargetPosition: penaltyTarget,
                               onPenaltyIncreased: onPenaltyIncreased,
                               compact: true,
-                              scale: tableScale,
+                              scale: chromeScale,
                             ),
                           ),
                         ),
@@ -970,21 +1003,21 @@ class _LandscapeTableLayout extends StatelessWidget {
                         eventTicker: eventTicker,
                         eventTickerFallback: eventTickerFallback,
                         compact: true,
-                        scale: tableScale,
+                        scale: chromeScale,
                       ),
                     ),
                     Positioned(
                       top: ArenaInfoBand.heightFor(
                             compact: true,
-                            scale: tableScale,
+                            scale: chromeScale,
                           ) -
-                          2 * tableScale,
+                          2 * chromeScale,
                       left: 0,
                       right: 0,
                       child: Center(
                         child: ComboLiveChip(
                           count: comboLiveCount,
-                          scale: tableScale,
+                          scale: chromeScale,
                         ),
                       ),
                     ),

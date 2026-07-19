@@ -1,5 +1,6 @@
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:last_cards/shared/engine/game_turn_timer.dart';
 import 'package:last_cards/widgets/turn_timer_bar.dart';
@@ -70,11 +71,13 @@ void main() {
       final testStream = Stream<int>.fromIterable([60, 59, 58]);
       
       // Test that it renders when isVisible is true
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: TurnTimerBar(
-            timeRemainingStream: testStream,
-            isVisible: true, // Always true as requested
+      await tester.pumpWidget(ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: TurnTimerBar(
+              timeRemainingStream: testStream,
+              isVisible: true, // Always true as requested
+            ),
           ),
         ),
       ));

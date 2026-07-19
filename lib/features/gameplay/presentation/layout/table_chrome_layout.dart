@@ -37,6 +37,25 @@ abstract final class TableChromeLayout {
   /// the board. Shared by Table and Bust.
   static double overlayScaleFor(Size size) =>
       math.min(scaleFor(size), overlayScaleMax);
+
+  /// Hard ceiling for the fixed-height chrome bands that share the board's
+  /// Expanded with the hero stage (info band, HUD slot) — see
+  /// [TablePortraitGrid.handRegionHeight]'s call sites in table_screen_layout.
+  ///
+  /// Unlike the hero stage/avatars/hand (which should keep growing toward
+  /// [scaleFor] for tablet legibility), these two bands are pure vertical
+  /// overhead: at the full 2.2x ceiling on very large/landscape-short
+  /// viewports they can outgrow the space physically available for the
+  /// Expanded they share with the piles, squeezing the piles to exactly 0px
+  /// (which sends their FittedBox scale to NaN). Capping them the same way
+  /// [overlayScaleFor] caps text overlays keeps that from happening while
+  /// still letting them grow somewhat on real tablets.
+  static const double chromeScaleMax = 1.0;
+
+  /// Scale for [ArenaInfoBand]/[HudOverlayWidget]'s fixed slot reservations.
+  /// Always ≤ [scaleFor] and capped at [chromeScaleMax].
+  static double chromeScaleFor(Size size) =>
+      math.min(scaleFor(size), chromeScaleMax);
 }
 
 /// Fixed portrait grid slot sizes — interactive content lives here; transient

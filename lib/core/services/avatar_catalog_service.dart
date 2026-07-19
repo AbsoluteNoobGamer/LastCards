@@ -132,6 +132,19 @@ class AvatarCatalogService {
     await sanitizeSelection();
   }
 
+  /// [FirebaseAuth.instance] throws if no Firebase app exists yet (Firebase
+  /// init still pending, skipped, or unavailable in a test sandbox) — treat
+  /// that the same as "not signed in" rather than letting it propagate out
+  /// of this method's `unawaited` call sites (see [AuthService._auth] for
+  /// the same pattern).
+  String? _currentFirebaseUid() {
+    try {
+      return FirebaseAuth.instance.currentUser?.uid;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> refreshTitleEntitlements() async {
     await init();
     final existing = _refreshInFlight;
@@ -151,7 +164,7 @@ class AvatarCatalogService {
   }
 
   Future<void> _refreshTitleEntitlementsBody() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = _currentFirebaseUid();
     if (uid == null) {
       ownedTitles.value = {};
       entitlementsReady.value = true;

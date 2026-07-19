@@ -252,8 +252,12 @@ void main() {
     testWidgets(
         'TableScreen tournament mode defers qualification on last-card Black Jack',
         (tester) async {
-      await tester.binding.setSurfaceSize(const Size(1440, 1024));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+      tester.view.physicalSize = const Size(1440, 1024);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
 
       final finished = <String>[];
       final initialState = GameState(
@@ -313,7 +317,7 @@ void main() {
       );
       expect(lastBlackJack, findsOneWidget);
       await tester.tap(lastBlackJack);
-      await tester.pump();
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       expect(finished, isEmpty);
       expect(find.text('✓ Qualified'), findsNothing);
@@ -322,8 +326,12 @@ void main() {
     testWidgets(
         'TableScreen tournament mode defers qualification on last-card Queen',
         (tester) async {
-      await tester.binding.setSurfaceSize(const Size(1440, 1024));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+      tester.view.physicalSize = const Size(1440, 1024);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
 
       final finished = <String>[];
       final initialState = GameState(
@@ -383,7 +391,7 @@ void main() {
       );
       expect(lastQueen, findsOneWidget);
       await tester.tap(lastQueen);
-      await tester.pump();
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
       expect(finished, isEmpty);
       expect(find.text('✓ Qualified'), findsNothing);
