@@ -7,6 +7,10 @@ import 'package:package_info_plus/package_info_plus.dart';
 const String kDefaultAndroidStoreUrl =
     'https://play.google.com/store/apps/details?id=com.lastcards.app.paid';
 
+/// App Store listing for [com.lastcards.app] (used when Firestore omits a URL).
+const String kDefaultIosStoreUrl =
+    'https://apps.apple.com/us/app/lastcards/id6769810523';
+
 /// Soft “update available” hint for the start screen.
 ///
 /// **Firestore** (create in Console): collection `app_config`, document id
@@ -16,8 +20,7 @@ const String kDefaultAndroidStoreUrl =
 /// - `latestBuildIos` (int): same for iOS.
 /// - `latestVersionName` (string, optional): shown as subtitle, e.g. `1.0.1`.
 /// - `androidStoreUrl` (string, optional): defaults to [kDefaultAndroidStoreUrl].
-/// - `iosStoreUrl` (string, optional): **required** to open the store on iOS;
-///   if missing, the banner is not shown on iOS even when the build is stale.
+/// - `iosStoreUrl` (string, optional): defaults to [kDefaultIosStoreUrl].
 class AppUpdateSuggestion {
   const AppUpdateSuggestion({
     required this.storeUrl,
@@ -82,12 +85,10 @@ Future<AppUpdateSuggestion?> fetchAppUpdateSuggestion() async {
           return null;
         }
         final iosUrl = (data['iosStoreUrl'] as String?)?.trim();
-        if (iosUrl == null || iosUrl.isEmpty) {
-          // Cannot deep-link; avoid a useless banner.
-          return null;
-        }
         return AppUpdateSuggestion(
-          storeUrl: iosUrl,
+          storeUrl: (iosUrl != null && iosUrl.isNotEmpty)
+              ? iosUrl
+              : kDefaultIosStoreUrl,
           remoteVersionLabel: versionName,
         );
       default:
@@ -174,11 +175,12 @@ Future<ForcedUpdateInfo?> fetchForcedUpdateGate() async {
           return null;
         }
         final iosUrl = (data['iosStoreUrl'] as String?)?.trim();
-        if (iosUrl == null || iosUrl.isEmpty) {
-          // Cannot deep-link; don't block play with no way out.
-          return null;
-        }
-        return ForcedUpdateInfo(storeUrl: iosUrl, remoteVersionLabel: versionName);
+        return ForcedUpdateInfo(
+          storeUrl: (iosUrl != null && iosUrl.isNotEmpty)
+              ? iosUrl
+              : kDefaultIosStoreUrl,
+          remoteVersionLabel: versionName,
+        );
       default:
         return null;
     }
