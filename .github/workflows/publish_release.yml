@@ -13,6 +13,10 @@
 # switches the push copy to call out Android specifically. Re-run this
 # workflow with android_only unchecked once iOS clears review to announce it
 # there too.
+#
+# Emergency: set patch_ios_latest / patch_ios_minimum to roll back only the
+# iOS gate fields (Android untouched) — e.g. after a mistaken full announce
+# while App Review is still pending.
 name: Publish release (push notification)
 
 on:
@@ -23,6 +27,14 @@ on:
         type: boolean
         required: false
         default: false
+      patch_ios_latest:
+        description: "Emergency: only set latestBuildIos to this int (leave blank for normal publish)"
+        required: false
+        default: ""
+      patch_ios_minimum:
+        description: "Emergency: only set minimumBuildIos to this int (0 = disable iOS force gate)"
+        required: false
+        default: ""
       ios_store_url:
         description: "iOS App Store URL (only needed if it ever changes)"
         required: false
@@ -54,9 +66,26 @@ jobs:
         working-directory: server
         env:
           GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          ANDROID_ONLY: ${{ inputs.android_only }}
+          PATCH_IOS_LATEST: ${{ inputs.patch_ios_latest }}
+          PATCH_IOS_MINIMUM: ${{ inputs.patch_ios_minimum }}
         run: |
-          dart run bin/publish_release.dart \
-            --yes \
-            --ios-store-url="${{ inputs.ios_store_url }}" \
-            --android-store-url="${{ inputs.android_store_url }}" \
-            ${{ inputs.android_only == 'true' && '--android-only' || '' }}
+          EXTRA_ARGS=()
+          if [ -n "$PATCH_IOS_LATEST" ] || [ -n "$PATCH_IOS_MINIMUM" ]; then
+            if [ -n "$PATCH_IOS_LATEST" ]; then
+              EXTRA_ARGS+=(--patch-ios-latest="$PATCH_IOS_LATEST")
+            fi
+            if [ -n "$PATCH_IOS_MINIMUM" ]; then
+              EXTRA_ARGS+=(--patch-ios-minimum="$PATCH_IOS_MINIMUM")
+            fi
+            dart run bin/publish_release.dart --yes "${EXTRA_ARGS[@]}"
+          else
+            if [ "$ANDROID_ONLY" = "true" ]; then
+              EXTRA_ARGS+=(--android-only)
+            fi
+            dart run bin/publish_release.dart \
+              --yes \
+              --ios-store-url="${{ inputs.ios_store_url }}" \
+              --android-store-url="${{ inputs.android_store_url }}" \
+              "${EXTRA_ARGS[@]}"
+          fi
