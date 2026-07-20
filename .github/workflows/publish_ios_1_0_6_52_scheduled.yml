@@ -1,0 +1,37 @@
+# One-shot schedule: announce iOS 1.0.6+52 once App Review is expected clear.
+# Fires 21 Jul 2026 09:00 UTC (10:00 BST). Safe to delete after it runs.
+# Also runnable manually via workflow_dispatch.
+name: Scheduled iOS announce 1.0.6+52
+
+on:
+  schedule:
+    - cron: "0 9 21 7 *"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.9"
+          channel: stable
+          cache: true
+
+      - name: Pub get (server package)
+        working-directory: server
+        run: dart pub get
+
+      - name: Announce 1.0.6+52 (both platforms)
+        working-directory: server
+        env:
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+        run: |
+          dart run bin/publish_release.dart \
+            --yes \
+            --ios-store-url="https://apps.apple.com/app/id6769810523" \
+            --android-store-url="https://play.google.com/store/apps/details?id=com.lastcards.app.paid"

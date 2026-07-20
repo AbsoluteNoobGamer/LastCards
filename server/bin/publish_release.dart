@@ -44,12 +44,28 @@ import 'package:last_cards_server/release_version.dart';
 /// specifically instead of the generic "a new version is out" text. Once iOS
 /// clears review, re-run without --android-only to announce it there too.
 ///
+/// Emergency iOS rollback (does not touch Android or latestVersionName):
+///   --patch-ios-latest=42 --patch-ios-minimum=0
+/// Use when iOS was accidentally announced before App Review cleared.
+/// minimum=0 disables the force-update gate on iOS (no build is below 0).
+///
 /// Pass --yes / -y to skip the confirmation prompt (e.g. for CI).
 Future<void> main(List<String> args) async {
   final skipConfirm = args.contains('--yes') || args.contains('-y');
   final androidOnly = args.contains('--android-only');
   final iosStoreUrl = _argValue(args, '--ios-store-url');
   final androidStoreUrl = _argValue(args, '--android-store-url');
+  final patchIosLatestRaw = _argValue(args, '--patch-ios-latest');
+  final patchIosMinimumRaw = _argValue(args, '--patch-ios-minimum');
+
+  if (patchIosLatestRaw != null || patchIosMinimumRaw != null) {
+    await _patchIosOnly(
+      skipConfirm: skipConfirm,
+      latestRaw: patchIosLatestRaw,
+      minimumRaw: patchIosMinimumRaw,
+    );
+    return;
+  }
 
   final pubspecPath = '../pubspec.yaml';
   final pubspecFile = File(pubspecPath);
@@ -146,6 +162,68 @@ Future<void> main(List<String> args) async {
   stdout.writeln('\nDone. app_config/app_update updated.');
   stdout.writeln(
       'The running server polls every 10 minutes and will broadcast on its next check.');
+}
+
+Future<void> _patchIosOnly({
+  required bool skipConfirm,
+  required String? latestRaw,
+  required String? minimumRaw,
+}) async {
+  final latest = latestRaw == null ? null : int.tryParse(latestRaw);
+  final minimum = minimumRaw == null ? null : int.tryParse(minimumRaw);
+  if (latestRaw != null && latest == null) {
+    stderr.writeln('Invalid --patch-ios-latest=$latestRaw (need an int).');
+    exitCode = 1;
+    return;
+  }
+  if (minimumRaw != null && minimum == null) {
+    stderr.writeln('Invalid --patch-ios-minimum=$minimumRaw (need an int).');
+    exitCode = 1;
+    return;
+  }
+  if (latest == null && minimum == null) {
+    stderr.writeln(
+        'Nothing to patch — pass --patch-ios-latest and/or --patch-ios-minimum.');
+    exitCode = 1;
+    return;
+  }
+
+  stdout.writeln('iOS-only patch (Android / latestVersionName untouched):');
+  if (latest != null) stdout.writeln('  latestBuildIos  = $latest');
+  if (minimum != null) {
+    stdout.writeln('  minimumBuildIos = $minimum');
+    if (minimum <= 0) {
+      stdout.writeln('  (minimum ≤ 0 disables the iOS force-update gate)');
+    }
+  }
+
+  if (!skipConfirm) {
+    stdout.write('\nProceed? [y/N] ');
+    final answer = stdin.readLineSync()?.trim().toLowerCase();
+    if (answer != 'y' && answer != 'yes') {
+      stdout.writeln('Aborted.');
+      return;
+    }
+  }
+
+  FcmSender.instance.init();
+  final ok = await FcmSender.instance.updateDocumentFields(
+    collection: 'app_config',
+    docId: 'app_update',
+    fields: {
+      if (latest != null) 'latestBuildIos': latest,
+      if (minimum != null) 'minimumBuildIos': minimum,
+    },
+  );
+
+  if (!ok) {
+    stderr.writeln(
+        '\nFailed — check that GOOGLE_CREDENTIALS_JSON is set and valid (see log output above).');
+    exitCode = 1;
+    return;
+  }
+
+  stdout.writeln('\nDone. iOS fields on app_config/app_update updated.');
 }
 
 String? _argValue(List<String> args, String flag) {
