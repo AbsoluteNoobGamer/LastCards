@@ -27,6 +27,8 @@ class SettingsState {
   final bool reduceMotion;
   /// When true (“Lower Performance”), trims heavy visuals (e.g. start menu effects).
   final bool budgetDeviceMode;
+  /// Master switch for online push-to-talk voice (default off).
+  final bool voiceChatEnabled;
 
   SettingsState({
     this.soundVolume = 100.0,
@@ -34,6 +36,7 @@ class SettingsState {
     this.musicVolume = 55.0,
     this.reduceMotion = false,
     this.budgetDeviceMode = false,
+    this.voiceChatEnabled = false,
   });
 
   SettingsState copyWith({
@@ -42,6 +45,7 @@ class SettingsState {
     double? musicVolume,
     bool? reduceMotion,
     bool? budgetDeviceMode,
+    bool? voiceChatEnabled,
   }) {
     return SettingsState(
       soundVolume: soundVolume ?? this.soundVolume,
@@ -49,6 +53,7 @@ class SettingsState {
       musicVolume: musicVolume ?? this.musicVolume,
       reduceMotion: reduceMotion ?? this.reduceMotion,
       budgetDeviceMode: budgetDeviceMode ?? this.budgetDeviceMode,
+      voiceChatEnabled: voiceChatEnabled ?? this.voiceChatEnabled,
     );
   }
 }
@@ -68,6 +73,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       musicVolume: _prefs?.getDouble('musicVolume') ?? 55.0,
       reduceMotion: _prefs?.getBool('reduceMotion') ?? false,
       budgetDeviceMode: _prefs?.getBool('budget_device_mode') ?? false,
+      voiceChatEnabled: _prefs?.getBool('voice_chat_enabled') ?? false,
     );
     StartScreenBgm.instance
         .setMusicVolume(state.musicVolume / 100.0);
@@ -81,6 +87,11 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   void setBudgetDeviceMode(bool value) {
     state = state.copyWith(budgetDeviceMode: value);
     _prefs?.setBool('budget_device_mode', value);
+  }
+
+  void setVoiceChatEnabled(bool value) {
+    state = state.copyWith(voiceChatEnabled: value);
+    _prefs?.setBool('voice_chat_enabled', value);
   }
 
   void updateSound(double val) {
@@ -248,6 +259,23 @@ class SettingsModal extends ConsumerWidget {
                           value: audioService.soundEffectsEnabled,
                           onChanged: (val) =>
                               audioService.setSoundEffectsEnabled(val),
+                          activeThumbColor: Colors.amber,
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: isMobile,
+                          title: const Text('Voice chat'),
+                          subtitle: Text(
+                            'Online push-to-talk (hold to speak, max 10 seconds). '
+                            'Off by default — no mic until you enable this.',
+                            style: TextStyle(
+                              fontSize: isMobile ? 11 : 12,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                          value: settings.voiceChatEnabled,
+                          onChanged: (val) =>
+                              notifier.setVoiceChatEnabled(val),
                           activeThumbColor: Colors.amber,
                         ),
                         const Divider(height: 40, color: Colors.grey),

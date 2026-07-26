@@ -64,9 +64,16 @@ class BlockService {
     required String reason,
     String? messageText,
     String? roomCode,
+    String? channel,
   }) async {
     final me = _uid;
     if (me == null) return;
+    final resolvedChannel = channel ??
+        (reason == 'Voice abuse'
+            ? 'voice'
+            : messageText != null
+                ? 'text'
+                : null);
     await _firestore.collection(_reports).add({
       'reporterUid': me,
       'reportedUid': reportedUid,
@@ -74,6 +81,7 @@ class BlockService {
       'reason': reason,
       'messageText': messageText,
       'roomCode': roomCode,
+      if (resolvedChannel != null) 'channel': resolvedChannel,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }

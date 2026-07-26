@@ -12,11 +12,12 @@ import 'player_model.dart';
 ///   [PlayerSocketRestoredEvent], [GameEndedEvent], [ErrorEvent],
 ///   [SuitChoiceRequiredEvent], [JokerChoiceRequiredEvent],
 ///   [TurnTimeoutEvent], [ReshuffleEvent], [BustRoundOverEvent],
-///   [BustRoundStartEvent], [QuickChatEvent], [TextChatEvent]
+///   [BustRoundStartEvent], [QuickChatEvent], [TextChatEvent],
+///   [VoiceTokenEvent], [VoiceUnavailableEvent], [VoicePlayerMutedEvent]
 ///
 /// Outgoing (client → server): [PlayCardsAction], [DrawCardAction],
 ///   [DeclareJokerAction], [SuitChoiceAction], [EndTurnAction], [QuickChatAction],
-///   [TextChatAction]
+///   [TextChatAction], [VoiceTokenRequestAction], [VoiceMutePlayerAction]
 sealed class GameEvent {
   const GameEvent();
 
@@ -553,6 +554,49 @@ final class TextChatEvent extends GameEvent {
   String get type => 'text_chat';
 }
 
+/// LiveKit join credentials for room voice (PTT).
+final class VoiceTokenEvent extends GameEvent {
+  final String url;
+  final String token;
+  final String roomName;
+  final int maxPttSeconds;
+  final bool canPublish;
+  const VoiceTokenEvent({
+    required this.url,
+    required this.token,
+    required this.roomName,
+    this.maxPttSeconds = 10,
+    this.canPublish = true,
+  });
+
+  @override
+  String get type => 'voice_token';
+}
+
+/// Server has no LiveKit credentials configured.
+final class VoiceUnavailableEvent extends GameEvent {
+  final String message;
+  const VoiceUnavailableEvent({this.message = 'Voice unavailable'});
+
+  @override
+  String get type => 'voice_unavailable';
+}
+
+/// A player was muted/unmuted for voice publish by host or self.
+final class VoicePlayerMutedEvent extends GameEvent {
+  final String playerId;
+  final bool muted;
+  final String byPlayerId;
+  const VoicePlayerMutedEvent({
+    required this.playerId,
+    required this.muted,
+    required this.byPlayerId,
+  });
+
+  @override
+  String get type => 'voice_player_muted';
+}
+
 /// Public casual: pre-deal vote to play as knockout tournament.
 final class TournamentVoteOpenEvent extends GameEvent {
   final int secondsRemaining;
@@ -705,6 +749,35 @@ final class TextChatAction extends GameEvent {
   String get type => 'text_chat';
 
   String toJsonString() => jsonEncode({'type': type, 'text': text});
+}
+
+/// Request a LiveKit token for the current room.
+final class VoiceTokenRequestAction extends GameEvent {
+  const VoiceTokenRequestAction();
+
+  @override
+  String get type => 'voice_token_request';
+
+  String toJsonString() => jsonEncode({'type': type});
+}
+
+/// Mute/unmute a player's voice publish (host or self).
+final class VoiceMutePlayerAction extends GameEvent {
+  final String targetPlayerId;
+  final bool muted;
+  const VoiceMutePlayerAction({
+    required this.targetPlayerId,
+    required this.muted,
+  });
+
+  @override
+  String get type => 'voice_mute_player';
+
+  String toJsonString() => jsonEncode({
+        'type': type,
+        'targetPlayerId': targetPlayerId,
+        'muted': muted,
+      });
 }
 
 // ── Event parsing ─────────────────────────────────────────────────────────────
@@ -869,6 +942,21 @@ GameEvent parseServerEvent(String raw) {
           playerId: json['playerId'] as String? ?? '',
           displayName: json['displayName'] as String? ?? 'Player',
           text: json['text'] as String? ?? '',
+        ),
+      'voice_token' => VoiceTokenEvent(
+          url: json['url'] as String? ?? '',
+          token: json['token'] as String? ?? '',
+          roomName: json['roomName'] as String? ?? '',
+          maxPttSeconds: (json['maxPttSeconds'] as num?)?.toInt() ?? 10,
+          canPublish: json['canPublish'] as bool? ?? true,
+        ),
+      'voice_unavailable' => VoiceUnavailableEvent(
+          message: json['message'] as String? ?? 'Voice unavailable',
+        ),
+      'voice_player_muted' => VoicePlayerMutedEvent(
+          playerId: json['playerId'] as String? ?? '',
+          muted: json['muted'] as bool? ?? false,
+          byPlayerId: json['byPlayerId'] as String? ?? '',
         ),
       'tournament_vote_open' => TournamentVoteOpenEvent(
           secondsRemaining: (json['secondsRemaining'] as num?)?.toInt() ?? 15,

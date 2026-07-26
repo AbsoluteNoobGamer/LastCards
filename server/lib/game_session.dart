@@ -21,6 +21,7 @@ import 'logger.dart';
 import 'server_ai_turn.dart';
 import 'session_match_stats.dart';
 import 'trophy_recorder.dart';
+import 'voice_token_service.dart';
 
 // Flutter-only: Ace suit sheet UI, table animations, draw-pile visuals, floating
 // action bar layout. This process validates actions and broadcasts snapshots; see
@@ -87,9 +88,12 @@ class GameSession {
     this.isHardcore = false,
     TrophyPersistence? trophyRecorder,
     MatchupPersistence? matchupRecorder,
+    VoiceTokenService? voiceTokenService,
     this.onBecameEmpty,
   })  : _trophyRecorder = trophyRecorder ?? TrophyRecorder.instance,
-        _matchupRecorder = matchupRecorder ?? MatchupRecorder.instance;
+        _matchupRecorder = matchupRecorder ?? MatchupRecorder.instance,
+        _voiceTokenService =
+            voiceTokenService ?? VoiceTokenService.fromEnvironment();
 
   final String roomCode;
 
@@ -118,9 +122,13 @@ class GameSession {
 
   final TrophyPersistence _trophyRecorder;
   final MatchupPersistence _matchupRecorder;
+  final VoiceTokenService _voiceTokenService;
   final SessionMatchStats _matchStats = SessionMatchStats();
   final _log = Logger('GameSession');
   final math.Random _aiRng = math.Random();
+
+  /// Players host-muted (or self-muted) for voice publish. Cleared on leave.
+  final Set<String> _voiceMutedIds = {};
 
   /// Called after [removePlayer] when no players remain. [RoomManager] uses
   /// this to drop the room from memory.
@@ -639,6 +647,7 @@ class GameSession {
         _state.currentPlayerId == playerId;
     _players.remove(playerId);
     _tournamentVotes.remove(playerId);
+    _voiceMutedIds.remove(playerId);
     _broadcast({'type': 'player_left', 'playerId': playerId});
 
     if (_clearRoomWhenNoHumansRemain()) {
@@ -2797,6 +2806,95 @@ class GameSession {
       'messageIndex': messageIndex,
     });
   }
+
+  // ── Voice (LiveKit PTT) ────────────────────────────────────────────────────
+
+  /// Mints a LiveKit token for [playerId] if seated and voice is configured.
+  void handleVoiceTokenRequest(String playerId) {
+    final slot = _players[playerId];
+    if (slot == null || slot.isAi || slot.controlledByAi) {
+      _sendError(playerId, 'voice_not_seated', 'Not seated in this room.');
+      return;
+    }
+    if (!_voiceTokenService.isConfigured) {
+      _sendTo(playerId, {
+        'type': 'voice_unavailable',
+        'message': 'Voice chat is not configured on this server.',
+      });
+      return;
+    }
+
+    final canPublish = !_voiceMutedIds.contains(playerId);
+    final token = _voiceTokenService.mintToken(
+      roomCode: roomCode,
+      playerId: playerId,
+      displayName: slot.displayName,
+      canPublish: canPublish,
+    );
+    if (token == null) {
+      _sendTo(playerId, {
+        'type': 'voice_unavailable',
+        'message': 'Voice chat is not configured on this server.',
+      });
+      return;
+    }
+
+    _sendTo(playerId, {
+      'type': 'voice_token',
+      'url': _voiceTokenService.url,
+      'token': token,
+      'roomName': VoiceTokenService.liveKitRoomName(roomCode),
+      'maxPttSeconds': VoiceTokenService.maxPttSeconds,
+      'canPublish': canPublish,
+    });
+  }
+
+  /// Host (private) or self may mute/unmute a player's ability to publish.
+  void handleVoiceMutePlayer(String requesterId, Map<String, dynamic> json) {
+    final targetId = json['targetPlayerId'] as String?;
+    final muted = json['muted'] as bool?;
+    if (targetId == null || muted == null) return;
+
+    final requester = _players[requesterId];
+    final target = _players[targetId];
+    if (requester == null || target == null) return;
+    if (requester.isAi || requester.controlledByAi) return;
+
+    final isSelf = requesterId == targetId;
+    final isHost = isPrivate &&
+        hostPlayerIdForPrivateLobby != null &&
+        requesterId == hostPlayerIdForPrivateLobby;
+    if (!isSelf && !isHost) {
+      _sendError(
+        requesterId,
+        'not_host',
+        'Only the room host can mute other players.',
+      );
+      return;
+    }
+
+    if (muted) {
+      _voiceMutedIds.add(targetId);
+    } else {
+      _voiceMutedIds.remove(targetId);
+    }
+
+    _broadcast({
+      'type': 'voice_player_muted',
+      'playerId': targetId,
+      'muted': muted,
+      'byPlayerId': requesterId,
+    });
+
+    // Push a fresh token so the muted client can reconnect with updated grants.
+    if (target.ws != null && !target.isAi) {
+      handleVoiceTokenRequest(targetId);
+    }
+  }
+
+  /// Whether [playerId] is currently server-muted for voice publish (tests).
+  bool isVoiceMutedForTesting(String playerId) =>
+      _voiceMutedIds.contains(playerId);
 
   // ── Free-text chat (lobby + in-game) ───────────────────────────────────────
 

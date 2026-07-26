@@ -32,6 +32,7 @@ import '../../../../core/providers/connection_provider.dart';
 import '../../../../core/network/websocket_client.dart';
 import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/providers/game_provider.dart';
+import '../../../../core/providers/online_rejoin_provider.dart';
 import '../../../../core/services/analytics_service.dart';
 import '../../../../core/services/avatar_catalog_service.dart';
 import '../../../../core/theme/app_dimensions.dart';
@@ -44,6 +45,7 @@ import '../../../social/widgets/invite_friends_sheet.dart';
 import '../../../social/widgets/pending_friend_requests_banner.dart';
 import '../../../social/widgets/report_block_sheet.dart';
 import '../../../tournament/providers/tournament_session_provider.dart';
+import '../../../voice/widgets/ptt_chrome_fab.dart';
 
 enum OnlineMode { standard, tournament }
 
@@ -157,6 +159,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         _isRoomCreator = true;
       });
       _codeController.text = e.roomCode;
+      _syncVoiceSession(
+        roomCode: e.roomCode,
+        playerId: e.playerId.isNotEmpty ? e.playerId : _localPlayerId,
+      );
     });
     _stateSnapshotSub = handler.stateSnapshots.listen((e) {
       if (!mounted) return;
@@ -207,6 +213,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             );
           }
         });
+        _syncVoiceSession(
+          roomCode: _roomCode,
+          playerId: _localPlayerId,
+        );
         return;
       }
       if (e is PrivateLobbySettingsEvent) {
@@ -222,6 +232,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
           _privateGameVariant = PrivateGameVariant.parse(e.gameVariant);
           _isRoomCreator = false;
         });
+        _syncVoiceSession(roomCode: e.roomCode, playerId: e.playerId);
         final pending = widget.pendingGameInviteDocIdToDismiss;
         if (pending != null) {
           AnalyticsService.instance.logInviteAccepted();
@@ -303,6 +314,18 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     );
   }
 
+  void _syncVoiceSession({String? roomCode, String? playerId}) {
+    final rejoin = ref.read(onlineRejoinProvider.notifier);
+    final code = roomCode ?? _roomCode;
+    final id = playerId ?? _localPlayerId;
+    if (code != null && code.isNotEmpty) {
+      rejoin.setRoomCode(code);
+    }
+    if (id != null && id.isNotEmpty) {
+      rejoin.setPlayerId(id);
+    }
+  }
+
   void _sendLobbyChat(String text) {
     if (_roomCode == null) return;
     final handler = ref.read(gameEventHandlerProvider);
@@ -326,6 +349,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     _codeController.dispose();
     // Leaving the lobby must drop the socket so the server removes this client
     // from the room; otherwise re-entry stacks duplicate "players".
+    // Note: do not clear [onlineRejoinProvider] here — navigating into the
+    // table also disposes this screen and must keep room/player ids.
     _wsClientToDisconnectOnDispose?.disconnect();
     super.dispose();
   }
@@ -723,13 +748,24 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                   ),
                                   if (_roomCode != null) ...[
                                     const SizedBox(height: AppDimensions.lg),
-                                    LiveTextChatPanel(
-                                      theme: theme,
-                                      messages: _chatMessages,
-                                      onSend: _sendLobbyChat,
-                                      tall: true,
-                                      enabled: true,
-                                      onReportOrBlock: _showReportOrBlockSheet,
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Expanded(
+                                          child: LiveTextChatPanel(
+                                            theme: theme,
+                                            messages: _chatMessages,
+                                            onSend: _sendLobbyChat,
+                                            tall: true,
+                                            enabled: true,
+                                            onReportOrBlock:
+                                                _showReportOrBlockSheet,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const PttChromeFab(),
+                                      ],
                                     ),
                                   ],
                                   const SizedBox(height: AppDimensions.lg),
