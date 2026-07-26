@@ -70,6 +70,8 @@
 	<string>Last Cards needs photo library access so you can choose a profile picture.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Last Cards needs camera access so you can take a photo for your profile picture.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Last Cards needs microphone access for optional push-to-talk voice chat in online games.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>GIDClientID</key>
