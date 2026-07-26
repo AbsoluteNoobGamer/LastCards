@@ -72,6 +72,17 @@ class GameEventHandler {
   Stream<TextChatEvent> get textChats =>
       events.where((e) => e is TextChatEvent).cast<TextChatEvent>();
 
+  Stream<VoiceTokenEvent> get voiceTokens =>
+      events.where((e) => e is VoiceTokenEvent).cast<VoiceTokenEvent>();
+
+  Stream<VoiceUnavailableEvent> get voiceUnavailable => events
+      .where((e) => e is VoiceUnavailableEvent)
+      .cast<VoiceUnavailableEvent>();
+
+  Stream<VoicePlayerMutedEvent> get voicePlayerMuted => events
+      .where((e) => e is VoicePlayerMutedEvent)
+      .cast<VoicePlayerMutedEvent>();
+
   /// Player drew cards for attempting an invalid play (consolidated log entry).
   Stream<InvalidPlayPenaltyEvent> get invalidPlayPenalties =>
       events
@@ -110,6 +121,12 @@ class GameEventHandler {
       _wsClient.send(action.toJsonString());
 
   bool sendTextChat(TextChatAction action) =>
+      _wsClient.send(action.toJsonString());
+
+  bool sendVoiceTokenRequest() =>
+      _wsClient.send(const VoiceTokenRequestAction().toJsonString());
+
+  bool sendVoiceMutePlayer(VoiceMutePlayerAction action) =>
       _wsClient.send(action.toJsonString());
 
   // ── Internal ───────────────────────────────────────────────────────────────

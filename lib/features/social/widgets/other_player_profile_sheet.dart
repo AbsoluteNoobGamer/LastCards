@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +22,8 @@ import '../../../core/utils/ranked_tier_utils.dart';
 import '../../../core/widgets/head_to_head_stats_block.dart';
 import '../../leaderboard/data/leaderboard_collections.dart';
 import 'report_block_sheet.dart';
+import '../../voice/voice_providers.dart';
+import '../../settings/presentation/widgets/settings_modal.dart';
 
 /// Bottom sheet: opponent public profile, stats, and friend actions.
 class OtherPlayerProfileSheet extends ConsumerStatefulWidget {
@@ -27,10 +31,14 @@ class OtherPlayerProfileSheet extends ConsumerStatefulWidget {
     super.key,
     required this.firebaseUid,
     required this.fallbackDisplayName,
+    this.playerId,
   });
 
   final String firebaseUid;
   final String fallbackDisplayName;
+
+  /// Game seat id when opened from an online table (for local voice mute).
+  final String? playerId;
 
   @override
   ConsumerState<OtherPlayerProfileSheet> createState() =>
@@ -358,6 +366,39 @@ class _OtherPlayerProfileSheetState
                         ),
                       ),
                     ),
+                    if (widget.playerId != null &&
+                        ref.watch(settingsProvider).voiceChatEnabled)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: ListenableBuilder(
+                          listenable: ref.watch(voiceRoomControllerProvider),
+                          builder: (context, _) {
+                            final voice =
+                                ref.read(voiceRoomControllerProvider);
+                            final muted = voice
+                                .isLocallyMuted(widget.playerId!);
+                            return TextButton.icon(
+                              onPressed: () {
+                                unawaited(
+                                  voice.setLocalMute(
+                                    widget.playerId!,
+                                    !muted,
+                                  ),
+                                );
+                              },
+                              icon: Icon(
+                                muted
+                                    ? Icons.volume_up_outlined
+                                    : Icons.volume_off_outlined,
+                                size: 18,
+                              ),
+                              label: Text(
+                                muted ? 'Unmute voice' : 'Mute voice',
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                   ],
                   if (data.ranked != null) ...[
                     const SizedBox(height: 20),

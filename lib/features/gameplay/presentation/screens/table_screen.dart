@@ -83,6 +83,7 @@ import '../../../../features/social/widgets/other_player_profile_sheet.dart';
 import '../../../../features/social/widgets/pending_friend_requests_banner.dart';
 import '../../../../features/social/widgets/report_block_sheet.dart';
 import '../../../../features/settings/presentation/widgets/settings_modal.dart';
+import '../../../../features/voice/widgets/ptt_chrome_fab.dart';
 part 'table_screen_background.dart';
 part 'table_screen_layout.dart';
 part 'table_screen_overlays.dart';
@@ -2617,6 +2618,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                               },
                             ),
                           ),
+                        if (!_isOfflineSession) const PttChromeFab(),
                         ArenaChromeFab(
                           tooltip: _isOfflineSession
                               ? 'Chat (online games)'
@@ -4655,6 +4657,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       builder: (ctx) => OtherPlayerProfileSheet(
         firebaseUid: uid,
         fallbackDisplayName: player.displayName,
+        playerId: player.id,
       ),
     );
   }

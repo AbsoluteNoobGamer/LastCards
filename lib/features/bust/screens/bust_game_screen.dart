@@ -40,6 +40,7 @@ import 'package:last_cards/core/services/purchase_service.dart';
 import 'package:last_cards/core/services/player_level_service.dart';
 import 'package:last_cards/shared/reactions/reaction_catalog.dart';
 import 'package:last_cards/features/settings/presentation/widgets/settings_modal.dart';
+import 'package:last_cards/features/voice/widgets/ptt_chrome_fab.dart';
 import 'package:last_cards/shared/rules/move_log_support.dart';
 
 import '../bust_engine.dart';
@@ -1939,6 +1940,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                                 ),
                               ),
                             ),
+                          const PttChromeFab(),
                           Stack(
                             clipBehavior: Clip.none,
                             children: [

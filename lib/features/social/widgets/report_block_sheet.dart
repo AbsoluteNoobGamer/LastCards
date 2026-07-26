@@ -9,6 +9,7 @@ import '../../../core/services/analytics_service.dart';
 const List<String> kReportReasons = [
   'Harassment',
   'Hate speech / slurs',
+  'Voice abuse',
   'Spam',
   'Inappropriate name',
   'Other',

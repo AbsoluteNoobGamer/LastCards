@@ -205,6 +205,20 @@ class RoomManager {
           _rooms[roomCode]?.handleTextChat(playerId, json);
         }
         break;
+      case 'voice_token_request':
+        final roomCode = _playerRooms[ws];
+        final playerId = _playerIds[ws];
+        if (roomCode != null && playerId != null) {
+          _rooms[roomCode]?.handleVoiceTokenRequest(playerId);
+        }
+        break;
+      case 'voice_mute_player':
+        final roomCode = _playerRooms[ws];
+        final playerId = _playerIds[ws];
+        if (roomCode != null && playerId != null) {
+          _rooms[roomCode]?.handleVoiceMutePlayer(playerId, json);
+        }
+        break;
       case 'leave_room':
         // Explicit leave → forceRemove so GameSession makes the seat a
         // permanent AI takeover (no rejoin). Unexpected socket drops use
