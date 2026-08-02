@@ -325,6 +325,12 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
       // loading underneath the still-visible ad.
       await AdsService.instance.maybeShowInterstitialAfterMatch();
       if (!mounted || _isDisposed) return;
+      // Offline only — an online round's completion is already recorded by
+      // TableScreen's gameStateProvider listener; counting it again here
+      // would burn a theme trial twice per round.
+      if (!widget.isOnline) {
+        unawaited(ref.read(themeProvider.notifier).recordGameCompleted());
+      }
       if (roundResult != null) {
         // Defensive reconciliation: table can report finish IDs while the engine
         // missed one callback due to route/frame timing. Replaying ensures the

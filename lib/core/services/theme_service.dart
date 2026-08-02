@@ -2,9 +2,34 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../theme/app_themes.dart';
 
-/// Persists the active theme index to [SharedPreferences].
+/// A theme trial in progress: [themeId] is equipped and reverts to
+/// [revertThemeId] once [gamesRemaining] completed games run out.
+class ThemeTrialState {
+  const ThemeTrialState({
+    required this.themeId,
+    required this.gamesRemaining,
+    required this.revertThemeId,
+  });
+
+  final String themeId;
+  final int gamesRemaining;
+  final String revertThemeId;
+
+  ThemeTrialState copyWith({int? gamesRemaining}) => ThemeTrialState(
+        themeId: themeId,
+        gamesRemaining: gamesRemaining ?? this.gamesRemaining,
+        revertThemeId: revertThemeId,
+      );
+}
+
+/// Persists the active theme index and any in-progress theme trial to
+/// [SharedPreferences].
 class ThemeService {
   static const _key = 'activeThemeIndex';
+  static const _trialThemeIdKey = 'themeTrialThemeId';
+  static const _trialGamesRemainingKey = 'themeTrialGamesRemaining';
+  static const _trialRevertThemeIdKey = 'themeTrialRevertThemeId';
+  static const _trialedThemeIdsKey = 'themeTrialedThemeIds';
 
   const ThemeService();
 
@@ -22,5 +47,49 @@ class ThemeService {
   Future<void> saveThemeIndex(int index) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_key, index);
+  }
+
+  /// Null when no trial is currently in progress.
+  Future<ThemeTrialState?> loadTrialState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final themeId = prefs.getString(_trialThemeIdKey);
+    final revertThemeId = prefs.getString(_trialRevertThemeIdKey);
+    final gamesRemaining = prefs.getInt(_trialGamesRemainingKey);
+    if (themeId == null || revertThemeId == null || gamesRemaining == null) {
+      return null;
+    }
+    return ThemeTrialState(
+      themeId: themeId,
+      gamesRemaining: gamesRemaining,
+      revertThemeId: revertThemeId,
+    );
+  }
+
+  /// Pass null to clear the in-progress trial (expired or abandoned).
+  Future<void> saveTrialState(ThemeTrialState? trial) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (trial == null) {
+      await prefs.remove(_trialThemeIdKey);
+      await prefs.remove(_trialGamesRemainingKey);
+      await prefs.remove(_trialRevertThemeIdKey);
+      return;
+    }
+    await prefs.setString(_trialThemeIdKey, trial.themeId);
+    await prefs.setInt(_trialGamesRemainingKey, trial.gamesRemaining);
+    await prefs.setString(_trialRevertThemeIdKey, trial.revertThemeId);
+  }
+
+  /// Theme ids whose one-shot trial has already been started (win or lose,
+  /// finished or abandoned — a trial is spent the moment it starts).
+  Future<Set<String>> loadTrialedThemeIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getStringList(_trialedThemeIdsKey) ?? const []).toSet();
+  }
+
+  Future<void> markThemeTrialed(String themeId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final ids = (prefs.getStringList(_trialedThemeIdsKey) ?? const []).toSet()
+      ..add(themeId);
+    await prefs.setStringList(_trialedThemeIdsKey, ids.toList());
   }
 }

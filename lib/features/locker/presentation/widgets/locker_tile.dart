@@ -20,6 +20,10 @@ enum LockerTileState {
   /// purchase flow wired up yet, so tapping a premium tile currently just
   /// shows an informational message.
   premiumLocked,
+
+  /// Not yet unlocked, but a one-shot trial is available (not started yet).
+  /// Renders inviting rather than dimmed-and-locked — tapping starts it.
+  trialAvailable,
 }
 
 /// A single square tile in a Locker grid (card back, joker cover, reaction,
@@ -33,6 +37,7 @@ class LockerTile extends StatefulWidget {
     this.preview,
     this.lockCaption,
     this.priceLabel,
+    this.trialCaption,
   });
 
   /// Caption under the thumbnail. Pass null to skip it entirely (e.g. when
@@ -52,6 +57,10 @@ class LockerTile extends StatefulWidget {
   /// e.g. "£1.99" shown under a premium-locked tile.
   final String? priceLabel;
 
+  /// e.g. "Trial: 3 games left". Takes priority over the "Selected" label
+  /// so an active trial's countdown stays visible while it's equipped.
+  final String? trialCaption;
+
   @override
   State<LockerTile> createState() => _LockerTileState();
 }
@@ -66,12 +75,15 @@ class _LockerTileState extends State<LockerTile> {
         widget.state == LockerTileState.premiumLocked;
     final isSelected = widget.state == LockerTileState.selected;
     final isPremium = widget.state == LockerTileState.premiumLocked;
+    final isTrialAvailable = widget.state == LockerTileState.trialAvailable;
 
     final borderColor = isSelected
         ? colors.primary
         : isPremium
             ? colors.error
-            : colors.primary.withValues(alpha: 0.25);
+            : isTrialAvailable
+                ? colors.secondary
+                : colors.primary.withValues(alpha: 0.25);
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
@@ -116,6 +128,12 @@ class _LockerTileState extends State<LockerTile> {
                             color: isPremium
                                 ? colors.error
                                 : colors.onSurface.withValues(alpha: 0.6),
+                          )
+                        else if (isTrialAvailable)
+                          Icon(
+                            Icons.play_circle_outline_rounded,
+                            size: 18,
+                            color: colors.secondary,
                           ),
                       ],
                     ),
@@ -135,7 +153,17 @@ class _LockerTileState extends State<LockerTile> {
                   ),
                 ),
               ],
-              if (isSelected)
+              if (widget.trialCaption != null)
+                Text(
+                  widget.trialCaption!,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 9.5,
+                    color: colors.secondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                )
+              else if (isSelected)
                 Text(
                   'Selected',
                   textAlign: TextAlign.center,

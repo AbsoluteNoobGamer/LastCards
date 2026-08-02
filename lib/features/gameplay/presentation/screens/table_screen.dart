@@ -229,6 +229,12 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   int _onlineDiscardCount = 1;
   bool _onlineWinDialogShown = false;
 
+  /// Guards the offline standalone-win block in [_checkWin] against firing
+  /// more than once per game — unlike the online path, _checkWin has several
+  /// call sites and no phase-based guard, so once a player's hand is empty
+  /// every subsequent call keeps re-confirming the same win.
+  bool _offlineWinRecorded = false;
+
   /// After the user dismisses the online win dialog with KEEP WATCHING (spectate).
   /// Prevents [ref.listen] from opening the dialog again on unrelated state updates.
   bool _spectating = false;
@@ -876,6 +882,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       _discardPile.clear();
       _onlineDiscardCount = 1; // one card already on discard (discardTopCard)
       _onlineWinDialogShown = false;
+      _offlineWinRecorded = false;
       _spectating = false;
 
       if (snap.discardTopCard != null) {
@@ -1947,6 +1954,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             ? 'disconnect'
             : 'win',
       );
+      unawaited(ref.read(themeProvider.notifier).recordGameCompleted());
 
       final navigator = Navigator.of(context);
 
@@ -4288,6 +4296,17 @@ class _TableScreenState extends ConsumerState<TableScreen> {
       durationSeconds: _gameStopwatch.elapsed.inSeconds,
       endedBy: 'win',
     );
+    // Online completion is recorded by the `gameStateProvider` listener
+    // above (fires once per online match); guard here so a standalone
+    // offline win/loss isn't ever double-counted against a trial. Also
+    // guarded by _offlineWinRecorded: _checkWin has several call sites and
+    // no phase check, so once a player's hand is empty every subsequent
+    // call re-confirms the same win — without this flag a single game
+    // could fire this block (and burn trial games) many times over.
+    if (_isOfflineSession && !_offlineWinRecorded) {
+      _offlineWinRecorded = true;
+      unawaited(ref.read(themeProvider.notifier).recordGameCompleted());
+    }
 
     Future.microtask(() {
       if (!mounted) return;

@@ -559,8 +559,8 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
       }
     });
     final bool cinematic = _cinematicEffects(context);
-    final Color accentForVfx =
-        ref.watch(themeProvider).theme.accentPrimary;
+    final AppThemeData currentTheme = ref.watch(themeProvider).theme;
+    final Color accentForVfx = currentTheme.accentPrimary;
 
     return Scaffold(
       body: Listener(
@@ -627,8 +627,8 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      ref.watch(themeProvider).theme.overlayTop,
-                      ref.watch(themeProvider).theme.overlayBottom,
+                      currentTheme.overlayTop,
+                      currentTheme.overlayBottom,
                     ],
                   ),
                 ),
