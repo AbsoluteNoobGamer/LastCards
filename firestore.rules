@@ -96,6 +96,7 @@ service cloud.firestore {
           'fromUid',
           'fromDisplayName',
           'roomCode',
+          'isChallenge',
           'createdAt',
         ]);
       allow read: if request.auth != null && request.auth.uid == uid;

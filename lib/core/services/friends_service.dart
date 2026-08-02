@@ -214,10 +214,13 @@ class FriendsService {
   }
 
   /// Notifies [toUid] with a joinable room code (no copy/paste for them).
+  /// [isChallenge] distinguishes a leaderboard "Challenge" invite from a
+  /// regular friend room invite in the recipient's banner/push text.
   Future<void> sendGameInvite({
     required String toUid,
     required String roomCode,
     required String fromDisplayName,
+    bool isChallenge = false,
   }) async {
     final from = _uid;
     if (from == null || toUid == from) return;
@@ -226,12 +229,14 @@ class FriendsService {
       'fromUid': from,
       'fromDisplayName': fromDisplayName,
       'roomCode': upperRoomCode,
+      'isChallenge': isChallenge,
       'createdAt': FieldValue.serverTimestamp(),
     });
     unawaited(_pushInviteNotification(
       toUid: toUid,
       fromDisplayName: fromDisplayName,
       roomCode: upperRoomCode,
+      isChallenge: isChallenge,
     ));
   }
 
@@ -244,6 +249,7 @@ class FriendsService {
     required String toUid,
     required String fromDisplayName,
     required String roomCode,
+    required bool isChallenge,
   }) async {
     try {
       final idToken = await _auth.currentUser?.getIdToken();
@@ -259,6 +265,7 @@ class FriendsService {
               'toUid': toUid,
               'fromDisplayName': fromDisplayName,
               'roomCode': roomCode,
+              'isChallenge': isChallenge,
             }),
           )
           .timeout(const Duration(seconds: 8));
@@ -297,6 +304,7 @@ class GameInviteEntry {
     required this.fromDisplayName,
     required this.roomCode,
     required this.createdAt,
+    required this.isChallenge,
   });
 
   final String id;
@@ -304,6 +312,10 @@ class GameInviteEntry {
   final String fromDisplayName;
   final String roomCode;
   final DateTime? createdAt;
+
+  /// True when this came from a leaderboard "Challenge" tap rather than a
+  /// regular friend room invite — changes the banner/push wording only.
+  final bool isChallenge;
 
   static GameInviteEntry? fromDoc(DocumentSnapshot<Map<String, dynamic>> d) {
     if (!d.exists) return null;
@@ -321,6 +333,7 @@ class GameInviteEntry {
       fromDisplayName: data['fromDisplayName'] as String? ?? 'Player',
       roomCode: code,
       createdAt: created,
+      isChallenge: data['isChallenge'] as bool? ?? false,
     );
   }
 }

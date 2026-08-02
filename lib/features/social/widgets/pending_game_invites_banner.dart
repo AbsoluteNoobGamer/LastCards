@@ -49,12 +49,13 @@ class _PendingGameInvitesBannerState
   /// This invite notification's own countdown — not the room's lifetime — so
   /// the invitee knows the banner itself is about to disappear and doesn't
   /// mistake that for the room being gone.
-  String _expiryLabel(DateTime? createdAt) {
-    if (createdAt == null) return 'Room invite';
+  String _expiryLabel(DateTime? createdAt, {required bool isChallenge}) {
+    final label = isChallenge ? 'Challenge' : 'Room invite';
+    if (createdAt == null) return label;
     final remaining =
         FriendsService.gameInviteMaxAge - DateTime.now().difference(createdAt);
     final seconds = remaining.isNegative ? 0 : remaining.inSeconds;
-    return 'Room invite · expires in ${seconds}s';
+    return '$label · expires in ${seconds}s';
   }
 
   @override
@@ -93,7 +94,9 @@ class _PendingGameInvitesBannerState
                         child: Row(
                           children: [
                             Icon(
-                              Icons.mail_rounded,
+                              e.isChallenge
+                                  ? Icons.sports_kabaddi_rounded
+                                  : Icons.mail_rounded,
                               color: theme.accentPrimary,
                               size: 22,
                             ),
@@ -104,7 +107,8 @@ class _PendingGameInvitesBannerState
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    _expiryLabel(e.createdAt),
+                                    _expiryLabel(e.createdAt,
+                                        isChallenge: e.isChallenge),
                                     style: GoogleFonts.inter(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
@@ -113,7 +117,9 @@ class _PendingGameInvitesBannerState
                                     ),
                                   ),
                                   Text(
-                                    '${e.fromDisplayName} · tap to join ${e.roomCode}',
+                                    e.isChallenge
+                                        ? '${e.fromDisplayName} challenged you · tap to accept ${e.roomCode}'
+                                        : '${e.fromDisplayName} · tap to join ${e.roomCode}',
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: GoogleFonts.inter(

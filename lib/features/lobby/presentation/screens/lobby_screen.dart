@@ -1057,6 +1057,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             toUid: toUid,
             roomCode: roomCode,
             fromDisplayName: fromName,
+            isChallenge: true,
           );
       AnalyticsService.instance.logInviteSent(channel: 'challenge');
       if (mounted) {
