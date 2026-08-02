@@ -2020,10 +2020,13 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                     child: Builder(
                       builder: (context) {
                         final busy = _bustSimulatingRest || _bustSkipAdShowing;
-                        // A loaded rewarded ad isn't guaranteed to be sitting
-                        // there when this button renders — don't offer a tap
-                        // that can only end in a "try again" snackbar.
-                        final adReady = AdsService.instance.isRewardedAdReady;
+                        // "Remove Ads" purchasers never get a rewarded ad
+                        // preloaded (AdsService skips it by design), so treat
+                        // them as always ready — the tap handler skips the ad.
+                        final adsRemoved =
+                            PurchaseService.instance.adsRemoved.value;
+                        final adReady =
+                            adsRemoved || AdsService.instance.isRewardedAdReady;
                         final disabled = busy || !adReady;
                         final label = _bustSimulatingRest
                             ? 'Simulating…'
@@ -2031,7 +2034,9 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
                                 ? 'Loading ad…'
                                 : !adReady
                                     ? 'Ad loading…'
-                                    : 'Watch ad to skip';
+                                    : adsRemoved
+                                        ? 'Skip round'
+                                        : 'Watch ad to skip';
                         return Material(
                           color: Colors.transparent,
                           child: InkWell(

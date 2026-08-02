@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Last Cards — Live Match Trailer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=DM+Sans:opsz,wght@9..40,600;9..40,800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --felt: #0d2b1a;
+      --gold: #c9a84c;
+      --gold-light: #e8cc7a;
+      --cream: #faf6ed;
+      --ink: #0a0a0a;
+      --suit-red: #9b2335;
+      --suit-black: #1a1a2e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "DM Sans", system-ui, sans-serif;
+      color: var(--cream);
+      background:
+        radial-gradient(ellipse at 50% 10%, #244a34 0%, transparent 50%),
+        linear-gradient(165deg, #07160e 0%, var(--felt) 50%, #040c08 100%);
+      display: grid;
+      place-items: center;
+      padding: 20px 14px 36px;
+    }
+    .stage {
+      width: min(400px, 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    h1 {
+      margin: 0;
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 1.35rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gold-light);
+      text-align: center;
+      font-weight: 700;
+    }
+    .phone {
+      position: relative;
+      aspect-ratio: 9 / 16;
+      border-radius: 28px;
+      overflow: hidden;
+      border: 2px solid var(--gold);
+      box-shadow:
+        0 0 0 1px rgba(201, 168, 76, 0.28),
+        0 28px 70px rgba(0, 0, 0, 0.6);
+      background: #000;
+      isolation: isolate;
+    }
+
+    /* Continuous live table camera */
+    .camera {
+      position: absolute;
+      inset: -6%;
+      background: #0a1a12 center/cover no-repeat;
+      background-image: url("storyboard/live-table.png");
+      transform-origin: 50% 42%;
+      will-change: transform;
+    }
+    .phone.playing .camera {
+      animation: camMove 32s ease-in-out infinite alternate;
+    }
+    @keyframes camMove {
+      0%   { transform: scale(1.08) translate(0%, 0%); }
+      25%  { transform: scale(1.16) translate(-2%, 1.5%); }
+      50%  { transform: scale(1.2) translate(1.5%, -2%); }
+      75%  { transform: scale(1.14) translate(-1%, -1%); }
+      100% { transform: scale(1.18) translate(2%, 1%); }
+    }
+
+    /* Hide chat panel region so it feels like pure gameplay */
+    .chat-mask {
+      position: absolute;
+      right: 2%;
+      bottom: 7%;
+      width: 46%;
+      height: 28%;
+      background: radial-gradient(ellipse at 70% 80%, transparent 20%, rgba(5, 14, 10, 0.55) 70%, rgba(5, 14, 10, 0.85));
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .letterbox {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 7%;
+      background: #000;
+      z-index: 20;
+      pointer-events: none;
+    }
+    .letterbox.top { top: 0; }
+    .letterbox.bottom { bottom: 0; height: 11%; }
+
+    .grain {
+      position: absolute;
+      inset: 0;
+      z-index: 18;
+      pointer-events: none;
+      opacity: 0.08;
+      mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+    }
+    .vignette {
+      position: absolute;
+      inset: 0;
+      z-index: 17;
+      pointer-events: none;
+      box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.55);
+    }
+
+    /* Turn spotlight on seats */
+    .seat-glow {
+      position: absolute;
+      width: 18%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      z-index: 3;
+      pointer-events: none;
+      opacity: 0;
+      box-shadow: 0 0 28px 10px rgba(232, 204, 122, 0.45);
+      transition: opacity 0.35s ease;
+    }
+    .seat-glow.on { opacity: 1; animation: pulseGlow 1.2s ease-in-out infinite; }
+    @keyframes pulseGlow {
+      0%, 100% { transform: scale(1); opacity: 0.75; }
+      50% { transform: scale(1.08); opacity: 1; }
+    }
+    .seat-glow.maya { top: 11%; left: 41%; }
+    .seat-glow.sam { top: 11%; left: 66%; }
+    .seat-glow.jason { top: 11%; left: 16%; }
+    .seat-glow.you { bottom: 14%; left: 41%; }
+
+    /* Flying / landing cards */
+    .fx-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 8;
+      pointer-events: none;
+    }
+    .play-card {
+      position: absolute;
+      width: 19%;
+      aspect-ratio: 2.5 / 3.5;
+      border-radius: 8%;
+      background: linear-gradient(160deg, #fffaf0, #f3ead5);
+      border: 1.5px solid rgba(40, 30, 10, 0.35);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(201, 168, 76, 0.2);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 6% 8%;
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-weight: 700;
+      opacity: 0;
+      z-index: 9;
+      transform: translate(-50%, -50%) scale(0.85) rotate(-8deg);
+    }
+    .play-card .r { font-size: 1.15rem; line-height: 1; }
+    .play-card .s { font-size: 1.35rem; line-height: 1; text-align: center; }
+    .play-card .r2 { font-size: 1.15rem; line-height: 1; align-self: flex-end; transform: rotate(180deg); }
+    .play-card.red { color: var(--suit-red); }
+    .play-card.black { color: var(--suit-black); }
+    .play-card.fly {
+      animation: cardFly 0.7s cubic-bezier(0.2, 0.85, 0.25, 1) forwards;
+    }
+    .play-card.land-pulse {
+      animation: cardFly 0.7s cubic-bezier(0.2, 0.85, 0.25, 1) forwards,
+                 landPulse 0.35s ease 0.55s;
+    }
+    @keyframes cardFly {
+      0% {
+        opacity: 0;
+        offset-distance: 0%;
+        transform: translate(-50%, -50%) scale(0.7) rotate(var(--spin-start, -18deg));
+      }
+      15% { opacity: 1; }
+      100% {
+        opacity: 1;
+        left: 42%;
+        top: 44%;
+        transform: translate(-50%, -50%) scale(1.05) rotate(var(--spin-end, 4deg));
+      }
+    }
+    @keyframes landPulse {
+      0% { filter: brightness(1); }
+      40% { filter: brightness(1.35); transform: translate(-50%, -50%) scale(1.1) rotate(var(--spin-end, 4deg)); }
+      100% { filter: brightness(1); transform: translate(-50%, -50%) scale(1.02) rotate(var(--spin-end, 4deg)); }
+    }
+
+    /* Discard stack ghosts under top card */
+    .discard-stack {
+      position: absolute;
+      left: 42%;
+      top: 44%;
+      width: 19%;
+      aspect-ratio: 2.5 / 3.5;
+      transform: translate(-50%, -50%);
+      z-index: 7;
+      pointer-events: none;
+    }
+    .discard-stack .ghost {
+      position: absolute;
+      inset: 0;
+      border-radius: 8%;
+      background: #efe6d4;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+      transform: rotate(var(--r, 0deg)) translate(var(--x, 0px), var(--y, 0px));
+      opacity: 0.9;
+    }
+
+    /* Move log / banners like the real game */
+    .move-log {
+      position: absolute;
+      left: 5%;
+      top: 34%;
+      z-index: 12;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 52%;
+      pointer-events: none;
+    }
+    .log-line {
+      align-self: flex-start;
+      background: rgba(8, 12, 10, 0.72);
+      border: 1px solid rgba(201, 168, 76, 0.55);
+      color: var(--gold-light);
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 6px 10px;
+      border-radius: 8px;
+      opacity: 0;
+      transform: translateX(-12px);
+    }
+    .log-line.in {
+      animation: logIn 0.4s ease forwards;
+    }
+    .log-line.out {
+      animation: logOut 0.35s ease forwards;
+    }
+    @keyframes logIn {
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes logOut {
+      to { opacity: 0; transform: translateX(-8px); }
+    }
+
+    .fx-banner {
+      position: absolute;
+      left: 50%;
+      top: 52%;
+      transform: translate(-50%, -50%) scale(0.7);
+      z-index: 14;
+      pointer-events: none;
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-weight: 700;
+      font-size: 1.55rem;
+      letter-spacing: 0.06em;
+      color: var(--ink);
+      background: linear-gradient(180deg, var(--gold-light), var(--gold));
+      border-radius: 10px;
+      padding: 8px 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+      opacity: 0;
+      white-space: nowrap;
+    }
+    .fx-banner.show {
+      animation: bannerPop 1.35s cubic-bezier(0.2, 1.2, 0.3, 1) forwards;
+    }
+    @keyframes bannerPop {
+      0% { opacity: 0; transform: translate(-50%, -40%) scale(0.6); }
+      18% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+      70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -58%) scale(0.95); }
+    }
+
+    .declare-stamp {
+      position: absolute;
+      left: 50%;
+      top: 40%;
+      transform: translate(-50%, -50%) rotate(-8deg) scale(1.4);
+      z-index: 15;
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: var(--gold-light);
+      text-shadow: 0 0 24px rgba(201, 168, 76, 0.8), 0 4px 0 #5a4210;
+      border: 3px solid var(--gold);
+      padding: 10px 18px;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .declare-stamp.show {
+      animation: stampIn 1.6s cubic-bezier(0.15, 1.3, 0.3, 1) forwards;
+    }
+    @keyframes stampIn {
+      0% { opacity: 0; transform: translate(-50%, -50%) rotate(-18deg) scale(1.8); }
+      25% { opacity: 1; transform: translate(-50%, -50%) rotate(-6deg) scale(1); }
+      75% { opacity: 1; }
+      100% { opacity: 0; transform: translate(-50%, -55%) rotate(-4deg) scale(1.05); }
+    }
+
+    .flash {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 42% 44%, rgba(232, 204, 122, 0.5), transparent 50%);
+      opacity: 0;
+      z-index: 11;
+      pointer-events: none;
+    }
+    .flash.bang { animation: bang 0.4s ease-out; }
+    @keyframes bang {
+      0% { opacity: 0.8; }
+      100% { opacity: 0; }
+    }
+
+    .captions {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 18px 16px 20px;
+      background: linear-gradient(transparent, rgba(0, 0, 0, 0.9) 45%);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 21;
+      pointer-events: none;
+    }
+    .action {
+      align-self: flex-start;
+      font-size: 0.66rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink);
+      background: var(--gold);
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-weight: 800;
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    .action.in { animation: popIn 0.4s cubic-bezier(0.2, 1.3, 0.3, 1) forwards; }
+    @keyframes popIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .narration {
+      margin: 0;
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 1.35rem;
+      line-height: 1.2;
+      font-weight: 700;
+      min-height: 2.4em;
+      text-shadow: 0 3px 14px rgba(0, 0, 0, 0.85);
+    }
+    .narration .word {
+      display: inline-block;
+      opacity: 0;
+      transform: translateY(0.5em);
+      filter: blur(3px);
+      margin-right: 0.2em;
+    }
+    .narration .word.on {
+      animation: wordIn 0.35s cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+    }
+    .narration .word.punch { color: var(--gold-light); }
+    @keyframes wordIn {
+      to { opacity: 1; transform: translateY(0); filter: blur(0); }
+    }
+
+    .progress {
+      position: absolute;
+      top: 8.5%;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      gap: 4px;
+      z-index: 22;
+    }
+    .progress span {
+      flex: 1;
+      height: 3px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, 0.2);
+      overflow: hidden;
+    }
+    .progress span i {
+      display: block;
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, var(--gold), var(--gold-light));
+    }
+    .progress span.done i { width: 100%; }
+    .progress span.active i { animation: fill var(--dur, 4s) linear forwards; }
+    @keyframes fill { from { width: 0; } to { width: 100%; } }
+
+    .endcard {
+      position: absolute;
+      inset: 0;
+      z-index: 25;
+      display: grid;
+      place-items: center;
+      background: rgba(4, 10, 7, 0.72);
+      opacity: 0;
+      pointer-events: none;
+      backdrop-filter: blur(2px);
+    }
+    .endcard.show {
+      animation: endIn 0.7s ease forwards;
+    }
+    @keyframes endIn { to { opacity: 1; } }
+    .endcard .inner { text-align: center; transform: translateY(12px); }
+    .endcard.show .inner { animation: endUp 0.7s 0.1s ease forwards; }
+    @keyframes endUp { to { transform: translateY(0); } }
+    .endcard h2 {
+      margin: 0;
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 2.4rem;
+      letter-spacing: 0.12em;
+      color: var(--gold-light);
+    }
+    .endcard p {
+      margin: 8px 0 16px;
+      color: var(--cream);
+      font-size: 1rem;
+    }
+    .endcard .cta {
+      display: inline-block;
+      background: var(--gold);
+      color: var(--ink);
+      font-weight: 800;
+      padding: 10px 18px;
+      border-radius: 999px;
+      letter-spacing: 0.06em;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      align-items: center;
+    }
+    button, select {
+      font-family: "DM Sans", system-ui, sans-serif;
+      font-size: 0.84rem;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      border-radius: 999px;
+      border: 1.5px solid var(--gold);
+      background: rgba(201, 168, 76, 0.12);
+      color: var(--gold-light);
+      padding: 10px 16px;
+      cursor: pointer;
+    }
+    select {
+      max-width: min(220px, 100%);
+      appearance: none;
+      padding-right: 28px;
+    }
+    select option { color: #111; background: #faf6ed; }
+    button.primary { background: var(--gold); color: var(--ink); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .script {
+      margin-top: 4px;
+      font-size: 0.75rem;
+      line-height: 1.45;
+      color: rgba(245, 239, 224, 0.68);
+      border-top: 1px solid rgba(201, 168, 76, 0.22);
+      padding-top: 12px;
+    }
+    .script strong { color: var(--gold-light); }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <h1>Last Cards</h1>
+    <div class="phone" id="phone">
+      <div class="camera" id="camera"></div>
+      <div class="chat-mask"></div>
+      <div class="seat-glow maya" id="glowMaya"></div>
+      <div class="seat-glow sam" id="glowSam"></div>
+      <div class="seat-glow jason" id="glowJason"></div>
+      <div class="seat-glow you" id="glowYou"></div>
+      <div class="discard-stack" id="discardStack"></div>
+      <div class="fx-layer" id="fx"></div>
+      <div class="move-log" id="moveLog"></div>
+      <div class="fx-banner" id="banner"></div>
+      <div class="declare-stamp" id="stamp">LAST CARDS!</div>
+      <div class="flash" id="flash"></div>
+      <div class="letterbox top"></div>
+      <div class="letterbox bottom"></div>
+      <div class="grain"></div>
+      <div class="vignette"></div>
+      <div class="progress" id="progress"></div>
+      <div class="captions">
+        <div class="action" id="action">Live match</div>
+        <p class="narration" id="narration"></p>
+      </div>
+      <div class="endcard" id="endcard">
+        <div class="inner">
+          <h2>LAST CARDS</h2>
+          <p>Play it all. Leave nothing.</p>
+          <div class="cta">PLAY FREE</div>
+        </div>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="primary" id="playBtn" type="button">Play Trailer</button>
+      <button id="voiceBtn" type="button">Voice: On</button>
+      <select id="voiceSelect" aria-label="Choose voice"></select>
+      <button id="restartBtn" type="button" disabled>Restart</button>
+    </div>
+    <div class="script">
+      <strong>Cinematic live-table cut</strong> — continuous camera on a real match UI,
+      cards flying to the discard, move log, turn spotlights, special FX.
+      Voice stays high-energy; use the dropdown to pick Superstar / Flo / Rocko.
+    </div>
+  </div>
+
+  <script>
+    const SUIT = { H: "♥", D: "♦", S: "♠", C: "♣" };
+    const RED = new Set(["H", "D"]);
+
+    const beats = [
+      {
+        action: "Match point",
+        line: "Four players. Two cards each.",
+        punch: ["Two", "each."],
+        voiceChunks: ["Four players!", "Two cards each!"],
+        durationMs: 3200,
+        seat: "maya",
+        log: "Maya's turn…",
+      },
+      {
+        action: "2 — Draw +2",
+        line: "Maya stacks a two.",
+        punch: ["stacks", "two."],
+        voiceChunks: ["Maya stacks a two!"],
+        durationMs: 3400,
+        seat: "maya",
+        from: { left: "50%", top: "14%" },
+        card: { rank: "2", suit: "H" },
+        log: "Maya played 2♥",
+        banner: "DRAW +2",
+        impact: true,
+      },
+      {
+        action: "You stack",
+        line: "You answer. Stack it.",
+        punch: ["answer.", "Stack"],
+        voiceChunks: ["You answer!", "Stack it!"],
+        durationMs: 3400,
+        seat: "you",
+        from: { left: "48%", top: "78%" },
+        card: { rank: "2", suit: "S" },
+        log: "You played 2♠",
+        banner: "STACKED +4",
+        impact: true,
+      },
+      {
+        action: "Black Jack +5",
+        line: "Jason drops Black Jack.",
+        punch: ["Black", "Jack."],
+        voiceChunks: ["Jason drops Black Jack!", "Plus five!"],
+        durationMs: 3600,
+        seat: "jason",
+        from: { left: "25%", top: "14%" },
+        card: { rank: "J", suit: "S" },
+        log: "Jason played J♠",
+        banner: "DRAW +5",
+        impact: true,
+      },
+      {
+        action: "Red Jack cancels",
+        line: "Sam cancels the stack!",
+        punch: ["cancels", "stack!"],
+        voiceChunks: ["Sam cancels the stack!"],
+        durationMs: 3400,
+        seat: "sam",
+        from: { left: "75%", top: "14%" },
+        card: { rank: "J", suit: "D" },
+        log: "Sam played J♦",
+        banner: "STACK CLEARED",
+        impact: true,
+      },
+      {
+        action: "8 Skip · King Reverse",
+        line: "Skip. Reverse. Own the flow.",
+        punch: ["Skip.", "Reverse."],
+        voiceChunks: ["Skip!", "Reverse!", "Own the flow!"],
+        durationMs: 3800,
+        seat: "you",
+        sequence: [
+          { from: { left: "55%", top: "78%" }, card: { rank: "8", suit: "C" }, log: "You played 8♣", banner: "SKIP", delay: 0 },
+          { from: { left: "60%", top: "78%" }, card: { rank: "K", suit: "H" }, log: "You played K♥", banner: "REVERSE", delay: 900 },
+        ],
+      },
+      {
+        action: "Ace · Joker",
+        line: "Ace rewrites. Joker goes wild.",
+        punch: ["rewrites.", "wild."],
+        voiceChunks: ["Ace rewrites the suit!", "Joker goes wild!"],
+        durationMs: 3800,
+        seat: "maya",
+        sequence: [
+          { from: { left: "50%", top: "14%" }, card: { rank: "A", suit: "D" }, log: "Maya played A♦", banner: "SUIT → ♦", delay: 0 },
+          { from: { left: "50%", top: "14%" }, card: { rank: "★", suit: "JOKER" }, log: "Maya played Joker", banner: "WILD", delay: 1000 },
+        ],
+      },
+      {
+        action: "Last Cards",
+        line: "Declare it… or bluff it.",
+        punch: ["Declare", "bluff"],
+        voiceChunks: ["Declare it!", "Or bluff it!"],
+        durationMs: 4000,
+        seat: "you",
+        declare: true,
+        log: "You declared Last Cards!",
+      },
+      {
+        action: "Finish",
+        line: "Play it all. Leave nothing.",
+        punch: ["all.", "nothing."],
+        voiceChunks: ["Play it all!", "Leave nothing!"],
+        durationMs: 3600,
+        seat: "you",
+        from: { left: "52%", top: "78%" },
+        card: { rank: "A", suit: "H" },
+        log: "You went out!",
+        banner: "YOU WIN",
+        impact: true,
+        end: true,
+      },
+    ];
+
+    const phone = document.getElementById("phone");
+    const fx = document.getElementById("fx");
+    const moveLog = document.getElementById("moveLog");
+    const banner = document.getElementById("banner");
+    const stamp = document.getElementById("stamp");
+    const flash = document.getElementById("flash");
+    const discardStack = document.getElementById("discardStack");
+    const progress = document.getElementById("progress");
+    const actionEl = document.getElementById("action");
+    const narrationEl = document.getElementById("narration");
+    const endcard = document.getElementById("endcard");
+    const playBtn = document.getElementById("playBtn");
+    const voiceBtn = document.getElementById("voiceBtn");
+    const voiceSelect = document.getElementById("voiceSelect");
+    const restartBtn = document.getElementById("restartBtn");
+    const glows = {
+      maya: document.getElementById("glowMaya"),
+      sam: document.getElementById("glowSam"),
+      jason: document.getElementById("glowJason"),
+      you: document.getElementById("glowYou"),
+    };
+
+    let index = -1;
+    let timer = null;
+    let wordTimers = [];
+    let voiceTimers = [];
+    let beatTimers = [];
+    let voiceOn = true;
+    let selectedVoiceURI = null;
+    let audioCtx = null;
+    let ghostCount = 0;
+
+    beats.forEach(() => {
+      const bar = document.createElement("span");
+      bar.innerHTML = "<i></i>";
+      progress.appendChild(bar);
+    });
+
+    function ensureAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      return audioCtx;
+    }
+
+    function playWhoosh() {
+      try {
+        const ctx = ensureAudio();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = "triangle";
+        o.frequency.setValueAtTime(480, ctx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.2);
+        g.gain.setValueAtTime(0.0001, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.07, ctx.currentTime + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(); o.stop(ctx.currentTime + 0.24);
+      } catch (_) {}
+    }
+
+    function playHit() {
+      try {
+        const ctx = ensureAudio();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = "sine";
+        o.frequency.setValueAtTime(200, ctx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.14);
+        g.gain.setValueAtTime(0.0001, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.11, ctx.currentTime + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.16);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(); o.stop(ctx.currentTime + 0.18);
+      } catch (_) {}
+    }
+
+    function stopSpeech() {
+      if (window.speechSynthesis) speechSynthesis.cancel();
+      voiceTimers.forEach(clearTimeout);
+      voiceTimers = [];
+    }
+
+    function excitementScore(v) {
+      let s = 0;
+      const name = v.name || "";
+      if (/^en/i.test(v.lang)) s += 6;
+      if (/English \(US\)|en(-|_)US/i.test(name + v.lang)) s += 4;
+      if (/Superstar/i.test(name)) s += 22;
+      if (/Rocko.*English \(US\)/i.test(name)) s += 20;
+      if (/Flo.*English \(US\)/i.test(name)) s += 18;
+      if (/Reed.*English \(US\)/i.test(name)) s += 16;
+      if (/Kathy|Sandy|Shelley|Ava|Nicky|Zoe|Jenny|Aria/i.test(name)) s += 14;
+      if (/Premium|Enhanced|Neural|Natural/i.test(name)) s += 8;
+      if (/Google US English|eSpeak|Fred|Junior|Zarvox|Bad News|Boing|Bubbles/i.test(name)) s -= 10;
+      return s;
+    }
+
+    function rankedVoices() {
+      if (!window.speechSynthesis) return [];
+      return speechSynthesis.getVoices().filter((v) => /^en/i.test(v.lang))
+        .sort((a, b) => excitementScore(b) - excitementScore(a));
+    }
+
+    function pickVoice() {
+      const ranked = rankedVoices();
+      if (!ranked.length) return null;
+      if (selectedVoiceURI) {
+        const chosen = ranked.find((v) => v.voiceURI === selectedVoiceURI);
+        if (chosen) return chosen;
+      }
+      return ranked[0];
+    }
+
+    function populateVoiceSelect() {
+      const ranked = rankedVoices();
+      if (!ranked.length) return;
+      const prev = selectedVoiceURI || ranked[0].voiceURI;
+      voiceSelect.innerHTML = ranked.map((v, i) =>
+        `<option value="${v.voiceURI.replace(/"/g, "&quot;")}">${i === 0 ? "★ " : ""}${v.name}</option>`
+      ).join("");
+      selectedVoiceURI = prev;
+      voiceSelect.value = prev;
+      if (voiceSelect.value !== prev) {
+        selectedVoiceURI = ranked[0].voiceURI;
+        voiceSelect.value = selectedVoiceURI;
+      }
+    }
+
+    function speakChunks(chunks) {
+      stopSpeech();
+      if (!voiceOn || !window.speechSynthesis) return;
+      const voice = pickVoice();
+      let delay = 100;
+      chunks.forEach((text) => {
+        const id = setTimeout(() => {
+          const u = new SpeechSynthesisUtterance(text);
+          u.rate = 1.12;
+          u.pitch = 1.18;
+          u.volume = 1;
+          if (voice) u.voice = voice;
+          speechSynthesis.speak(u);
+        }, delay);
+        voiceTimers.push(id);
+        delay += Math.max(780, text.length * 46) + 140;
+      });
+    }
+
+    function clearWordTimers() {
+      wordTimers.forEach(clearTimeout);
+      wordTimers = [];
+    }
+
+    function renderKinetic(line, punchWords) {
+      clearWordTimers();
+      narrationEl.innerHTML = "";
+      line.split(/\s+/).forEach((w, i) => {
+        const span = document.createElement("span");
+        span.className = "word";
+        const clean = w.replace(/[^\w!?.]/g, "");
+        if (punchWords.some((p) => p.replace(/[^\w!?.]/g, "") === clean)) span.classList.add("punch");
+        span.textContent = w;
+        narrationEl.appendChild(span);
+        wordTimers.push(setTimeout(() => span.classList.add("on"), 70 + i * 90));
+      });
+    }
+
+    function setSeat(seat) {
+      Object.entries(glows).forEach(([k, el]) => el.classList.toggle("on", k === seat));
+    }
+
+    function pushLog(text) {
+      const line = document.createElement("div");
+      line.className = "log-line";
+      line.textContent = text;
+      moveLog.appendChild(line);
+      requestAnimationFrame(() => line.classList.add("in"));
+      while (moveLog.children.length > 3) {
+        const old = moveLog.firstElementChild;
+        old.classList.add("out");
+        setTimeout(() => old.remove(), 350);
+      }
+    }
+
+    function showBanner(text) {
+      banner.textContent = text;
+      banner.classList.remove("show");
+      void banner.offsetWidth;
+      banner.classList.add("show");
+    }
+
+    function addGhost() {
+      if (ghostCount > 4) {
+        discardStack.removeChild(discardStack.firstElementChild);
+        ghostCount--;
+      }
+      const g = document.createElement("div");
+      g.className = "ghost";
+      g.style.setProperty("--r", (Math.random() * 10 - 5) + "deg");
+      g.style.setProperty("--x", (Math.random() * 4 - 2) + "px");
+      g.style.setProperty("--y", (Math.random() * 4 - 2) + "px");
+      discardStack.appendChild(g);
+      ghostCount++;
+    }
+
+    function flyCard(from, card, opts = {}) {
+      const el = document.createElement("div");
+      const red = card.suit === "JOKER" ? false : RED.has(card.suit);
+      el.className = "play-card " + (card.suit === "JOKER" ? "black" : red ? "red" : "black");
+      el.style.left = from.left;
+      el.style.top = from.top;
+      el.style.setProperty("--spin-start", (Math.random() * 24 - 28) + "deg");
+      el.style.setProperty("--spin-end", (Math.random() * 10 - 3) + "deg");
+      const suitGlyph = card.suit === "JOKER" ? "★" : SUIT[card.suit];
+      el.innerHTML = `<div class="r">${card.rank}</div><div class="s">${suitGlyph}</div><div class="r2">${card.rank}</div>`;
+      fx.appendChild(el);
+      requestAnimationFrame(() => el.classList.add(opts.impact ? "land-pulse" : "fly"));
+      playWhoosh();
+      setTimeout(() => {
+        addGhost();
+        if (opts.impact) {
+          flash.classList.remove("bang");
+          void flash.offsetWidth;
+          flash.classList.add("bang");
+          playHit();
+        }
+      }, 520);
+      setTimeout(() => el.remove(), 1600);
+    }
+
+    function clearBeatTimers() {
+      beatTimers.forEach(clearTimeout);
+      beatTimers = [];
+    }
+
+    function runBeat(i) {
+      index = i;
+      const beat = beats[i];
+      endcard.classList.remove("show");
+      phone.classList.add("playing");
+
+      const bars = [...progress.children];
+      bars.forEach((bar, n) => {
+        bar.classList.remove("done", "active");
+        const fill = bar.querySelector("i");
+        fill.style.animation = "none";
+        fill.style.width = n < i ? "100%" : "0";
+        if (n < i) bar.classList.add("done");
+      });
+      const active = bars[i];
+      active.classList.add("active");
+      active.style.setProperty("--dur", beat.durationMs + "ms");
+      const fill = active.querySelector("i");
+      void fill.offsetWidth;
+      fill.style.animation = "";
+
+      actionEl.classList.remove("in");
+      void actionEl.offsetWidth;
+      actionEl.textContent = beat.action;
+      actionEl.classList.add("in");
+      renderKinetic(beat.line, beat.punch);
+      speakChunks(beat.voiceChunks);
+      setSeat(beat.seat);
+
+      if (beat.log && !beat.sequence) pushLog(beat.log);
+
+      if (beat.declare) {
+        stamp.classList.remove("show");
+        void stamp.offsetWidth;
+        stamp.classList.add("show");
+        playHit();
+      }
+
+      if (beat.sequence) {
+        beat.sequence.forEach((step) => {
+          beatTimers.push(setTimeout(() => {
+            flyCard(step.from, step.card, { impact: true });
+            if (step.log) pushLog(step.log);
+            if (step.banner) showBanner(step.banner);
+          }, step.delay));
+        });
+      } else if (beat.card) {
+        flyCard(beat.from, beat.card, { impact: beat.impact });
+        if (beat.banner) {
+          beatTimers.push(setTimeout(() => showBanner(beat.banner), 450));
+        }
+      } else if (beat.banner) {
+        showBanner(beat.banner);
+      }
+
+      if (beat.end) {
+        beatTimers.push(setTimeout(() => endcard.classList.add("show"), beat.durationMs - 900));
+      }
+    }
+
+    function next() {
+      if (index >= beats.length - 1) {
+        playBtn.textContent = "Play again";
+        playBtn.disabled = false;
+        restartBtn.disabled = false;
+        return;
+      }
+      clearBeatTimers();
+      runBeat(index + 1);
+      clearTimeout(timer);
+      timer = setTimeout(next, beats[index].durationMs);
+    }
+
+    function start() {
+      stopSpeech();
+      clearTimeout(timer);
+      clearWordTimers();
+      clearBeatTimers();
+      ensureAudio();
+      moveLog.innerHTML = "";
+      discardStack.innerHTML = "";
+      ghostCount = 0;
+      fx.innerHTML = "";
+      endcard.classList.remove("show");
+      playBtn.disabled = true;
+      playBtn.textContent = "Playing…";
+      restartBtn.disabled = false;
+      runBeat(0);
+      timer = setTimeout(next, beats[0].durationMs);
+    }
+
+    playBtn.addEventListener("click", start);
+    restartBtn.addEventListener("click", start);
+    voiceBtn.addEventListener("click", () => {
+      voiceOn = !voiceOn;
+      voiceBtn.textContent = voiceOn ? "Voice: On" : "Voice: Off";
+      if (!voiceOn) stopSpeech();
+    });
+    voiceSelect.addEventListener("change", () => {
+      selectedVoiceURI = voiceSelect.value;
+      stopSpeech();
+      if (voiceOn) speakChunks(["Last Cards!", "Let's go!"]);
+    });
+
+    if (window.speechSynthesis) {
+      populateVoiceSelect();
+      speechSynthesis.onvoiceschanged = populateVoiceSelect;
+    }
+
+    narrationEl.innerHTML = '<span class="word on">Tap Play Trailer — watch a live table.</span>';
+  </script>
+</body>
+</html>
