@@ -679,6 +679,9 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       // the elimination screen doesn't load underneath the still-visible ad.
       await AdsService.instance.maybeShowInterstitialAfterMatch();
       if (!mounted) return;
+      // This screen is offline-only (online Bust uses TableScreen, already
+      // covered by its gameStateProvider listener) — safe to count directly.
+      unawaited(ref.read(themeProvider.notifier).recordGameCompleted());
       Navigator.of(context).push(PageRouteBuilder(
         pageBuilder: (_, __, ___) => BustEliminationScreen(
           result: result,

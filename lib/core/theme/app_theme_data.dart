@@ -44,6 +44,12 @@ class AppThemeData {
     // ── Progression gate ─────────────────────────────────────────────
     required this.minUnlockLevel,
 
+    // ── Optional: one-shot trial ──────────────────────────────────────
+    // When set, a player below minUnlockLevel may equip this theme for
+    // this many completed games (any mode) before it auto-reverts. Null
+    // means no trial is offered — the theme is simply locked.
+    this.trialGames,
+
     // ── Optional: font family override ('playfair', 'cinzel', etc.) ─
     this.headingFontFamily = 'playfair',
 
@@ -82,6 +88,10 @@ class AppThemeData {
 
   /// Player level required to unlock this theme (see `PlayerLevelService`).
   final int minUnlockLevel;
+
+  /// Number of completed games (any mode) a locked-out player may trial
+  /// this theme for before it auto-reverts. Null means no trial.
+  final int? trialGames;
 
   final String headingFontFamily;
 

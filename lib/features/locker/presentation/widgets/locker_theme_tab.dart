@@ -21,10 +21,17 @@ class LockerThemeTab extends ConsumerWidget {
     final level = PlayerLevelService.instance.currentLevel.value;
 
     final unlockedIndices = <int>[];
+    final trialAvailableIndices = <int>[];
     final lockedIndices = <int>[];
     for (var i = 0; i < kAppThemes.length; i++) {
-      if (kAppThemes[i].minUnlockLevel <= level) {
+      final theme = kAppThemes[i];
+      final isUnlocked = theme.minUnlockLevel <= level;
+      final isActiveTrial = themeState.trialThemeId == theme.id;
+      if (isUnlocked || isActiveTrial) {
         unlockedIndices.add(i);
+      } else if (theme.trialGames != null &&
+          !themeState.trialedThemeIds.contains(theme.id)) {
+        trialAvailableIndices.add(i);
       } else {
         lockedIndices.add(i);
       }
@@ -37,11 +44,22 @@ class LockerThemeTab extends ConsumerWidget {
         _themeGrid(
           unlockedIndices,
           activeIndex: themeState.activeIndex,
+          trialThemeId: themeState.trialThemeId,
+          trialGamesRemaining: themeState.trialGamesRemaining,
           onTap: (index) {
             HapticFeedback.selectionClick();
             notifier.setTheme(index);
           },
         ),
+        if (trialAvailableIndices.isNotEmpty) ...[
+          const LockerSectionLabel('Trial available'),
+          _themeGrid(
+            trialAvailableIndices,
+            activeIndex: themeState.activeIndex,
+            trialAvailable: true,
+            onTap: (index) => _confirmStartTrial(context, notifier, index),
+          ),
+        ],
         const LockerSectionLabel('Locked'),
         _themeGrid(
           lockedIndices,
@@ -62,11 +80,46 @@ class LockerThemeTab extends ConsumerWidget {
     );
   }
 
+  Future<void> _confirmStartTrial(
+    BuildContext context,
+    ThemeNotifier notifier,
+    int index,
+  ) async {
+    final theme = kAppThemes[index];
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Try ${theme.name}?'),
+        content: Text(
+          'You can play ${theme.trialGames} games with this theme before it '
+          'reverts. This trial can only be used once.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Start trial'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      HapticFeedback.selectionClick();
+      await notifier.startTrial(index);
+    }
+  }
+
   Widget _themeGrid(
     List<int> indices, {
     required int activeIndex,
     required void Function(int index) onTap,
     bool locked = false,
+    bool trialAvailable = false,
+    String? trialThemeId,
+    int? trialGamesRemaining,
   }) {
     return GridView.builder(
       shrinkWrap: true,
@@ -82,14 +135,22 @@ class LockerThemeTab extends ConsumerWidget {
         final index = indices[i];
         final theme = kAppThemes[index];
         final isActive = activeIndex == index;
+        final isActiveTrial = trialThemeId == theme.id;
         return LockerTile(
           label: theme.name,
           state: locked
               ? LockerTileState.lockedByLevel
-              : isActive
-                  ? LockerTileState.selected
-                  : LockerTileState.owned,
+              : trialAvailable
+                  ? LockerTileState.trialAvailable
+                  : isActive
+                      ? LockerTileState.selected
+                      : LockerTileState.owned,
           lockCaption: locked ? 'Level ${theme.minUnlockLevel}' : null,
+          trialCaption: trialAvailable
+              ? 'Trial · ${theme.trialGames} games'
+              : isActiveTrial
+                  ? 'Trial · $trialGamesRemaining left'
+                  : null,
           preview: _ThemeSwatch(theme: theme),
           onTap: () => onTap(index),
         );
