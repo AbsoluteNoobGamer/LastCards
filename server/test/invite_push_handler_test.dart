@@ -38,6 +38,29 @@ void main() {
       expect(parsed!.toUid, 'uid-2');
       expect(parsed.fromDisplayName, 'Alice');
       expect(parsed.roomCode, 'ABC123');
+      expect(parsed.isChallenge, isFalse);
+    });
+
+    test('isChallenge defaults to false when omitted, true when set', () {
+      expect(
+        InvitePushRequest.fromJson({
+          'toUid': 'uid-2',
+          'fromDisplayName': 'Alice',
+          'roomCode': 'ABC123',
+        })!
+            .isChallenge,
+        isFalse,
+      );
+      expect(
+        InvitePushRequest.fromJson({
+          'toUid': 'uid-2',
+          'fromDisplayName': 'Alice',
+          'roomCode': 'ABC123',
+          'isChallenge': true,
+        })!
+            .isChallenge,
+        isTrue,
+      );
     });
 
     test('null when toUid is missing', () {

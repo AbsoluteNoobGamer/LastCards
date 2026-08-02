@@ -23,6 +23,25 @@ import '../../../../core/models/offline_game_state.dart';
 import '../../../gameplay/presentation/widgets/card_widget.dart';
 import '../../../gameplay/presentation/widgets/multi_card_play_celebration.dart'
     show kMultiPlayCelebrationMinCards;
+import '../../../social/widgets/other_player_profile_sheet.dart';
+
+/// Opens the shared profile sheet (stats, friend request, challenge) for a
+/// player tapped from any leaderboard row.
+void _openPlayerProfileSheet(
+  BuildContext context, {
+  required String uid,
+  required String displayName,
+}) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) => OtherPlayerProfileSheet(
+      firebaseUid: uid,
+      fallbackDisplayName: displayName,
+    ),
+  );
+}
 
 // ── Data model ────────────────────────────────────────────────────────────────
 
@@ -1594,7 +1613,15 @@ class _RankedTile extends StatelessWidget {
     ];
     final tier = _rankedTier(entry.rating);
 
-    return Container(
+    return GestureDetector(
+      onTap: isLocal
+          ? null
+          : () => _openPlayerProfileSheet(
+                context,
+                uid: entry.uid,
+                displayName: entry.displayName,
+              ),
+      child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -1680,6 +1707,7 @@ class _RankedTile extends StatelessWidget {
             ],
           ),
         ],
+      ),
       ),
     );
   }
@@ -2025,7 +2053,15 @@ class _ModeTile extends StatelessWidget {
     ];
     final tier = _winsTier(entry.wins);
 
-    return Container(
+    return GestureDetector(
+      onTap: isLocal
+          ? null
+          : () => _openPlayerProfileSheet(
+                context,
+                uid: entry.uid,
+                displayName: entry.displayName,
+              ),
+      child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -2111,6 +2147,7 @@ class _ModeTile extends StatelessWidget {
             ],
           ),
         ],
+      ),
       ),
     );
   }
@@ -2268,7 +2305,15 @@ class _ComboTile extends StatelessWidget {
     ];
     final tier = _comboTier(entry.comboCount);
 
-    return Container(
+    return GestureDetector(
+      onTap: isLocal
+          ? null
+          : () => _openPlayerProfileSheet(
+                context,
+                uid: entry.uid,
+                displayName: entry.displayName,
+              ),
+      child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -2347,6 +2392,7 @@ class _ComboTile extends StatelessWidget {
             ),
           ],
         ],
+      ),
       ),
     );
   }

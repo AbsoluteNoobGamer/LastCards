@@ -97,6 +97,8 @@ class LobbyScreen extends ConsumerStatefulWidget {
     this.onlineMode = OnlineMode.standard,
     this.initialRoomCodeToJoin,
     this.pendingGameInviteDocIdToDismiss,
+    this.challengeToUid,
+    this.challengeToDisplayName,
     super.key,
   });
 
@@ -107,6 +109,13 @@ class LobbyScreen extends ConsumerStatefulWidget {
 
   /// Remove this Firestore invite doc after a successful join (`users/me/gameInvites/id`).
   final String? pendingGameInviteDocIdToDismiss;
+
+  /// When set (e.g. from a leaderboard "Challenge" tap), auto-hosts a private
+  /// room on open and sends this uid an in-app game invite once it exists.
+  final String? challengeToUid;
+
+  /// Shown in the "Challenge sent" confirmation snackbar.
+  final String? challengeToDisplayName;
 
   @override
   ConsumerState<LobbyScreen> createState() => _LobbyScreenState();
@@ -125,6 +134,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
   /// True after we received [RoomCreatedEvent] for this session (not join).
   bool _isRoomCreator = false;
+
+  /// Guards against sending [widget.challengeToUid] more than one invite.
+  bool _challengeInviteSent = false;
 
   /// Standard last-cards, knockout finish order, or bust elimination.
   PrivateGameVariant _privateGameVariant = PrivateGameVariant.standard;
@@ -163,6 +175,11 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         roomCode: e.roomCode,
         playerId: e.playerId.isNotEmpty ? e.playerId : _localPlayerId,
       );
+      final challengeUid = widget.challengeToUid;
+      if (challengeUid != null && !_challengeInviteSent) {
+        _challengeInviteSent = true;
+        unawaited(_sendChallengeInvite(challengeUid, e.roomCode));
+      }
     });
     _stateSnapshotSub = handler.stateSnapshots.listen((e) {
       if (!mounted) return;
@@ -178,6 +195,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         if (!mounted) return;
         _codeController.text = joinCode.toUpperCase();
         unawaited(_onJoin());
+      });
+    }
+    final challengeUid = widget.challengeToUid;
+    if (joinCode == null && challengeUid != null && challengeUid.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(_onCreate());
       });
     }
 
@@ -1023,6 +1047,31 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         subject: 'Last Cards — room $code',
       ),
     );
+  }
+
+  Future<void> _sendChallengeInvite(String toUid, String roomCode) async {
+    final fromName = ref.read(displayNameForGameProvider);
+    final targetName = widget.challengeToDisplayName ?? 'Player';
+    try {
+      await ref.read(friendsServiceProvider).sendGameInvite(
+            toUid: toUid,
+            roomCode: roomCode,
+            fromDisplayName: fromName,
+            isChallenge: true,
+          );
+      AnalyticsService.instance.logInviteSent(channel: 'challenge');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Challenge sent to $targetName')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not send challenge: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _onInviteFriendsInApp() async {

@@ -12,11 +12,15 @@ class InvitePushRequest {
     required this.toUid,
     required this.fromDisplayName,
     required this.roomCode,
+    required this.isChallenge,
   });
 
   final String toUid;
   final String fromDisplayName;
   final String roomCode;
+
+  /// True for a leaderboard "Challenge" invite — changes the push wording only.
+  final bool isChallenge;
 
   /// Returns null if any required field is missing/empty.
   static InvitePushRequest? fromJson(Map<String, dynamic> json) {
@@ -30,6 +34,7 @@ class InvitePushRequest {
       toUid: toUid,
       fromDisplayName: fromDisplayName,
       roomCode: roomCode,
+      isChallenge: json['isChallenge'] as bool? ?? false,
     );
   }
 }
@@ -90,8 +95,10 @@ Future<shelf.Response> handleNotifyInviteRequest(
     await fcm.notify(
       uid: parsed.toUid,
       fcmTokens: tokens,
-      type: 'invite',
-      title: '${parsed.fromDisplayName} invited you to play',
+      type: parsed.isChallenge ? 'challenge' : 'invite',
+      title: parsed.isChallenge
+          ? '${parsed.fromDisplayName} challenged you to a match!'
+          : '${parsed.fromDisplayName} invited you to play',
       body: 'Room code: ${parsed.roomCode}',
       writeInboxDoc: false,
     );
