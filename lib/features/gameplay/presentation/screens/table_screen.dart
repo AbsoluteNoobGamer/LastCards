@@ -4663,6 +4663,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         firebaseUid: uid,
         fallbackDisplayName: player.displayName,
         playerId: player.id,
+        showChallengeAction: false,
       ),
     );
   }

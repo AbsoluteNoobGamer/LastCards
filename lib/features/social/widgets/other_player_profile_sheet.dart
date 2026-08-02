@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/navigation/app_page_routes.dart';
 import '../../../core/providers/block_provider.dart';
 import '../../../core/providers/friends_provider.dart';
 import '../../../core/services/analytics_service.dart';
@@ -21,6 +22,7 @@ import '../../../core/utils/ranked_stats_reader.dart';
 import '../../../core/utils/ranked_tier_utils.dart';
 import '../../../core/widgets/head_to_head_stats_block.dart';
 import '../../leaderboard/data/leaderboard_collections.dart';
+import '../../lobby/presentation/screens/lobby_screen.dart';
 import 'report_block_sheet.dart';
 import '../../voice/voice_providers.dart';
 import '../../settings/presentation/widgets/settings_modal.dart';
@@ -32,6 +34,7 @@ class OtherPlayerProfileSheet extends ConsumerStatefulWidget {
     required this.firebaseUid,
     required this.fallbackDisplayName,
     this.playerId,
+    this.showChallengeAction = true,
   });
 
   final String firebaseUid;
@@ -39,6 +42,11 @@ class OtherPlayerProfileSheet extends ConsumerStatefulWidget {
 
   /// Game seat id when opened from an online table (for local voice mute).
   final String? playerId;
+
+  /// Whether to offer "Challenge to a match". Disabled when opened mid-game
+  /// (e.g. tapping a live opponent's avatar) since a new private room would
+  /// interrupt the match already in progress.
+  final bool showChallengeAction;
 
   @override
   ConsumerState<OtherPlayerProfileSheet> createState() =>
@@ -153,6 +161,19 @@ class _OtherPlayerProfileSheetState
         );
       }
     }
+  }
+
+  void _onChallenge(String displayName) {
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    navigator.push(
+      AppPageRoutes.fadeSlide(
+        (_) => LobbyScreen(
+          challengeToUid: widget.firebaseUid,
+          challengeToDisplayName: displayName,
+        ),
+      ),
+    );
   }
 
   void _openReportOrBlock(bool isBlocked) {
@@ -341,12 +362,27 @@ class _OtherPlayerProfileSheetState
                             if (me != null && me != widget.firebaseUid)
                               Padding(
                                 padding: const EdgeInsets.only(top: 8),
-                                child: _FriendButton(
-                                  relation: data.relation,
-                                  onPressed: () =>
-                                      _onFriendAction(data.relation),
-                                  onAcceptIncoming: _acceptIncoming,
-                                  onDeclineIncoming: _declineIncoming,
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    _FriendButton(
+                                      relation: data.relation,
+                                      onPressed: () =>
+                                          _onFriendAction(data.relation),
+                                      onAcceptIncoming: _acceptIncoming,
+                                      onDeclineIncoming: _declineIncoming,
+                                    ),
+                                    if (widget.showChallengeAction)
+                                      OutlinedButton.icon(
+                                        onPressed: () => _onChallenge(name),
+                                        icon: const Icon(
+                                          Icons.sports_kabaddi_rounded,
+                                          size: 18,
+                                        ),
+                                        label: const Text('Challenge'),
+                                      ),
+                                  ],
                                 ),
                               ),
                           ],
