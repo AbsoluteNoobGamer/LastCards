@@ -215,6 +215,17 @@ class FirestoreProfileService {
         );
   }
 
+  /// Persists the in-game coin wallet balance (cross-device currency sync).
+  Future<void> updateCoins(String uid, int coins) async {
+    await _firestore.collection(_usersCollection).doc(uid).set(
+          {
+            'coins': coins,
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+  }
+
   /// Registers a device's FCM token for push delivery (multiple devices per
   /// account are supported — the server fans a push out to every token).
   Future<void> addFcmToken(String uid, String token) async {

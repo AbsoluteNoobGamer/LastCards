@@ -1,0 +1,77 @@
+{
+  "identifier" : "97D3881A",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "2.99",
+      "familyShareable" : false,
+      "internalID" : "FD1D426B",
+      "localizations" : [
+        {
+          "description" : "Removes all ads from the app.",
+          "displayName" : "Remove Ads",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "remove_ads",
+      "referenceName" : "Remove Ads",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "67A5E987",
+      "localizations" : [
+        {
+          "description" : "100 coins.",
+          "displayName" : "100 Coins",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "coins_small_100",
+      "referenceName" : "Coins - Small (100)",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "6C90775E",
+      "localizations" : [
+        {
+          "description" : "550 coins.",
+          "displayName" : "550 Coins",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "coins_medium_550",
+      "referenceName" : "Coins - Medium (550)",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : false,
+      "internalID" : "FD30ABF9",
+      "localizations" : [
+        {
+          "description" : "1200 coins.",
+          "displayName" : "1200 Coins",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "coins_large_1200",
+      "referenceName" : "Coins - Large (1200)",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "",
+    "_developerTeamID" : "",
+    "_lastSynchronizedDate" : 0,
+    "_locale" : "en_US"
+  },
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

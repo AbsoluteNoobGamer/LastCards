@@ -12,6 +12,7 @@ import 'package:last_cards/services/audio_service.dart' as game_audio;
 import 'package:last_cards/services/game_sound.dart';
 import 'package:last_cards/core/models/move_log_entry.dart';
 import 'package:last_cards/core/models/move_log_merge.dart';
+import 'package:last_cards/core/providers/currency_provider.dart';
 import 'package:last_cards/core/providers/theme_provider.dart';
 import 'package:last_cards/core/providers/user_profile_provider.dart';
 import 'package:last_cards/core/providers/profile_provider.dart';
@@ -682,6 +683,11 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       // This screen is offline-only (online Bust uses TableScreen, already
       // covered by its gameStateProvider listener) — safe to count directly.
       unawaited(ref.read(themeProvider.notifier).recordGameCompleted());
+      unawaited(ref.read(currencyProvider.notifier).addCoins(
+            localSurvived
+                ? CurrencyRewards.bustRoundSurvive
+                : CurrencyRewards.bustRoundEliminated,
+          ));
       Navigator.of(context).push(PageRouteBuilder(
         pageBuilder: (_, __, ___) => BustEliminationScreen(
           result: result,

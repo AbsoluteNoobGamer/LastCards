@@ -19,7 +19,8 @@ import '../../../../core/navigation/app_page_routes.dart';
 import '../../../../core/widgets/banner_ad_slot.dart';
 import '../../../../core/services/avatar_catalog_service.dart';
 import '../../../../core/services/purchase_service.dart';
-import '../../../purchases/widgets/remove_ads_sheet.dart';
+import '../../../purchases/widgets/buy_coins_sheet.dart';
+import '../../../purchases/screens/store_screen.dart';
 import '../../../../core/widgets/glass_frosted_panel.dart';
 import '../../../../core/widgets/gameplay_circle_avatar.dart';
 import '../../../../core/widgets/themed_shimmer.dart';
@@ -27,7 +28,9 @@ import '../../../../core/providers/game_provider.dart';
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/providers/server_live_connections_provider.dart';
+import '../../../../core/providers/currency_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme_data.dart';
 import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../features/profile/presentation/screens/profile_screen.dart';
@@ -135,7 +138,8 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
         _maybeShowAnalyticsNotice()
             .then((_) => _maybeRequestTrackingAuthorization())
             .then((_) => _maybeShowTutorialPrompt())
-            .then((_) => _maybeShowMissingNamePrompt()),
+            .then((_) => _maybeShowMissingNamePrompt())
+            .then((_) => _maybeShowDailyRewardDialog()),
       );
     });
   }
@@ -266,6 +270,43 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
     if (wantsRename == true && mounted) {
       _pushWithTransition(context, const ProfileScreen());
     }
+  }
+
+  /// Shows a reward dialog once per calendar day (any earlier prompt in the
+  /// chain has already resolved, so this never overlaps another dialog).
+  Future<void> _maybeShowDailyRewardDialog() async {
+    final reward =
+        await ref.read(currencyProvider.notifier).claimDailyRewardIfDue();
+    if (reward <= 0 || !mounted) return;
+
+    final theme = ref.read(themeProvider).theme;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('Daily reward!'),
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.monetization_on_rounded,
+                color: AppColors.goldPrimary, size: 28),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '+$reward coins for coming back today.',
+                style: TextStyle(color: theme.textPrimary),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Nice!'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -863,12 +904,20 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                                   ),
                                 ),
                               ),
+                              Expanded(
+                                child: _IconRowItem(
+                                  "Store",
+                                  Icons.storefront_rounded,
+                                  () => _pushWithTransition(
+                                    context,
+                                    const StoreScreen(),
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ),
                         const SizedBox(height: 20),
-                        const _RemoveAdsButton(),
-                        const SizedBox(height: 16),
                         const _AdsFooter(),
                         const SizedBox(
                           height: 32,

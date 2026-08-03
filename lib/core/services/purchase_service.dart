@@ -22,6 +22,14 @@ import 'analytics_service.dart';
 /// [removeAdsProductId] in both App Store Connect and the Google Play
 /// Console (matching price tiers on each). Until that product exists,
 /// [removeAdsProduct] stays null and [buyRemoveAds] reports an error.
+///
+/// The same applies to the consumable coin-pack products — see
+/// [coinPackAmounts]. For local iOS Simulator testing without any of that
+/// store-side setup, this project ships `ios/Runner/Configuration.storekit`
+/// (wired into the Runner scheme's Launch Action) with matching test
+/// products, so `flutter run` on a simulator can exercise the full purchase
+/// flow via Xcode's StoreKit Testing — no App Store Connect account needed.
+/// That config is debug/simulator-only and never ships to production.
 class PurchaseService {
   PurchaseService._();
 
@@ -31,6 +39,15 @@ class PurchaseService {
   /// Connect and Google Play Console.
   static const String removeAdsProductId = 'remove_ads';
 
+  /// Consumable coin-pack product IDs, mapped to the coins each grants.
+  /// Must match consumable products configured with these exact IDs in App
+  /// Store Connect and Google Play Console.
+  static const Map<String, int> coinPackAmounts = {
+    'coins_small_100': 100,
+    'coins_medium_550': 550,
+    'coins_large_1200': 1200,
+  };
+
   static const String _prefsKey = 'ads_removed';
   static const String _usersCollection = 'users';
 
@@ -38,6 +55,7 @@ class PurchaseService {
   StreamSubscription<List<PurchaseDetails>>? _purchaseSub;
   StreamSubscription<User?>? _authSub;
   bool _initialized = false;
+  int _coinPackGrantNonce = 0;
 
   /// True once the store confirmed it can take payments on this device.
   bool storeAvailable = false;
@@ -45,6 +63,17 @@ class PurchaseService {
   /// Localized product (price/title) once loaded from the store. Null until
   /// [init] finishes (or if the product isn't configured in the store yet).
   ProductDetails? removeAdsProduct;
+
+  /// Localized coin-pack products once loaded from the store, keyed by
+  /// [coinPackAmounts]'s product IDs. Empty until [init] finishes (or for
+  /// any pack not yet configured in the store).
+  final Map<String, ProductDetails> coinPackProducts = {};
+
+  /// Fires once per completed coin-pack purchase. [CurrencyNotifier] listens
+  /// and credits the wallet — kept as a plain event here (rather than a
+  /// direct call) since this service has no Riverpod `ref` to reach it with.
+  final ValueNotifier<CoinPackGrant?> lastCoinPackGrant =
+      ValueNotifier<CoinPackGrant?>(null);
 
   /// Current entitlement — [BannerAdSlot], [AdsService], and every
   /// rewarded-ad-gated feature check this before showing an ad.
@@ -89,23 +118,29 @@ class PurchaseService {
   }
 
   Future<void> _loadProduct() async {
-    final response = await _iap.queryProductDetails({removeAdsProductId});
+    final ids = {removeAdsProductId, ...coinPackAmounts.keys};
+    final response = await _iap.queryProductDetails(ids);
     if (response.error != null) {
       if (kDebugMode) {
         debugPrint('PurchaseService: product query failed: ${response.error}');
       }
       return;
     }
-    if (response.productDetails.isEmpty) {
-      if (kDebugMode) {
-        debugPrint(
-          'PurchaseService: no product found for "$removeAdsProductId" — '
-          'has it been created in App Store Connect / Play Console yet?',
-        );
-      }
-      return;
+    if (kDebugMode && response.notFoundIDs.isNotEmpty) {
+      debugPrint(
+        'PurchaseService: no product found for ${response.notFoundIDs} — '
+        'have they been created in App Store Connect / Play Console yet? '
+        '(local simulator testing uses ios/Runner/Configuration.storekit '
+        'instead, no store setup needed there)',
+      );
     }
-    removeAdsProduct = response.productDetails.first;
+    for (final product in response.productDetails) {
+      if (product.id == removeAdsProductId) {
+        removeAdsProduct = product;
+      } else if (coinPackAmounts.containsKey(product.id)) {
+        coinPackProducts[product.id] = product;
+      }
+    }
   }
 
   Future<void> _syncFromFirestore(String uid) async {
@@ -153,6 +188,37 @@ class PurchaseService {
     }
   }
 
+  /// Starts a coin-pack purchase flow. [productId] must be a key of
+  /// [coinPackAmounts]. Result arrives asynchronously via [purchaseStream] →
+  /// [lastCoinPackGrant]; failures surface through [lastError].
+  Future<void> buyCoinPack(String productId) async {
+    final product = coinPackProducts[productId];
+    if (product == null) {
+      lastError.value = 'Store not ready yet — try again in a moment.';
+      AnalyticsService.instance.logPurchaseFailed(reason: 'store_not_ready');
+      return;
+    }
+    lastError.value = null;
+    purchaseInProgress.value = true;
+    AnalyticsService.instance.logPurchaseStarted();
+    try {
+      final started = await _iap.buyConsumable(
+        purchaseParam: PurchaseParam(productDetails: product),
+        autoConsume: true,
+      );
+      if (!started) {
+        purchaseInProgress.value = false;
+        lastError.value = 'Purchase failed — please try again.';
+        AnalyticsService.instance
+            .logPurchaseFailed(reason: 'buy_call_rejected');
+      }
+    } catch (_) {
+      purchaseInProgress.value = false;
+      lastError.value = 'Purchase failed — please try again.';
+      AnalyticsService.instance.logPurchaseFailed(reason: 'exception');
+    }
+  }
+
   /// Restores a prior purchase — required by App Store guidelines for
   /// non-consumables (e.g. after a reinstall). Same completion path as
   /// [buyRemoveAds].
@@ -170,18 +236,29 @@ class PurchaseService {
 
   Future<void> _onPurchaseUpdate(List<PurchaseDetails> purchases) async {
     for (final purchase in purchases) {
-      if (purchase.productID != removeAdsProductId) continue;
+      final coinAmount = coinPackAmounts[purchase.productID];
+      final isRemoveAds = purchase.productID == removeAdsProductId;
+      if (!isRemoveAds && coinAmount == null) continue;
+
       switch (purchase.status) {
         case PurchaseStatus.pending:
           purchaseInProgress.value = true;
         case PurchaseStatus.purchased:
-          await _grantEntitlement(completionSource: 'purchase');
+          if (isRemoveAds) {
+            await _grantEntitlement(completionSource: 'purchase');
+          } else {
+            _grantCoinPack(coinAmount!, completionSource: 'purchase');
+          }
           purchaseInProgress.value = false;
           if (purchase.pendingCompletePurchase) {
             await _iap.completePurchase(purchase);
           }
         case PurchaseStatus.restored:
-          await _grantEntitlement(completionSource: 'restore');
+          // Consumables (coin packs) are never restored by Apple/Google —
+          // only the non-consumable remove_ads reaches this case in practice.
+          if (isRemoveAds) {
+            await _grantEntitlement(completionSource: 'restore');
+          }
           purchaseInProgress.value = false;
           if (purchase.pendingCompletePurchase) {
             await _iap.completePurchase(purchase);
@@ -236,10 +313,38 @@ class PurchaseService {
     }
   }
 
+  /// Fires [lastCoinPackGrant] so [CurrencyNotifier] can credit the wallet.
+  /// Coin packs are consumable and have no persistent "owned" state of their
+  /// own — unlike [_grantEntitlement], there's nothing to cache here beyond
+  /// the wallet balance itself, which [CurrencyNotifier] already persists.
+  void _grantCoinPack(int coins, {required String completionSource}) {
+    AnalyticsService.instance.logPurchaseCompleted(source: completionSource);
+    _coinPackGrantNonce++;
+    lastCoinPackGrant.value =
+        CoinPackGrant(coins: coins, nonce: _coinPackGrantNonce);
+  }
+
   /// Never called in production — [instance] lives for the app's lifetime,
   /// same as [AdsService]. Exists so tests can tear down cleanly.
   void dispose() {
     _purchaseSub?.cancel();
     _authSub?.cancel();
   }
+}
+
+/// One completed coin-pack purchase. [nonce] is monotonically increasing so
+/// [ValueNotifier]'s equality check never suppresses a repeat purchase of
+/// the same-sized pack (which would otherwise look like an unchanged value).
+class CoinPackGrant {
+  const CoinPackGrant({required this.coins, required this.nonce});
+
+  final int coins;
+  final int nonce;
+
+  @override
+  bool operator ==(Object other) =>
+      other is CoinPackGrant && other.coins == coins && other.nonce == nonce;
+
+  @override
+  int get hashCode => Object.hash(coins, nonce);
 }

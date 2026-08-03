@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/models/card_model.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/theme/app_theme_data.dart';
+import '../../../../core/widgets/banner_ad_slot.dart';
 import '../../../gameplay/presentation/widgets/card_widget.dart';
 import '../../../tutorial/presentation/screens/tutorial_screen.dart';
 
@@ -383,6 +384,10 @@ class _RulesScreenState extends ConsumerState<RulesScreen> {
                   ),
                 ),
               ),
+            ),
+            const SafeArea(
+              top: false,
+              child: Center(child: BannerAdSlot(placement: 'rules_banner')),
             ),
           ],
         ),

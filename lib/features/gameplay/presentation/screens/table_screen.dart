@@ -42,6 +42,7 @@ import '../../../../core/models/game_event.dart';
 import '../../../../core/providers/auth_provider.dart';
 import '../../../../core/providers/block_provider.dart';
 import '../../../../core/providers/online_rejoin_provider.dart';
+import '../../../../core/providers/currency_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/providers/profile_provider.dart';
@@ -1491,30 +1492,41 @@ class _TableScreenState extends ConsumerState<TableScreen> {
           ),
           TextButton(
             onPressed: () {
-              unawaited(game_audio.AudioService.instance.stopAll());
-              if (!isOfflineMode) {
-                ref.read(gameNotifierProvider.notifier).clearOnlineState();
-                final wsClient = ref.read(wsClientProvider);
-                // Explicit leave signal — skips the server's 90s reconnect
-                // grace entirely (see room_manager.dart's 'leave_room'
-                // handling) instead of leaving remaining players staring at
-                // this seat auto-drawing/passing "ghost turns" until grace
-                // expires, or (in a 2-player game) until the game finally
-                // ends and awards the win to whoever's left.
-                wsClient.send('{"type":"leave_room"}');
-                wsClient.disconnect();
-              }
               Navigator.of(context).pop(); // dismiss dialog
-              final leaveResult = widget.isTournamentMode
-                  ? TournamentRoundGameResult.abandoned
-                  : null;
-              Navigator.of(context).pop(leaveResult); // leave table
+              unawaited(_confirmLeaveGame(isOfflineMode: isOfflineMode));
             },
             child: const Text('Leave', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
+  }
+
+  /// Runs after the player confirms "Leave" in [_onBackPressed]'s dialog.
+  /// Shows the same post-match interstitial every other exit path already
+  /// gets — this was the one gap where a player could leave a match early
+  /// with no ad at all. Tournament rounds are skipped here since the
+  /// coordinator's own abandon-handling already shows one for that path.
+  Future<void> _confirmLeaveGame({required bool isOfflineMode}) async {
+    unawaited(game_audio.AudioService.instance.stopAll());
+    if (!isOfflineMode) {
+      ref.read(gameNotifierProvider.notifier).clearOnlineState();
+      final wsClient = ref.read(wsClientProvider);
+      // Explicit leave signal — skips the server's 90s reconnect grace
+      // entirely (see room_manager.dart's 'leave_room' handling) instead of
+      // leaving remaining players staring at this seat auto-drawing/passing
+      // "ghost turns" until grace expires, or (in a 2-player game) until the
+      // game finally ends and awards the win to whoever's left.
+      wsClient.send('{"type":"leave_room"}');
+      wsClient.disconnect();
+    }
+    if (!widget.isTournamentMode) {
+      await AdsService.instance.maybeShowInterstitialAfterMatch();
+    }
+    if (!mounted) return;
+    final leaveResult =
+        widget.isTournamentMode ? TournamentRoundGameResult.abandoned : null;
+    Navigator.of(context).pop(leaveResult); // leave table
   }
 
   void _showSettingsSheet(BuildContext context) {
@@ -1955,6 +1967,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             : 'win',
       );
       unawaited(ref.read(themeProvider.notifier).recordGameCompleted());
+      unawaited(ref.read(currencyProvider.notifier).addCoins(
+            isWinForAnalytics
+                ? CurrencyRewards.matchWin
+                : CurrencyRewards.matchLoss,
+          ));
 
       final navigator = Navigator.of(context);
 
@@ -4306,6 +4323,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     if (_isOfflineSession && !_offlineWinRecorded) {
       _offlineWinRecorded = true;
       unawaited(ref.read(themeProvider.notifier).recordGameCompleted());
+      unawaited(ref.read(currencyProvider.notifier).addCoins(
+            localWon ? CurrencyRewards.matchWin : CurrencyRewards.matchLoss,
+          ));
     }
 
     Future.microtask(() {

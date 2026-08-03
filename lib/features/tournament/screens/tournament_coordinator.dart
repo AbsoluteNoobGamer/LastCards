@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/models/offline_game_state.dart';
 import '../../../../core/navigation/app_page_routes.dart';
+import '../../../../core/providers/currency_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/user_profile_provider.dart';
 import '../../../../core/services/ads_service.dart';
@@ -330,6 +331,8 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
       // would burn a theme trial twice per round.
       if (!widget.isOnline) {
         unawaited(ref.read(themeProvider.notifier).recordGameCompleted());
+        unawaited(ref.read(currencyProvider.notifier)
+            .addCoins(CurrencyRewards.tournamentRound));
       }
       if (roundResult != null) {
         // Defensive reconciliation: table can report finish IDs while the engine
@@ -466,6 +469,8 @@ class _TournamentCoordinatorState extends ConsumerState<TournamentCoordinator> {
             ref.read(tournamentSessionProvider).playerCount ??
             4,
       ));
+      unawaited(ref.read(currencyProvider.notifier)
+          .addCoins(CurrencyRewards.tournamentWin));
       AudioService.instance.playSound(GameSound.tournamentWin);
     } else {
       AudioService.instance.playSound(GameSound.tournamentEliminate);
