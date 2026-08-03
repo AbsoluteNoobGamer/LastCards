@@ -62,7 +62,7 @@ class _AuthProfileBadge extends ConsumerWidget {
 
     if (profileAsync.isLoading) {
       return Padding(
-        padding: const EdgeInsets.only(top: 8, right: 12),
+        padding: const EdgeInsets.only(top: 8),
         child: ThemedShimmer(
           width: 120,
           height: 40,
@@ -100,7 +100,7 @@ class _AuthProfileBadge extends ConsumerWidget {
         return GestureDetector(
           onTap: onTap,
           child: Container(
-            margin: const EdgeInsets.only(top: 8, right: 12),
+            margin: const EdgeInsets.only(top: 8),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: Colors.black.withValues(alpha: 0.55),

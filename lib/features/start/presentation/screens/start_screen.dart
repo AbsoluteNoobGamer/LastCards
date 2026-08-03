@@ -905,19 +905,26 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
             ),
           ),
 
-          // 4. Notification bell + auth profile badge — top-right corner
+          // 4. Notification bell — top-right corner
           Positioned(
             top: 0,
             right: 0,
             child: SafeArea(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const NotificationBellButton(),
-                  _AuthProfileBadge(
-                    onTap: () => _showAuthProfileSheet(context),
-                  ),
-                ],
+              child: const NotificationBellButton(),
+            ),
+          ),
+
+          // 4b. Auth profile badge — top center
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: _AuthProfileBadge(
+                  onTap: () => _showAuthProfileSheet(context),
+                ),
               ),
             ),
           ),
