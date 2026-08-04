@@ -7,11 +7,12 @@ import '../../../core/providers/theme_provider.dart';
 import '../../../core/services/purchase_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme_data.dart';
-import '../widgets/buy_coins_sheet.dart';
 
-/// The single home for every in-app purchase: "Remove Ads" and coin packs.
-/// Reachable from the start screen's icon row, alongside Leaderboard,
-/// Locker, Settings, and Rules.
+/// The single home for every in-app purchase: "Remove Ads" and (eventually)
+/// direct cash unlocks for cosmetics. Coins themselves are earn-only — not
+/// purchasable — so there's no "buy coins" section here; see the Locker for
+/// spending them. Reachable from the start screen's icon row, alongside
+/// Leaderboard, Locker, Settings, and Rules.
 class StoreScreen extends ConsumerWidget {
   const StoreScreen({super.key});
 
@@ -44,14 +45,13 @@ class StoreScreen extends ConsumerWidget {
             purchases.lastError,
           ]),
           builder: (context, _) {
-            final busy = purchases.purchaseInProgress.value;
             final error = purchases.lastError.value;
             return SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _SectionLabel('COINS', theme: theme),
+                  _SectionLabel('WALLET', theme: theme),
                   const SizedBox(height: 10),
                   Center(
                     child: Row(
@@ -71,7 +71,15 @@ class StoreScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Earn coins by playing — win matches, level up, and come '
+                    'back daily. Spend them in the Locker to unlock cosmetics '
+                    'early.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(fontSize: 12, color: theme.textSecondary),
+                  ),
+                  const SizedBox(height: 28),
                   if (error != null) ...[
                     Text(
                       error,
@@ -81,18 +89,6 @@ class StoreScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                   ],
-                  for (final productId in PurchaseService.coinPackAmounts.keys)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: CoinPackTile(
-                        productId: productId,
-                        coins: PurchaseService.coinPackAmounts[productId]!,
-                        theme: theme,
-                        busy: busy,
-                        onTap: () => purchases.buyCoinPack(productId),
-                      ),
-                    ),
-                  const SizedBox(height: 28),
                   _SectionLabel('ADS', theme: theme),
                   const SizedBox(height: 10),
                   if (purchases.adsRemoved.value)

@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/services/card_back_service.dart';
+import '../../../../core/services/cosmetic_unlock_service.dart';
 import '../../../../core/services/player_level_service.dart';
 import 'locker_tile.dart';
+import 'unlock_cosmetic_sheet.dart';
 
-/// "Card backs" tab: static covers (always owned) + animated backs
-/// (level-gated).
+/// "Card backs" tab: the free generic Classic back, plus covers and
+/// animated backs — level-gated, or unlockable early with coins/cash.
 class LockerCardBacksTab extends StatelessWidget {
   const LockerCardBacksTab({super.key});
 
@@ -26,51 +28,75 @@ class LockerCardBacksTab extends StatelessWidget {
                 return ValueListenableBuilder<int>(
                   valueListenable: PlayerLevelService.instance.currentLevel,
                   builder: (context, level, _) {
-                    final unlockedAnimated = <CardBackDesign>[];
-                    final lockedAnimated = <CardBackDesign>[];
-                    for (final d in animated) {
-                      (level >= d.unlockLevel ? unlockedAnimated : lockedAnimated).add(d);
-                    }
+                    return ValueListenableBuilder<int>(
+                      valueListenable: CosmeticUnlockService.instance.revision,
+                      builder: (context, _, __) {
+                        final owned = <CardBackDesign>[];
+                        final locked = <CardBackDesign>[];
+                        for (final d in [...covers, ...animated]) {
+                          (service.isCardBackOwned(d) ? owned : locked).add(d);
+                        }
+                        locked.sort((a, b) {
+                          final cmp = a.unlockLevel.compareTo(b.unlockLevel);
+                          return cmp != 0 ? cmp : a.label.compareTo(b.label);
+                        });
 
-                    return ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                      children: [
-                        const LockerSectionLabel('Unlocked'),
-                        _grid([
-                          ...covers.map((d) {
-                            return LockerTile(
-                              label: d.label,
-                              state: d.id == selectedId
-                                  ? LockerTileState.selected
-                                  : LockerTileState.owned,
-                              preview: _thumbnail(context, d),
-                              onTap: () => service.selectDesign(d.id),
-                            );
-                          }),
-                          ...unlockedAnimated.map((d) {
-                            return LockerTile(
-                              label: d.label,
-                              state: d.id == selectedId
-                                  ? LockerTileState.selected
-                                  : LockerTileState.owned,
-                              preview: _thumbnail(context, d),
-                              onTap: () => service.selectDesign(d.id),
-                            );
-                          }),
-                        ]),
-                        const LockerSectionLabel('Locked'),
-                        _grid(
-                          lockedAnimated.map((d) {
-                            return LockerTile(
-                              label: d.label,
-                              state: LockerTileState.lockedByLevel,
-                              lockCaption: 'Level ${d.unlockLevel}',
-                              preview: _thumbnail(context, d),
-                              onTap: () {},
-                            );
-                          }).toList(),
-                        ),
-                      ],
+                        return ListView(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                          children: [
+                            const LockerSectionLabel('Unlocked'),
+                            _grid([
+                              LockerTile(
+                                label: 'Classic',
+                                state: selectedId == 'classic'
+                                    ? LockerTileState.selected
+                                    : LockerTileState.owned,
+                                preview: _swatch(context, 'Classic'),
+                                onTap: () => service.selectDesign('classic'),
+                              ),
+                              ...owned.map((d) {
+                                return LockerTile(
+                                  label: d.label,
+                                  state: d.id == selectedId
+                                      ? LockerTileState.selected
+                                      : LockerTileState.owned,
+                                  preview: _thumbnail(context, d),
+                                  onTap: () => service.selectDesign(d.id),
+                                );
+                              }),
+                            ]),
+                            const LockerSectionLabel('Locked'),
+                            _grid(
+                              locked.map((d) {
+                                return LockerTile(
+                                  label: d.label,
+                                  state: LockerTileState.lockedByLevel,
+                                  lockCaption: 'Level ${d.unlockLevel}',
+                                  preview: _thumbnail(context, d),
+                                  onTap: () => showUnlockCosmeticSheet(
+                                    context,
+                                    name: d.label,
+                                    unlockLevel: d.unlockLevel,
+                                    coinCost: d.coinUnlockCost,
+                                    cashProductId: d.cashUnlockProductId,
+                                    cashGateSatisfied:
+                                        service.canCashUnlockCardBack(d.id),
+                                    cashGateMessage:
+                                        'Unlock the card back before this one '
+                                        'first to buy this with real money.',
+                                    onCoinGranted: () =>
+                                        CosmeticUnlockService.instance
+                                            .markPurchased(
+                                      CosmeticUnlockService.categoryCardBacks,
+                                      d.id,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        );
+                      },
                     );
                   },
                 );
@@ -100,49 +126,78 @@ class LockerJokersTab extends StatelessWidget {
             return ValueListenableBuilder<int>(
               valueListenable: PlayerLevelService.instance.currentLevel,
               builder: (context, level, _) {
-                final unlockedJokers = <CardBackDesign>[];
-                final lockedJokers = <CardBackDesign>[];
-                for (final d in jokers) {
-                  (level >= d.unlockLevel ? unlockedJokers : lockedJokers).add(d);
-                }
+                return ValueListenableBuilder<int>(
+                  valueListenable: CosmeticUnlockService.instance.revision,
+                  builder: (context, _, __) {
+                    final unlockedJokers = <CardBackDesign>[];
+                    final lockedJokers = <CardBackDesign>[];
+                    for (final d in jokers) {
+                      (service.isJokerCoverOwned(d)
+                              ? unlockedJokers
+                              : lockedJokers)
+                          .add(d);
+                    }
+                    lockedJokers.sort((a, b) {
+                      final cmp = a.unlockLevel.compareTo(b.unlockLevel);
+                      return cmp != 0 ? cmp : a.label.compareTo(b.label);
+                    });
 
-                return ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                  children: [
-                    const LockerSectionLabel('Unlocked'),
-                    _grid([
-                      LockerTile(
-                        label: 'Classic',
-                        state: selectedId == 'classic'
-                            ? LockerTileState.selected
-                            : LockerTileState.owned,
-                        preview: _swatch(context, 'Classic'),
-                        onTap: () => service.selectJokerCover('classic'),
-                      ),
-                      ...unlockedJokers.map((d) {
-                        return LockerTile(
-                          label: d.label,
-                          state: d.id == selectedId
-                              ? LockerTileState.selected
-                              : LockerTileState.owned,
-                          preview: _thumbnail(context, d),
-                          onTap: () => service.selectJokerCover(d.id),
-                        );
-                      }),
-                    ]),
-                    const LockerSectionLabel('Locked'),
-                    _grid(
-                      lockedJokers.map((d) {
-                        return LockerTile(
-                          label: d.label,
-                          state: LockerTileState.lockedByLevel,
-                          lockCaption: 'Level ${d.unlockLevel}',
-                          preview: _thumbnail(context, d),
-                          onTap: () {},
-                        );
-                      }).toList(),
-                    ),
-                  ],
+                    return ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                      children: [
+                        const LockerSectionLabel('Unlocked'),
+                        _grid([
+                          LockerTile(
+                            label: 'Classic',
+                            state: selectedId == 'classic'
+                                ? LockerTileState.selected
+                                : LockerTileState.owned,
+                            preview: _swatch(context, 'Classic'),
+                            onTap: () => service.selectJokerCover('classic'),
+                          ),
+                          ...unlockedJokers.map((d) {
+                            return LockerTile(
+                              label: d.label,
+                              state: d.id == selectedId
+                                  ? LockerTileState.selected
+                                  : LockerTileState.owned,
+                              preview: _thumbnail(context, d),
+                              onTap: () => service.selectJokerCover(d.id),
+                            );
+                          }),
+                        ]),
+                        const LockerSectionLabel('Locked'),
+                        _grid(
+                          lockedJokers.map((d) {
+                            return LockerTile(
+                              label: d.label,
+                              state: LockerTileState.lockedByLevel,
+                              lockCaption: 'Level ${d.unlockLevel}',
+                              preview: _thumbnail(context, d),
+                              onTap: () => showUnlockCosmeticSheet(
+                                context,
+                                name: d.label,
+                                unlockLevel: d.unlockLevel,
+                                coinCost: d.coinUnlockCost,
+                                cashProductId: d.cashUnlockProductId,
+                                cashGateSatisfied:
+                                    service.canCashUnlockJoker(d.id),
+                                cashGateMessage:
+                                    'Unlock the joker before this one first '
+                                    'to buy this with real money.',
+                                onCoinGranted: () => CosmeticUnlockService
+                                    .instance
+                                    .markPurchased(
+                                  CosmeticUnlockService.categoryJokers,
+                                  d.id,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    );
+                  },
                 );
               },
             );

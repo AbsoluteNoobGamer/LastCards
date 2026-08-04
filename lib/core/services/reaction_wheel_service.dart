@@ -14,9 +14,14 @@ class ReactionWheelService {
   List<int> _defaultSlots() =>
       List<int>.generate(kStarterReactionCount, (i) => i);
 
-  /// Clamp [candidate] IDs to catalog range; replace locked reactions with starters.
-  List<int> sanitizeForLevel(List<int>? candidate, int playerLevel) {
-    final unlocked = unlockedReactionIndicesForLevel(playerLevel).toSet();
+  /// Clamp [candidate] IDs to catalog range; replace locked reactions with
+  /// starters. [purchasedIds] are coin-unlocked reaction indices (as
+  /// strings) that count as owned regardless of level.
+  List<int> sanitizeForLevel(
+    List<int>? candidate,
+    int playerLevel, {
+    Set<String> purchasedIds = const {},
+  }) {
     final starter = List<int>.generate(kStarterReactionCount, (i) => i);
     List<int> src;
     if (candidate == null || candidate.length != kStarterReactionCount) {
@@ -26,7 +31,7 @@ class ReactionWheelService {
     }
     for (var s = 0; s < kStarterReactionCount; s++) {
       final id = src[s];
-      if (!isValidReactionWireIndex(id) || !unlocked.contains(id)) {
+      if (!isReactionUnlocked(id, playerLevel, purchasedIds)) {
         src[s] = starter[s];
       }
     }

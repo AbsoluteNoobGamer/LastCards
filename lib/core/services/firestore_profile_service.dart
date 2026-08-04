@@ -226,6 +226,36 @@ class FirestoreProfileService {
         );
   }
 
+  /// Persists one category of non-theme cosmetics unlocked outside the
+  /// level-gate (via coins or a cash purchase), for cross-device sync.
+  /// Categories are the [CosmeticUnlockService] constants; merge keeps the
+  /// other categories' entries intact.
+  Future<void> updateUnlockedCosmetics(
+    String uid,
+    String category,
+    List<String> ids,
+  ) async {
+    await _firestore.collection(_usersCollection).doc(uid).set(
+          {
+            'unlockedCosmetics': {category: ids},
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+  }
+
+  /// Persists theme ids permanently unlocked outside the level-gate (via
+  /// coins or a cash purchase), for cross-device sync.
+  Future<void> updateUnlockedThemeIds(String uid, List<String> ids) async {
+    await _firestore.collection(_usersCollection).doc(uid).set(
+          {
+            'unlockedThemeIds': ids,
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+  }
+
   /// Registers a device's FCM token for push delivery (multiple devices per
   /// account are supported — the server fans a push out to every token).
   Future<void> addFcmToken(String uid, String token) async {

@@ -34,6 +34,8 @@ service cloud.firestore {
           'fcmTokens',
           'coins',
           'adsRemoved',
+          'unlockedThemeIds',
+          'unlockedCosmetics',
         ]);
 
       allow delete: if request.auth != null && request.auth.uid == uid;

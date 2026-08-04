@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/currency_service.dart';
 import '../services/firestore_profile_service.dart';
 import '../services/player_level_service.dart';
-import '../services/purchase_service.dart';
 import 'user_profile_provider.dart' show firestoreProfileServiceProvider;
 
 // ── Reward amounts ───────────────────────────────────────────────────────────
@@ -68,8 +67,6 @@ class CurrencyNotifier extends StateNotifier<CurrencyState> {
 
   int? _lastRewardedLevel;
   bool _levelListenerAttached = false;
-  int _lastConsumedCoinPackNonce = 0;
-  bool _coinPackListenerAttached = false;
 
   /// Loads the persisted balance on app start, reconciles with the signed-in
   /// player's Firestore doc (cross-device sync), and arms the level-up
@@ -105,12 +102,6 @@ class CurrencyNotifier extends StateNotifier<CurrencyState> {
       _levelListenerAttached = true;
       PlayerLevelService.instance.currentLevel.addListener(_onLevelChanged);
     }
-
-    if (!_coinPackListenerAttached) {
-      _coinPackListenerAttached = true;
-      PurchaseService.instance.lastCoinPackGrant
-          .addListener(_onCoinPackGranted);
-    }
   }
 
   void _onLevelChanged() {
@@ -121,13 +112,6 @@ class CurrencyNotifier extends StateNotifier<CurrencyState> {
     _lastRewardedLevel = newLevel;
     unawaited(_service.saveLastRewardedLevel(newLevel));
     unawaited(addCoins(CurrencyRewards.perLevelUp * levelsGained));
-  }
-
-  void _onCoinPackGranted() {
-    final grant = PurchaseService.instance.lastCoinPackGrant.value;
-    if (grant == null || grant.nonce <= _lastConsumedCoinPackNonce) return;
-    _lastConsumedCoinPackNonce = grant.nonce;
-    unawaited(addCoins(grant.coins));
   }
 
   /// Credits [amount] coins and persists locally + to Firestore (if signed
@@ -213,10 +197,6 @@ class CurrencyNotifier extends StateNotifier<CurrencyState> {
   void dispose() {
     if (_levelListenerAttached) {
       PlayerLevelService.instance.currentLevel.removeListener(_onLevelChanged);
-    }
-    if (_coinPackListenerAttached) {
-      PurchaseService.instance.lastCoinPackGrant
-          .removeListener(_onCoinPackGranted);
     }
     super.dispose();
   }

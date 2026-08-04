@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/providers/reaction_wheel_provider.dart';
+import '../../../../core/services/cosmetic_unlock_service.dart';
 import '../../../../core/services/player_level_service.dart';
 import '../../../../shared/reactions/built_in_reaction_widgets.dart';
 import '../../../../shared/reactions/reaction_catalog.dart';
 import 'locker_tile.dart';
+import 'unlock_cosmetic_sheet.dart';
 
 /// "Reactions" tab — the 13-slot wheel plus the full owned/locked catalog.
 ///
@@ -23,16 +25,34 @@ class _LockerReactionsTabState extends ConsumerState<LockerReactionsTab> {
   int _activeSlot = 0;
 
   @override
+  void initState() {
+    super.initState();
+    CosmeticUnlockService.instance.revision.addListener(_onUnlocksChanged);
+  }
+
+  @override
+  void dispose() {
+    CosmeticUnlockService.instance.revision.removeListener(_onUnlocksChanged);
+    super.dispose();
+  }
+
+  void _onUnlocksChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final wheel = ref.watch(reactionWheelProvider);
     final notifier = ref.read(reactionWheelProvider.notifier);
     final level = PlayerLevelService.instance.currentLevel.value;
+    final purchased = CosmeticUnlockService.instance
+        .idsFor(CosmeticUnlockService.categoryReactions);
 
     final ownedIndices = <int>[];
     final lockedIndices = <int>[];
     for (var i = 0; i < kReactionCatalogLength; i++) {
-      if (isReactionUnlockedForLevel(i, level)) {
+      if (isReactionUnlocked(i, level, purchased)) {
         ownedIndices.add(i);
       } else {
         lockedIndices.add(i);
@@ -95,9 +115,21 @@ class _LockerReactionsTabState extends ConsumerState<LockerReactionsTab> {
           lockedIndices,
           wheel: wheel,
           locked: true,
-          onTap: (_) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Reach the required level to unlock this reaction.')),
+          onTap: (catalogId) {
+            final def = kReactionDefinitions[catalogId];
+            showUnlockCosmeticSheet(
+              context,
+              name: def.unicodeLabel ?? def.builtInId ?? 'Reaction',
+              unlockLevel: def.minUnlockLevel,
+              coinCost:
+                  CosmeticUnlockService.coinCostForLevel(def.minUnlockLevel),
+              // Reactions are coin-only: 50+ tiny items would each need
+              // their own store-configured IAP product to sell for cash.
+              cashProductId: null,
+              onCoinGranted: () => CosmeticUnlockService.instance.markPurchased(
+                CosmeticUnlockService.categoryReactions,
+                '$catalogId',
+              ),
             );
           },
         ),

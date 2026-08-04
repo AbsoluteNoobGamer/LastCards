@@ -7,8 +7,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/card_model.dart';
 import 'analytics_service.dart';
+import 'cosmetic_unlock_service.dart';
 import 'firestore_profile_service.dart';
 import 'player_level_service.dart';
+import 'purchase_service.dart';
 
 class CardBackDesign {
   const CardBackDesign({
@@ -16,6 +18,8 @@ class CardBackDesign {
     required this.label,
     this.unlockLevel = 1,
     this.assetPath,
+    this.coinUnlockCost,
+    this.cashUnlockProductId,
   });
 
   final String id;
@@ -24,6 +28,14 @@ class CardBackDesign {
 
   /// If set, this design is a cardbackcover image at this asset path.
   final String? assetPath;
+
+  /// Coin price to permanently unlock this design early. Null means it
+  /// isn't coin-purchasable (e.g. free designs).
+  final int? coinUnlockCost;
+
+  /// Non-consumable IAP product ID to buy this design outright. Null means
+  /// it isn't cash-purchasable.
+  final String? cashUnlockProductId;
 }
 
 class CardBackService {
@@ -39,8 +51,36 @@ class CardBackService {
   static const String _cardBackCoverPrefix = 'assets/images/cardbackcover/';
   static const String _cardFacePrefix = 'assets/images/cardfaces/';
 
-  /// Default card back when no preference is saved.
-  static const String _defaultCardBackId = 'assets/images/cardbackcover/Purple Complex.png';
+  /// Default card back when no preference is saved — the free generic
+  /// procedural back every player owns (see `CardBackWidget`'s 'classic'
+  /// branch). Cover images are level/coin/cash-gated like other cosmetics.
+  static const String _defaultCardBackId = 'classic';
+
+  /// Cover images' unlock levels (filename, lowercase → level). Files not
+  /// listed default to level 5.
+  static const Map<String, int> _coverUnlockLevels = {
+    'purple complex.png': 3,
+    'gold carbon.png': 4,
+    'metalic blue.jpg': 6,
+    'darkness in green.png': 8,
+    'noobgamer back.jpg': 10,
+    'two lions.png': 12,
+  };
+
+  static int _coinCostForLevel(int unlockLevel) =>
+      CosmeticUnlockService.coinCostForLevel(unlockLevel);
+
+  /// 'Gold Carbon.png' → 'gold_carbon' — stable product-id fragment for a
+  /// bundled asset filename. Must stay in sync with the product IDs
+  /// configured in App Store Connect / Play Console (and
+  /// ios/Runner/Configuration.storekit for local testing).
+  static String _slugForFilename(String filename) {
+    final base = filename.replaceAll(RegExp(r'\.[^.]+$'), '').toLowerCase();
+    return base
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+  }
   static const String _jokerCoverPrefix = 'assets/images/jokercover/';
   static const String _animatedCardsPrefix = 'assets/animated_cards/';
   static const Set<String> _builtInAnimatedNames = {
@@ -129,6 +169,32 @@ class CardBackService {
     jokerCoverDesigns.value = await _loadJokerCoverDesigns();
     _unlocked = _unlockedDesignsForLevel(PlayerLevelService.instance.currentLevel.value);
 
+    // Declare cash-unlock products before PurchaseService.init() queries the
+    // store (main() runs this service's init first).
+    for (final d in [
+      ...cardBackCoverDesigns.value,
+      ...animatedGifDesigns.value,
+    ]) {
+      final productId = d.cashUnlockProductId;
+      if (productId != null) {
+        PurchaseService.instance.registerCosmeticProduct(
+          productId: productId,
+          category: CosmeticUnlockService.categoryCardBacks,
+          itemId: d.id,
+        );
+      }
+    }
+    for (final d in jokerCoverDesigns.value) {
+      final productId = d.cashUnlockProductId;
+      if (productId != null) {
+        PurchaseService.instance.registerCosmeticProduct(
+          productId: productId,
+          category: CosmeticUnlockService.categoryJokers,
+          itemId: d.id,
+        );
+      }
+    }
+
     // Ensure prefs are consistent with level-based unlocking (and migrate
     // away from any legacy/unrelated unlocked state).
     final computedUnlocked = _unlocked.join(',');
@@ -138,15 +204,16 @@ class CardBackService {
 
     final covers = cardBackCoverDesigns.value;
     final animatedGifs = animatedGifDesigns.value;
-    final currentLevel = PlayerLevelService.instance.currentLevel.value;
-    final isValidSelected = _unlocked.contains(selected) ||
-        covers.any((d) => d.id == selected) ||
-        animatedGifs.any((d) => d.id == selected && currentLevel >= d.unlockLevel);
+    final isValidSelected = selected == 'classic' ||
+        _unlocked.contains(selected) ||
+        covers.any((d) => d.id == selected && isCardBackOwned(d)) ||
+        animatedGifs.any((d) => d.id == selected && isCardBackOwned(d));
     if (isValidSelected) {
       selectedDesignId.value = selected;
     } else {
-      // Saved path no longer exists (e.g. file renamed) — use first cover or classic
-      selectedDesignId.value = covers.isNotEmpty ? covers.first.id : 'classic';
+      // Saved design is gone (file renamed) or no longer owned (covers
+      // became gated) — fall back to the free generic back.
+      selectedDesignId.value = 'classic';
       await prefs.setString(_prefsSelectedKey, selectedDesignId.value);
     }
 
@@ -166,7 +233,7 @@ class CardBackService {
     }
 
     final isValidAndUnlockedJoker = jokerSelected == 'classic' ||
-        (selectedDesign != null && currentLevel >= selectedDesign.unlockLevel);
+        (selectedDesign != null && isJokerCoverOwned(selectedDesign));
 
     selectedJokerCoverId.value = isValidAndUnlockedJoker
         ? jokerSelected
@@ -247,14 +314,19 @@ class CardBackService {
             lower.endsWith('.jpeg');
       }).toList()
         ..sort();
-      return paths
-          .map((path) => CardBackDesign(
-                id: path,
-                label: _labelFromFilename(path.split('/').last),
-                assetPath: path,
-                unlockLevel: _unlockLevelForJokerCoverPath(path),
-              ))
-          .toList();
+      return paths.map((path) {
+        final filename = path.split('/').last;
+        final level = _unlockLevelForJokerCoverPath(path);
+        return CardBackDesign(
+          id: path,
+          label: _labelFromFilename(filename),
+          assetPath: path,
+          unlockLevel: level,
+          coinUnlockCost: level > 1 ? _coinCostForLevel(level) : null,
+          cashUnlockProductId:
+              level > 1 ? 'joker_unlock_${_slugForFilename(filename)}' : null,
+        );
+      }).toList();
     } catch (_) {
       return [];
     }
@@ -285,13 +357,18 @@ class CardBackService {
             lower.endsWith('.jpeg');
       }).toList()
         ..sort();
-      return paths
-          .map((path) => CardBackDesign(
-                id: path,
-                label: _labelFromFilename(path.split('/').last),
-                assetPath: path,
-              ))
-          .toList();
+      return paths.map((path) {
+        final filename = path.split('/').last;
+        final level = _coverUnlockLevels[filename.toLowerCase()] ?? 5;
+        return CardBackDesign(
+          id: path,
+          label: _labelFromFilename(filename),
+          assetPath: path,
+          unlockLevel: level,
+          coinUnlockCost: _coinCostForLevel(level),
+          cashUnlockProductId: 'cardback_unlock_${_slugForFilename(filename)}',
+        );
+      }).toList();
     } catch (_) {
       return [];
     }
@@ -306,13 +383,19 @@ class CardBackService {
           .where((path) => path.toLowerCase().endsWith('.gif'))
           .toList()
         ..sort();
-      return paths
-          .map((path) => CardBackDesign(
-                id: path,
-                label: _labelFromFilename(path.split('/').last),
-                unlockLevel: _unlockLevelForAnimatedGif(path.split('/').last),
-              ))
-          .toList();
+      return paths.map((path) {
+        final filename = path.split('/').last;
+        final level = _unlockLevelForAnimatedGif(filename);
+        return CardBackDesign(
+          id: path,
+          label: _labelFromFilename(filename),
+          unlockLevel: level,
+          coinUnlockCost: level > 1 ? _coinCostForLevel(level) : null,
+          cashUnlockProductId: level > 1
+              ? 'cardback_unlock_${_slugForFilename(filename)}'
+              : null,
+        );
+      }).toList();
     } catch (_) {
       return [];
     }
@@ -329,6 +412,46 @@ class CardBackService {
   }
 
   bool isUnlocked(String designId) => _unlocked.contains(designId);
+
+  /// Owned = reached by level, or permanently purchased with coins/cash.
+  bool isCardBackOwned(CardBackDesign d) =>
+      PlayerLevelService.instance.currentLevel.value >= d.unlockLevel ||
+      CosmeticUnlockService.instance
+          .isPurchased(CosmeticUnlockService.categoryCardBacks, d.id);
+
+  bool isJokerCoverOwned(CardBackDesign d) =>
+      PlayerLevelService.instance.currentLevel.value >= d.unlockLevel ||
+      CosmeticUnlockService.instance
+          .isPurchased(CosmeticUnlockService.categoryJokers, d.id);
+
+  static List<CardBackDesign> _sortedLadder(Iterable<CardBackDesign> items) {
+    return items.where((d) => d.cashUnlockProductId != null).toList()
+      ..sort((a, b) {
+        final cmp = a.unlockLevel.compareTo(b.unlockLevel);
+        return cmp != 0 ? cmp : a.label.compareTo(b.label);
+      });
+  }
+
+  /// True if [id] is next in line for a cash unlock: every earlier design
+  /// in the card-back ladder (covers + animated, by unlock level) is
+  /// already owned — by level, coins, or a prior purchase. Same
+  /// keep-progression-intact rule as theme cash unlocks.
+  bool canCashUnlockCardBack(String id) {
+    for (final d in _sortedLadder(
+        [...cardBackCoverDesigns.value, ...animatedGifDesigns.value])) {
+      if (d.id == id) return true;
+      if (!isCardBackOwned(d)) return false;
+    }
+    return false;
+  }
+
+  bool canCashUnlockJoker(String id) {
+    for (final d in _sortedLadder(jokerCoverDesigns.value)) {
+      if (d.id == id) return true;
+      if (!isJokerCoverOwned(d)) return false;
+    }
+    return false;
+  }
 
   bool _isDesignUnlocked(String designId) {
     // Built-in animated card backs unlock purely by level.
@@ -352,20 +475,17 @@ class CardBackService {
     if (designId == 'uploaded' && uploadedAnimatedAssetPath.value == null) {
       return false;
     }
-    if (designId != 'uploaded') {
-      // Static cover images are freely accessible (file-based, no level gate).
-      final isCover = cardBackCoverDesigns.value.any((d) => d.id == designId);
-      if (!isCover) {
-        // Check animated GIFs with level gating.
-        final gif = animatedGifDesigns.value
-            .where((d) => d.id == designId)
-            .firstOrNull;
-        if (gif != null) {
-          final currentLevel = PlayerLevelService.instance.currentLevel.value;
-          if (currentLevel < gif.unlockLevel) return false;
-        } else if (!_isDesignUnlocked(designId)) {
-          return false;
-        }
+    if (designId != 'uploaded' && designId != 'classic') {
+      // Covers and animated GIFs are both gated: level, or a coin/cash
+      // purchase recorded in [CosmeticUnlockService].
+      final design = cardBackCoverDesigns.value
+              .where((d) => d.id == designId)
+              .firstOrNull ??
+          animatedGifDesigns.value.where((d) => d.id == designId).firstOrNull;
+      if (design != null) {
+        if (!isCardBackOwned(design)) return false;
+      } else if (!_isDesignUnlocked(designId)) {
+        return false;
       }
     }
     if (selectedDesignId.value == designId) return true;
@@ -393,9 +513,7 @@ class CardBackService {
         }
       }
       if (design == null) return false;
-
-      final currentLevel = PlayerLevelService.instance.currentLevel.value;
-      if (currentLevel < design.unlockLevel) return false;
+      if (!isJokerCoverOwned(design)) return false;
     }
     if (selectedJokerCoverId.value == designId) return true;
     selectedJokerCoverId.value = designId;

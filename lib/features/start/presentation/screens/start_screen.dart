@@ -19,7 +19,6 @@ import '../../../../core/navigation/app_page_routes.dart';
 import '../../../../core/widgets/banner_ad_slot.dart';
 import '../../../../core/services/avatar_catalog_service.dart';
 import '../../../../core/services/purchase_service.dart';
-import '../../../purchases/widgets/buy_coins_sheet.dart';
 import '../../../purchases/screens/store_screen.dart';
 import '../../../../core/widgets/glass_frosted_panel.dart';
 import '../../../../core/widgets/gameplay_circle_avatar.dart';

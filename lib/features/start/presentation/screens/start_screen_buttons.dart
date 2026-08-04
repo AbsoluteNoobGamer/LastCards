@@ -126,7 +126,9 @@ class _AuthProfileBadge extends ConsumerWidget {
                 ),
                 const SizedBox(width: 8),
                 GestureDetector(
-                  onTap: () => showBuyCoinsSheet(context),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const StoreScreen()),
+                  ),
                   child: _CoinBalanceChip(
                     balance: ref.watch(currencyProvider).balance,
                   ),

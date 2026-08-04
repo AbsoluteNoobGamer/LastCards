@@ -38,6 +38,7 @@ import 'package:last_cards/features/gameplay/presentation/widgets/turn_indicator
 import 'package:last_cards/core/services/ads_service.dart';
 import 'package:last_cards/core/services/avatar_catalog_service.dart';
 import 'package:last_cards/core/services/purchase_service.dart';
+import 'package:last_cards/core/services/cosmetic_unlock_service.dart';
 import 'package:last_cards/core/services/player_level_service.dart';
 import 'package:last_cards/shared/reactions/reaction_catalog.dart';
 import 'package:last_cards/features/settings/presentation/widgets/settings_modal.dart';
@@ -1307,7 +1308,9 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   void _sendQuickChat(int messageIndex) {
     if (_quickChatCooldownRemaining > 0) return;
     final level = PlayerLevelService.instance.currentLevel.value;
-    if (!isReactionUnlockedForLevel(messageIndex, level)) return;
+    final purchased = CosmeticUnlockService.instance
+        .idsFor(CosmeticUnlockService.categoryReactions);
+    if (!isReactionUnlocked(messageIndex, level, purchased)) return;
 
     final bottom = _localPlayer;
     final localChatName =

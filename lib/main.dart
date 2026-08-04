@@ -10,6 +10,7 @@ import 'core/services/ads_service.dart';
 import 'core/services/analytics_consent_service.dart';
 import 'core/services/avatar_catalog_service.dart';
 import 'core/services/card_back_service.dart';
+import 'core/services/cosmetic_unlock_service.dart';
 import 'core/services/profile_service.dart';
 import 'core/services/purchase_service.dart';
 import 'core/services/push_notification_service.dart';
@@ -73,6 +74,10 @@ Future<void> main() async {
   // Initialise default local profile name on first launch.
   // This is a no-op on all subsequent launches.
   await const ProfileService().initDefaultIfNeeded();
+  // Purchased-cosmetic entitlements must load before CardBackService /
+  // AvatarCatalogService validate the player's saved selections against
+  // their unlock state.
+  await CosmeticUnlockService.instance.init();
   await CardBackService.instance.init();
   await AvatarCatalogService.instance.init();
   await AudioService.instance.init();

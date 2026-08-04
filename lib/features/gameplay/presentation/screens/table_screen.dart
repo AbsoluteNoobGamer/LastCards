@@ -33,6 +33,7 @@ import '../../../../core/services/ads_service.dart';
 import '../../../../core/services/purchase_service.dart';
 import '../../../../core/services/analytics_service.dart';
 import '../../../../core/services/avatar_catalog_service.dart';
+import '../../../../core/services/cosmetic_unlock_service.dart';
 import '../../../../core/services/player_level_service.dart';
 import '../../../../core/utils/ranked_tier_utils.dart';
 import '../../../../core/models/table_position_layout.dart';
@@ -2238,6 +2239,14 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             mediaPadding.bottom,
             scale: tableScale,
           );
+          // Side FAB stacks sit lower than the skip chip — just above the
+          // turn timer bar rather than above the whole action band.
+          final fabStackBottom = isLandscapeMobile
+              ? landscapeSkipChipBottom
+              : TablePortraitGrid.portraitFabStackBottom(
+                  mediaPadding.bottom,
+                  scale: tableScale,
+                );
           final isRankedMatch = ref.watch(isRankedGameProvider);
           final isBustMatch =
               ref.watch(tournamentSessionProvider).subMode == GameSubMode.bust;
@@ -2584,115 +2593,110 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 ),
               ),
 
-              // ── Settings + leave (above the action bar/timer, not beside
+              // ── Settings + leave (just above the turn timer, not beside
               // the hand — keeps them clear of edge-card taps) ─────────────
+              // No SafeArea here: [fabStackBottom] already includes the
+              // bottom media padding, and a nested SafeArea would re-add it,
+              // pushing the stack ~34pt above the timer it should hug.
               Positioned(
-                bottom: isLandscapeMobile
-                    ? landscapeSkipChipBottom
-                    : portraitSkipChipBottom,
+                bottom: fabStackBottom,
                 left: 8,
-                child: SafeArea(
-                  top: false,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ArenaChromeFab(
-                        tooltip: 'Settings',
-                        icon: Icons.settings_rounded,
-                        onPressed: () => _showSettingsSheet(context),
-                      ),
-                      const SizedBox(height: 10),
-                      ArenaChromeFab(
-                        tooltip: isOfflineMode ? 'Exit game' : 'Leave game',
-                        icon: Icons.arrow_back_ios_new_rounded,
-                        onPressed: _onBackPressed,
-                      ),
-                    ],
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ArenaChromeFab(
+                      tooltip: 'Settings',
+                      icon: Icons.settings_rounded,
+                      onPressed: () => _showSettingsSheet(context),
+                    ),
+                    const SizedBox(height: 10),
+                    ArenaChromeFab(
+                      tooltip: isOfflineMode ? 'Exit game' : 'Leave game',
+                      icon: Icons.arrow_back_ios_new_rounded,
+                      onPressed: _onBackPressed,
+                    ),
+                  ],
                 ),
               ),
 
-              // ── Chat + reactions (mirrors left settings stack, above the
-              // action bar/timer) ─────────────────────────────────────────
+              // ── Chat + reactions (mirrors left settings stack, just
+              // above the turn timer) ─────────────────────────────────────
               if (!_isDealing && gameState.phase != GamePhase.ended)
                 Positioned(
-                  bottom: isLandscapeMobile
-                      ? landscapeSkipChipBottom
-                      : portraitSkipChipBottom,
+                  bottom: fabStackBottom,
                   right: 8,
-                  child: SafeArea(
-                    top: false,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        if (_showQuickChatPanel)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Builder(
-                              builder: (context) {
-                                final panelW =
-                                    MediaQuery.of(context).size.width * 0.72;
-                                // Fixed height so Reactions/Chat both use
-                                // Expanded scroll regions (no bottom overflow).
-                                final panelH = _socialPanelTab == 1
-                                    ? 340.0
-                                    : 280.0;
-                                return SizedBox(
-                                  width: panelW,
-                                  height: panelH,
-                                  child: ClipRect(
-                                    child: _buildSocialPanel(appTheme),
-                                  ),
-                                );
-                              },
-                            ),
+                  // No SafeArea (see the left stack above) — fabStackBottom
+                  // already accounts for the bottom media padding.
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (_showQuickChatPanel)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Builder(
+                            builder: (context) {
+                              final panelW =
+                                  MediaQuery.of(context).size.width * 0.72;
+                              // Fixed height so Reactions/Chat both use
+                              // Expanded scroll regions (no bottom overflow).
+                              final panelH = _socialPanelTab == 1
+                                  ? 340.0
+                                  : 280.0;
+                              return SizedBox(
+                                width: panelW,
+                                height: panelH,
+                                child: ClipRect(
+                                  child: _buildSocialPanel(appTheme),
+                                ),
+                              );
+                            },
                           ),
-                        if (!_isOfflineSession) const PttChromeFab(),
-                        ArenaChromeFab(
-                          tooltip: _isOfflineSession
-                              ? 'Chat (online games)'
-                              : 'Live chat',
-                          icon: Icons.chat_bubble_rounded,
-                          emphasized: _showQuickChatPanel &&
-                              _socialPanelTab == 1,
-                          onPressed: () {
-                            setState(() {
-                              if (_showQuickChatPanel &&
-                                  _socialPanelTab == 1) {
-                                _showQuickChatPanel = false;
-                              } else {
-                                _socialPanelTab = 1;
-                                _showQuickChatPanel = true;
-                              }
-                            });
-                          },
                         ),
-                        const SizedBox(height: 10),
-                        ArenaChromeFab(
-                          tooltip: _quickChatCooldownRemaining > 0
-                              ? 'Reactions (${_quickChatCooldownRemaining}s)'
-                              : 'Reactions',
-                          icon: Icons.emoji_emotions_rounded,
-                          emphasized: !(_showQuickChatPanel &&
-                              _socialPanelTab == 1),
-                          badge: _quickChatCooldownRemaining > 0
-                              ? '$_quickChatCooldownRemaining'
-                              : null,
-                          onPressed: () {
-                            setState(() {
-                              if (_showQuickChatPanel &&
-                                  _socialPanelTab == 0) {
-                                _showQuickChatPanel = false;
-                              } else {
-                                _socialPanelTab = 0;
-                                _showQuickChatPanel = true;
-                              }
-                            });
-                          },
-                        ),
-                      ],
-                    ),
+                      if (!_isOfflineSession) const PttChromeFab(),
+                      ArenaChromeFab(
+                        tooltip: _isOfflineSession
+                            ? 'Chat (online games)'
+                            : 'Live chat',
+                        icon: Icons.chat_bubble_rounded,
+                        emphasized: _showQuickChatPanel &&
+                            _socialPanelTab == 1,
+                        onPressed: () {
+                          setState(() {
+                            if (_showQuickChatPanel &&
+                                _socialPanelTab == 1) {
+                              _showQuickChatPanel = false;
+                            } else {
+                              _socialPanelTab = 1;
+                              _showQuickChatPanel = true;
+                            }
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      ArenaChromeFab(
+                        tooltip: _quickChatCooldownRemaining > 0
+                            ? 'Reactions (${_quickChatCooldownRemaining}s)'
+                            : 'Reactions',
+                        icon: Icons.emoji_emotions_rounded,
+                        emphasized: !(_showQuickChatPanel &&
+                            _socialPanelTab == 1),
+                        badge: _quickChatCooldownRemaining > 0
+                            ? '$_quickChatCooldownRemaining'
+                            : null,
+                        onPressed: () {
+                          setState(() {
+                            if (_showQuickChatPanel &&
+                                _socialPanelTab == 0) {
+                              _showQuickChatPanel = false;
+                            } else {
+                              _socialPanelTab = 0;
+                              _showQuickChatPanel = true;
+                            }
+                          });
+                        },
+                      ),
+                    ],
                   ),
                 ),
 
@@ -4905,7 +4909,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   void _sendQuickChat(int messageIndex) {
     if (_quickChatCooldownRemaining > 0) return;
     final level = PlayerLevelService.instance.currentLevel.value;
-    if (!isReactionUnlockedForLevel(messageIndex, level)) return;
+    final purchased = CosmeticUnlockService.instance
+        .idsFor(CosmeticUnlockService.categoryReactions);
+    if (!isReactionUnlocked(messageIndex, level, purchased)) return;
 
     final isOfflineMode = _isOfflineSession;
 

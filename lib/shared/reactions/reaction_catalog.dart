@@ -155,6 +155,19 @@ bool isReactionUnlockedForLevel(int reactionIndex, int playerLevel) {
   return playerLevel >= def.minUnlockLevel;
 }
 
+/// Level gate OR a purchased early unlock ([purchasedIds] holds catalog
+/// indices as strings — see the app's `CosmeticUnlockService`). Pure so the
+/// server build stays free of Flutter/app dependencies.
+bool isReactionUnlocked(
+  int reactionIndex,
+  int playerLevel,
+  Set<String> purchasedIds,
+) {
+  if (!isValidReactionWireIndex(reactionIndex)) return false;
+  return isReactionUnlockedForLevel(reactionIndex, playerLevel) ||
+      purchasedIds.contains('$reactionIndex');
+}
+
 /// Indices the player actually has unlocked for [playerLevel].
 List<int> unlockedReactionIndicesForLevel(int playerLevel) {
   final out = <int>[];

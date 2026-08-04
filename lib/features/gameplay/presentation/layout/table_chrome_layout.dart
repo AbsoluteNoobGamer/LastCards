@@ -138,6 +138,23 @@ abstract final class TablePortraitGrid {
   /// Overlay: tournament skip chip sits above the hand region with clear gap.
   static const double skipChipGapAboveHand = AppDimensions.md;
 
+  /// The action band ([actionBarHeight]) bottom-aligns its content (turn row
+  /// + gap + timer bar), leaving its top ~30pt empty. This is the height of
+  /// the *visible* content — turn row (~60) + sm gap + 11pt timer bar — so
+  /// overlays can hug the timer instead of hovering over the empty space.
+  static const double actionBandVisibleContent = 60 + AppDimensions.sm + 11;
+
+  /// Bottom inset for the side FAB stacks (settings/leave on the left,
+  /// chat/reactions on the right): clears the hand region plus only the
+  /// visible action-band content, so the stacks sit just above the turn
+  /// timer bar.
+  static double portraitFabStackBottom(
+    double mediaBottomPadding, {
+    double scale = 1.0,
+  }) =>
+      mediaBottomPadding +
+      (handRegionHeight + actionBandVisibleContent + AppDimensions.sm) * scale;
+
   static double opponentRowHeight({
     required bool useRail,
     required bool hasBadges,
