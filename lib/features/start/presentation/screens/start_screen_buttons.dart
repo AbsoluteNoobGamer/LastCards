@@ -125,6 +125,15 @@ class _AuthProfileBadge extends ConsumerWidget {
                   backgroundColor: theme.accentPrimary.withValues(alpha: 0.15),
                 ),
                 const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const StoreScreen()),
+                  ),
+                  child: _CoinBalanceChip(
+                    balance: ref.watch(currencyProvider).balance,
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Flexible(
                   child: Text(
                     displayName,
@@ -149,6 +158,47 @@ class _AuthProfileBadge extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Coin balance chip (inside the auth profile badge)
+// -----------------------------------------------------------------------------
+
+class _CoinBalanceChip extends StatelessWidget {
+  const _CoinBalanceChip({required this.balance});
+
+  final int balance;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.goldPrimary.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.goldPrimary, width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.monetization_on_rounded,
+            color: AppColors.goldPrimary,
+            size: 12,
+          ),
+          const SizedBox(width: 3),
+          Text(
+            '$balance',
+            style: const TextStyle(
+              color: AppColors.goldPrimary,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1008,63 +1058,10 @@ class _IconRowItemState extends ConsumerState<_IconRowItem> {
 }
 
 // -----------------------------------------------------------------------------
-// Ads footer: banner ad + "Remove Ads" entry point. Collapses to nothing once
-// the player has purchased "Remove Ads" — no banner, nothing left to offer.
+// Ads footer: banner ad only. "Remove Ads" now lives in the Store screen
+// (see the icon row) rather than as a second button here. Collapses to
+// nothing once the player has purchased it — no banner, nothing left to show.
 // -----------------------------------------------------------------------------
-
-/// The paid ad-removal CTA — kept separate from [_AdsFooter] and placed
-/// higher up the page (right after the icon row) so it's reachable without
-/// scrolling, unlike the banner ad itself which nobody needs to see instantly.
-class _RemoveAdsButton extends ConsumerWidget {
-  const _RemoveAdsButton();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = ref.watch(themeProvider).theme;
-    return ValueListenableBuilder<bool>(
-      valueListenable: PurchaseService.instance.adsRemoved,
-      builder: (context, adsRemoved, _) {
-        if (adsRemoved) return const SizedBox.shrink();
-        return Center(
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => showRemoveAdsSheet(context),
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                decoration: BoxDecoration(
-                  color: theme.accentPrimary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: theme.accentPrimary.withValues(alpha: 0.6),
-                    width: 1.2,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.block_rounded, size: 17, color: theme.accentPrimary),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Remove Ads',
-                      style: GoogleFonts.outfit(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: theme.accentPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
 
 class _AdsFooter extends ConsumerWidget {
   const _AdsFooter();

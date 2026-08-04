@@ -5,6 +5,7 @@ export '../reactions/reaction_catalog.dart'
         ReactionDefinition,
         ReactionVisualKind,
         defaultWheelReactionIndices,
+        isReactionUnlocked,
         isReactionUnlockedForLevel,
         isValidReactionWireIndex,
         kAiQuickReactionIndices,

@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/services/avatar_catalog_service.dart';
+import '../../../../core/services/cosmetic_unlock_service.dart';
 import '../../../../core/services/player_level_service.dart';
 import '../../../../core/widgets/gameplay_circle_avatar.dart';
 import '../../../../shared/avatars/avatar_catalog.dart';
 import '../../../../shared/avatars/avatar_face.dart';
 import 'locker_tile.dart';
+import 'unlock_cosmetic_sheet.dart';
 
 /// "Avatars" tab — photo/initials plus level and title-exclusive cosmetics.
 class LockerAvatarsTab extends StatefulWidget {
@@ -38,8 +40,11 @@ class _LockerAvatarsTabState extends State<LockerAvatarsTab> {
               valueListenable: service.ownedTitles,
               builder: (context, ownedTitles, _) {
                 return ValueListenableBuilder<int>(
-                  valueListenable: PlayerLevelService.instance.currentLevel,
-                  builder: (context, level, _) {
+                  valueListenable: CosmeticUnlockService.instance.revision,
+                  builder: (context, _, __) {
+                    return ValueListenableBuilder<int>(
+                      valueListenable: PlayerLevelService.instance.currentLevel,
+                      builder: (context, level, _) {
                     final levelDesigns = <AvatarDesign>[];
                     final titleDesigns = <AvatarDesign>[];
                     for (final d in kAvatarCatalog) {
@@ -146,15 +151,25 @@ class _LockerAvatarsTabState extends State<LockerAvatarsTab> {
                                 state: LockerTileState.lockedByLevel,
                                 lockCaption: 'Level ${d.unlockLevel}',
                                 preview: _AvatarPreview(design: d),
-                                onTap: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Reach level ${d.unlockLevel} to unlock ${d.label}.',
-                                      ),
-                                    ),
-                                  );
-                                },
+                                onTap: () => showUnlockCosmeticSheet(
+                                  context,
+                                  name: d.label,
+                                  unlockLevel: d.unlockLevel,
+                                  coinCost: CosmeticUnlockService
+                                      .coinCostForLevel(d.unlockLevel),
+                                  cashProductId: AvatarCatalogService
+                                      .cashUnlockProductIdFor(d),
+                                  cashGateSatisfied: service.canCashUnlock(d),
+                                  cashGateMessage:
+                                      'Unlock the avatar before this one '
+                                      'first to buy this with real money.',
+                                  onCoinGranted: () =>
+                                      CosmeticUnlockService.instance
+                                          .markPurchased(
+                                    CosmeticUnlockService.categoryAvatars,
+                                    d.id,
+                                  ),
+                                ),
                               );
                             }),
                           ]),
@@ -167,6 +182,8 @@ class _LockerAvatarsTabState extends State<LockerAvatarsTab> {
             );
           },
         );
+      },
+    );
       },
     );
   }

@@ -6,7 +6,9 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../shared/avatars/avatar_catalog.dart';
+import 'cosmetic_unlock_service.dart';
 import 'player_level_service.dart';
+import 'purchase_service.dart';
 
 /// Selection + unlock state for in-game avatar cosmetics.
 class AvatarCatalogService {
@@ -40,6 +42,18 @@ class AvatarCatalogService {
     }
     await PlayerLevelService.instance.init();
     PlayerLevelService.instance.currentLevel.addListener(_onLevelChanged);
+    // Declare cash-unlock products before PurchaseService.init() queries the
+    // store (main() runs this service's init first).
+    for (final d in kAvatarCatalog) {
+      final productId = cashUnlockProductIdFor(d);
+      if (productId != null) {
+        PurchaseService.instance.registerCosmeticProduct(
+          productId: productId,
+          category: CosmeticUnlockService.categoryAvatars,
+          itemId: d.id,
+        );
+      }
+    }
     _initialized = true;
     // Strip level-locked picks immediately; title picks wait for entitlements.
     await sanitizeSelection(allowPendingTitles: true);
@@ -58,7 +72,36 @@ class AvatarCatalogService {
       if (kind == null) return false;
       return ownedTitles.value.contains(kind);
     }
-    return PlayerLevelService.instance.currentLevel.value >= design.unlockLevel;
+    return PlayerLevelService.instance.currentLevel.value >=
+            design.unlockLevel ||
+        CosmeticUnlockService.instance
+            .isPurchased(CosmeticUnlockService.categoryAvatars, design.id);
+  }
+
+  /// Cash-unlock product ID for a level-gated avatar, or null for free /
+  /// title-exclusive designs (titles are earned, never bought).
+  static String? cashUnlockProductIdFor(AvatarDesign design) {
+    if (design.isTitleExclusive || design.unlockLevel <= 1) return null;
+    return 'avatar_unlock_${design.id}';
+  }
+
+  /// True if [design] is next in line for a cash unlock: every earlier
+  /// level-gated avatar (by unlock level) is already owned — by level,
+  /// coins, or a prior purchase. Same rule as theme/card-back ladders.
+  bool canCashUnlock(AvatarDesign design) {
+    if (cashUnlockProductIdFor(design) == null) return false;
+    final ladder = kAvatarCatalog
+        .where((d) => cashUnlockProductIdFor(d) != null)
+        .toList()
+      ..sort((a, b) {
+        final cmp = a.unlockLevel.compareTo(b.unlockLevel);
+        return cmp != 0 ? cmp : a.id.compareTo(b.id);
+      });
+    for (final d in ladder) {
+      if (d.id == design.id) return true;
+      if (!isUnlocked(d)) return false;
+    }
+    return false;
   }
 
   /// Cosmetic id to stamp onto [PlayerModel] for online/offline play, or null

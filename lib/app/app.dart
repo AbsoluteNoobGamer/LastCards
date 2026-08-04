@@ -8,6 +8,7 @@ import 'start_screen_bgm_navigator_observer.dart';
 import '../core/theme/app_theme_data.dart';
 import '../core/providers/auth_profile_sync_provider.dart';
 import '../core/providers/card_style_firestore_sync_provider.dart';
+import '../core/providers/currency_provider.dart';
 import '../core/providers/online_rejoin_listener_provider.dart';
 import '../core/providers/reaction_wheel_provider.dart';
 import '../core/providers/theme_provider.dart';
@@ -37,6 +38,7 @@ class _LastCardsAppState extends ConsumerState<LastCardsApp> {
     // Load the persisted theme index from SharedPreferences on start.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(themeProvider.notifier).loadFromPrefs();
+      ref.read(currencyProvider.notifier).loadFromPrefs();
     });
   }
 

@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/services/ads_service.dart';
 import '../../../../core/services/player_level_service.dart';
 import '../../../../core/services/purchase_service.dart';
+import '../../../../core/widgets/banner_ad_slot.dart';
 import '../widgets/locker_avatars_tab.dart';
 import '../widgets/locker_cosmetics_tabs.dart';
 import '../widgets/locker_effects_tab.dart';
@@ -105,16 +106,26 @@ class _LockerScreenState extends State<LockerScreen> with SingleTickerProviderSt
           ),
         ],
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: const [
-          LockerCardBacksTab(),
-          LockerJokersTab(),
-          LockerFacesTab(),
-          LockerAvatarsTab(),
-          LockerReactionsTab(),
-          LockerThemeTab(),
-          LockerEffectsTab(),
+      body: Column(
+        children: [
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: const [
+                LockerCardBacksTab(),
+                LockerJokersTab(),
+                LockerFacesTab(),
+                LockerAvatarsTab(),
+                LockerReactionsTab(),
+                LockerThemeTab(),
+                LockerEffectsTab(),
+              ],
+            ),
+          ),
+          const SafeArea(
+            top: false,
+            child: Center(child: BannerAdSlot(placement: 'locker_banner')),
+          ),
         ],
       ),
     );

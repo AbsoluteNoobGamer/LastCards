@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/reactions/reaction_catalog.dart';
+import '../services/cosmetic_unlock_service.dart';
 import '../services/player_level_service.dart';
 import '../services/reaction_wheel_service.dart';
 import 'auth_provider.dart';
@@ -38,11 +39,14 @@ class ReactionWheelNotifier extends StateNotifier<List<int>> {
 
   void _onLevelChanged() => unawaited(reapplyUnlockSanitize());
 
+  Set<String> get _purchasedReactionIds => CosmeticUnlockService.instance
+      .idsFor(CosmeticUnlockService.categoryReactions);
+
   Future<void> _init() async {
     final raw = await ReactionWheelService.instance.loadSlots();
     final level = PlayerLevelService.instance.currentLevel.value;
-    var sanitized =
-        ReactionWheelService.instance.sanitizeForLevel(raw, level);
+    var sanitized = ReactionWheelService.instance
+        .sanitizeForLevel(raw, level, purchasedIds: _purchasedReactionIds);
     state = sanitized;
     if (_firebaseAppsReady() && FirebaseAuth.instance.currentUser != null) {
       await refreshFromFirestore();
@@ -58,7 +62,8 @@ class ReactionWheelNotifier extends StateNotifier<List<int>> {
   Future<void> reapplyUnlockSanitize() async {
     final prev = state;
     final level = PlayerLevelService.instance.currentLevel.value;
-    final next = ReactionWheelService.instance.sanitizeForLevel(prev, level);
+    final next = ReactionWheelService.instance
+        .sanitizeForLevel(prev, level, purchasedIds: _purchasedReactionIds);
     if (!_listEq(prev, next)) {
       await _persist(next);
     }
@@ -73,7 +78,8 @@ class ReactionWheelNotifier extends StateNotifier<List<int>> {
     final fw = profile?.reactionWheel;
     final level = PlayerLevelService.instance.currentLevel.value;
     if (fw != null && fw.length == kStarterReactionCount) {
-      final sanitized = ReactionWheelService.instance.sanitizeForLevel(fw, level);
+      final sanitized = ReactionWheelService.instance
+          .sanitizeForLevel(fw, level, purchasedIds: _purchasedReactionIds);
       await _persist(sanitized, syncFirebase: false);
     }
   }
@@ -81,7 +87,7 @@ class ReactionWheelNotifier extends StateNotifier<List<int>> {
   Future<void> setSlot(int slotIndex, int catalogId) async {
     if (slotIndex < 0 || slotIndex >= kStarterReactionCount) return;
     final level = PlayerLevelService.instance.currentLevel.value;
-    if (!isReactionUnlockedForLevel(catalogId, level)) return;
+    if (!isReactionUnlocked(catalogId, level, _purchasedReactionIds)) return;
     final next = [...state];
     next[slotIndex] = catalogId;
     await _persist(next);
@@ -89,8 +95,8 @@ class ReactionWheelNotifier extends StateNotifier<List<int>> {
 
   Future<void> setWheel(List<int> slots) async {
     final level = PlayerLevelService.instance.currentLevel.value;
-    final sanitized =
-        ReactionWheelService.instance.sanitizeForLevel(slots, level);
+    final sanitized = ReactionWheelService.instance
+        .sanitizeForLevel(slots, level, purchasedIds: _purchasedReactionIds);
     await _persist(sanitized);
   }
 

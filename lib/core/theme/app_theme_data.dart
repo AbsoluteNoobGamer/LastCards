@@ -50,6 +50,20 @@ class AppThemeData {
     // means no trial is offered — the theme is simply locked.
     this.trialGames,
 
+    // ── Optional: instant coin unlock ──────────────────────────────────
+    // Coin price to permanently unlock this theme before reaching
+    // minUnlockLevel. Null means it isn't coin-purchasable (e.g. themes
+    // that are already free by default).
+    this.coinUnlockCost,
+
+    // ── Optional: real-money cash unlock ───────────────────────────────
+    // Non-consumable IAP product ID for buying this theme outright. Must
+    // match a product configured in App Store Connect / Google Play
+    // Console (and, for local simulator testing, in
+    // ios/Runner/Configuration.storekit). Null means it isn't
+    // cash-purchasable.
+    this.cashUnlockProductId,
+
     // ── Optional: font family override ('playfair', 'cinzel', etc.) ─
     this.headingFontFamily = 'playfair',
 
@@ -92,6 +106,14 @@ class AppThemeData {
   /// Number of completed games (any mode) a locked-out player may trial
   /// this theme for before it auto-reverts. Null means no trial.
   final int? trialGames;
+
+  /// Coin price to permanently unlock this theme early. Null means it
+  /// isn't coin-purchasable.
+  final int? coinUnlockCost;
+
+  /// Non-consumable IAP product ID to buy this theme outright. Null means
+  /// it isn't cash-purchasable.
+  final String? cashUnlockProductId;
 
   final String headingFontFamily;
 

@@ -30,6 +30,7 @@ class ThemeService {
   static const _trialGamesRemainingKey = 'themeTrialGamesRemaining';
   static const _trialRevertThemeIdKey = 'themeTrialRevertThemeId';
   static const _trialedThemeIdsKey = 'themeTrialedThemeIds';
+  static const _purchasedThemeIdsKey = 'themePurchasedIds';
 
   const ThemeService();
 
@@ -91,5 +92,17 @@ class ThemeService {
     final ids = (prefs.getStringList(_trialedThemeIdsKey) ?? const []).toSet()
       ..add(themeId);
     await prefs.setStringList(_trialedThemeIdsKey, ids.toList());
+  }
+
+  /// Theme ids permanently unlocked outside the level-gate — via coins or a
+  /// real-money cash purchase (both grant the same permanent entitlement).
+  Future<Set<String>> loadPurchasedThemeIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getStringList(_purchasedThemeIdsKey) ?? const []).toSet();
+  }
+
+  Future<void> savePurchasedThemeIds(Set<String> ids) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_purchasedThemeIdsKey, ids.toList());
   }
 }

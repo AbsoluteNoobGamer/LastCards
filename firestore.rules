@@ -32,6 +32,10 @@ service cloud.firestore {
           'cardFaceSet',
           'reactionWheel',
           'fcmTokens',
+          'coins',
+          'adsRemoved',
+          'unlockedThemeIds',
+          'unlockedCosmetics',
         ]);
 
       allow delete: if request.auth != null && request.auth.uid == uid;

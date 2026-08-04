@@ -210,19 +210,9 @@ class CardBackWidget extends StatelessWidget {
         break;
       case 'classic':
       default:
-        final covers = CardBackService.instance.cardBackCoverDesigns.value;
-        final path = covers.isNotEmpty ? covers.first.assetPath! : null;
-        fallback = path != null
-            ? Image.asset(path, fit: BoxFit.cover)
-            : Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF1D2B50), Color(0xFF2D1B2D)],
-                  ),
-                ),
-              );
+        // The free generic back every player starts with — drawn in code so
+        // it never depends on a (now level-gated) cover image asset.
+        fallback = const _ClassicBack();
         break;
     }
 
@@ -297,6 +287,93 @@ class _AnimatedRoyalBackState extends State<_AnimatedRoyalBack>
 }
 
 // ── Static card backs ───────────────────────────────────────────────────────
+
+class _ClassicBack extends StatelessWidget {
+  const _ClassicBack();
+
+  @override
+  Widget build(BuildContext context) {
+    return const CustomPaint(painter: _ClassicBackPainter());
+  }
+}
+
+/// The default free card back: deep navy field, a subtle diamond lattice,
+/// a thin double gold frame, and a centred diamond emblem.
+class _ClassicBackPainter extends CustomPainter {
+  const _ClassicBackPainter();
+
+  static const _navy = Color(0xFF14213D);
+  static const _navyDeep = Color(0xFF0B1226);
+  static const _gold = Color(0xFFC9A84C);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_navy, _navyDeep],
+        ).createShader(Offset.zero & size),
+    );
+
+    final lattice = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.7
+      ..color = _gold.withValues(alpha: 0.14);
+    const gap = 14.0;
+    for (double d = -size.height; d < size.width + size.height; d += gap) {
+      canvas.drawLine(Offset(d, 0), Offset(d + size.height, size.height), lattice);
+      canvas.drawLine(Offset(d + size.height, 0), Offset(d, size.height), lattice);
+    }
+
+    final outer = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..color = _gold.withValues(alpha: 0.75);
+    final inner = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8
+      ..color = _gold.withValues(alpha: 0.45);
+    canvas.drawRect(
+      Rect.fromLTWH(4, 4, size.width - 8, size.height - 8),
+      outer,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(8, 8, size.width - 16, size.height - 16),
+      inner,
+    );
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final r = size.shortestSide * 0.18;
+    final emblem = Path()
+      ..moveTo(center.dx, center.dy - r)
+      ..lineTo(center.dx + r * 0.7, center.dy)
+      ..lineTo(center.dx, center.dy + r)
+      ..lineTo(center.dx - r * 0.7, center.dy)
+      ..close();
+    canvas.drawPath(
+      emblem,
+      Paint()..color = _gold.withValues(alpha: 0.85),
+    );
+    canvas.drawPath(
+      emblem,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = _gold,
+    );
+    canvas.drawCircle(
+      center,
+      r * 0.28,
+      Paint()..color = _navyDeep,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ClassicBackPainter oldDelegate) => false;
+}
 
 class _MidasBack extends StatelessWidget {
   const _MidasBack();

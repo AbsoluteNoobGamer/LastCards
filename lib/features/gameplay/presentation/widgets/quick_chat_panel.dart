@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers/reaction_wheel_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
+import '../../../../core/services/cosmetic_unlock_service.dart';
 import '../../../../core/services/player_level_service.dart';
 import '../../../../shared/constants/quick_chat_messages.dart';
 import '../../../../shared/reactions/built_in_reaction_widgets.dart';
@@ -42,7 +43,14 @@ class QuickChatPanel extends ConsumerWidget {
               playerLevel: level,
               accent: theme.accentDark,
               onTap: () {
-                if (!isReactionUnlockedForLevel(wheel[i], level)) return;
+                if (!isReactionUnlocked(
+                  wheel[i],
+                  level,
+                  CosmeticUnlockService.instance
+                      .idsFor(CosmeticUnlockService.categoryReactions),
+                )) {
+                  return;
+                }
                 onMessageSelected(wheel[i]);
               },
             ),
@@ -84,7 +92,12 @@ class _ReactionSlotButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final unlocked = isReactionUnlockedForLevel(catalogId, playerLevel);
+    final unlocked = isReactionUnlocked(
+      catalogId,
+      playerLevel,
+      CosmeticUnlockService.instance
+          .idsFor(CosmeticUnlockService.categoryReactions),
+    );
     final def = isValidReactionWireIndex(catalogId)
         ? kReactionDefinitions[catalogId]
         : kReactionDefinitions[0];

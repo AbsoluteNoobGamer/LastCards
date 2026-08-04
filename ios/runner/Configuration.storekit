@@ -1,0 +1,422 @@
+{
+  "identifier": "97D3881A",
+  "nonRenewingSubscriptions": [],
+  "products": [
+    {
+      "displayPrice": "2.99",
+      "familyShareable": false,
+      "internalID": "FD1D426B",
+      "localizations": [
+        {
+          "description": "Removes all ads from the app.",
+          "displayName": "Remove Ads",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "remove_ads",
+      "referenceName": "Remove Ads",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "0.99",
+      "familyShareable": false,
+      "internalID": "FF0EA1A2",
+      "localizations": [
+        {
+          "description": "Unlocks the Carbon table theme.",
+          "displayName": "Carbon Theme",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "theme_unlock_carbon",
+      "referenceName": "Theme Unlock - Carbon",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "0.99",
+      "familyShareable": false,
+      "internalID": "634890CF",
+      "localizations": [
+        {
+          "description": "Unlocks the Gold table theme.",
+          "displayName": "Gold Theme",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "theme_unlock_gold",
+      "referenceName": "Theme Unlock - Gold",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "1.99",
+      "familyShareable": false,
+      "internalID": "54B121E0",
+      "localizations": [
+        {
+          "description": "Unlocks the Midnight Navy table theme.",
+          "displayName": "Midnight Navy Theme",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "theme_unlock_midnight_navy",
+      "referenceName": "Theme Unlock - Midnight Navy",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "1.99",
+      "familyShareable": false,
+      "internalID": "616ADAE2",
+      "localizations": [
+        {
+          "description": "Unlocks the Crimson Velvet table theme.",
+          "displayName": "Crimson Velvet Theme",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "theme_unlock_crimson_velvet",
+      "referenceName": "Theme Unlock - Crimson Velvet",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "1.99",
+      "familyShareable": false,
+      "internalID": "5A15C277",
+      "localizations": [
+        {
+          "description": "Unlocks the Obsidian table theme.",
+          "displayName": "Obsidian Theme",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "theme_unlock_obsidian",
+      "referenceName": "Theme Unlock - Obsidian",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "2.99",
+      "familyShareable": false,
+      "internalID": "25EAFFD3",
+      "localizations": [
+        {
+          "description": "Unlocks the Emerald Royale table theme.",
+          "displayName": "Emerald Royale Theme",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "theme_unlock_emerald_royale",
+      "referenceName": "Theme Unlock - Emerald Royale",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "2.99",
+      "familyShareable": false,
+      "internalID": "10F82428",
+      "localizations": [
+        {
+          "description": "Unlocks the Sapphire table theme.",
+          "displayName": "Sapphire Theme",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "theme_unlock_sapphire",
+      "referenceName": "Theme Unlock - Sapphire",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "2.99",
+      "familyShareable": false,
+      "internalID": "4F04C978",
+      "localizations": [
+        {
+          "description": "Unlocks the Copper Noir table theme.",
+          "displayName": "Copper Noir Theme",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "theme_unlock_copper_noir",
+      "referenceName": "Theme Unlock - Copper Noir",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "3.99",
+      "familyShareable": false,
+      "internalID": "9F4A4841",
+      "localizations": [
+        {
+          "description": "Unlocks the Arctic table theme.",
+          "displayName": "Arctic Theme",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "theme_unlock_arctic",
+      "referenceName": "Theme Unlock - Arctic",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "3.99",
+      "familyShareable": false,
+      "internalID": "21DD1037",
+      "localizations": [
+        {
+          "description": "Unlocks the Volcanic table theme.",
+          "displayName": "Volcanic Theme",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "theme_unlock_volcanic",
+      "referenceName": "Theme Unlock - Volcanic",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "4.99",
+      "familyShareable": false,
+      "internalID": "38DCA85E",
+      "localizations": [
+        {
+          "description": "Unlocks the Neon Grid table theme.",
+          "displayName": "Neon Grid Theme",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "theme_unlock_neon_grid",
+      "referenceName": "Theme Unlock - Neon Grid",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "4.99",
+      "familyShareable": false,
+      "internalID": "5D3614DB",
+      "localizations": [
+        {
+          "description": "Unlocks the Monte Carlo table theme.",
+          "displayName": "Monte Carlo Theme",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "theme_unlock_monte_carlo",
+      "referenceName": "Theme Unlock - Monte Carlo",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "0.99",
+      "familyShareable": false,
+      "internalID": "8F7D62E0",
+      "localizations": [
+        {
+          "description": "Unlocks Purple Complex Card Back.",
+          "displayName": "Purple Complex Card Back",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "cardback_unlock_purple_complex",
+      "referenceName": "Purple Complex Card Back",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "0.99",
+      "familyShareable": false,
+      "internalID": "8CCB75E4",
+      "localizations": [
+        {
+          "description": "Unlocks Gold Carbon Card Back.",
+          "displayName": "Gold Carbon Card Back",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "cardback_unlock_gold_carbon",
+      "referenceName": "Gold Carbon Card Back",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "1.99",
+      "familyShareable": false,
+      "internalID": "82C963BD",
+      "localizations": [
+        {
+          "description": "Unlocks Metalic Blue Card Back.",
+          "displayName": "Metalic Blue Card Back",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "cardback_unlock_metalic_blue",
+      "referenceName": "Metalic Blue Card Back",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "1.99",
+      "familyShareable": false,
+      "internalID": "D22963D2",
+      "localizations": [
+        {
+          "description": "Unlocks Darkness in Green Card Back.",
+          "displayName": "Darkness in Green Card Back",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "cardback_unlock_darkness_in_green",
+      "referenceName": "Darkness in Green Card Back",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "1.99",
+      "familyShareable": false,
+      "internalID": "FC60A2D2",
+      "localizations": [
+        {
+          "description": "Unlocks NoobGamer Card Back.",
+          "displayName": "NoobGamer Card Back",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "cardback_unlock_noobgamer_back",
+      "referenceName": "NoobGamer Card Back",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "2.99",
+      "familyShareable": false,
+      "internalID": "FC53C2EE",
+      "localizations": [
+        {
+          "description": "Unlocks Two Lions Card Back.",
+          "displayName": "Two Lions Card Back",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "cardback_unlock_two_lions",
+      "referenceName": "Two Lions Card Back",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "1.99",
+      "familyShareable": false,
+      "internalID": "DF613077",
+      "localizations": [
+        {
+          "description": "Unlocks BlueBackRedDiamonds Card Back.",
+          "displayName": "BlueBackRedDiamonds Card Back",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "cardback_unlock_bluebackreddiamonds",
+      "referenceName": "BlueBackRedDiamonds Card Back",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "0.99",
+      "familyShareable": false,
+      "internalID": "7A53BB1F",
+      "localizations": [
+        {
+          "description": "Unlocks JokerFace Joker Cover.",
+          "displayName": "JokerFace Joker Cover",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "joker_unlock_jokerface",
+      "referenceName": "JokerFace Joker Cover",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "1.99",
+      "familyShareable": false,
+      "internalID": "F99D2E94",
+      "localizations": [
+        {
+          "description": "Unlocks Joker Hearts Carbon Cover.",
+          "displayName": "Joker Hearts Carbon Cover",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "joker_unlock_joker_hearts_carbon",
+      "referenceName": "Joker Hearts Carbon Cover",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "2.99",
+      "familyShareable": false,
+      "internalID": "A557F2E5",
+      "localizations": [
+        {
+          "description": "Unlocks Joker2 Hearts Carbon Cover.",
+          "displayName": "Joker2 Hearts Carbon Cover",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "joker_unlock_joker2_hearts_carbon",
+      "referenceName": "Joker2 Hearts Carbon Cover",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "3.99",
+      "familyShareable": false,
+      "internalID": "404399DA",
+      "localizations": [
+        {
+          "description": "Unlocks Joker Sci-Fi Cover.",
+          "displayName": "Joker Sci-Fi Cover",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "joker_unlock_joker_sci_fi",
+      "referenceName": "Joker Sci-Fi Cover",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "0.99",
+      "familyShareable": false,
+      "internalID": "C863CA62",
+      "localizations": [
+        {
+          "description": "Unlocks Spade Ace Avatar.",
+          "displayName": "Spade Ace Avatar",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "avatar_unlock_spade_ace",
+      "referenceName": "Spade Ace Avatar",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "3.99",
+      "familyShareable": false,
+      "internalID": "2CFC3496",
+      "localizations": [
+        {
+          "description": "Unlocks Neon Joker Avatar.",
+          "displayName": "Neon Joker Avatar",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "avatar_unlock_neon_joker",
+      "referenceName": "Neon Joker Avatar",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "4.99",
+      "familyShareable": false,
+      "internalID": "52B4647D",
+      "localizations": [
+        {
+          "description": "Unlocks Gold King Avatar.",
+          "displayName": "Gold King Avatar",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "avatar_unlock_gold_king",
+      "referenceName": "Gold King Avatar",
+      "type": "NonConsumable"
+    }
+  ],
+  "settings": {
+    "_applicationInternalID": "",
+    "_developerTeamID": "",
+    "_lastSynchronizedDate": 0,
+    "_locale": "en_US"
+  },
+  "subscriptionGroups": [],
+  "version": {
+    "major": 3,
+    "minor": 0
+  }
+}

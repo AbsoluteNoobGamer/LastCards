@@ -12,6 +12,7 @@ import 'package:last_cards/services/audio_service.dart' as game_audio;
 import 'package:last_cards/services/game_sound.dart';
 import 'package:last_cards/core/models/move_log_entry.dart';
 import 'package:last_cards/core/models/move_log_merge.dart';
+import 'package:last_cards/core/providers/currency_provider.dart';
 import 'package:last_cards/core/providers/theme_provider.dart';
 import 'package:last_cards/core/providers/user_profile_provider.dart';
 import 'package:last_cards/core/providers/profile_provider.dart';
@@ -37,6 +38,7 @@ import 'package:last_cards/features/gameplay/presentation/widgets/turn_indicator
 import 'package:last_cards/core/services/ads_service.dart';
 import 'package:last_cards/core/services/avatar_catalog_service.dart';
 import 'package:last_cards/core/services/purchase_service.dart';
+import 'package:last_cards/core/services/cosmetic_unlock_service.dart';
 import 'package:last_cards/core/services/player_level_service.dart';
 import 'package:last_cards/shared/reactions/reaction_catalog.dart';
 import 'package:last_cards/features/settings/presentation/widgets/settings_modal.dart';
@@ -682,6 +684,11 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       // This screen is offline-only (online Bust uses TableScreen, already
       // covered by its gameStateProvider listener) — safe to count directly.
       unawaited(ref.read(themeProvider.notifier).recordGameCompleted());
+      unawaited(ref.read(currencyProvider.notifier).addCoins(
+            localSurvived
+                ? CurrencyRewards.bustRoundSurvive
+                : CurrencyRewards.bustRoundEliminated,
+          ));
       Navigator.of(context).push(PageRouteBuilder(
         pageBuilder: (_, __, ___) => BustEliminationScreen(
           result: result,
@@ -1301,7 +1308,9 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
   void _sendQuickChat(int messageIndex) {
     if (_quickChatCooldownRemaining > 0) return;
     final level = PlayerLevelService.instance.currentLevel.value;
-    if (!isReactionUnlockedForLevel(messageIndex, level)) return;
+    final purchased = CosmeticUnlockService.instance
+        .idsFor(CosmeticUnlockService.categoryReactions);
+    if (!isReactionUnlocked(messageIndex, level, purchased)) return;
 
     final bottom = _localPlayer;
     final localChatName =
