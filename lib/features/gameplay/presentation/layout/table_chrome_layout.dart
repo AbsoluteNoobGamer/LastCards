@@ -47,10 +47,12 @@ abstract final class TableChromeLayout {
   /// overhead: at the full 2.2x ceiling on very large/landscape-short
   /// viewports they can outgrow the space physically available for the
   /// Expanded they share with the piles, squeezing the piles to exactly 0px
-  /// (which sends their FittedBox scale to NaN). Capping them the same way
-  /// [overlayScaleFor] caps text overlays keeps that from happening while
-  /// still letting them grow somewhat on real tablets.
-  static const double chromeScaleMax = 1.0;
+  /// (which sends their FittedBox scale to NaN). Matched to
+  /// [overlayScaleMax] — that ceiling is already proven safe for the same
+  /// large-tablet/landscape-short viewports — so the move log and HUD grow
+  /// past 1.0x on tablets instead of staying phone-sized, without
+  /// reintroducing the squeeze-to-zero risk a higher cap would bring back.
+  static const double chromeScaleMax = 1.25;
 
   /// Scale for [ArenaInfoBand]/[HudOverlayWidget]'s fixed slot reservations.
   /// Always ≤ [scaleFor] and capped at [chromeScaleMax].

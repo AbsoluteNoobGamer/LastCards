@@ -347,14 +347,22 @@ class _TableLayout extends StatelessWidget {
         final railBase = hasTournamentBadges
             ? TablePortraitGrid.opponentRailBaseHeightWithBadge
             : TablePortraitGrid.opponentRailBaseHeight;
-        final cappedOpponentHeight =
-            (railBase + railChatReserve) * tableScale;
-        final matchHeaderBand =
-            TablePortraitGrid.matchHeaderHeight * tableScale;
         // Capped below tableScale — see TableChromeLayout.chromeScaleFor.
         final chromeScale = TableChromeLayout.chromeScaleFor(
           Size(constraints.maxWidth, constraints.maxHeight),
         );
+        // Opponent rail / header / action bar are pure vertical overhead
+        // around the board, same as the info band and HUD slot below — on
+        // large tablets, letting these scale all the way to tableScale
+        // (2.2x) was eating nearly the whole screen height and leaving the
+        // hero stage (draw/discard piles) a sliver to fit into, which
+        // BoxFit.scaleDown then crushed to near-invisible. Capping them at
+        // chromeScale keeps them legibly bigger than phone size without
+        // starving the board of the space it actually needs to grow into.
+        final cappedOpponentHeight =
+            (railBase + railChatReserve) * chromeScale;
+        final matchHeaderBand =
+            TablePortraitGrid.matchHeaderHeight * chromeScale;
         final infoBand =
             ArenaInfoBand.heightFor(compact: isMobile, scale: chromeScale) +
                 8 * chromeScale;
@@ -362,7 +370,7 @@ class _TableLayout extends StatelessWidget {
             HudOverlayWidget.slotHeight(compact: isMobile, scale: chromeScale);
         final bottomPad = isMobile ? 0.0 : AppDimensions.md;
         final scaledActionBarHeight =
-            TablePortraitGrid.actionBarHeight * tableScale;
+            TablePortraitGrid.actionBarHeight * chromeScale;
         // Info band + HUD live inside the board Expanded stack alongside the
         // hero stage (draw/discard piles) — they must be subtracted here too,
         // otherwise this budget only accounts for the chrome *outside* that
@@ -400,7 +408,7 @@ class _TableLayout extends StatelessWidget {
                 showLive: showLiveChip,
                 isHardcore: isHardcore,
                 compact: isMobile,
-                scale: tableScale,
+                scale: chromeScale,
               ),
               SizedBox(
                 height: cappedOpponentHeight,
@@ -408,7 +416,7 @@ class _TableLayout extends StatelessWidget {
                   slots: opponentRailSlots,
                   slotKeyBuilder: (player) => playerZoneKeys[player.id],
                   height: railBase,
-                  scale: tableScale,
+                  scale: chromeScale,
                   thinkingPlayerId: thinkingOpponentId,
                   quickChatBubblesByPlayer: quickChatBubblesByPlayer,
                   onRemoveQuickChatBubble: onRemoveQuickChatBubble,
@@ -506,8 +514,9 @@ class _TableLayout extends StatelessWidget {
                       timeRemainingStream: timeRemainingStream,
                       totalDurationSeconds: turnTimerTotalSeconds,
                       isVisible: true,
+                      scale: chromeScale,
                     ),
-                    SizedBox(height: AppDimensions.sm * tableScale),
+                    SizedBox(height: AppDimensions.sm * chromeScale),
                     FloatingActionBarWidget(
                       activePlayerName: activePlayerDisplayName,
                       direction: gameState.direction,
@@ -520,6 +529,7 @@ class _TableLayout extends StatelessWidget {
                       lastCardsEnabled: true,
                       localHandSize: localHandSize,
                       onLastCards: onLastCardsTap,
+                      scale: chromeScale,
                     ),
                   ],
                 ),
@@ -1036,6 +1046,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                       totalDurationSeconds: turnTimerTotalSeconds,
                       isVisible: true,
                       compact: true,
+                      scale: tableScale,
                     ),
                     const SizedBox(height: AppDimensions.xs),
                     FloatingActionBarWidget(
@@ -1051,6 +1062,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                       lastCardsEnabled: true,
                       localHandSize: localHandSize,
                       onLastCards: onLastCardsTap,
+                      scale: tableScale,
                     ),
                   ],
                 ),

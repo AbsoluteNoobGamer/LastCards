@@ -1467,7 +1467,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
     );
   }
 
-  Widget _buildFloatingActionBar({required bool compact}) {
+  Widget _buildFloatingActionBar({required bool compact, double scale = 1.0}) {
     final isMyTurn = !_aiThinking &&
         _gameState.currentPlayerId == OfflineGameState.localId;
     final canEndTurn = isMyTurn && canEndTurnButton(_gameState);
@@ -1491,6 +1491,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
       lastCardsEnabled: false,
       localHandSize: _localPlayer?.hand.length ?? 0,
       compact: compact,
+      scale: scale,
     );
   }
 
@@ -1603,7 +1604,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
             padding: EdgeInsets.only(
               bottom: (isMobile ? AppDimensions.sm : AppDimensions.md) * scale,
             ),
-            child: _buildFloatingActionBar(compact: false),
+            child: _buildFloatingActionBar(compact: false, scale: scale),
           ),
           _buildLocalHand(
             localPlayer: localPlayer,
@@ -1671,7 +1672,7 @@ class _BustGameScreenState extends ConsumerState<BustGameScreen> {
             ),
           ),
           SizedBox(height: 2 * scale),
-          _buildFloatingActionBar(compact: true),
+          _buildFloatingActionBar(compact: true, scale: scale),
           SizedBox(height: 2 * scale),
           Expanded(
             child: _buildLocalHand(

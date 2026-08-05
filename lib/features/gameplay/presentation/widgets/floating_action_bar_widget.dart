@@ -51,10 +51,17 @@ class FloatingActionBarWidget extends ConsumerStatefulWidget {
     this.lastCardsEnabled = true,
     this.localHandSize = 0,
     this.onLastCards,
+    this.scale = 1.0,
   });
 
   /// When true, uses smaller padding/fonts for landscape layout.
   final bool compact;
+
+  /// Tablet/desktop scale multiplier (1.0 on phones) — see
+  /// [TableChromeLayout.scaleFor]. Grows every literal size/padding/font
+  /// below so the bar fills its (already-scaled) reserved slot instead of
+  /// floating tiny inside a tall empty band on large tablets.
+  final double scale;
 
   @override
   ConsumerState<FloatingActionBarWidget> createState() =>
@@ -158,6 +165,7 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
     required Color textSec,
     required Color bgDeep,
   }) {
+    final scale = widget.scale;
     final declared = widget.hasAlreadyDeclared;
     final disableAnim = MediaQuery.disableAnimationsOf(context);
     final bump = _lastCardsHighlightKey > 0 && !disableAnim;
@@ -195,8 +203,8 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
             shadowColor: Colors.transparent,
             foregroundColor: declared ? textSec : bgDeep,
             padding: EdgeInsets.symmetric(
-              horizontal: useCompact ? 4 : (isMobile ? 6 : 8),
-              vertical: useCompact ? 6 : (isMobile ? 8 : 10),
+              horizontal: (useCompact ? 4 : (isMobile ? 6 : 8)) * scale,
+              vertical: (useCompact ? 6 : (isMobile ? 8 : 10)) * scale,
             ),
             minimumSize: Size.zero,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -206,7 +214,7 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
             textAlign: TextAlign.center,
             style: TextStyle(
               fontWeight: FontWeight.w900,
-              fontSize: useCompact ? 9 : (isMobile ? 10 : 12),
+              fontSize: (useCompact ? 9 : (isMobile ? 10 : 12)) * scale,
             ),
             maxLines: 2,
           ),
@@ -270,6 +278,7 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
             AppDimensions.breakpointMobile;
         final useCompact = widget.compact ||
             (isMobile && constraints.maxWidth > constraints.maxHeight);
+        final scale = widget.scale;
 
         Widget endTurnButton() {
           return AnimatedOpacity(
@@ -285,13 +294,13 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
                   end: Alignment.bottomCenter,
                 ),
                 borderRadius:
-                    BorderRadius.circular(AppDimensions.radiusButton),
+                    BorderRadius.circular(AppDimensions.radiusButton * scale),
                 boxShadow: widget.canEndTurn
                     ? [
                         BoxShadow(
                           color: accent.withValues(alpha: 0.4),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                          blurRadius: 8 * scale,
+                          offset: Offset(0, 2 * scale),
                         )
                       ]
                     : null,
@@ -311,8 +320,8 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
                   foregroundColor: widget.canEndTurn ? bgDeep : textSec,
                   disabledForegroundColor: textSec,
                   padding: EdgeInsets.symmetric(
-                    horizontal: useCompact ? 8 : (isMobile ? 12 : 20),
-                    vertical: useCompact ? 6 : (isMobile ? 10 : 12),
+                    horizontal: (useCompact ? 8 : (isMobile ? 12 : 20)) * scale,
+                    vertical: (useCompact ? 6 : (isMobile ? 10 : 12)) * scale,
                   ),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -321,7 +330,7 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
                   'End Turn',
                   style: TextStyle(
                     fontWeight: FontWeight.w900,
-                    fontSize: useCompact ? 11 : (isMobile ? 13 : 16),
+                    fontSize: (useCompact ? 11 : (isMobile ? 13 : 16)) * scale,
                   ),
                 ),
               ),
@@ -332,12 +341,13 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
         final isCw = widget.direction == PlayDirection.clockwise;
         final directionIconData =
             isCw ? Icons.rotate_right : Icons.rotate_left;
-        final dirIconSize = useCompact ? 16.0 : (isMobile ? 20.0 : 24.0);
+        final dirIconSize =
+            (useCompact ? 16.0 : (isMobile ? 20.0 : 24.0)) * scale;
         final disableDirAnim = MediaQuery.disableAnimationsOf(context);
 
         Widget leftSection() {
           final double slotWidth =
-              useCompact ? 64.0 : (isMobile ? 90.0 : 120.0);
+              (useCompact ? 64.0 : (isMobile ? 90.0 : 120.0)) * scale;
           final showLastCardsSlot = widget.lastCardsEnabled &&
               widget.onLastCards != null;
 
@@ -409,24 +419,27 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
           );
         }
 
-        final barRadius = useCompact ? 18.0 : 24.0;
+        final barRadius = (useCompact ? 18.0 : 24.0) * scale;
         return Container(
           padding: EdgeInsets.symmetric(
-            horizontal: useCompact ? 8 : (isMobile ? AppDimensions.sm : AppDimensions.md),
-            vertical: useCompact ? 5 : (isMobile ? 7 : 9),
+            horizontal: (useCompact
+                    ? 8
+                    : (isMobile ? AppDimensions.sm : AppDimensions.md)) *
+                scale,
+            vertical: (useCompact ? 5 : (isMobile ? 7 : 9)) * scale,
           ),
           decoration: BoxDecoration(
             color: surface.withValues(alpha: 0.92),
             borderRadius: BorderRadius.circular(barRadius),
             border: Border.all(
               color: accent.withValues(alpha: 0.45),
-              width: 1.3,
+              width: 1.3 * scale,
             ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.45),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+                blurRadius: 12 * scale,
+                offset: Offset(0, 4 * scale),
               ),
             ],
           ),
@@ -437,9 +450,10 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
 
               Container(
                 width: 1,
-                height: useCompact ? 18 : 24,
+                height: (useCompact ? 18 : 24) * scale,
                 color: accentDark.withValues(alpha: 0.3),
-                margin: EdgeInsets.symmetric(horizontal: useCompact ? 4 : 8),
+                margin: EdgeInsets.symmetric(
+                    horizontal: (useCompact ? 4 : 8) * scale),
               ),
 
               Expanded(
@@ -466,7 +480,9 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: accent,
-                              fontSize: useCompact ? 12 : (isMobile ? 14 : 16),
+                              fontSize:
+                                  (useCompact ? 12 : (isMobile ? 14 : 16)) *
+                                      scale,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 0.3,
                             ),
@@ -474,7 +490,7 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
                             overflow: TextOverflow.ellipsis,
                           ),
                           if (hasNext) ...[
-                            SizedBox(height: useCompact ? 1 : 2),
+                            SizedBox(height: (useCompact ? 1 : 2) * scale),
                             AnimatedSwitcher(
                               duration: const Duration(milliseconds: 280),
                               child: Text(
@@ -485,8 +501,10 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: textSec.withValues(alpha: 0.92),
-                                  fontSize:
-                                      useCompact ? 8 : (isMobile ? 10 : 11),
+                                  fontSize: (useCompact
+                                          ? 8
+                                          : (isMobile ? 10 : 11)) *
+                                      scale,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0.2,
                                 ),
@@ -502,13 +520,14 @@ class _FloatingActionBarWidgetState extends ConsumerState<FloatingActionBarWidge
 
               Container(
                 width: 1,
-                height: useCompact ? 18 : 24,
+                height: (useCompact ? 18 : 24) * scale,
                 color: accentDark.withValues(alpha: 0.3),
-                margin: EdgeInsets.symmetric(horizontal: useCompact ? 4 : 8),
+                margin: EdgeInsets.symmetric(
+                    horizontal: (useCompact ? 4 : 8) * scale),
               ),
 
               SizedBox(
-                width: useCompact ? 64.0 : (isMobile ? 90.0 : 120.0),
+                width: (useCompact ? 64.0 : (isMobile ? 90.0 : 120.0)) * scale,
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: endTurnButton(),

@@ -18,12 +18,18 @@ class TurnTimerBar extends ConsumerStatefulWidget {
   /// When true, uses shorter bar height for landscape layout.
   final bool compact;
 
+  /// Tablet/desktop scale multiplier (1.0 on phones) — see
+  /// [TableChromeLayout.scaleFor]. Without this the bar stays a thin sliver
+  /// while the rest of the action-bar band grows around it.
+  final double scale;
+
   const TurnTimerBar({
     super.key,
     required this.timeRemainingStream,
     this.totalDurationSeconds = GameTurnTimer.defaultDurationSeconds,
     this.isVisible = false,
     this.compact = false,
+    this.scale = 1.0,
   });
 
   @override
@@ -82,8 +88,8 @@ class _TurnTimerBarState extends ConsumerState<TurnTimerBar>
           barColor = theme.secondaryAccent;
         }
 
-        final barHeight = widget.compact ? 7.0 : 11.0;
-        final radius = widget.compact ? 2.0 : 3.0;
+        final barHeight = (widget.compact ? 7.0 : 11.0) * widget.scale;
+        final radius = (widget.compact ? 2.0 : 3.0) * widget.scale;
 
         return AnimatedBuilder(
           animation: _urgentCtrl,
