@@ -722,10 +722,10 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                     child: Column(
                       children: [
                         _buildOptionalUpdateBanner(splashTheme),
-                        SizedBox(height: isMobile ? 24 : 40),
+                        SizedBox(height: isMobile ? 16 : 32),
                         SizedBox(
                             height: constraints.maxHeight *
-                                (isMobile ? 0.24 : 0.3)),
+                                (isMobile ? 0.14 : 0.2)),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           child: Column(
@@ -785,7 +785,7 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                             ],
                           ),
                         ),
-                        SizedBox(height: isMobile ? 48 : 64),
+                        SizedBox(height: isMobile ? 32 : 48),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 40),
                           child: disableAnim
@@ -916,10 +916,10 @@ class _LastCardsStartScreenState extends ConsumerState<LastCardsStartScreen>
                             ],
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 16),
                         const _AdsFooter(),
                         const SizedBox(
-                          height: 32,
+                          height: 16,
                         ),
                       ],
                     ),
