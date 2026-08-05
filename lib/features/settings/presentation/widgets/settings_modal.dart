@@ -27,7 +27,7 @@ class SettingsState {
   final bool reduceMotion;
   /// When true (“Lower Performance”), trims heavy visuals (e.g. start menu effects).
   final bool budgetDeviceMode;
-  /// Master switch for online push-to-talk voice (default off).
+  /// Master switch for online push-to-talk voice (default on).
   final bool voiceChatEnabled;
 
   SettingsState({
@@ -36,7 +36,7 @@ class SettingsState {
     this.musicVolume = 55.0,
     this.reduceMotion = false,
     this.budgetDeviceMode = false,
-    this.voiceChatEnabled = false,
+    this.voiceChatEnabled = true,
   });
 
   SettingsState copyWith({
@@ -73,7 +73,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       musicVolume: _prefs?.getDouble('musicVolume') ?? 55.0,
       reduceMotion: _prefs?.getBool('reduceMotion') ?? false,
       budgetDeviceMode: _prefs?.getBool('budget_device_mode') ?? false,
-      voiceChatEnabled: _prefs?.getBool('voice_chat_enabled') ?? false,
+      voiceChatEnabled: _prefs?.getBool('voice_chat_enabled') ?? true,
     );
     StartScreenBgm.instance
         .setMusicVolume(state.musicVolume / 100.0);
@@ -267,7 +267,7 @@ class SettingsModal extends ConsumerWidget {
                           title: const Text('Voice chat'),
                           subtitle: Text(
                             'Online push-to-talk (hold to speak, max 10 seconds). '
-                            'Off by default — no mic until you enable this.',
+                            'On by default — turn off here if you\'d rather not use a mic.',
                             style: TextStyle(
                               fontSize: isMobile ? 11 : 12,
                               color: Colors.grey.shade500,

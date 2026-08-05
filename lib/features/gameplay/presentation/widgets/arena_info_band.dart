@@ -11,13 +11,16 @@ import 'table_event_ticker.dart';
 
 /// Slim full-width band: move log + event flash.
 ///
-/// Layout always reserves [heightFor]. Expanding opens a taller overlay that
-/// paints over the board so the table column never reflows.
+/// Layout always reserves [heightFor]. Expanding opens a taller panel via a
+/// root [Overlay] entry (not a local overflowing [Stack]) so it — and its
+/// tap-outside-to-dismiss scrim — are hit-testable across the whole screen
+/// regardless of how small this band's own ancestor Stack is bounded to.
 class ArenaInfoBand extends ConsumerStatefulWidget {
   const ArenaInfoBand({
     super.key,
     required this.moveLogEntries,
     required this.eventTicker,
+    required this.expandedNotifier,
     this.eventTickerFallback,
     this.compact = false,
     this.scale = 1.0,
@@ -25,6 +28,12 @@ class ArenaInfoBand extends ConsumerStatefulWidget {
 
   final List<MoveLogEntry> moveLogEntries;
   final TableEventTickerController eventTicker;
+
+  /// Owned by the table screen (see [TableScreen._moveLogExpanded]) purely
+  /// so other code can query/force-collapse it; the overlay lifecycle below
+  /// is what actually makes tap-outside-to-dismiss work.
+  final ValueNotifier<bool> expandedNotifier;
+
   final String? eventTickerFallback;
   final bool compact;
   final double scale;
@@ -41,200 +50,276 @@ class ArenaInfoBand extends ConsumerStatefulWidget {
 }
 
 class _ArenaInfoBandState extends ConsumerState<ArenaInfoBand> {
-  bool _expanded = false;
+  final LayerLink _layerLink = LayerLink();
+  OverlayEntry? _overlayEntry;
 
-  void _toggleExpanded() {
-    setState(() => _expanded = !_expanded);
+  @override
+  void initState() {
+    super.initState();
+    widget.expandedNotifier.addListener(_onExpandedChanged);
   }
 
-  void _collapse() {
-    if (!_expanded) return;
-    setState(() => _expanded = false);
+  @override
+  void didUpdateWidget(covariant ArenaInfoBand oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.expandedNotifier != widget.expandedNotifier) {
+      oldWidget.expandedNotifier.removeListener(_onExpandedChanged);
+      widget.expandedNotifier.addListener(_onExpandedChanged);
+    }
+    // Keep an already-open overlay's content (entries/theme/scale) current.
+    // Deferred to post-frame: calling markNeedsBuild() synchronously here
+    // runs during this element's own build phase, which throws ("widgets
+    // must be built by their parents" / "called during build").
+    if (_overlayEntry != null) {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _overlayEntry?.markNeedsBuild());
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.expandedNotifier.removeListener(_onExpandedChanged);
+    _removeOverlay();
+    super.dispose();
+  }
+
+  void _onExpandedChanged() {
+    if (widget.expandedNotifier.value) {
+      _showOverlay();
+    } else {
+      _removeOverlay();
+    }
+  }
+
+  void _collapse() => widget.expandedNotifier.value = false;
+
+  void _showOverlay() {
+    if (_overlayEntry != null) return;
+    final box = context.findRenderObject() as RenderBox?;
+    final bandWidth = box?.size.width ?? MediaQuery.sizeOf(context).width;
+    final collapsedH =
+        ArenaInfoBand.heightFor(compact: widget.compact, scale: widget.scale);
+
+    _overlayEntry = OverlayEntry(
+      builder: (overlayContext) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _collapse,
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _layerLink,
+            showWhenUnlinked: false,
+            offset: Offset(0, collapsedH),
+            child: SizedBox(
+              width: bandWidth,
+              child: _ExpandedMoveLogPanel(
+                moveLogEntries: widget.moveLogEntries,
+                compact: widget.compact,
+                scale: widget.scale,
+                onCollapse: _collapse,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _removeOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = ref.watch(themeProvider).theme;
-    final scale = widget.scale;
-    final compact = widget.compact;
-    final collapsedH = ArenaInfoBand.heightFor(compact: compact, scale: scale);
+    final collapsedH =
+        ArenaInfoBand.heightFor(compact: widget.compact, scale: widget.scale);
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+          horizontal: 10 * widget.scale, vertical: 4 * widget.scale),
+      child: CompositedTransformTarget(
+        link: _layerLink,
+        child: SizedBox(
+          height: collapsedH,
+          width: double.infinity,
+          child: ClipRect(
+            child: _BandShell(
+              theme: theme,
+              scale: widget.scale,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    // Keyed on the entry count so a new top move forces a
+                    // clean remount (fresh TweenAnimationBuilder) instead of
+                    // updating in place — this band stays mounted
+                    // continuously now (see class doc), so without this an
+                    // in-flight entrance animation for the previous top
+                    // entry could still be settling when the next one
+                    // arrives, painting both at once.
+                    child: _MovesCollapsed(
+                      key: ValueKey(widget.moveLogEntries.length),
+                      entries: widget.moveLogEntries,
+                      theme: theme,
+                      compact: widget.compact,
+                      scale: widget.scale,
+                      bandHeight: collapsedH,
+                      onToggle: () => widget.expandedNotifier.value = true,
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    margin: EdgeInsets.symmetric(
+                      horizontal: 6 * widget.scale,
+                      vertical: 4 * widget.scale,
+                    ),
+                    color: theme.textSecondary.withValues(alpha: 0.2),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: TableEventTicker(
+                      controller: widget.eventTicker,
+                      compact: true,
+                      scale: widget.scale * 0.9,
+                      fallbackText: widget.eventTickerFallback,
+                      fillHeight: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The expanded move log panel, rendered via a root [Overlay] entry so its
+/// scrim and content are hit-testable across the whole screen. See
+/// [ArenaInfoBand] for why a local overflowing [Stack] doesn't work.
+class _ExpandedMoveLogPanel extends ConsumerWidget {
+  const _ExpandedMoveLogPanel({
+    required this.moveLogEntries,
+    required this.compact,
+    required this.scale,
+    required this.onCollapse,
+  });
+
+  final List<MoveLogEntry> moveLogEntries;
+  final bool compact;
+  final double scale;
+  final VoidCallback onCollapse;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(themeProvider).theme;
     final expandedH =
         ArenaInfoBand.expandedHeightFor(compact: compact, scale: scale);
     final headerH = (compact ? 40.0 : 44.0) * scale;
 
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 4 * scale),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // Fixed layout slot — parent Column sizes against this only.
-          SizedBox(
-            height: collapsedH,
-            width: double.infinity,
-            child: ClipRect(
-              child: _BandShell(
-                theme: theme,
-                scale: scale,
+    return Material(
+      color: theme.surfacePanel,
+      elevation: 12,
+      shadowColor: Colors.black54,
+      borderRadius: BorderRadius.circular(14 * scale),
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        height: expandedH,
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: headerH,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10 * scale),
                 child: Row(
                   children: [
                     Expanded(
-                      flex: 3,
-                      child: _expanded
-                          // Avoid laying out preview rows under the overlay
-                          // (that was the BOTTOM OVERFLOWED stripe).
-                          ? const SizedBox.expand()
-                          : _MovesCollapsed(
-                              entries: widget.moveLogEntries,
-                              theme: theme,
-                              compact: compact,
-                              scale: scale,
-                              bandHeight: collapsedH,
-                              onToggle: _toggleExpanded,
-                            ),
-                    ),
-                    Container(
-                      width: 1,
-                      margin: EdgeInsets.symmetric(
-                        horizontal: 6 * scale,
-                        vertical: 4 * scale,
+                      child: Text(
+                        'Move log',
+                        style: TextStyle(
+                          color: theme.textPrimary,
+                          fontSize: (compact ? 12.0 : 13.0) * scale,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                      color: theme.textSecondary.withValues(alpha: 0.2),
                     ),
-                    Expanded(
-                      flex: 2,
-                      child: TableEventTicker(
-                        controller: widget.eventTicker,
-                        compact: true,
-                        scale: scale * 0.9,
-                        fallbackText: widget.eventTickerFallback,
-                        fillHeight: true,
+                    if (moveLogEntries.isNotEmpty)
+                      Text(
+                        '${moveLogEntries.length}',
+                        style: TextStyle(
+                          color: theme.textSecondary.withValues(alpha: 0.7),
+                          fontSize: (compact ? 11.0 : 12.0) * scale,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    SizedBox(width: 4 * scale),
+                    InkWell(
+                      onTap: onCollapse,
+                      borderRadius: BorderRadius.circular(16 * scale),
+                      child: Padding(
+                        padding: EdgeInsets.all(6 * scale),
+                        child: Icon(
+                          Icons.expand_less_rounded,
+                          color: theme.accentPrimary,
+                          size: 22 * scale,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-          ),
-          if (_expanded) ...[
-            Positioned(
-              top: collapsedH,
-              left: -10 * scale,
-              right: -10 * scale,
-              height: MediaQuery.sizeOf(context).height,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _collapse,
-                child: const ColoredBox(color: Color(0x33000000)),
-              ),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: theme.textSecondary.withValues(alpha: 0.18),
             ),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Material(
-                color: theme.surfacePanel,
-                elevation: 12,
-                shadowColor: Colors.black54,
-                borderRadius: BorderRadius.circular(14 * scale),
-                clipBehavior: Clip.antiAlias,
-                child: SizedBox(
-                  height: expandedH,
-                  width: double.infinity,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SizedBox(
-                        height: headerH,
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 10 * scale),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Move log',
-                                  style: TextStyle(
-                                    color: theme.textPrimary,
-                                    fontSize: (compact ? 12.0 : 13.0) * scale,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              if (widget.moveLogEntries.isNotEmpty)
-                                Text(
-                                  '${widget.moveLogEntries.length}',
-                                  style: TextStyle(
-                                    color: theme.textSecondary
-                                        .withValues(alpha: 0.7),
-                                    fontSize: (compact ? 11.0 : 12.0) * scale,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              SizedBox(width: 4 * scale),
-                              InkWell(
-                                onTap: _collapse,
-                                borderRadius: BorderRadius.circular(16 * scale),
-                                child: Padding(
-                                  padding: EdgeInsets.all(6 * scale),
-                                  child: Icon(
-                                    Icons.expand_less_rounded,
-                                    color: theme.accentPrimary,
-                                    size: 22 * scale,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+            Expanded(
+              child: moveLogEntries.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No moves yet',
+                        style: TextStyle(
+                          color: theme.textSecondary.withValues(alpha: 0.5),
+                          fontSize: (compact ? 12.0 : 13.0) * scale,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: theme.textSecondary.withValues(alpha: 0.18),
+                    )
+                  : ListView.builder(
+                      padding: EdgeInsets.fromLTRB(
+                        10 * scale,
+                        8 * scale,
+                        10 * scale,
+                        10 * scale,
                       ),
-                      Expanded(
-                        child: widget.moveLogEntries.isEmpty
-                            ? Center(
-                                child: Text(
-                                  'No moves yet',
-                                  style: TextStyle(
-                                    color: theme.textSecondary
-                                        .withValues(alpha: 0.5),
-                                    fontSize: (compact ? 12.0 : 13.0) * scale,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              )
-                            : ListView.builder(
-                                padding: EdgeInsets.fromLTRB(
-                                  10 * scale,
-                                  8 * scale,
-                                  10 * scale,
-                                  10 * scale,
-                                ),
-                                physics: const ClampingScrollPhysics(),
-                                itemCount: widget.moveLogEntries
-                                    .take(kMoveLogMaxEntries)
-                                    .length,
-                                itemBuilder: (context, index) {
-                                  final entry = widget.moveLogEntries[index];
-                                  return Padding(
-                                    padding: EdgeInsets.only(bottom: 4 * scale),
-                                    child: LastMovePanelWidget(
-                                      entries: [entry],
-                                      scale: scale * (compact ? 0.92 : 1.0),
-                                      maxVisible: 1,
-                                    ),
-                                  );
-                                },
-                              ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+                      physics: const ClampingScrollPhysics(),
+                      itemCount:
+                          moveLogEntries.take(kMoveLogMaxEntries).length,
+                      itemBuilder: (context, index) {
+                        final entry = moveLogEntries[index];
+                        return Padding(
+                          padding: EdgeInsets.only(bottom: 4 * scale),
+                          child: LastMovePanelWidget(
+                            entries: [entry],
+                            scale: scale * (compact ? 0.92 : 1.0),
+                            maxVisible: 1,
+                          ),
+                        );
+                      },
+                    ),
             ),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -274,6 +359,7 @@ class _BandShell extends StatelessWidget {
 
 class _MovesCollapsed extends StatelessWidget {
   const _MovesCollapsed({
+    super.key,
     required this.entries,
     required this.theme,
     required this.compact,
@@ -311,11 +397,16 @@ class _MovesCollapsed extends StatelessWidget {
                         ),
                       ),
                     )
+                  // interactive: true lets the collapsed strip scroll
+                  // through recent history in place (same footprint as
+                  // before — just draggable instead of a single frozen
+                  // line) without needing to open the full expanded panel.
                   : GameMoveLogPanel(
                       entries: entries,
                       maxHeight: bandHeight - 8 * scale,
                       scale: scale * (compact ? 0.85 : 0.92),
-                      maxVisible: 1,
+                      maxVisible: kMoveLogMaxEntries,
+                      interactive: true,
                     ),
             ),
             Icon(

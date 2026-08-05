@@ -183,6 +183,14 @@ class TableEventTicker extends ConsumerWidget {
 
         final chip = AnimatedSwitcher(
           duration: const Duration(milliseconds: 220),
+          // Zero reverse duration: the outgoing chip disappears instantly
+          // instead of cross-fading with the incoming one. Both chips have
+          // solid, near-opaque backgrounds and sit in the same spot, so a
+          // simultaneous fade — the whole point of AnimatedSwitcher's
+          // default crossfade — reads as overlapping/garbled text rather
+          // than a smooth dissolve. The incoming chip still fades in nicely
+          // over [duration].
+          reverseDuration: Duration.zero,
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
           child: Container(

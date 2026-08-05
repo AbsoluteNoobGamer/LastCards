@@ -96,6 +96,7 @@ class _TableLayout extends StatelessWidget {
     this.localAvatarFilePath,
     this.tableScale = 1.0,
     this.comboLiveCount = 0,
+    required this.moveLogExpanded,
   });
 
   /// Multiplier applied to every [TablePortraitGrid] reference size —
@@ -103,6 +104,10 @@ class _TableLayout extends StatelessWidget {
   /// canvas instead of leaving it as bare felt (see [TableScreen]'s
   /// top-level `tableScale` computation).
   final double tableScale;
+
+  /// Owned by [TableScreen] — see [ArenaInfoBand.expandedNotifier] for why
+  /// this can't just be local state on the info band itself.
+  final ValueNotifier<bool> moveLogExpanded;
 
   /// Cards played this turn — drives the soft-gold live `×N` chip under the
   /// info band (visible at [kComboLiveChipMinCards]+).
@@ -311,6 +316,7 @@ class _TableLayout extends StatelessWidget {
             localAvatarFilePath: localAvatarFilePath,
             tableScale: tableScale,
             comboLiveCount: comboLiveCount,
+            moveLogExpanded: moveLogExpanded,
           );
         }
 
@@ -482,6 +488,7 @@ class _TableLayout extends StatelessWidget {
                       child: ArenaInfoBand(
                         moveLogEntries: moveLogEntries,
                         eventTicker: eventTicker,
+                        expandedNotifier: moveLogExpanded,
                         eventTickerFallback: eventTickerFallback,
                         compact: isMobile,
                         scale: chromeScale,
@@ -812,7 +819,11 @@ class _LandscapeTableLayout extends StatelessWidget {
     this.localAvatarFilePath,
     this.tableScale = 1.0,
     this.comboLiveCount = 0,
+    required this.moveLogExpanded,
   });
+
+  /// See [_TableLayout.moveLogExpanded].
+  final ValueNotifier<bool> moveLogExpanded;
 
   /// See [_TableLayout.tableScale]. Only ever non-1.0 in practice if this
   /// screen's landscape-mobile heuristic changes — landscape mobile is
@@ -1013,6 +1024,7 @@ class _LandscapeTableLayout extends StatelessWidget {
                       child: ArenaInfoBand(
                         moveLogEntries: moveLogEntries,
                         eventTicker: eventTicker,
+                        expandedNotifier: moveLogExpanded,
                         eventTickerFallback: eventTickerFallback,
                         compact: true,
                         scale: chromeScale,

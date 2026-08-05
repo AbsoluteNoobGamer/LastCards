@@ -324,6 +324,11 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   bool _showQuickChatPanel = false;
 
+  /// Owned here (not local state on [ArenaInfoBand]) so the outer
+  /// tap-outside-to-dismiss barrier below — sized to the real full screen —
+  /// can close the move log alongside the chat/reactions panel.
+  final ValueNotifier<bool> _moveLogExpanded = ValueNotifier<bool>(false);
+
   /// 0 = Reactions tab, 1 = Chat tab (online only).
   int _socialPanelTab = 0;
   final List<LiveChatLine> _textChatMessages = [];
@@ -1145,6 +1150,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
   @override
   void dispose() {
+    _moveLogExpanded.dispose();
     _analyticsWsClient.connectionState
         .removeListener(_onWsConnectionStateChanged);
     _analyticsWsClient.reconnectExhausted
@@ -2395,6 +2401,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                             ref.watch(profileProvider.select((s) => s.avatarPath)),
                         tableScale: tableScale,
                         comboLiveCount: gameState.cardsPlayedThisTurn,
+                        moveLogExpanded: _moveLogExpanded,
                       ),
                     ),
                   ],
@@ -2592,6 +2599,19 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   playerKeys: _playerZoneKeys,
                 ),
               ),
+
+              // ── Tap-outside-to-dismiss for the chat/reactions panel —
+              // sits above the board/hand (so any tap there closes the
+              // panel instead of also acting on whatever's underneath) but
+              // below the FAB columns and the panel itself, both painted
+              // later in this Stack ─────────────────────────────────────
+              if (_showQuickChatPanel)
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => setState(() => _showQuickChatPanel = false),
+                  ),
+                ),
 
               // ── Settings + leave (just above the turn timer, not beside
               // the hand — keeps them clear of edge-card taps) ─────────────
