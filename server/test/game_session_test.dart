@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:last_cards/core/models/card_model.dart';
@@ -124,6 +125,47 @@ class _FakeWalletPersistence implements WalletPersistence {
 
   @override
   Future<int?> checkBalance(String uid) async => balances[uid];
+
+  @override
+  void chargeStake(String uid, int amount) {
+    chargeCalls.add((uid: uid, amount: amount));
+    balances[uid] = (balances[uid] ?? 0) - amount;
+  }
+
+  @override
+  void payout(String uid, int amount) {
+    payoutCalls.add((uid: uid, amount: amount));
+    balances[uid] = (balances[uid] ?? 0) + amount;
+  }
+
+  @override
+  void refund(String uid, int amount) {
+    refundCalls.add((uid: uid, amount: amount));
+    balances[uid] = (balances[uid] ?? 0) + amount;
+  }
+}
+
+/// Like [_FakeWalletPersistence], but [checkBalance] doesn't resolve until
+/// the test explicitly releases a gate — lets tests drive races that happen
+/// while [GameSession] is suspended mid-`await` inside its wager lock-in
+/// (e.g. a decline or the match ending arriving before the balance check
+/// returns).
+class _ControllableWalletPersistence implements WalletPersistence {
+  final Map<String, int> balances = {};
+  final chargeCalls = <({String uid, int amount})>[];
+  final payoutCalls = <({String uid, int amount})>[];
+  final refundCalls = <({String uid, int amount})>[];
+  Completer<void>? _gate;
+
+  /// The next [checkBalance] call blocks until [releaseGate] is called.
+  void armGate() => _gate = Completer<void>();
+  void releaseGate() => _gate?.complete();
+
+  @override
+  Future<int?> checkBalance(String uid) async {
+    if (_gate != null) await _gate!.future;
+    return balances[uid];
+  }
 
   @override
   void chargeStake(String uid, int amount) {
@@ -3542,6 +3584,872 @@ void main() {
       expect(bw1.lastOfType('error')?['code'], 'wager_locked');
       expect(bw1.lastOfType('session_config'), isNull);
       expect(walletB.chargeCalls, isEmpty);
+    });
+  });
+
+  group('mid-game side-bet', () {
+    ({
+      GameSession session,
+      _FakeWs p1ws,
+      _FakeWs p2ws,
+      String p1Id,
+      String p2Id,
+      _FakeWalletPersistence wallet,
+      _FakeWagerLockGuard guard,
+    }) makeQuickplayWagerMatch({int p1Balance = 100, int p2Balance = 100}) {
+      final wallet = _FakeWalletPersistence();
+      final guard = _FakeWagerLockGuard();
+      wallet.balances['fb-p1'] = p1Balance;
+      wallet.balances['fb-p2'] = p2Balance;
+      final session = GameSession(
+        'TEST',
+        isPrivate: false,
+        maxPlayerCount: 2,
+        walletService: wallet,
+        tryLockWagerUids: guard.tryLock,
+        releaseWagerUids: guard.release,
+      );
+      final p1ws = _FakeWs();
+      final p2ws = _FakeWs();
+      final p1Id = session.addPlayer(p1ws, 'P1', firebaseUid: 'fb-p1');
+      final p2Id = session.addPlayer(p2ws, 'P2', firebaseUid: 'fb-p2');
+      // Mirrors how RoomManager._startMatch auto-readies every seat the
+      // instant a quickplay queue bucket fills — no lobby, no host.
+      session.markReady(p1Id);
+      session.markReady(p2Id);
+      return (
+        session: session,
+        p1ws: p1ws,
+        p2ws: p2ws,
+        p1Id: p1Id,
+        p2Id: p2Id,
+        wallet: wallet,
+        guard: guard,
+      );
+    }
+
+    test('ranked matches reject a mid-game side-bet proposal', () {
+      final wallet = _FakeWalletPersistence()
+        ..balances['fb-p1'] = 100
+        ..balances['fb-p2'] = 100;
+      final session = GameSession(
+        'TEST',
+        isPrivate: false,
+        isRanked: true,
+        maxPlayerCount: 2,
+        walletService: wallet,
+      );
+      final p1ws = _FakeWs();
+      final p2ws = _FakeWs();
+      final p1Id = session.addPlayer(p1ws, 'P1', firebaseUid: 'fb-p1');
+      final p2Id = session.addPlayer(p2ws, 'P2', firebaseUid: 'fb-p2');
+      session.markReady(p1Id);
+      session.markReady(p2Id);
+      p1ws.clear();
+
+      session.setWagerConfig(p1Id,
+          mode: 'sideBet', stakeCoins: 10, targetPlayerId: p2Id);
+
+      expect(p1ws.lastOfType('error')?['code'], 'wager_unsupported');
+      expect(session.wagerState.config, isNull);
+    });
+
+    test(
+        'quickplay mid-game: propose, accept, charge, and settle by '
+        'remaining hand size — independent of when the bet was placed',
+        () async {
+      final g = makeQuickplayWagerMatch();
+      g.session.setWagerConfig(g.p1Id,
+          mode: 'sideBet', stakeCoins: 10, targetPlayerId: g.p2Id);
+      g.session.acceptWager(g.p2Id);
+      await g.session.wagerLockInFlightFuture;
+
+      expect(
+        g.wallet.chargeCalls.toSet(),
+        {(uid: 'fb-p1', amount: 10), (uid: 'fb-p2', amount: 10)},
+      );
+      expect(g.guard.locked, {'fb-p1', 'fb-p2'});
+      expect(g.session.wagerState.lockedPlayerIds, {g.p1Id, g.p2Id});
+
+      final winCard = _card(Rank.five, Suit.spades);
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+              id: g.p1Id,
+              displayName: 'P1',
+              tablePosition: TablePosition.bottom,
+              hand: [winCard],
+              cardCount: 1),
+          PlayerModel(
+              id: g.p2Id,
+              displayName: 'P2',
+              tablePosition: TablePosition.top,
+              hand: [_card(Rank.three, Suit.hearts)],
+              cardCount: 1),
+        ],
+        currentPlayerId: g.p1Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: _card(Rank.five, Suit.hearts),
+        drawPileCount: 5,
+        preTurnCentreSuit: Suit.hearts,
+      );
+      g.session.seedStateForTesting(
+        state: state,
+        drawPile: List.generate(5,
+            (i) => CardModel(id: 'filler_$i', rank: Rank.seven, suit: Suit.clubs)),
+      );
+      g.p1ws.clear();
+
+      g.session.handleAction(g.p1Id, {
+        'type': 'play_cards',
+        'cardIds': ['five_spades'],
+      });
+
+      final settled = g.p1ws.lastOfType('wager_settled');
+      expect(settled?['mode'], 'sideBet');
+      expect(settled?['winnerPlayerId'], g.p1Id);
+      expect(settled?['perPlayerDelta'], {g.p1Id: 10, g.p2Id: -10});
+      expect(g.wallet.payoutCalls, [(uid: 'fb-p1', amount: 20)]);
+      expect(g.guard.locked, isEmpty);
+      expect(g.session.wagerState.config, isNull);
+    });
+
+    test('mid-game accept with insufficient balance drops the config cleanly',
+        () async {
+      final g = makeQuickplayWagerMatch(p2Balance: 5);
+      g.session.setWagerConfig(g.p1Id,
+          mode: 'sideBet', stakeCoins: 10, targetPlayerId: g.p2Id);
+      g.p2ws.clear();
+
+      g.session.acceptWager(g.p2Id);
+      await g.session.wagerLockInFlightFuture;
+
+      expect(g.p2ws.lastOfType('error')?['code'], 'insufficient_coins');
+      expect(g.wallet.chargeCalls, isEmpty);
+      expect(g.session.wagerState.config, isNull);
+    });
+
+    test(
+        'mid-game accept when the uid is already locked elsewhere drops the '
+        'config cleanly', () async {
+      final g = makeQuickplayWagerMatch();
+      g.guard.locked.add('fb-p1');
+      g.session.setWagerConfig(g.p1Id,
+          mode: 'sideBet', stakeCoins: 10, targetPlayerId: g.p2Id);
+      g.p1ws.clear();
+
+      g.session.acceptWager(g.p2Id);
+      await g.session.wagerLockInFlightFuture;
+
+      expect(g.p1ws.lastOfType('error')?['code'], 'wager_locked');
+      expect(g.wallet.chargeCalls, isEmpty);
+      expect(g.session.wagerState.config, isNull);
+    });
+
+    test('mid-game target decline clears the config and unblocks a new '
+        'proposal', () {
+      final g = makeQuickplayWagerMatch();
+      g.session.setWagerConfig(g.p1Id,
+          mode: 'sideBet', stakeCoins: 10, targetPlayerId: g.p2Id);
+
+      g.session.declineWager(g.p2Id);
+
+      expect(g.session.wagerState.config, isNull);
+      expect(g.p1ws.lastOfType('wager_state')?['mode'], isNull);
+
+      g.session.setWagerConfig(g.p2Id,
+          mode: 'sideBet', stakeCoins: 5, targetPlayerId: g.p1Id);
+      expect(g.session.wagerState.config, isNotNull);
+      expect(g.session.wagerState.config!.stakeCoins, 5);
+    });
+
+    test('a decline arriving during the balance-check await prevents the '
+        'charge', () async {
+      final wallet = _ControllableWalletPersistence()
+        ..balances['fb-p1'] = 100
+        ..balances['fb-p2'] = 100;
+      final guard = _FakeWagerLockGuard();
+      final session = GameSession(
+        'TEST',
+        isPrivate: false,
+        maxPlayerCount: 2,
+        walletService: wallet,
+        tryLockWagerUids: guard.tryLock,
+        releaseWagerUids: guard.release,
+      );
+      final p1ws = _FakeWs();
+      final p2ws = _FakeWs();
+      final p1Id = session.addPlayer(p1ws, 'P1', firebaseUid: 'fb-p1');
+      final p2Id = session.addPlayer(p2ws, 'P2', firebaseUid: 'fb-p2');
+      session.markReady(p1Id);
+      session.markReady(p2Id);
+
+      session.setWagerConfig(p1Id,
+          mode: 'sideBet', stakeCoins: 10, targetPlayerId: p2Id);
+      wallet.armGate();
+      session.acceptWager(p2Id);
+      final pending = session.wagerLockInFlightFuture;
+      expect(pending, isNotNull);
+
+      // The target changes their mind while the balance check is suspended.
+      session.declineWager(p2Id);
+      expect(session.wagerState.config, isNull);
+
+      wallet.releaseGate();
+      await pending;
+
+      expect(wallet.chargeCalls, isEmpty);
+      expect(guard.locked, isEmpty);
+      expect(session.wagerState.config, isNull);
+    });
+
+    test(
+        'the match ending during the balance-check await prevents the '
+        'charge', () async {
+      final wallet = _ControllableWalletPersistence()
+        ..balances['fb-p1'] = 100
+        ..balances['fb-p2'] = 100;
+      final guard = _FakeWagerLockGuard();
+      final session = GameSession(
+        'TEST',
+        isPrivate: false,
+        maxPlayerCount: 2,
+        walletService: wallet,
+        tryLockWagerUids: guard.tryLock,
+        releaseWagerUids: guard.release,
+      );
+      final p1ws = _FakeWs();
+      final p2ws = _FakeWs();
+      final p1Id = session.addPlayer(p1ws, 'P1', firebaseUid: 'fb-p1');
+      final p2Id = session.addPlayer(p2ws, 'P2', firebaseUid: 'fb-p2');
+      session.markReady(p1Id);
+      session.markReady(p2Id);
+
+      session.setWagerConfig(p1Id,
+          mode: 'sideBet', stakeCoins: 10, targetPlayerId: p2Id);
+      wallet.armGate();
+      session.acceptWager(p2Id);
+      final pending = session.wagerLockInFlightFuture;
+
+      final winCard = _card(Rank.five, Suit.spades);
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+              id: p1Id,
+              displayName: 'P1',
+              tablePosition: TablePosition.bottom,
+              hand: [winCard],
+              cardCount: 1),
+          PlayerModel(
+              id: p2Id,
+              displayName: 'P2',
+              tablePosition: TablePosition.top,
+              hand: [_card(Rank.three, Suit.hearts)],
+              cardCount: 1),
+        ],
+        currentPlayerId: p1Id,
+        direction: PlayDirection.clockwise,
+        discardTopCard: _card(Rank.five, Suit.hearts),
+        drawPileCount: 5,
+        preTurnCentreSuit: Suit.hearts,
+      );
+      session.seedStateForTesting(
+        state: state,
+        drawPile: List.generate(5,
+            (i) => CardModel(id: 'filler_$i', rank: Rank.seven, suit: Suit.clubs)),
+      );
+      session.handleAction(p1Id, {
+        'type': 'play_cards',
+        'cardIds': ['five_spades'],
+      });
+
+      wallet.releaseGate();
+      await pending;
+
+      expect(wallet.chargeCalls, isEmpty);
+      expect(wallet.payoutCalls, isEmpty);
+      expect(guard.locked, isEmpty);
+    });
+
+    test('a new proposal is rejected outright while one is already locked in',
+        () async {
+      final g = makeQuickplayWagerMatch();
+      g.session.setWagerConfig(g.p1Id,
+          mode: 'sideBet', stakeCoins: 10, targetPlayerId: g.p2Id);
+      g.session.acceptWager(g.p2Id);
+      await g.session.wagerLockInFlightFuture;
+      expect(g.session.wagerState.lockedPlayerIds, isNotEmpty);
+
+      g.p1ws.clear();
+      g.session.setWagerConfig(g.p1Id,
+          mode: 'sideBet', stakeCoins: 5, targetPlayerId: g.p2Id);
+
+      expect(g.p1ws.lastOfType('error')?['code'], 'wager_in_progress');
+      expect(g.session.wagerState.config!.stakeCoins, 10);
+    });
+
+    test('challenging an already-disconnected (AI-driven) seat is rejected',
+        () {
+      final g = makeQuickplayWagerMatch();
+      g.session.handleSocketDisconnected(g.p2Id, g.p2ws);
+      expect(g.session.isControlledByAiForTesting(g.p2Id), isTrue);
+
+      g.p1ws.clear();
+      g.session.setWagerConfig(g.p1Id,
+          mode: 'sideBet', stakeCoins: 10, targetPlayerId: g.p2Id);
+
+      expect(g.p1ws.lastOfType('error')?['code'], 'invalid_wager');
+      expect(g.session.wagerState.config, isNull);
+    });
+
+    test(
+        'the target disconnecting while a proposal is pending-unlocked '
+        'auto-clears it', () {
+      final g = makeQuickplayWagerMatch();
+      g.session.setWagerConfig(g.p1Id,
+          mode: 'sideBet', stakeCoins: 10, targetPlayerId: g.p2Id);
+      expect(g.session.wagerState.config, isNotNull);
+
+      g.session.handleSocketDisconnected(g.p2Id, g.p2ws);
+
+      expect(g.session.wagerState.config, isNull);
+    });
+
+    test('an unanswered mid-game proposal expires after the timeout', () {
+      fakeAsync((async) {
+        final g = makeQuickplayWagerMatch();
+        g.session.setWagerConfig(g.p1Id,
+            mode: 'sideBet', stakeCoins: 10, targetPlayerId: g.p2Id);
+        expect(g.session.wagerState.config, isNotNull);
+
+        async.elapse(
+            GameSession.midGameWagerProposalTimeout + const Duration(seconds: 1));
+
+        expect(g.session.wagerState.config, isNull);
+      });
+    });
+
+    test(
+        "a decline from a non-participant does not clear someone else's "
+        'side-bet', () {
+      final wallet = _FakeWalletPersistence()
+        ..balances['fb-p1'] = 100
+        ..balances['fb-p2'] = 100
+        ..balances['fb-p3'] = 100;
+      final session = GameSession(
+        'TEST',
+        isPrivate: false,
+        maxPlayerCount: 3,
+        walletService: wallet,
+      );
+      final p1ws = _FakeWs();
+      final p2ws = _FakeWs();
+      final p3ws = _FakeWs();
+      final p1Id = session.addPlayer(p1ws, 'P1', firebaseUid: 'fb-p1');
+      final p2Id = session.addPlayer(p2ws, 'P2', firebaseUid: 'fb-p2');
+      final p3Id = session.addPlayer(p3ws, 'P3', firebaseUid: 'fb-p3');
+      session.markReady(p1Id);
+      session.markReady(p2Id);
+      session.markReady(p3Id);
+
+      session.setWagerConfig(p1Id,
+          mode: 'sideBet', stakeCoins: 10, targetPlayerId: p2Id);
+      session.declineWager(p3Id);
+
+      expect(session.wagerState.config, isNotNull);
+      expect(session.wagerState.acceptStatus[p3Id], isNull);
+    });
+
+    test(
+        'quickplay match abandoned mid-wager (every human socket gone) '
+        'refunds both, never pays out', () async {
+      final g = makeQuickplayWagerMatch();
+      g.session.setWagerConfig(g.p1Id,
+          mode: 'sideBet', stakeCoins: 10, targetPlayerId: g.p2Id);
+      g.session.acceptWager(g.p2Id);
+      await g.session.wagerLockInFlightFuture;
+      expect(g.wallet.chargeCalls, hasLength(2));
+
+      g.session.handleSocketDisconnected(g.p1Id, g.p1ws);
+      g.session.handleSocketDisconnected(g.p2Id, g.p2ws);
+
+      expect(g.session.isEmpty, isTrue);
+      expect(g.wallet.payoutCalls, isEmpty);
+      expect(
+        g.wallet.refundCalls.toSet(),
+        {(uid: 'fb-p1', amount: 10), (uid: 'fb-p2', amount: 10)},
+      );
+      expect(g.wallet.balances['fb-p1'], 100);
+      expect(g.wallet.balances['fb-p2'], 100);
+      expect(g.guard.locked, isEmpty);
+    });
+  });
+
+  group('mid-game table-pot wager', () {
+    ({
+      GameSession session,
+      List<_FakeWs> ws,
+      List<String> ids,
+      _FakeWalletPersistence wallet,
+      _FakeWagerLockGuard guard,
+    }) makeQuickplayTablePotMatch({int playerCount = 3, int balance = 100}) {
+      final wallet = _FakeWalletPersistence();
+      final guard = _FakeWagerLockGuard();
+      final session = GameSession(
+        'TEST',
+        isPrivate: false,
+        maxPlayerCount: playerCount,
+        walletService: wallet,
+        tryLockWagerUids: guard.tryLock,
+        releaseWagerUids: guard.release,
+      );
+      final wsList = <_FakeWs>[];
+      final idList = <String>[];
+      for (var i = 0; i < playerCount; i++) {
+        final w = _FakeWs();
+        final id = session.addPlayer(w, 'P${i + 1}', firebaseUid: 'fb-p${i + 1}');
+        wallet.balances['fb-p${i + 1}'] = balance;
+        wsList.add(w);
+        idList.add(id);
+      }
+      for (final id in idList) {
+        session.markReady(id);
+      }
+      return (
+        session: session,
+        ws: wsList,
+        ids: idList,
+        wallet: wallet,
+        guard: guard,
+      );
+    }
+
+    test('ranked matches reject a table-pot proposal', () {
+      final wallet = _FakeWalletPersistence()
+        ..balances['fb-p1'] = 100
+        ..balances['fb-p2'] = 100;
+      final session = GameSession(
+        'TEST',
+        isPrivate: false,
+        isRanked: true,
+        maxPlayerCount: 2,
+        walletService: wallet,
+      );
+      final p1ws = _FakeWs();
+      final p2ws = _FakeWs();
+      final p1Id = session.addPlayer(p1ws, 'P1', firebaseUid: 'fb-p1');
+      final p2Id = session.addPlayer(p2ws, 'P2', firebaseUid: 'fb-p2');
+      session.markReady(p1Id);
+      session.markReady(p2Id);
+      p1ws.clear();
+
+      session.setWagerConfig(p1Id, mode: 'tablePot', stakeCoins: 10);
+
+      expect(p1ws.lastOfType('error')?['code'], 'wager_unsupported');
+      expect(session.wagerState.config, isNull);
+    });
+
+    test('a table-pot proposal before the match starts is rejected', () {
+      final wallet = _FakeWalletPersistence()..balances['fb-p1'] = 100;
+      final session = GameSession(
+        'TEST',
+        isPrivate: false,
+        maxPlayerCount: 2,
+        walletService: wallet,
+      );
+      final p1ws = _FakeWs();
+      final p1Id = session.addPlayer(p1ws, 'P1', firebaseUid: 'fb-p1');
+      p1ws.clear();
+
+      session.setWagerConfig(p1Id, mode: 'tablePot', stakeCoins: 10);
+
+      expect(p1ws.lastOfType('error')?['code'], 'wager_unsupported');
+      expect(session.wagerState.config, isNull);
+    });
+
+    test(
+        'propose, join from two other seats, start, charge, and settle '
+        'winner-take-all to the match winner', () async {
+      final g = makeQuickplayTablePotMatch();
+      g.session.setWagerConfig(g.ids[0], mode: 'tablePot', stakeCoins: 10);
+      g.session.acceptWager(g.ids[1]);
+      g.session.acceptWager(g.ids[2]);
+      expect(g.session.wagerState.lockedPlayerIds, isEmpty);
+
+      g.session.startWager(g.ids[0]);
+      await g.session.wagerLockInFlightFuture;
+
+      expect(
+        g.wallet.chargeCalls.toSet(),
+        {
+          (uid: 'fb-p1', amount: 10),
+          (uid: 'fb-p2', amount: 10),
+          (uid: 'fb-p3', amount: 10),
+        },
+      );
+      expect(g.guard.locked, {'fb-p1', 'fb-p2', 'fb-p3'});
+      expect(g.session.wagerState.lockedPlayerIds,
+          {g.ids[0], g.ids[1], g.ids[2]});
+
+      final winCard = _card(Rank.five, Suit.spades);
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+              id: g.ids[0],
+              displayName: 'P1',
+              tablePosition: TablePosition.bottom,
+              hand: [winCard],
+              cardCount: 1),
+          PlayerModel(
+              id: g.ids[1],
+              displayName: 'P2',
+              tablePosition: TablePosition.left,
+              hand: [_card(Rank.three, Suit.hearts)],
+              cardCount: 1),
+          PlayerModel(
+              id: g.ids[2],
+              displayName: 'P3',
+              tablePosition: TablePosition.right,
+              hand: [_card(Rank.four, Suit.clubs)],
+              cardCount: 1),
+        ],
+        currentPlayerId: g.ids[0],
+        direction: PlayDirection.clockwise,
+        discardTopCard: _card(Rank.five, Suit.hearts),
+        drawPileCount: 5,
+        preTurnCentreSuit: Suit.hearts,
+      );
+      g.session.seedStateForTesting(
+        state: state,
+        drawPile: List.generate(5,
+            (i) => CardModel(id: 'filler_$i', rank: Rank.seven, suit: Suit.clubs)),
+      );
+      g.ws[0].clear();
+
+      g.session.handleAction(g.ids[0], {
+        'type': 'play_cards',
+        'cardIds': ['five_spades'],
+      });
+
+      final settled = g.ws[0].lastOfType('wager_settled');
+      expect(settled?['mode'], 'tablePot');
+      expect(settled?['winnerPlayerId'], g.ids[0]);
+      expect(settled?['perPlayerDelta'],
+          {g.ids[0]: 20, g.ids[1]: -10, g.ids[2]: -10});
+      expect(g.wallet.payoutCalls, [(uid: 'fb-p1', amount: 30)]);
+      expect(g.guard.locked, isEmpty);
+      expect(g.session.wagerState.config, isNull);
+    });
+
+    test('starting with zero joiners is rejected', () {
+      final g = makeQuickplayTablePotMatch();
+      g.session.setWagerConfig(g.ids[0], mode: 'tablePot', stakeCoins: 10);
+      g.ws[0].clear();
+
+      g.session.startWager(g.ids[0]);
+
+      expect(g.ws[0].lastOfType('error')?['code'], 'wager_not_accepted');
+      expect(g.session.wagerState.lockedPlayerIds, isEmpty);
+    });
+
+    test('only the initiator can start the wager', () {
+      final g = makeQuickplayTablePotMatch();
+      g.session.setWagerConfig(g.ids[0], mode: 'tablePot', stakeCoins: 10);
+      g.session.acceptWager(g.ids[1]);
+      g.ws[1].clear();
+
+      g.session.startWager(g.ids[1]);
+
+      expect(g.ws[1].lastOfType('error')?['code'], 'invalid_wager');
+      expect(g.session.wagerState.lockedPlayerIds, isEmpty);
+    });
+
+    test('a joiner can leave and rejoin before Start without affecting '
+        'others', () {
+      final g = makeQuickplayTablePotMatch();
+      g.session.setWagerConfig(g.ids[0], mode: 'tablePot', stakeCoins: 10);
+      g.session.acceptWager(g.ids[1]);
+      g.session.acceptWager(g.ids[2]);
+
+      g.session.declineWager(g.ids[1]);
+      expect(g.session.wagerState.config, isNotNull);
+      expect(
+        g.session.wagerState.participantPlayerIds(g.ids.toSet()),
+        {g.ids[0], g.ids[2]},
+      );
+
+      g.session.acceptWager(g.ids[1]);
+      expect(
+        g.session.wagerState.participantPlayerIds(g.ids.toSet()),
+        {g.ids[0], g.ids[1], g.ids[2]},
+      );
+    });
+
+    test(
+        'a join arriving mid-lock-in (during the balance-check await) is '
+        'excluded from lockedPlayerIds and never charged', () async {
+      final wallet = _ControllableWalletPersistence()
+        ..balances['fb-p1'] = 100
+        ..balances['fb-p2'] = 100
+        ..balances['fb-p3'] = 100
+        ..balances['fb-p4'] = 100;
+      final guard = _FakeWagerLockGuard();
+      final session = GameSession(
+        'TEST',
+        isPrivate: false,
+        maxPlayerCount: 4,
+        walletService: wallet,
+        tryLockWagerUids: guard.tryLock,
+        releaseWagerUids: guard.release,
+      );
+      final wsList = <_FakeWs>[];
+      final idList = <String>[];
+      for (var i = 0; i < 4; i++) {
+        final w = _FakeWs();
+        final id = session.addPlayer(w, 'P${i + 1}', firebaseUid: 'fb-p${i + 1}');
+        wsList.add(w);
+        idList.add(id);
+      }
+      for (final id in idList) {
+        session.markReady(id);
+      }
+
+      session.setWagerConfig(idList[0], mode: 'tablePot', stakeCoins: 10);
+      session.acceptWager(idList[1]);
+      wallet.armGate();
+      session.startWager(idList[0]);
+      final pending = session.wagerLockInFlightFuture;
+      expect(pending, isNotNull);
+
+      // A fourth player joins mid-flight, after the participant set has
+      // already been captured for this lock-in attempt.
+      session.acceptWager(idList[2]);
+
+      wallet.releaseGate();
+      await pending;
+
+      expect(session.wagerState.lockedPlayerIds, {idList[0], idList[1]});
+      expect(
+        wallet.chargeCalls.toSet(),
+        {(uid: 'fb-p1', amount: 10), (uid: 'fb-p2', amount: 10)},
+      );
+      expect(wallet.chargeCalls.any((c) => c.uid == 'fb-p3'), isFalse);
+    });
+
+    test('a joiner disconnecting before Start is silently dropped, '
+        'proposal survives for the rest', () {
+      final g = makeQuickplayTablePotMatch();
+      g.session.setWagerConfig(g.ids[0], mode: 'tablePot', stakeCoins: 10);
+      g.session.acceptWager(g.ids[1]);
+      g.session.acceptWager(g.ids[2]);
+
+      g.session.handleSocketDisconnected(g.ids[1], g.ws[1]);
+
+      expect(g.session.wagerState.config, isNotNull);
+      expect(
+        g.session.wagerState.participantPlayerIds(g.ids.toSet()),
+        {g.ids[0], g.ids[2]},
+      );
+    });
+
+    test('the initiator disconnecting before Start clears the whole '
+        'proposal', () {
+      final g = makeQuickplayTablePotMatch();
+      g.session.setWagerConfig(g.ids[0], mode: 'tablePot', stakeCoins: 10);
+      g.session.acceptWager(g.ids[1]);
+
+      g.session.handleSocketDisconnected(g.ids[0], g.ws[0]);
+
+      expect(g.session.wagerState.config, isNull);
+    });
+
+    test('the initiator disconnecting mid-lock-in aborts the charge for '
+        'everyone', () async {
+      final wallet = _ControllableWalletPersistence()
+        ..balances['fb-p1'] = 100
+        ..balances['fb-p2'] = 100
+        ..balances['fb-p3'] = 100;
+      final guard = _FakeWagerLockGuard();
+      final session = GameSession(
+        'TEST',
+        isPrivate: false,
+        maxPlayerCount: 3,
+        walletService: wallet,
+        tryLockWagerUids: guard.tryLock,
+        releaseWagerUids: guard.release,
+      );
+      final wsList = <_FakeWs>[];
+      final idList = <String>[];
+      for (var i = 0; i < 3; i++) {
+        final w = _FakeWs();
+        final id = session.addPlayer(w, 'P${i + 1}', firebaseUid: 'fb-p${i + 1}');
+        wsList.add(w);
+        idList.add(id);
+      }
+      for (final id in idList) {
+        session.markReady(id);
+      }
+
+      session.setWagerConfig(idList[0], mode: 'tablePot', stakeCoins: 10);
+      session.acceptWager(idList[1]);
+      session.acceptWager(idList[2]);
+      wallet.armGate();
+      session.startWager(idList[0]);
+      final pending = session.wagerLockInFlightFuture;
+
+      session.handleSocketDisconnected(idList[0], wsList[0]);
+      expect(session.wagerState.config, isNull);
+
+      wallet.releaseGate();
+      await pending;
+
+      expect(wallet.chargeCalls, isEmpty);
+      expect(guard.locked, isEmpty);
+    });
+
+    test('insufficient balance on any one joiner drops the whole config '
+        'and charges nobody', () async {
+      final g = makeQuickplayTablePotMatch(balance: 100);
+      g.wallet.balances['fb-p3'] = 2;
+      g.session.setWagerConfig(g.ids[0], mode: 'tablePot', stakeCoins: 10);
+      g.session.acceptWager(g.ids[1]);
+      g.session.acceptWager(g.ids[2]);
+      g.ws[2].clear();
+
+      g.session.startWager(g.ids[0]);
+      await g.session.wagerLockInFlightFuture;
+
+      expect(g.ws[2].lastOfType('error')?['code'], 'insufficient_coins');
+      expect(g.wallet.chargeCalls, isEmpty);
+      expect(g.session.wagerState.config, isNull);
+    });
+
+    test('the match winner not among the joiners refunds everyone',
+        () async {
+      final g = makeQuickplayTablePotMatch();
+      g.session.setWagerConfig(g.ids[0], mode: 'tablePot', stakeCoins: 10);
+      g.session.acceptWager(g.ids[1]);
+      g.session.startWager(g.ids[0]);
+      await g.session.wagerLockInFlightFuture;
+      expect(g.wallet.chargeCalls, hasLength(2));
+
+      final winCard = _card(Rank.five, Suit.spades);
+      final state = GameState(
+        sessionId: 'TEST',
+        phase: GamePhase.playing,
+        players: [
+          PlayerModel(
+              id: g.ids[0],
+              displayName: 'P1',
+              tablePosition: TablePosition.bottom,
+              hand: [_card(Rank.three, Suit.hearts)],
+              cardCount: 1),
+          PlayerModel(
+              id: g.ids[1],
+              displayName: 'P2',
+              tablePosition: TablePosition.left,
+              hand: [_card(Rank.four, Suit.clubs)],
+              cardCount: 1),
+          PlayerModel(
+              id: g.ids[2],
+              displayName: 'P3',
+              tablePosition: TablePosition.right,
+              hand: [winCard],
+              cardCount: 1),
+        ],
+        currentPlayerId: g.ids[2],
+        direction: PlayDirection.clockwise,
+        discardTopCard: _card(Rank.five, Suit.hearts),
+        drawPileCount: 5,
+        preTurnCentreSuit: Suit.hearts,
+      );
+      g.session.seedStateForTesting(
+        state: state,
+        drawPile: List.generate(5,
+            (i) => CardModel(id: 'filler_$i', rank: Rank.seven, suit: Suit.clubs)),
+      );
+      g.ws[2].clear();
+
+      // P3 (not a wager participant) wins the match.
+      g.session.handleAction(g.ids[2], {
+        'type': 'play_cards',
+        'cardIds': ['five_spades'],
+      });
+
+      final settled = g.ws[2].lastOfType('wager_settled');
+      expect(settled?['winnerPlayerId'], isNull);
+      expect(settled?['perPlayerDelta'], {g.ids[0]: 0, g.ids[1]: 0});
+      expect(g.wallet.payoutCalls, isEmpty);
+      expect(
+        g.wallet.refundCalls.toSet(),
+        {(uid: 'fb-p1', amount: 10), (uid: 'fb-p2', amount: 10)},
+      );
+    });
+
+    test('a new proposal is rejected outright while a table-pot is already '
+        'locked in', () async {
+      final g = makeQuickplayTablePotMatch();
+      g.session.setWagerConfig(g.ids[0], mode: 'tablePot', stakeCoins: 10);
+      g.session.acceptWager(g.ids[1]);
+      g.session.startWager(g.ids[0]);
+      await g.session.wagerLockInFlightFuture;
+      g.ws[2].clear();
+
+      g.session.setWagerConfig(g.ids[2], mode: 'tablePot', stakeCoins: 5);
+
+      expect(g.ws[2].lastOfType('error')?['code'], 'wager_in_progress');
+      expect(g.session.wagerState.lockedPlayerIds, {g.ids[0], g.ids[1]});
+    });
+
+    test('no proposal-expiry timer fires for an unanswered table-pot '
+        'proposal', () {
+      fakeAsync((async) {
+        final g = makeQuickplayTablePotMatch();
+        g.session.setWagerConfig(g.ids[0], mode: 'tablePot', stakeCoins: 10);
+
+        async.elapse(GameSession.midGameWagerProposalTimeout +
+            const Duration(seconds: 30));
+
+        expect(g.session.wagerState.config, isNotNull);
+      });
+    });
+
+    test('withdrawing before anyone joins clears cleanly', () {
+      final g = makeQuickplayTablePotMatch();
+      g.session.setWagerConfig(g.ids[0], mode: 'tablePot', stakeCoins: 10);
+
+      g.session.setWagerConfig(g.ids[0], mode: 'tablePot', stakeCoins: 0);
+
+      expect(g.session.wagerState.config, isNull);
+    });
+
+    test('withdrawing after joins clears and no one is charged', () {
+      final g = makeQuickplayTablePotMatch();
+      g.session.setWagerConfig(g.ids[0], mode: 'tablePot', stakeCoins: 10);
+      g.session.acceptWager(g.ids[1]);
+
+      g.session.setWagerConfig(g.ids[0], mode: 'tablePot', stakeCoins: 0);
+
+      expect(g.session.wagerState.config, isNull);
+      expect(g.wallet.chargeCalls, isEmpty);
+    });
+
+    test('a non-initiator cannot withdraw a table-pot proposal', () {
+      final g = makeQuickplayTablePotMatch();
+      g.session.setWagerConfig(g.ids[0], mode: 'tablePot', stakeCoins: 10);
+      g.session.acceptWager(g.ids[1]);
+      g.ws[1].clear();
+
+      g.session.setWagerConfig(g.ids[1], mode: 'tablePot', stakeCoins: 0);
+
+      expect(g.ws[1].lastOfType('error')?['code'], 'invalid_wager');
+      expect(g.session.wagerState.config, isNotNull);
     });
   });
 }

@@ -43,6 +43,8 @@ import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/models/ai_player_config.dart';
 import '../../../gameplay/presentation/opponents_splash_helpers.dart';
 import '../../../gameplay/presentation/screens/table_screen.dart';
+import '../../../gameplay/presentation/widgets/wager_challenge_banner.dart';
+import '../../../../widgets/side_bet_challenge_sheet.dart';
 import '../../../social/widgets/invite_friends_sheet.dart';
 import '../../../social/widgets/pending_friend_requests_banner.dart';
 import '../../../social/widgets/report_block_sheet.dart';
@@ -147,12 +149,14 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   final List<PlayerModel> _lobbyPlayers = [];
   final Map<String, bool> _playerReady = {};
 
-  /// Active whole-table pot wager, synced from [WagerStateEvent]. Null
-  /// stakeCoins means no pot wager is currently proposed. A side-bet
-  /// (targeted 1v1) is never reflected here — see [_onChallengeSideBet].
+  /// Active table wager (whole-table pot or targeted 1v1 side-bet), synced
+  /// from [WagerStateEvent]. Null [_wagerMode] means no wager is currently
+  /// proposed.
   String? _wagerMode;
   int? _wagerStakeCoins;
   String? _wagerInitiatorPlayerId;
+  String? _wagerTargetPlayerId;
+  bool _wagerLocked = false;
   Map<String, String> _wagerAcceptStatus = {};
   StreamSubscription<RoomCreatedEvent>? _roomCreatedSub;
   StreamSubscription<StateSnapshotEvent>? _stateSnapshotSub;
@@ -262,6 +266,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
           _wagerMode = e.mode;
           _wagerStakeCoins = e.stakeCoins;
           _wagerInitiatorPlayerId = e.initiatorPlayerId;
+          _wagerTargetPlayerId = e.targetPlayerId;
+          _wagerLocked = e.locked;
           _wagerAcceptStatus = e.acceptStatus;
         });
         return;
@@ -795,6 +801,11 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                     ),
                                     const SizedBox(height: AppDimensions.lg),
                                   ],
+                                  if (_buildSideBetChallengeBanner(theme)
+                                      case final banner?) ...[
+                                    banner,
+                                    const SizedBox(height: AppDimensions.lg),
+                                  ],
                                   _LobbyPlayerList(
                                     localPlayerId: _localPlayerId,
                                     localIsReady: _isReady,
@@ -1293,6 +1304,45 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     ref.read(gameEventHandlerProvider).sendDeclineWager();
   }
 
+  void _withdrawSideBetWager() {
+    ref.read(gameEventHandlerProvider).sendSetWagerConfig(
+          const SetWagerConfigAction(mode: 'sideBet', stakeCoins: 0),
+        );
+  }
+
+  /// Builds the active/pending side-bet status banner for the local player
+  /// — the target's only way to accept a challenge before this fix, since
+  /// [_WagerPotPanel] only ever renders its host-only propose form for a
+  /// side-bet (its accept/decline UI is pot-only). Null if there's nothing
+  /// to show (no proposal, or the local player isn't one of its two
+  /// participants).
+  Widget? _buildSideBetChallengeBanner(AppThemeData theme) {
+    if (_wagerMode != 'sideBet') return null;
+    final localId = _localPlayerId;
+    final initiatorId = _wagerInitiatorPlayerId;
+    final targetId = _wagerTargetPlayerId;
+    if (localId == null || initiatorId == null || targetId == null) {
+      return null;
+    }
+    if (localId != initiatorId && localId != targetId) return null;
+    final isInitiator = localId == initiatorId;
+    final opponentId = isInitiator ? targetId : initiatorId;
+    final opponentName = _lobbyPlayers
+            .firstWhereOrNull((p) => p.id == opponentId)
+            ?.displayName ??
+        'Opponent';
+    return WagerChallengeBanner(
+      theme: theme,
+      opponentName: opponentName,
+      stakeCoins: _wagerStakeCoins ?? 0,
+      locked: _wagerLocked,
+      isInitiator: isInitiator,
+      onAccept: _acceptWager,
+      onDecline: _declineWager,
+      onWithdraw: _withdrawSideBetWager,
+    );
+  }
+
   /// Sends a targeted 1v1 side-bet challenge to [targetPlayerId]. Unlike the
   /// table pot, a side-bet never blocks the rest of the table from starting
   /// (see server GameSession.startGameFromHost) — if [targetPlayerId] never
@@ -1316,7 +1366,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => _SideBetChallengeSheet(
+      builder: (ctx) => SideBetChallengeSheet(
         theme: theme,
         targetName: targetName,
         onConfirm: (stakeCoins) {
@@ -1759,128 +1809,6 @@ class _WagerPotPanelState extends State<_WagerPotPanel> {
             ],
           ),
       ],
-    );
-  }
-}
-
-/// Bottom sheet collecting a stake amount to send a targeted 1v1 side-bet
-/// challenge. Unlike the table pot, this never blocks the rest of the
-/// table — see [_LobbyScreenState._onChallengeSideBet].
-class _SideBetChallengeSheet extends StatefulWidget {
-  const _SideBetChallengeSheet({
-    required this.theme,
-    required this.targetName,
-    required this.onConfirm,
-  });
-
-  final AppThemeData theme;
-  final String targetName;
-  final ValueChanged<int> onConfirm;
-
-  @override
-  State<_SideBetChallengeSheet> createState() =>
-      _SideBetChallengeSheetState();
-}
-
-class _SideBetChallengeSheetState extends State<_SideBetChallengeSheet> {
-  final _stakeController = TextEditingController(text: '10');
-
-  @override
-  void dispose() {
-    _stakeController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = widget.theme;
-    return Padding(
-      padding: EdgeInsets.only(
-        left: AppDimensions.lg,
-        right: AppDimensions.lg,
-        top: AppDimensions.lg,
-        bottom: MediaQuery.of(context).viewInsets.bottom + AppDimensions.lg,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'CHALLENGE ${widget.targetName.toUpperCase()}',
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-              color: theme.accentLight,
-            ),
-          ),
-          const SizedBox(height: AppDimensions.xs),
-          Text(
-            'Whoever has fewer cards left when the match ends wins the pot. '
-            '${widget.targetName} must accept before it counts.',
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              height: 1.35,
-              color: theme.textSecondary,
-            ),
-          ),
-          const SizedBox(height: AppDimensions.md),
-          TextField(
-            controller: _stakeController,
-            keyboardType: TextInputType.number,
-            autofocus: true,
-            style: GoogleFonts.inter(
-              color: theme.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
-            decoration: InputDecoration(
-              isDense: true,
-              prefixIcon: Icon(
-                Icons.monetization_on_rounded,
-                color: theme.accentPrimary,
-                size: 20,
-              ),
-              hintText: 'Stake (coins)',
-              hintStyle: GoogleFonts.inter(color: theme.textSecondary),
-              filled: true,
-              fillColor: theme.surfacePanel,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppDimensions.radiusModal),
-                borderSide: BorderSide(
-                  color: theme.accentDark.withValues(alpha: 0.5),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: AppDimensions.md),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                final v = int.tryParse(_stakeController.text.trim());
-                if (v != null && v > 0) widget.onConfirm(v);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.accentPrimary,
-                foregroundColor: theme.backgroundDeep,
-                minimumSize: const Size(0, AppDimensions.minTouchTarget + 2),
-                shape: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(AppDimensions.radiusModal),
-                ),
-              ),
-              child: Text(
-                'SEND CHALLENGE',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

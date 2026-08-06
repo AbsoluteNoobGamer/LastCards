@@ -146,6 +146,9 @@ class GameEventHandler {
   bool sendDeclineWager() =>
       _wsClient.send(const DeclineWagerAction().toJsonString());
 
+  bool sendStartWager() =>
+      _wsClient.send(const StartWagerAction().toJsonString());
+
   // ── Internal ───────────────────────────────────────────────────────────────
 
   void _onRawMessage(String raw) {

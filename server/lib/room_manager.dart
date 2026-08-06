@@ -8,6 +8,7 @@ import 'firebase_auth_verifier.dart';
 import 'game_session.dart';
 import 'logger.dart';
 import 'trophy_recorder.dart';
+import 'wallet_service.dart';
 
 /// Optional profile image URL from the client. Only HTTPS with sane length.
 String? sanitizeAvatarUrl(dynamic raw) {
@@ -67,10 +68,13 @@ bool jsonTruth(dynamic v) {
 class RoomManager {
   RoomManager({
     Future<String?> Function(String idToken)? verifyIdToken,
-  }) : _verifyIdToken =
-            verifyIdToken ?? FirebaseAuthVerifier.instance.verifyToken;
+    WalletPersistence? walletService,
+  })  : _verifyIdToken =
+            verifyIdToken ?? FirebaseAuthVerifier.instance.verifyToken,
+        _walletService = walletService ?? WalletService.instance;
 
   final Future<String?> Function(String idToken) _verifyIdToken;
+  final WalletPersistence _walletService;
 
   final _log = Logger('RoomManager');
   final _rooms = <String, GameSession>{};
@@ -186,6 +190,9 @@ class RoomManager {
       case 'decline_wager':
         _declineWager(ws);
         break;
+      case 'start_wager':
+        _startWager(ws);
+        break;
       case 'add_private_lobby_bot':
         _addPrivateLobbyBot(ws, json);
         break;
@@ -295,6 +302,7 @@ class RoomManager {
       onBecameEmpty: (_) => _rooms.remove(roomCode),
       tryLockWagerUids: _tryLockWagerUids,
       releaseWagerUids: _releaseWagerUids,
+      walletService: _walletService,
     );
     _rooms[roomCode] = session;
 
@@ -472,6 +480,14 @@ class RoomManager {
     final playerId = _playerIds[ws];
     if (roomCode != null && playerId != null) {
       _rooms[roomCode]?.declineWager(playerId);
+    }
+  }
+
+  void _startWager(dynamic ws) {
+    final roomCode = _playerRooms[ws];
+    final playerId = _playerIds[ws];
+    if (roomCode != null && playerId != null) {
+      _rooms[roomCode]?.startWager(playerId);
     }
   }
 
@@ -762,6 +778,9 @@ class RoomManager {
       isRanked: isRanked,
       isHardcore: isRankedHardcore,
       onBecameEmpty: (_) => _rooms.remove(roomCode),
+      tryLockWagerUids: _tryLockWagerUids,
+      releaseWagerUids: _releaseWagerUids,
+      walletService: _walletService,
     );
     _rooms[roomCode] = session;
     _log.info(

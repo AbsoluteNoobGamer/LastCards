@@ -8,6 +8,13 @@ enum WagerMode {
   /// Targeted 1v1 side-bet between two specific seated players inside a
   /// larger table. Settled independently of who wins the overall match.
   sideBet,
+
+  /// Mid-game, opt-in, multi-player table pot — proposed by any seated
+  /// player once the match has started, joined freely by whoever wants in
+  /// (no unanimity), and locked in only when the proposer explicitly
+  /// starts it. Winner-take-all among joiners by overall match result,
+  /// same settlement math as [pot].
+  tablePot,
 }
 
 /// Per-seat accept status. For [WagerMode.pot] every non-initiator seat must
@@ -41,12 +48,19 @@ class WagerConfig {
 }
 
 /// Live wager state for one [GameSession] — at most one active wager per
-/// session (a whole-table pot and a side-bet are mutually exclusive).
+/// session at a time (only one of pot / side-bet / table-pot may be active,
+/// and a new proposal is rejected outright while one is already locked in).
+/// [WagerMode.pot] is set up before a private match starts. [WagerMode.sideBet]
+/// and [WagerMode.tablePot] can each be proposed at any point during an
+/// already-running private or quickplay/casual match (never ranked) —
+/// sideBet settles independently of the overall result, by remaining hand
+/// size; tablePot settles winner-take-all among joiners by overall result,
+/// same as [pot].
 ///
-/// Tracks the proposed [config], per-seat acceptance for the pot mode's
-/// unanimous-consent gate, which participants have had their stake actually
-/// charged, and whether settlement has already run (so a match-end hook
-/// can't double-settle).
+/// Tracks the proposed [config], per-seat acceptance (unanimous-consent gate
+/// for [pot], free join/leave for [tablePot]), which participants have had
+/// their stake actually charged, and whether settlement has already run (so
+/// a match-end hook can't double-settle).
 class WagerState {
   WagerConfig? config;
   final Map<String, WagerAcceptStatus> acceptStatus = {};
@@ -70,12 +84,24 @@ class WagerState {
   /// The playerIds staking coins under the current [config].
   ///
   /// For [WagerMode.pot] that's every currently seated player; for
-  /// [WagerMode.sideBet] it's just the initiator and target.
+  /// [WagerMode.sideBet] it's just the initiator and target; for
+  /// [WagerMode.tablePot] it's the initiator plus whoever has explicitly
+  /// joined (`accepted` in [acceptStatus]) so far, intersected with who's
+  /// still actually seated.
   Set<String> participantPlayerIds(Iterable<String> seatedPlayerIds) {
     final cfg = config;
     if (cfg == null) return const {};
     if (cfg.mode == WagerMode.sideBet) {
       return {cfg.initiatorPlayerId, cfg.targetPlayerId!};
+    }
+    if (cfg.mode == WagerMode.tablePot) {
+      final joined = acceptStatus.entries
+          .where((e) => e.value == WagerAcceptStatus.accepted)
+          .map((e) => e.key);
+      final seatedSet = seatedPlayerIds.toSet();
+      return {cfg.initiatorPlayerId, ...joined}
+          .where(seatedSet.contains)
+          .toSet();
     }
     return seatedPlayerIds.toSet();
   }
@@ -83,7 +109,9 @@ class WagerState {
   /// Whether every required seat has explicitly accepted — the gate that
   /// unlocks charging stakes. For [WagerMode.pot] that's every seat other
   /// than the initiator (unanimous consent); for [WagerMode.sideBet] it's
-  /// just the challenged [WagerConfig.targetPlayerId].
+  /// just the challenged [WagerConfig.targetPlayerId]. [WagerMode.tablePot]
+  /// never uses this — it has no unanimity gate, entry stays open until the
+  /// proposer explicitly starts it (see `GameSession._isWagerReadyToLock`).
   bool isFullyAccepted(Iterable<String> seatedPlayerIds) {
     final cfg = config;
     if (cfg == null) return false;
@@ -114,6 +142,15 @@ class WagerState {
         for (final e in acceptStatus.entries) e.key: e.value.name,
       },
       'settled': settled,
+      // Distinguishes "accepted, but the async balance check/charge hasn't
+      // resolved yet" from "actually active" — without this, a client has
+      // no reliable signal for when it's safe to show a locked-in status.
+      'locked': lockedPlayerIds.isNotEmpty,
+      // The actual charged participant set — for tablePot, acceptStatus
+      // alone isn't enough to render "who's really in" once locked, since a
+      // late joiner can show `accepted` in acceptStatus without having been
+      // captured (and charged) by the in-flight lock-in.
+      'lockedPlayerIds': lockedPlayerIds.toList(),
     };
   }
 }

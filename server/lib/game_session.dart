@@ -157,6 +157,22 @@ class GameSession {
   /// point today, so nothing else needs this).
   bool _startGameInFlight = false;
 
+  /// Mirrors [_startGameInFlight] for the mid-game accept-triggered lock-in
+  /// path (there's no `startGameFromHost` call to gate on once the match is
+  /// already running).
+  bool _wagerLockInFlight = false;
+
+  /// Set (and immediately readable) synchronously inside
+  /// [_tryLockInWager], before its first `await` — lets tests do
+  /// `session.acceptWager(id); await session.wagerLockInFlightFuture;`
+  /// instead of pumping microtasks to observe the async lock-in outcome.
+  Future<bool>? wagerLockInFlightFuture;
+
+  /// Debounces an unanswered mid-game side-bet proposal — see
+  /// [_armWagerProposalExpiry].
+  Timer? _wagerProposalExpiryTimer;
+  static const Duration midGameWagerProposalTimeout = Duration(seconds: 45);
+
   /// Players host-muted (or self-muted) for voice publish. Cleared on leave.
   final Set<String> _voiceMutedIds = {};
 
@@ -532,6 +548,9 @@ class GameSession {
       p.allowRejoin = false;
       _applyRankedLeavePenaltyForPermanentAiLeave(playerId, p);
     }
+    // A seat that's gone silently AI-driven can't respond to a pending
+    // wager proposal — drop it rather than leave the table blocked.
+    _handleWagerParticipantGone(playerId);
 
     if (_clearRoomWhenNoConnectedHumansRemain()) {
       return;
@@ -642,8 +661,10 @@ class GameSession {
       _gameOver = true;
       // Abandoned mid-match — see [_clearRoomWhenNoConnectedHumansRemain]'s
       // doc comment for why this (not [_endGameForDisconnect]) is the real
-      // "everyone left" refund hook for standard-mode human wagers.
-      if (isPrivate) _refundWagerAllLocked();
+      // "everyone left" refund hook for standard-mode human wagers. Ranked
+      // never reaches here with a wager to refund (wagers are rejected
+      // outright for ranked); Bust never has one locked in either.
+      if (!isRanked && !isBustMode) _refundWagerAllLocked();
     }
     _players.clear();
     onBecameEmpty?.call(roomCode);
@@ -665,7 +686,7 @@ class GameSession {
     if (_started) {
       _cancelAllDisconnectGraceTimers();
       _gameOver = true;
-      if (isPrivate) _refundWagerAllLocked();
+      if (!isRanked && !isBustMode) _refundWagerAllLocked();
     }
     _players.clear();
     onBecameEmpty?.call(roomCode);
@@ -690,6 +711,11 @@ class GameSession {
     _players.remove(playerId);
     _tournamentVotes.remove(playerId);
     _voiceMutedIds.remove(playerId);
+    // A departed seat can't respond to a pending wager proposal — drop it
+    // rather than leave the table blocked (only one wager active at a
+    // time). Locked-in wagers are unaffected; they still settle/refund
+    // normally off the uids captured at lock-in.
+    _handleWagerParticipantGone(playerId);
     _broadcast({'type': 'player_left', 'playerId': playerId});
 
     if (_clearRoomWhenNoHumansRemain()) {
@@ -854,7 +880,7 @@ class GameSession {
     // Disconnect/abandon always refunds a wager, never pays out — the
     // "remaining players win" logic above is a rating-balance hack, not a
     // real result.
-    if (isPrivate) _refundWagerAllLocked();
+    if (!isRanked && !isBustMode) _refundWagerAllLocked();
 
     if (!_players.values.any((p) => !p.isAi)) {
       _players.clear();
@@ -1106,19 +1132,34 @@ class GameSession {
   // ── Wager ─────────────────────────────────────────────────────────────────
 
   /// Propose (or replace) a wager, or clear the current one by passing
-  /// `stakeCoins: 0`. Host-only for [WagerMode.pot]; either participant for
-  /// [WagerMode.sideBet]. Rejects any config referencing a seat with no
-  /// verified Firebase UID, or (for a side-bet) a nonexistent / self-targeted
-  /// opponent. Pre-game only.
+  /// `stakeCoins: 0`. Host-only for [WagerMode.pot], which stays pre-game
+  /// and private-lobby-only — unanimous consent gates the whole table's
+  /// Start. [WagerMode.sideBet] can be proposed by either participant at
+  /// any point up to match end, in private OR quickplay/casual matches
+  /// (never ranked) — settlement is unchanged and doesn't care when the bet
+  /// was set up, it just compares remaining hand size at match end.
+  /// [WagerMode.tablePot] can be proposed by any seated player, but only
+  /// once the match has started (never ranked) — anyone may join or leave
+  /// freely (no unanimity), and only the proposer can lock it in via
+  /// [startWager]. Rejects any config referencing a seat with no verified
+  /// Firebase UID, or (for a side-bet) a nonexistent / self-targeted /
+  /// AI-or-disconnected opponent. Only one wager may be active per session
+  /// at a time — a proposal is rejected outright while another is already
+  /// locked in.
   void setWagerConfig(
     String playerId, {
     required String mode,
     required int stakeCoins,
     String? targetPlayerId,
   }) {
-    if (!isPrivate || _started) return;
+    if (_gameOver) return;
     if (stakeCoins == 0) {
       _clearWagerConfig(playerId);
+      return;
+    }
+    if (wagerState.lockedPlayerIds.isNotEmpty) {
+      _sendError(playerId, 'wager_in_progress',
+          'A wager is already locked in for this match.');
       return;
     }
     if (isBustMode) {
@@ -1131,17 +1172,41 @@ class GameSession {
           playerId, 'invalid_wager', 'Stake must be a positive amount.');
       return;
     }
-    final wagerMode =
-        mode == 'sideBet' ? WagerMode.sideBet : WagerMode.pot;
+    final wagerMode = mode == 'sideBet'
+        ? WagerMode.sideBet
+        : mode == 'tablePot'
+            ? WagerMode.tablePot
+            : WagerMode.pot;
 
     if (wagerMode == WagerMode.pot) {
+      if (!isPrivate || _started) {
+        _sendError(playerId, 'wager_unsupported',
+            'A table-pot wager can only be set before a private match starts.');
+        return;
+      }
       final host = hostPlayerIdForPrivateLobby;
       if (host == null || playerId != host) {
         _sendError(playerId, 'not_host',
             'Only the room host can set a table-pot wager.');
         return;
       }
+    } else if (wagerMode == WagerMode.tablePot) {
+      if (!_started) {
+        _sendError(playerId, 'wager_unsupported',
+            'A table wager can only be proposed after the match starts.');
+        return;
+      }
+      if (isRanked) {
+        _sendError(playerId, 'wager_unsupported',
+            'Wagers are not available in ranked matches.');
+        return;
+      }
     } else {
+      if (isRanked) {
+        _sendError(playerId, 'wager_unsupported',
+            'Wagers are not available in ranked matches.');
+        return;
+      }
       if (targetPlayerId == null || targetPlayerId == playerId) {
         _sendError(playerId, 'invalid_wager',
             'A side-bet needs a different opponent seat.');
@@ -1152,11 +1217,18 @@ class GameSession {
             playerId, 'invalid_wager', 'That seat is no longer at the table.');
         return;
       }
+      if (_isServerDrivenSeat(targetPlayerId)) {
+        _sendError(playerId, 'invalid_wager',
+            'That player has left the table.');
+        return;
+      }
     }
 
     final participantIds = wagerMode == WagerMode.sideBet
         ? {playerId, targetPlayerId!}
-        : _players.keys.toSet();
+        : wagerMode == WagerMode.tablePot
+            ? {playerId}
+            : _players.keys.toSet();
     for (final id in participantIds) {
       if ((_players[id]?.firebaseUid ?? '').isEmpty) {
         _sendError(playerId, 'wager_ineligible',
@@ -1172,22 +1244,88 @@ class GameSession {
       targetPlayerId: targetPlayerId,
     ));
     _broadcastWagerState();
+    // Pre-game proposals are dropped by startGameFromHost if never accepted
+    // — no separate timeout needed. Mid-game there's no equivalent "Start"
+    // gate, so an unanswered challenge would otherwise block the table
+    // (only one wager active at a time) for the rest of the match.
+    if (wagerMode == WagerMode.sideBet && _started) {
+      _armWagerProposalExpiry();
+    }
   }
 
   void acceptWager(String playerId) {
-    if (wagerState.config == null || !_players.containsKey(playerId)) return;
+    final cfg = wagerState.config;
+    if (cfg == null || !_players.containsKey(playerId)) return;
+    if (cfg.mode == WagerMode.sideBet &&
+        playerId != cfg.initiatorPlayerId &&
+        playerId != cfg.targetPlayerId) {
+      return;
+    }
     wagerState.setAccept(playerId, true);
     _broadcastWagerState();
+    if (_started &&
+        !_gameOver &&
+        cfg.mode == WagerMode.sideBet &&
+        !wagerState.settled &&
+        wagerState.lockedPlayerIds.isEmpty &&
+        wagerState.isFullyAccepted(_players.keys.toSet())) {
+      _tryLockInWager();
+    }
+  }
+
+  /// Closes entry for a mid-game table-pot wager and attempts to lock in
+  /// stakes for everyone who's joined so far. Only the proposer may trigger
+  /// this — unlike the 1v1 side-bet (auto-triggered the instant its single
+  /// required accept lands) or the pre-game pot (unanimity gates the host's
+  /// Start), an open-ended multi-player pot has no natural "everyone's
+  /// responded" signal, so the proposer explicitly closes the window.
+  void startWager(String playerId) {
+    final cfg = wagerState.config;
+    if (cfg == null || cfg.mode != WagerMode.tablePot) return;
+    if (playerId != cfg.initiatorPlayerId) {
+      _sendError(playerId, 'invalid_wager',
+          'Only whoever proposed the wager can start it.');
+      return;
+    }
+    if (wagerState.lockedPlayerIds.isNotEmpty) {
+      _sendError(playerId, 'wager_in_progress',
+          'This wager is already locked in.');
+      return;
+    }
+    if (wagerState.participantPlayerIds(_players.keys.toSet()).length < 2) {
+      _sendError(playerId, 'wager_not_accepted',
+          'At least one other player must join first.');
+      return;
+    }
+    _tryLockInWager();
   }
 
   void declineWager(String playerId) {
-    if (wagerState.config == null || !_players.containsKey(playerId)) return;
+    final cfg = wagerState.config;
+    if (cfg == null || !_players.containsKey(playerId)) return;
+    if (cfg.mode == WagerMode.sideBet &&
+        playerId != cfg.initiatorPlayerId &&
+        playerId != cfg.targetPlayerId) {
+      return;
+    }
     wagerState.setAccept(playerId, false);
     _broadcastWagerState();
+    if (cfg.mode == WagerMode.sideBet &&
+        playerId == cfg.targetPlayerId &&
+        wagerState.lockedPlayerIds.isEmpty) {
+      // Nothing left to accept — free the table for a new proposal instead
+      // of leaving a declined-but-still-"active" wager blocking everyone
+      // else (only one wager may be active at a time).
+      _cancelWagerProposalExpiry();
+      wagerState.setConfig(null);
+      _broadcastWagerState();
+    }
   }
 
-  /// Withdraws the current proposal — the pot's host, or a side-bet's
-  /// challenger. No-op (silently) if there's nothing active to clear.
+  /// Withdraws the current proposal — the pot's host, or whoever proposed a
+  /// side-bet/table-pot. Refuses (with an error) to clear a wager whose
+  /// stakes are already charged; settlement/refund own that lifecycle from
+  /// there. No-op (silently) if there's nothing active to clear.
   void _clearWagerConfig(String playerId) {
     final cfg = wagerState.config;
     if (cfg == null) return;
@@ -1200,15 +1338,113 @@ class GameSession {
       }
     } else if (playerId != cfg.initiatorPlayerId) {
       _sendError(playerId, 'invalid_wager',
-          'Only the challenger can withdraw a side-bet.');
+          'Only whoever proposed this wager can withdraw it.');
       return;
     }
+    if (wagerState.lockedPlayerIds.isNotEmpty) {
+      _sendError(playerId, 'wager_in_progress',
+          'This wager is already locked in and can no longer be withdrawn.');
+      return;
+    }
+    _cancelWagerProposalExpiry();
     wagerState.setConfig(null);
     _broadcastWagerState();
   }
 
+  /// Debounces an unanswered mid-game side-bet proposal so it can't block
+  /// the table (only one wager active at a time) for the rest of the match.
+  /// A no-op once the wager locks in — cancelled from [_tryLockInWager].
+  void _armWagerProposalExpiry() {
+    _wagerProposalExpiryTimer?.cancel();
+    _wagerProposalExpiryTimer = Timer(midGameWagerProposalTimeout, () {
+      final cfg = wagerState.config;
+      if (cfg == null ||
+          cfg.mode != WagerMode.sideBet ||
+          wagerState.lockedPlayerIds.isNotEmpty) {
+        return;
+      }
+      wagerState.setConfig(null);
+      _broadcastWagerState();
+    });
+  }
+
+  void _cancelWagerProposalExpiry() {
+    _wagerProposalExpiryTimer?.cancel();
+    _wagerProposalExpiryTimer = null;
+  }
+
+  /// Reacts to a seat becoming unavailable (disconnected/AI-driven or fully
+  /// removed) for an unlocked wager it's involved in — a departed or
+  /// now-AI-driven seat can't meaningfully accept, decline, or honor a
+  /// pending proposal. Behavior is per-mode: [WagerMode.sideBet] has only
+  /// two parties, so either one leaving clears the whole proposal (nothing
+  /// salvageable). [WagerMode.tablePot] can have many joiners — if the
+  /// *proposer* is gone, nobody's left who can trigger [startWager], so the
+  /// whole proposal clears; if a mere joiner is gone, they're just quietly
+  /// dropped from the joined set and the proposal survives for everyone
+  /// else. [WagerMode.pot] is pre-game/private-lobby-only — roster changes
+  /// there are handled by the lobby's own leave flow, not this hook.
+  void _handleWagerParticipantGone(String playerId) {
+    final cfg = wagerState.config;
+    if (cfg == null || wagerState.lockedPlayerIds.isNotEmpty) return;
+
+    if (cfg.mode == WagerMode.sideBet) {
+      if (cfg.initiatorPlayerId != playerId && cfg.targetPlayerId != playerId) {
+        return;
+      }
+      _cancelWagerProposalExpiry();
+      wagerState.setConfig(null);
+      _broadcastWagerState();
+      return;
+    }
+
+    if (cfg.mode == WagerMode.tablePot) {
+      if (cfg.initiatorPlayerId == playerId) {
+        wagerState.setConfig(null);
+        _broadcastWagerState();
+      } else if (wagerState.acceptStatus.containsKey(playerId)) {
+        wagerState.setAccept(playerId, false);
+        _broadcastWagerState();
+      }
+    }
+  }
+
+  /// Mid-game counterpart to `startGameFromHost`'s pre-game lock-in call —
+  /// triggered either the instant a side-bet becomes fully accepted while
+  /// the match is already running (no "Start" event to hang the lock-in
+  /// attempt off of), or by an explicit [startWager] call for a table-pot.
+  void _tryLockInWager() {
+    if (_wagerLockInFlight) return;
+    _wagerLockInFlight = true;
+    final future = _lockInWagerStakes();
+    wagerLockInFlightFuture = future;
+    future.then((locked) {
+      if (locked) {
+        _cancelWagerProposalExpiry();
+      } else {
+        // No retry gesture exists mid-game (unlike the pre-game Start
+        // button) — drop the proposal so clients don't show a permanently
+        // "accepted but never activates" state.
+        wagerState.setConfig(null);
+        _broadcastWagerState();
+      }
+      _wagerLockInFlight = false;
+    });
+  }
+
   void _broadcastWagerState() {
     _broadcast({'type': 'wager_state', ...wagerState.toJson()});
+  }
+
+  /// Whether [cfg] is ready to have its stakes charged. [WagerMode.tablePot]
+  /// has no unanimity gate (entry stays open until the proposer explicitly
+  /// calls [startWager]) — "ready" just means at least 2 participants have
+  /// been captured. Every other mode uses [WagerState.isFullyAccepted].
+  bool _isWagerReadyToLock(WagerConfig cfg, Set<String> seatedIds) {
+    if (cfg.mode == WagerMode.tablePot) {
+      return wagerState.participantPlayerIds(seatedIds).length >= 2;
+    }
+    return wagerState.isFullyAccepted(seatedIds);
   }
 
   /// Validates acceptance/eligibility/balance, then charges every
@@ -1219,9 +1455,13 @@ class GameSession {
     final cfg = wagerState.config!;
     final seatedIds = _players.keys.toSet();
 
-    if (!wagerState.isFullyAccepted(seatedIds)) {
-      _sendError(cfg.initiatorPlayerId, 'wager_not_accepted',
-          'Not everyone has accepted the wager yet.');
+    if (!_isWagerReadyToLock(cfg, seatedIds)) {
+      _sendError(
+          cfg.initiatorPlayerId,
+          'wager_not_accepted',
+          cfg.mode == WagerMode.tablePot
+              ? 'Not enough players have joined yet.'
+              : 'Not everyone has accepted the wager yet.');
       return false;
     }
 
@@ -1246,6 +1486,21 @@ class GameSession {
       }
     }
 
+    // Each balance check above suspends on a real network round trip —
+    // during that window the config could have been replaced or cleared,
+    // the match could have ended, the target could have declined, or a
+    // participant could have disconnected. Re-validate before committing to
+    // a charge rather than locking in against a decision that's since
+    // changed. No error sent here: whatever changed the state already
+    // explains itself (a decline, a disconnect, game_ended) to the client.
+    if (!identical(wagerState.config, cfg) ||
+        _gameOver ||
+        wagerState.settled ||
+        !_isWagerReadyToLock(cfg, _players.keys.toSet()) ||
+        participantIds.any(_isServerDrivenSeat)) {
+      return false;
+    }
+
     if (!_tryLockWagerUids(uidByPlayerId.values.toSet())) {
       _sendError(cfg.initiatorPlayerId, 'wager_locked',
           'A participant already has another wager in progress.');
@@ -1263,8 +1518,8 @@ class GameSession {
 
   /// Settles the active wager at a normal (non-disconnect) match end.
   /// [matchWinnerId] is the overall match winner — only relevant for
-  /// [WagerMode.pot] (a side-bet settles independently, by hand size).
-  /// No-op if there's no locked-in wager to settle.
+  /// [WagerMode.pot]/[WagerMode.tablePot] (a side-bet settles independently,
+  /// by hand size). No-op if there's no locked-in wager to settle.
   void _settleWagerOnWin(String matchWinnerId) {
     final cfg = wagerState.config;
     if (cfg == null || wagerState.settled || wagerState.lockedPlayerIds.isEmpty) {
@@ -1277,7 +1532,7 @@ class GameSession {
     String? settlementWinnerId;
     final int potTotal;
 
-    if (cfg.mode == WagerMode.pot) {
+    if (cfg.mode == WagerMode.pot || cfg.mode == WagerMode.tablePot) {
       potTotal = stake * participants.length;
       if (participants.contains(matchWinnerId)) {
         settlementWinnerId = matchWinnerId;
@@ -2873,9 +3128,11 @@ class GameSession {
       ratingChanges: ratingChanges,
     );
 
-    // Wagers are scoped to private standard/knockout matches (see
-    // server/lib/wager_state.dart) — Bust mode never reaches this branch.
-    if (isPrivate) _settleWagerOnWin(winnerId);
+    // Wagers cover private AND quickplay/casual standard/knockout matches —
+    // never ranked (see server/lib/wager_state.dart). Bust mode never
+    // reaches this branch, but the explicit check costs nothing and keeps
+    // this in sync with setWagerConfig's own gate.
+    if (!isRanked && !isBustMode) _settleWagerOnWin(winnerId);
   }
 
   // ── Draw pile management ──────────────────────────────────────────────────

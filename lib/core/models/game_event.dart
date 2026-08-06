@@ -19,7 +19,8 @@ import 'player_model.dart';
 /// Outgoing (client → server): [PlayCardsAction], [DrawCardAction],
 ///   [DeclareJokerAction], [SuitChoiceAction], [EndTurnAction], [QuickChatAction],
 ///   [TextChatAction], [VoiceTokenRequestAction], [VoiceMutePlayerAction],
-///   [SetWagerConfigAction], [AcceptWagerAction], [DeclineWagerAction]
+///   [SetWagerConfigAction], [AcceptWagerAction], [DeclineWagerAction],
+///   [StartWagerAction]
 sealed class GameEvent {
   const GameEvent();
 
@@ -605,18 +606,31 @@ final class VoicePlayerMutedEvent extends GameEvent {
 /// `mode`/`stakeCoins`/`initiatorPlayerId` are null when no wager is
 /// currently proposed. `acceptStatus` maps playerId → `"pending"` |
 /// `"accepted"` | `"declined"`.
+///
+/// [locked] distinguishes "accepted, but the async balance check/charge
+/// hasn't resolved yet" from "actually active" — only once this is true
+/// have stakes actually been charged.
+///
+/// [lockedPlayerIds] is the actual charged participant set once [locked] is
+/// true — for a `tablePot` wager, `acceptStatus` alone can include a late
+/// joiner who showed up after lock-in started and was never charged, so a
+/// locked-state UI should render from [lockedPlayerIds], not `acceptStatus`.
 final class WagerStateEvent extends GameEvent {
   final String? mode;
   final int? stakeCoins;
   final String? initiatorPlayerId;
   final String? targetPlayerId;
   final Map<String, String> acceptStatus;
+  final bool locked;
+  final List<String> lockedPlayerIds;
   const WagerStateEvent({
     this.mode,
     this.stakeCoins,
     this.initiatorPlayerId,
     this.targetPlayerId,
     this.acceptStatus = const {},
+    this.locked = false,
+    this.lockedPlayerIds = const [],
   });
 
   @override
@@ -873,6 +887,17 @@ final class DeclineWagerAction extends GameEvent {
   String toJsonString() => jsonEncode({'type': type});
 }
 
+/// Closes entry for a `tablePot` wager and locks in stakes for whoever's
+/// joined so far. Only the proposer's call has any effect server-side.
+final class StartWagerAction extends GameEvent {
+  const StartWagerAction();
+
+  @override
+  String get type => 'start_wager';
+
+  String toJsonString() => jsonEncode({'type': type});
+}
+
 // ── Event parsing ─────────────────────────────────────────────────────────────
 
 /// Parse a raw JSON string from the server into a [GameEvent].
@@ -1060,6 +1085,11 @@ GameEvent parseServerEvent(String raw) {
                 (k, v) => MapEntry(k, v as String),
               ) ??
               const {},
+          locked: json['locked'] as bool? ?? false,
+          lockedPlayerIds: (json['lockedPlayerIds'] as List<dynamic>?)
+                  ?.map((e) => e as String)
+                  .toList() ??
+              const [],
         ),
       'wager_settled' => WagerSettledEvent(
           mode: json['mode'] as String? ?? 'pot',

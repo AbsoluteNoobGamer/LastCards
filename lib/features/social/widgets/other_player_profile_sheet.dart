@@ -35,6 +35,8 @@ class OtherPlayerProfileSheet extends ConsumerStatefulWidget {
     required this.fallbackDisplayName,
     this.playerId,
     this.showChallengeAction = true,
+    this.showWagerChallengeAction = false,
+    this.onWagerChallenge,
   });
 
   final String firebaseUid;
@@ -47,6 +49,14 @@ class OtherPlayerProfileSheet extends ConsumerStatefulWidget {
   /// (e.g. tapping a live opponent's avatar) since a new private room would
   /// interrupt the match already in progress.
   final bool showChallengeAction;
+
+  /// Whether to offer "Wager" — sending a coin side-bet challenge against
+  /// this opponent in the current match. Unrelated to [showChallengeAction]
+  /// (that starts a brand-new match); this only makes sense while a match
+  /// is already in progress, ranked matches excluded.
+  final bool showWagerChallengeAction;
+
+  final VoidCallback? onWagerChallenge;
 
   @override
   ConsumerState<OtherPlayerProfileSheet> createState() =>
@@ -381,6 +391,15 @@ class _OtherPlayerProfileSheetState
                                           size: 18,
                                         ),
                                         label: const Text('Challenge'),
+                                      ),
+                                    if (widget.showWagerChallengeAction)
+                                      OutlinedButton.icon(
+                                        onPressed: widget.onWagerChallenge,
+                                        icon: const Icon(
+                                          Icons.monetization_on_rounded,
+                                          size: 18,
+                                        ),
+                                        label: const Text('Wager'),
                                       ),
                                   ],
                                 ),
