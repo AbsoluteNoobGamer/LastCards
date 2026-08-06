@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Firestore sync live in [CurrencyNotifier].
 class CurrencyService {
   static const _balanceKey = 'currencyCoinBalance';
+  static const _walletVersionKey = 'currencyWalletVersion';
   static const _lastRewardedLevelKey = 'currencyLastRewardedLevel';
   static const _lastDailyRewardEpochDayKey = 'currencyLastDailyRewardEpochDay';
   static const _dailyStreakKey = 'currencyDailyStreak';
@@ -19,6 +20,20 @@ class CurrencyService {
   Future<void> saveBalance(int balance) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_balanceKey, balance);
+  }
+
+  /// Monotonic counter bumped only by server-authoritative wallet writes
+  /// (see `WalletService` on the game server) — never by this client. Lets
+  /// [CurrencyNotifier.loadFromPrefs] tell a real server-side decrease (e.g.
+  /// a lost wager) apart from a merely-stale local cache.
+  Future<int> loadWalletVersion() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_walletVersionKey) ?? 0;
+  }
+
+  Future<void> saveWalletVersion(int version) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_walletVersionKey, version);
   }
 
   /// Null means the level-up reward baseline has never been established

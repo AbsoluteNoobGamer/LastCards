@@ -22,6 +22,8 @@ import 'server_ai_turn.dart';
 import 'session_match_stats.dart';
 import 'trophy_recorder.dart';
 import 'voice_token_service.dart';
+import 'wager_state.dart';
+import 'wallet_service.dart';
 
 // Flutter-only: Ace suit sheet UI, table animations, draw-pile visuals, floating
 // action bar layout. This process validates actions and broadcasts snapshots; see
@@ -89,11 +91,17 @@ class GameSession {
     TrophyPersistence? trophyRecorder,
     MatchupPersistence? matchupRecorder,
     VoiceTokenService? voiceTokenService,
+    WalletPersistence? walletService,
     this.onBecameEmpty,
+    bool Function(Set<String> uids)? tryLockWagerUids,
+    void Function(Set<String> uids)? releaseWagerUids,
   })  : _trophyRecorder = trophyRecorder ?? TrophyRecorder.instance,
         _matchupRecorder = matchupRecorder ?? MatchupRecorder.instance,
         _voiceTokenService =
-            voiceTokenService ?? VoiceTokenService.fromEnvironment();
+            voiceTokenService ?? VoiceTokenService.fromEnvironment(),
+        _walletService = walletService ?? WalletService.instance,
+        _tryLockWagerUids = tryLockWagerUids ?? ((_) => true),
+        _releaseWagerUids = releaseWagerUids ?? ((_) {});
 
   final String roomCode;
 
@@ -123,9 +131,31 @@ class GameSession {
   final TrophyPersistence _trophyRecorder;
   final MatchupPersistence _matchupRecorder;
   final VoiceTokenService _voiceTokenService;
+  final WalletPersistence _walletService;
   final SessionMatchStats _matchStats = SessionMatchStats();
   final _log = Logger('GameSession');
   final math.Random _aiRng = math.Random();
+
+  /// Cross-session guard (owned by [RoomManager]) preventing the same
+  /// Firebase UID from having two wagers locked in at once. Returns false if
+  /// any uid is already locked elsewhere — in that case no uid in the set is
+  /// locked (all-or-nothing). Defaults to always-succeed for sessions built
+  /// without a [RoomManager] (e.g. unit tests).
+  final bool Function(Set<String> uids) _tryLockWagerUids;
+  final void Function(Set<String> uids) _releaseWagerUids;
+
+  /// Current wager proposal/lock-in state. At most one active wager per
+  /// session — a whole-table pot and a side-bet are mutually exclusive.
+  final WagerState wagerState = WagerState();
+
+  /// playerId → Firebase uid, captured at stake lock-in time ([_players]
+  /// may prune a departed participant before settlement runs).
+  Map<String, String> _wagerUidByPlayerId = {};
+
+  /// Guards [startGameFromHost] against a second call racing in during the
+  /// `await` for wager balance checks (that method has no other suspension
+  /// point today, so nothing else needs this).
+  bool _startGameInFlight = false;
 
   /// Players host-muted (or self-muted) for voice publish. Cleared on leave.
   final Set<String> _voiceMutedIds = {};
@@ -610,6 +640,10 @@ class GameSession {
     if (_started) {
       _cancelAllDisconnectGraceTimers();
       _gameOver = true;
+      // Abandoned mid-match — see [_clearRoomWhenNoConnectedHumansRemain]'s
+      // doc comment for why this (not [_endGameForDisconnect]) is the real
+      // "everyone left" refund hook for standard-mode human wagers.
+      if (isPrivate) _refundWagerAllLocked();
     }
     _players.clear();
     onBecameEmpty?.call(roomCode);
@@ -618,12 +652,20 @@ class GameSession {
 
   /// Tears down when no human still has a live socket — avoids simulating a
   /// match of AI-only seats for nobody.
+  ///
+  /// Mid-game human disconnects always take silent, permanent AI control of
+  /// the seat ([_beginAiControlForDisconnectedHuman]) rather than removing
+  /// the player outright, so [_endGameForDisconnect] is unreachable for a
+  /// real human leaving a standard-mode match — this is the actual
+  /// "the match was abandoned" event, firing once every human socket is
+  /// gone. That's why the wager refund lives here, not there.
   bool _clearRoomWhenNoConnectedHumansRemain() {
     if (_players.values.any((p) => !p.isAi && p.ws != null)) return false;
     _turnTimer?.cancel();
     if (_started) {
       _cancelAllDisconnectGraceTimers();
       _gameOver = true;
+      if (isPrivate) _refundWagerAllLocked();
     }
     _players.clear();
     onBecameEmpty?.call(roomCode);
@@ -808,6 +850,11 @@ class GameSession {
     // Authoritative ended snapshot so clients never sit in a playing state until
     // the turn timer fires; also syncs draw pile / roster with pruned players.
     _broadcastStateSnapshots();
+
+    // Disconnect/abandon always refunds a wager, never pays out — the
+    // "remaining players win" logic above is a rating-balance hack, not a
+    // real result.
+    if (isPrivate) _refundWagerAllLocked();
 
     if (!_players.values.any((p) => !p.isAi)) {
       _players.clear();
@@ -997,8 +1044,8 @@ class GameSession {
 
   /// Host-only: starts the match with the current roster (minimum 2 players).
   /// Does not require every player to have pressed Ready.
-  void startGameFromHost(String playerId) {
-    if (_started) {
+  Future<void> startGameFromHost(String playerId) async {
+    if (_started || _startGameInFlight) {
       _sendError(
           playerId, 'game_started', 'Game already in progress.');
       return;
@@ -1024,7 +1071,295 @@ class GameSession {
           'At least one human player is required.');
       return;
     }
+    if (wagerState.config != null) {
+      final cfg = wagerState.config!;
+      _startGameInFlight = true;
+      bool locked;
+      try {
+        locked = await _lockInWagerStakes();
+      } finally {
+        _startGameInFlight = false;
+      }
+      if (!locked) {
+        // A side-bet is a side activity between two seats — it must never
+        // gate the rest of the table. _lockInWagerStakes already told
+        // whichever seat caused the failure why; just drop the proposal and
+        // fall through to a normal start. A table-pot wager involves every
+        // seat, so it keeps blocking Start until the host resolves it.
+        if (cfg.mode == WagerMode.sideBet) {
+          wagerState.setConfig(null);
+          _broadcastWagerState();
+        } else {
+          return;
+        }
+      } else if (_players.length < 2) {
+        // A concurrent leave/disconnect during the balance-check await could
+        // have dropped the roster below 2 — re-check before dealing.
+        _sendError(playerId, 'not_enough_players',
+            'Need at least 2 players to start.');
+        return;
+      }
+    }
     _startGame();
+  }
+
+  // ── Wager ─────────────────────────────────────────────────────────────────
+
+  /// Propose (or replace) a wager, or clear the current one by passing
+  /// `stakeCoins: 0`. Host-only for [WagerMode.pot]; either participant for
+  /// [WagerMode.sideBet]. Rejects any config referencing a seat with no
+  /// verified Firebase UID, or (for a side-bet) a nonexistent / self-targeted
+  /// opponent. Pre-game only.
+  void setWagerConfig(
+    String playerId, {
+    required String mode,
+    required int stakeCoins,
+    String? targetPlayerId,
+  }) {
+    if (!isPrivate || _started) return;
+    if (stakeCoins == 0) {
+      _clearWagerConfig(playerId);
+      return;
+    }
+    if (isBustMode) {
+      _sendError(playerId, 'wager_unsupported',
+          'Wagers are not available in Bust mode.');
+      return;
+    }
+    if (stakeCoins < 0) {
+      _sendError(
+          playerId, 'invalid_wager', 'Stake must be a positive amount.');
+      return;
+    }
+    final wagerMode =
+        mode == 'sideBet' ? WagerMode.sideBet : WagerMode.pot;
+
+    if (wagerMode == WagerMode.pot) {
+      final host = hostPlayerIdForPrivateLobby;
+      if (host == null || playerId != host) {
+        _sendError(playerId, 'not_host',
+            'Only the room host can set a table-pot wager.');
+        return;
+      }
+    } else {
+      if (targetPlayerId == null || targetPlayerId == playerId) {
+        _sendError(playerId, 'invalid_wager',
+            'A side-bet needs a different opponent seat.');
+        return;
+      }
+      if (!_players.containsKey(targetPlayerId)) {
+        _sendError(
+            playerId, 'invalid_wager', 'That seat is no longer at the table.');
+        return;
+      }
+    }
+
+    final participantIds = wagerMode == WagerMode.sideBet
+        ? {playerId, targetPlayerId!}
+        : _players.keys.toSet();
+    for (final id in participantIds) {
+      if ((_players[id]?.firebaseUid ?? '').isEmpty) {
+        _sendError(playerId, 'wager_ineligible',
+            'Every wager participant must be signed in.');
+        return;
+      }
+    }
+
+    wagerState.setConfig(WagerConfig(
+      mode: wagerMode,
+      stakeCoins: stakeCoins,
+      initiatorPlayerId: playerId,
+      targetPlayerId: targetPlayerId,
+    ));
+    _broadcastWagerState();
+  }
+
+  void acceptWager(String playerId) {
+    if (wagerState.config == null || !_players.containsKey(playerId)) return;
+    wagerState.setAccept(playerId, true);
+    _broadcastWagerState();
+  }
+
+  void declineWager(String playerId) {
+    if (wagerState.config == null || !_players.containsKey(playerId)) return;
+    wagerState.setAccept(playerId, false);
+    _broadcastWagerState();
+  }
+
+  /// Withdraws the current proposal — the pot's host, or a side-bet's
+  /// challenger. No-op (silently) if there's nothing active to clear.
+  void _clearWagerConfig(String playerId) {
+    final cfg = wagerState.config;
+    if (cfg == null) return;
+    if (cfg.mode == WagerMode.pot) {
+      final host = hostPlayerIdForPrivateLobby;
+      if (host == null || playerId != host) {
+        _sendError(playerId, 'not_host',
+            'Only the room host can clear a table-pot wager.');
+        return;
+      }
+    } else if (playerId != cfg.initiatorPlayerId) {
+      _sendError(playerId, 'invalid_wager',
+          'Only the challenger can withdraw a side-bet.');
+      return;
+    }
+    wagerState.setConfig(null);
+    _broadcastWagerState();
+  }
+
+  void _broadcastWagerState() {
+    _broadcast({'type': 'wager_state', ...wagerState.toJson()});
+  }
+
+  /// Validates acceptance/eligibility/balance, then charges every
+  /// participant's stake. Returns false (with an error already sent to the
+  /// blocking player) if the wager cannot be locked in — callers must not
+  /// proceed to [_startGame] in that case.
+  Future<bool> _lockInWagerStakes() async {
+    final cfg = wagerState.config!;
+    final seatedIds = _players.keys.toSet();
+
+    if (!wagerState.isFullyAccepted(seatedIds)) {
+      _sendError(cfg.initiatorPlayerId, 'wager_not_accepted',
+          'Not everyone has accepted the wager yet.');
+      return false;
+    }
+
+    final participantIds = wagerState.participantPlayerIds(seatedIds);
+    final uidByPlayerId = <String, String>{};
+    for (final id in participantIds) {
+      final uid = _players[id]?.firebaseUid;
+      if (uid == null || uid.isEmpty) {
+        _sendError(cfg.initiatorPlayerId, 'wager_ineligible',
+            'Every wager participant must be signed in.');
+        return false;
+      }
+      uidByPlayerId[id] = uid;
+    }
+
+    for (final entry in uidByPlayerId.entries) {
+      final balance = await _walletService.checkBalance(entry.value);
+      if (balance == null || balance < cfg.stakeCoins) {
+        _sendError(entry.key, 'insufficient_coins',
+            'Not enough coins to cover the wager.');
+        return false;
+      }
+    }
+
+    if (!_tryLockWagerUids(uidByPlayerId.values.toSet())) {
+      _sendError(cfg.initiatorPlayerId, 'wager_locked',
+          'A participant already has another wager in progress.');
+      return false;
+    }
+
+    for (final entry in uidByPlayerId.entries) {
+      _walletService.chargeStake(entry.value, cfg.stakeCoins);
+      wagerState.lockedPlayerIds.add(entry.key);
+    }
+    _wagerUidByPlayerId = uidByPlayerId;
+    _broadcastWagerState();
+    return true;
+  }
+
+  /// Settles the active wager at a normal (non-disconnect) match end.
+  /// [matchWinnerId] is the overall match winner — only relevant for
+  /// [WagerMode.pot] (a side-bet settles independently, by hand size).
+  /// No-op if there's no locked-in wager to settle.
+  void _settleWagerOnWin(String matchWinnerId) {
+    final cfg = wagerState.config;
+    if (cfg == null || wagerState.settled || wagerState.lockedPlayerIds.isEmpty) {
+      return;
+    }
+    wagerState.settled = true;
+    final stake = cfg.stakeCoins;
+    final participants = wagerState.lockedPlayerIds;
+    final perPlayerDelta = <String, int>{};
+    String? settlementWinnerId;
+    final int potTotal;
+
+    if (cfg.mode == WagerMode.pot) {
+      potTotal = stake * participants.length;
+      if (participants.contains(matchWinnerId)) {
+        settlementWinnerId = matchWinnerId;
+        for (final id in participants) {
+          perPlayerDelta[id] = id == matchWinnerId ? potTotal - stake : -stake;
+        }
+        final uid = _wagerUidByPlayerId[matchWinnerId];
+        if (uid != null) _walletService.payout(uid, potTotal);
+      } else {
+        // The match winner never staked (e.g. left and rejoined outside the
+        // wager) — nobody forfeits a stake they can't have lost.
+        for (final id in participants) {
+          perPlayerDelta[id] = 0;
+        }
+        _refundEachLocked(stake);
+      }
+    } else {
+      final a = cfg.initiatorPlayerId;
+      final b = cfg.targetPlayerId!;
+      potTotal = stake * 2;
+      final aCount =
+          _state.players.firstWhereOrNull((p) => p.id == a)?.cardCount;
+      final bCount =
+          _state.players.firstWhereOrNull((p) => p.id == b)?.cardCount;
+      if (aCount == null || bCount == null || aCount == bCount) {
+        perPlayerDelta[a] = 0;
+        perPlayerDelta[b] = 0;
+        _refundEachLocked(stake);
+      } else {
+        final winner = aCount < bCount ? a : b;
+        final loser = winner == a ? b : a;
+        settlementWinnerId = winner;
+        perPlayerDelta[winner] = stake;
+        perPlayerDelta[loser] = -stake;
+        final uid = _wagerUidByPlayerId[winner];
+        if (uid != null) _walletService.payout(uid, potTotal);
+      }
+    }
+
+    _broadcast({
+      'type': 'wager_settled',
+      'mode': cfg.mode.name,
+      'potTotal': potTotal,
+      'winnerPlayerId': settlementWinnerId,
+      'perPlayerDelta': perPlayerDelta,
+    });
+    _releaseWagerUids(_wagerUidByPlayerId.values.toSet());
+    wagerState.reset();
+    _wagerUidByPlayerId = {};
+  }
+
+  /// Refunds every locked-in participant — always used on disconnect/abandon
+  /// (a rating-balance hack, not a real result, must never pay out a wager),
+  /// and also for a side-bet push or a pot whose winner never staked.
+  void _refundWagerAllLocked() {
+    final cfg = wagerState.config;
+    if (cfg == null || wagerState.settled || wagerState.lockedPlayerIds.isEmpty) {
+      return;
+    }
+    wagerState.settled = true;
+    final stake = cfg.stakeCoins;
+    final participants = wagerState.lockedPlayerIds;
+    final perPlayerDelta = {for (final id in participants) id: 0};
+    _refundEachLocked(stake);
+
+    _broadcast({
+      'type': 'wager_settled',
+      'mode': cfg.mode.name,
+      'potTotal': stake * participants.length,
+      'winnerPlayerId': null,
+      'perPlayerDelta': perPlayerDelta,
+    });
+    _releaseWagerUids(_wagerUidByPlayerId.values.toSet());
+    wagerState.reset();
+    _wagerUidByPlayerId = {};
+  }
+
+  void _refundEachLocked(int stake) {
+    for (final id in wagerState.lockedPlayerIds) {
+      final uid = _wagerUidByPlayerId[id];
+      if (uid != null) _walletService.refund(uid, stake);
+    }
   }
 
   /// Private lobbies only: host may toggle hardcore rules before the match.
@@ -2537,6 +2872,10 @@ class GameSession {
       trophyEligible: trophyEligible,
       ratingChanges: ratingChanges,
     );
+
+    // Wagers are scoped to private standard/knockout matches (see
+    // server/lib/wager_state.dart) — Bust mode never reaches this branch.
+    if (isPrivate) _settleWagerOnWin(winnerId);
   }
 
   // ── Draw pile management ──────────────────────────────────────────────────

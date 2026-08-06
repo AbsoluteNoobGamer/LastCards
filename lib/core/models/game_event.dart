@@ -13,11 +13,13 @@ import 'player_model.dart';
 ///   [SuitChoiceRequiredEvent], [JokerChoiceRequiredEvent],
 ///   [TurnTimeoutEvent], [ReshuffleEvent], [BustRoundOverEvent],
 ///   [BustRoundStartEvent], [QuickChatEvent], [TextChatEvent],
-///   [VoiceTokenEvent], [VoiceUnavailableEvent], [VoicePlayerMutedEvent]
+///   [VoiceTokenEvent], [VoiceUnavailableEvent], [VoicePlayerMutedEvent],
+///   [WagerStateEvent], [WagerSettledEvent]
 ///
 /// Outgoing (client → server): [PlayCardsAction], [DrawCardAction],
 ///   [DeclareJokerAction], [SuitChoiceAction], [EndTurnAction], [QuickChatAction],
-///   [TextChatAction], [VoiceTokenRequestAction], [VoiceMutePlayerAction]
+///   [TextChatAction], [VoiceTokenRequestAction], [VoiceMutePlayerAction],
+///   [SetWagerConfigAction], [AcceptWagerAction], [DeclineWagerAction]
 sealed class GameEvent {
   const GameEvent();
 
@@ -597,6 +599,52 @@ final class VoicePlayerMutedEvent extends GameEvent {
   String get type => 'voice_player_muted';
 }
 
+/// Current wager proposal + per-seat accept status, broadcast to the lobby
+/// whenever the config changes or a seat accepts/declines.
+///
+/// `mode`/`stakeCoins`/`initiatorPlayerId` are null when no wager is
+/// currently proposed. `acceptStatus` maps playerId → `"pending"` |
+/// `"accepted"` | `"declined"`.
+final class WagerStateEvent extends GameEvent {
+  final String? mode;
+  final int? stakeCoins;
+  final String? initiatorPlayerId;
+  final String? targetPlayerId;
+  final Map<String, String> acceptStatus;
+  const WagerStateEvent({
+    this.mode,
+    this.stakeCoins,
+    this.initiatorPlayerId,
+    this.targetPlayerId,
+    this.acceptStatus = const {},
+  });
+
+  @override
+  String get type => 'wager_state';
+}
+
+/// A wager was settled at match end (win, side-bet resolution, or refund).
+///
+/// [winnerPlayerId] is null for a side-bet push (tie) or a disconnect
+/// refund — in both cases every entry in [perPlayerDelta] is the stake
+/// being returned, not a win/loss. [perPlayerDelta] is keyed by playerId;
+/// positive values are a net gain, negative a net loss.
+final class WagerSettledEvent extends GameEvent {
+  final String mode;
+  final int potTotal;
+  final String? winnerPlayerId;
+  final Map<String, int> perPlayerDelta;
+  const WagerSettledEvent({
+    required this.mode,
+    required this.potTotal,
+    this.winnerPlayerId,
+    required this.perPlayerDelta,
+  });
+
+  @override
+  String get type => 'wager_settled';
+}
+
 /// Public casual: pre-deal vote to play as knockout tournament.
 final class TournamentVoteOpenEvent extends GameEvent {
   final int secondsRemaining;
@@ -780,6 +828,51 @@ final class VoiceMutePlayerAction extends GameEvent {
       });
 }
 
+/// Propose (or replace) a wager for this session. Host-only for
+/// `mode: 'pot'`; either participant for `mode: 'sideBet'` (which requires
+/// [targetPlayerId]). Server rejects it outright for any seat with no
+/// verified Firebase UID.
+final class SetWagerConfigAction extends GameEvent {
+  final String mode;
+  final int stakeCoins;
+  final String? targetPlayerId;
+  const SetWagerConfigAction({
+    required this.mode,
+    required this.stakeCoins,
+    this.targetPlayerId,
+  });
+
+  @override
+  String get type => 'set_wager_config';
+
+  String toJsonString() => jsonEncode({
+        'type': type,
+        'mode': mode,
+        'stakeCoins': stakeCoins,
+        if (targetPlayerId != null) 'targetPlayerId': targetPlayerId,
+      });
+}
+
+/// Accept the currently proposed wager for this seat.
+final class AcceptWagerAction extends GameEvent {
+  const AcceptWagerAction();
+
+  @override
+  String get type => 'accept_wager';
+
+  String toJsonString() => jsonEncode({'type': type});
+}
+
+/// Decline the currently proposed wager for this seat.
+final class DeclineWagerAction extends GameEvent {
+  const DeclineWagerAction();
+
+  @override
+  String get type => 'decline_wager';
+
+  String toJsonString() => jsonEncode({'type': type});
+}
+
 // ── Event parsing ─────────────────────────────────────────────────────────────
 
 /// Parse a raw JSON string from the server into a [GameEvent].
@@ -957,6 +1050,26 @@ GameEvent parseServerEvent(String raw) {
           playerId: json['playerId'] as String? ?? '',
           muted: json['muted'] as bool? ?? false,
           byPlayerId: json['byPlayerId'] as String? ?? '',
+        ),
+      'wager_state' => WagerStateEvent(
+          mode: json['mode'] as String?,
+          stakeCoins: (json['stakeCoins'] as num?)?.toInt(),
+          initiatorPlayerId: json['initiatorPlayerId'] as String?,
+          targetPlayerId: json['targetPlayerId'] as String?,
+          acceptStatus: (json['acceptStatus'] as Map<String, dynamic>?)?.map(
+                (k, v) => MapEntry(k, v as String),
+              ) ??
+              const {},
+        ),
+      'wager_settled' => WagerSettledEvent(
+          mode: json['mode'] as String? ?? 'pot',
+          potTotal: (json['potTotal'] as num?)?.toInt() ?? 0,
+          winnerPlayerId: json['winnerPlayerId'] as String?,
+          perPlayerDelta:
+              (json['perPlayerDelta'] as Map<String, dynamic>?)?.map(
+                    (k, v) => MapEntry(k, (v as num).toInt()),
+                  ) ??
+                  const {},
         ),
       'tournament_vote_open' => TournamentVoteOpenEvent(
           secondsRemaining: (json['secondsRemaining'] as num?)?.toInt() ?? 15,

@@ -845,5 +845,120 @@ void main() {
         isTrue,
       );
     });
+
+    test('set_wager_config from host broadcasts wager_state to everyone',
+        () async {
+      final rm = RoomManager(verifyIdToken: (token) async => 'uid-$token');
+      final host = FakeWs();
+      final guest = FakeWs();
+      rm.handleConnection(host);
+      host.addIncoming(jsonEncode({
+        'type': 'create_room',
+        'displayName': 'Host',
+        'idToken': 'host',
+      }));
+      await _flushAsync();
+      final code = host.lastOfType('room_created')!['roomCode'] as String;
+
+      rm.handleConnection(guest);
+      guest.addIncoming(jsonEncode({
+        'type': 'join_room',
+        'roomCode': code,
+        'displayName': 'Guest',
+        'idToken': 'guest',
+      }));
+      await _flushAsync();
+
+      host.addIncoming(jsonEncode({
+        'type': 'set_wager_config',
+        'mode': 'pot',
+        'stakeCoins': 25,
+      }));
+      await _flushAsync();
+
+      expect(host.lastOfType('wager_state')?['mode'], 'pot');
+      expect(host.lastOfType('wager_state')?['stakeCoins'], 25);
+      expect(guest.lastOfType('wager_state')?['mode'], 'pot');
+      expect(guest.lastOfType('wager_state')?['stakeCoins'], 25);
+    });
+
+    test('set_wager_config from a non-host guest is rejected', () async {
+      final rm = RoomManager(verifyIdToken: (token) async => 'uid-$token');
+      final host = FakeWs();
+      final guest = FakeWs();
+      rm.handleConnection(host);
+      host.addIncoming(jsonEncode({
+        'type': 'create_room',
+        'displayName': 'Host',
+        'idToken': 'host',
+      }));
+      await _flushAsync();
+      final code = host.lastOfType('room_created')!['roomCode'] as String;
+
+      rm.handleConnection(guest);
+      guest.addIncoming(jsonEncode({
+        'type': 'join_room',
+        'roomCode': code,
+        'displayName': 'Guest',
+        'idToken': 'guest',
+      }));
+      await _flushAsync();
+
+      guest.addIncoming(jsonEncode({
+        'type': 'set_wager_config',
+        'mode': 'pot',
+        'stakeCoins': 25,
+      }));
+      await _flushAsync();
+
+      expect(guest.lastOfType('error')?['code'], 'not_host');
+      expect(guest.lastOfType('wager_state'), isNull);
+    });
+
+    test('accept_wager and decline_wager update the broadcast acceptStatus',
+        () async {
+      final rm = RoomManager(verifyIdToken: (token) async => 'uid-$token');
+      final host = FakeWs();
+      final guest = FakeWs();
+      rm.handleConnection(host);
+      host.addIncoming(jsonEncode({
+        'type': 'create_room',
+        'displayName': 'Host',
+        'idToken': 'host',
+      }));
+      await _flushAsync();
+      final code = host.lastOfType('room_created')!['roomCode'] as String;
+      final hostId = host.lastOfType('room_created')!['playerId'] as String;
+
+      rm.handleConnection(guest);
+      guest.addIncoming(jsonEncode({
+        'type': 'join_room',
+        'roomCode': code,
+        'displayName': 'Guest',
+        'idToken': 'guest',
+      }));
+      await _flushAsync();
+
+      host.addIncoming(jsonEncode({
+        'type': 'set_wager_config',
+        'mode': 'pot',
+        'stakeCoins': 25,
+      }));
+      await _flushAsync();
+
+      guest.addIncoming(jsonEncode({'type': 'accept_wager'}));
+      await _flushAsync();
+
+      var status =
+          host.lastOfType('wager_state')?['acceptStatus'] as Map?;
+      final guestId = status!.keys.firstWhere((k) => k != hostId);
+      expect(status[guestId], 'accepted');
+
+      guest.addIncoming(jsonEncode({'type': 'decline_wager'}));
+      await _flushAsync();
+
+      status = host.lastOfType('wager_state')?['acceptStatus'] as Map?;
+      expect(status![guestId], 'declined');
+    });
   });
 }

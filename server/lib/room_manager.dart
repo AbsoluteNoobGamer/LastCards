@@ -77,6 +77,24 @@ class RoomManager {
   final _playerRooms = <dynamic, String>{};
   final _playerIds = <dynamic, String>{};
   final _playerUserIds = <dynamic, String>{};
+
+  /// Cross-session guard: Firebase UIDs with a wager currently locked in on
+  /// some [GameSession]. Prevents the same account from staking coins in two
+  /// concurrent matches — checked/inserted synchronously (no `await` between
+  /// the check and the insert), so it's race-free despite this server having
+  /// no real cross-document Firestore transaction. Released by the owning
+  /// session on settlement, refund, or lobby teardown.
+  final _uidsWithLockedWager = <String>{};
+
+  bool _tryLockWagerUids(Set<String> uids) {
+    if (uids.any(_uidsWithLockedWager.contains)) return false;
+    _uidsWithLockedWager.addAll(uids);
+    return true;
+  }
+
+  void _releaseWagerUids(Set<String> uids) {
+    _uidsWithLockedWager.removeAll(uids);
+  }
   final _uuid = const Uuid();
 
   /// Quickplay matchmaking queues. Key: playerCount (int) for standard,
@@ -158,6 +176,15 @@ class RoomManager {
         break;
       case 'set_private_lobby_rules':
         _setPrivateLobbyRules(ws, json);
+        break;
+      case 'set_wager_config':
+        _setWagerConfig(ws, json);
+        break;
+      case 'accept_wager':
+        _acceptWager(ws);
+        break;
+      case 'decline_wager':
+        _declineWager(ws);
         break;
       case 'add_private_lobby_bot':
         _addPrivateLobbyBot(ws, json);
@@ -266,6 +293,8 @@ class RoomManager {
       isBustMode: isBust,
       isKnockoutTournament: isKnockout && !isBust,
       onBecameEmpty: (_) => _rooms.remove(roomCode),
+      tryLockWagerUids: _tryLockWagerUids,
+      releaseWagerUids: _releaseWagerUids,
     );
     _rooms[roomCode] = session;
 
@@ -412,6 +441,37 @@ class RoomManager {
     final hardcore = json['isHardcore'] == true;
     if (roomCode != null && playerId != null) {
       _rooms[roomCode]?.setPrivateLobbyHardcore(playerId, hardcore);
+    }
+  }
+
+  void _setWagerConfig(dynamic ws, Map<String, dynamic> json) {
+    final roomCode = _playerRooms[ws];
+    final playerId = _playerIds[ws];
+    if (roomCode == null || playerId == null) return;
+    final mode = json['mode'] as String? ?? 'pot';
+    final stakeCoins = (json['stakeCoins'] as num?)?.toInt() ?? 0;
+    final targetPlayerId = json['targetPlayerId'] as String?;
+    _rooms[roomCode]?.setWagerConfig(
+      playerId,
+      mode: mode,
+      stakeCoins: stakeCoins,
+      targetPlayerId: targetPlayerId,
+    );
+  }
+
+  void _acceptWager(dynamic ws) {
+    final roomCode = _playerRooms[ws];
+    final playerId = _playerIds[ws];
+    if (roomCode != null && playerId != null) {
+      _rooms[roomCode]?.acceptWager(playerId);
+    }
+  }
+
+  void _declineWager(dynamic ws) {
+    final roomCode = _playerRooms[ws];
+    final playerId = _playerIds[ws];
+    if (roomCode != null && playerId != null) {
+      _rooms[roomCode]?.declineWager(playerId);
     }
   }
 

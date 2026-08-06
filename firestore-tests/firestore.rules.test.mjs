@@ -164,6 +164,80 @@ describe('users/{uid}', () => {
     const aliceDb = testEnv.authenticatedContext('alice').firestore();
     await assertFails(deleteDoc(doc(aliceDb, 'users', 'bob')));
   });
+
+  describe('coins delta bound (closes the "just set coins = 999999" hole)', () => {
+    it('allows create with any starting coins value', async () => {
+      const db = testEnv.authenticatedContext('alice').firestore();
+      await assertSucceeds(
+        setDoc(doc(db, 'users', 'alice'), profilePayload({ coins: 500 })),
+      );
+    });
+
+    it('allows an update matching a known reward amount (e.g. matchWin +15)', async () => {
+      const db = testEnv.authenticatedContext('alice').firestore();
+      const ref = doc(db, 'users', 'alice');
+      await assertSucceeds(setDoc(ref, profilePayload({ coins: 100 })));
+      await assertSucceeds(
+        setDoc(
+          ref,
+          { coins: 115, updatedAt: Timestamp.now() },
+          { merge: true },
+        ),
+      );
+    });
+
+    it('denies an update with an arbitrary large increase', async () => {
+      const db = testEnv.authenticatedContext('alice').firestore();
+      const ref = doc(db, 'users', 'alice');
+      await assertSucceeds(setDoc(ref, profilePayload({ coins: 100 })));
+      await assertFails(
+        setDoc(
+          ref,
+          { coins: 999999, updatedAt: Timestamp.now() },
+          { merge: true },
+        ),
+      );
+    });
+
+    it('denies an update with a small but unrecognized increase', async () => {
+      const db = testEnv.authenticatedContext('alice').firestore();
+      const ref = doc(db, 'users', 'alice');
+      await assertSucceeds(setDoc(ref, profilePayload({ coins: 100 })));
+      await assertFails(
+        setDoc(
+          ref,
+          { coins: 107, updatedAt: Timestamp.now() },
+          { merge: true },
+        ),
+      );
+    });
+
+    it('allows any decrease (cosmetic-unlock spending)', async () => {
+      const db = testEnv.authenticatedContext('alice').firestore();
+      const ref = doc(db, 'users', 'alice');
+      await assertSucceeds(setDoc(ref, profilePayload({ coins: 100 })));
+      await assertSucceeds(
+        setDoc(
+          ref,
+          { coins: 3, updatedAt: Timestamp.now() },
+          { merge: true },
+        ),
+      );
+    });
+
+    it('allows an update that does not touch coins at all', async () => {
+      const db = testEnv.authenticatedContext('alice').firestore();
+      const ref = doc(db, 'users', 'alice');
+      await assertSucceeds(setDoc(ref, profilePayload({ coins: 100 })));
+      await assertSucceeds(
+        setDoc(
+          ref,
+          { displayName: 'Alice2', updatedAt: Timestamp.now() },
+          { merge: true },
+        ),
+      );
+    });
+  });
 });
 
 describe('users/{uid}/notifications/{notificationId}', () => {

@@ -41,12 +41,18 @@ abstract final class CurrencyRewards {
 // ── State ─────────────────────────────────────────────────────────────────────
 
 class CurrencyState {
-  const CurrencyState({this.balance = 0});
+  const CurrencyState({this.balance = 0, this.walletVersion = 0});
 
   final int balance;
 
-  CurrencyState copyWith({int? balance}) =>
-      CurrencyState(balance: balance ?? this.balance);
+  /// Local cache of the last known server wallet-mutation counter — see
+  /// [CurrencyService.loadWalletVersion].
+  final int walletVersion;
+
+  CurrencyState copyWith({int? balance, int? walletVersion}) => CurrencyState(
+        balance: balance ?? this.balance,
+        walletVersion: walletVersion ?? this.walletVersion,
+      );
 }
 
 // ── Notifier ──────────────────────────────────────────────────────────────────
@@ -73,18 +79,34 @@ class CurrencyNotifier extends StateNotifier<CurrencyState> {
   /// reward listener. Safe to call multiple times.
   Future<void> loadFromPrefs() async {
     final localBalance = await _service.loadBalance();
-    state = state.copyWith(balance: localBalance);
+    final localWalletVersion = await _service.loadWalletVersion();
+    state = state.copyWith(
+      balance: localBalance,
+      walletVersion: localWalletVersion,
+    );
 
     final uid = _currentUid();
     if (uid != null) {
-      final remoteBalance = await _fetchRemoteBalance(uid);
-      if (remoteBalance != null && remoteBalance != localBalance) {
-        // Take whichever is higher — avoids losing coins earned offline on
-        // either this device or another one since the last sync.
-        final reconciled =
-            remoteBalance > localBalance ? remoteBalance : localBalance;
-        state = state.copyWith(balance: reconciled);
-        await _persist(reconciled, uid: uid);
+      final remote = await _fetchRemoteWallet(uid);
+      if (remote != null) {
+        if (remote.walletVersion > localWalletVersion) {
+          // A server-authoritative mutation (e.g. a settled wager) landed
+          // since our last sync — trust it outright, even if it's a
+          // decrease, rather than the max-of-two logic below silently
+          // undoing a legitimate loss with a stale higher local cache.
+          await applyServerBalance(
+            remote.balance,
+            walletVersion: remote.walletVersion,
+          );
+        } else if (remote.balance != localBalance) {
+          // No server-authoritative delta since last sync — take whichever
+          // is higher, to avoid losing coins earned offline on either this
+          // device or another one.
+          final reconciled =
+              remote.balance > localBalance ? remote.balance : localBalance;
+          state = state.copyWith(balance: reconciled);
+          await _persist(reconciled, uid: uid);
+        }
       }
     }
 
@@ -152,6 +174,38 @@ class CurrencyNotifier extends StateNotifier<CurrencyState> {
     return reward;
   }
 
+  /// Applies an already-known server-authoritative (balance, walletVersion)
+  /// pair — e.g. from [loadFromPrefs]'s own reconciliation read. Persists to
+  /// the LOCAL cache only: the server already wrote Firestore directly via
+  /// its own service-account path, so a client re-write here would be
+  /// redundant, and a no-op if [walletVersion] isn't newer than what's cached
+  /// (stale/out-of-order call).
+  Future<void> applyServerBalance(
+    int balance, {
+    required int walletVersion,
+  }) async {
+    if (walletVersion <= state.walletVersion) return;
+    state = state.copyWith(balance: balance, walletVersion: walletVersion);
+    await _service.saveBalance(balance);
+    await _service.saveWalletVersion(walletVersion);
+  }
+
+  /// Applies the local player's net coin delta from a settled wager
+  /// (`wager_settled`, arrived over the game WebSocket this session). The
+  /// server already applied the equivalent change directly to Firestore —
+  /// this only updates the local cache so the balance chip / win dialog
+  /// reflect it immediately, without a redundant client-side Firestore write.
+  ///
+  /// Unlike [applyServerBalance] this has no walletVersion to compare (the
+  /// event only carries a delta, not the resulting counter) — safe because
+  /// it's applied at most once per match, right when the delta arrives.
+  Future<void> applyWagerDelta(int delta) async {
+    if (delta == 0) return;
+    final next = state.balance + delta;
+    state = state.copyWith(balance: next);
+    await _service.saveBalance(next);
+  }
+
   int _epochDay(DateTime time) =>
       DateTime(time.year, time.month, time.day).millisecondsSinceEpoch ~/
       Duration.millisecondsPerDay;
@@ -169,14 +223,22 @@ class CurrencyNotifier extends StateNotifier<CurrencyState> {
     }
   }
 
-  Future<int?> _fetchRemoteBalance(String uid) async {
+  Future<({int balance, int walletVersion})?> _fetchRemoteWallet(
+    String uid,
+  ) async {
     try {
       final snap = await FirebaseFirestore.instance
           .collection(_usersCollection)
           .doc(uid)
           .get();
-      final coins = snap.data()?['coins'];
-      return coins is int ? coins : (coins as num?)?.toInt();
+      final data = snap.data();
+      final coins = data?['coins'];
+      final balance = coins is int ? coins : (coins as num?)?.toInt();
+      if (balance == null) return null;
+      final version = data?['walletVersion'];
+      final walletVersion =
+          version is int ? version : (version as num?)?.toInt() ?? 0;
+      return (balance: balance, walletVersion: walletVersion);
     } catch (_) {
       return null;
     }

@@ -2019,6 +2019,20 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             (localPlayerId != null && ratingChanges != null)
                 ? ratingChanges[localPlayerId]
                 : null;
+        // Coin wager result for the local player, if this match had one. The
+        // server already wrote the new balance to Firestore directly; this
+        // only updates the local cache so the balance chip / win dialog
+        // reflect it immediately (see CurrencyNotifier.applyWagerDelta).
+        final wagerSettled = ref.read(wagerSettledProvider);
+        final int? coinsDelta =
+            (localPlayerId != null && wagerSettled != null)
+                ? wagerSettled.perPlayerDelta[localPlayerId]
+                : null;
+        if (coinsDelta != null) {
+          unawaited(
+            ref.read(currencyProvider.notifier).applyWagerDelta(coinsDelta),
+          );
+        }
         final isPrivateSession = ref.read(gameNotifierProvider).isPrivateSession;
         // Rematch requeues into public quickplay (see _requeueOnlineRematch)
         // — meaningless for a private/friend room, which has no matching
@@ -2049,6 +2063,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   offerRematch ? () => _leaveOnlineMatch(navigator) : null,
               isOnlineMode: true,
               ratingDelta: ratingDelta,
+              coinsDelta: coinsDelta,
               onSpectate: !isLocalWin && isPrivateSession
                   ? () {
                       navigator.pop();
