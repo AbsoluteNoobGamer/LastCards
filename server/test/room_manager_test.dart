@@ -2,7 +2,29 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:last_cards_server/room_manager.dart';
+import 'package:last_cards_server/wallet_service.dart';
 import 'package:test/test.dart';
+
+// ── Fake wallet (no Firestore needed) ─────────────────────────────────────────
+
+class _FakeWalletPersistence implements WalletPersistence {
+  final Map<String, int> balances = {};
+
+  @override
+  Future<int?> checkBalance(String uid) async => balances[uid];
+
+  @override
+  void chargeStake(String uid, int amount) =>
+      balances[uid] = (balances[uid] ?? 0) - amount;
+
+  @override
+  void payout(String uid, int amount) =>
+      balances[uid] = (balances[uid] ?? 0) + amount;
+
+  @override
+  void refund(String uid, int amount) =>
+      balances[uid] = (balances[uid] ?? 0) + amount;
+}
 
 // ── Fake WebSocket (stream + sink, like shelf WebSocket) ─────────────────────
 
@@ -844,6 +866,220 @@ void main() {
         host.messages.any((m) => m['type'] == 'state_snapshot'),
         isTrue,
       );
+    });
+
+    test('set_wager_config from host broadcasts wager_state to everyone',
+        () async {
+      final rm = RoomManager(verifyIdToken: (token) async => 'uid-$token');
+      final host = FakeWs();
+      final guest = FakeWs();
+      rm.handleConnection(host);
+      host.addIncoming(jsonEncode({
+        'type': 'create_room',
+        'displayName': 'Host',
+        'idToken': 'host',
+      }));
+      await _flushAsync();
+      final code = host.lastOfType('room_created')!['roomCode'] as String;
+
+      rm.handleConnection(guest);
+      guest.addIncoming(jsonEncode({
+        'type': 'join_room',
+        'roomCode': code,
+        'displayName': 'Guest',
+        'idToken': 'guest',
+      }));
+      await _flushAsync();
+
+      host.addIncoming(jsonEncode({
+        'type': 'set_wager_config',
+        'mode': 'pot',
+        'stakeCoins': 25,
+      }));
+      await _flushAsync();
+
+      expect(host.lastOfType('wager_state')?['mode'], 'pot');
+      expect(host.lastOfType('wager_state')?['stakeCoins'], 25);
+      expect(guest.lastOfType('wager_state')?['mode'], 'pot');
+      expect(guest.lastOfType('wager_state')?['stakeCoins'], 25);
+    });
+
+    test('set_wager_config from a non-host guest is rejected', () async {
+      final rm = RoomManager(verifyIdToken: (token) async => 'uid-$token');
+      final host = FakeWs();
+      final guest = FakeWs();
+      rm.handleConnection(host);
+      host.addIncoming(jsonEncode({
+        'type': 'create_room',
+        'displayName': 'Host',
+        'idToken': 'host',
+      }));
+      await _flushAsync();
+      final code = host.lastOfType('room_created')!['roomCode'] as String;
+
+      rm.handleConnection(guest);
+      guest.addIncoming(jsonEncode({
+        'type': 'join_room',
+        'roomCode': code,
+        'displayName': 'Guest',
+        'idToken': 'guest',
+      }));
+      await _flushAsync();
+
+      guest.addIncoming(jsonEncode({
+        'type': 'set_wager_config',
+        'mode': 'pot',
+        'stakeCoins': 25,
+      }));
+      await _flushAsync();
+
+      expect(guest.lastOfType('error')?['code'], 'not_host');
+      expect(guest.lastOfType('wager_state'), isNull);
+    });
+
+    test('accept_wager and decline_wager update the broadcast acceptStatus',
+        () async {
+      final rm = RoomManager(verifyIdToken: (token) async => 'uid-$token');
+      final host = FakeWs();
+      final guest = FakeWs();
+      rm.handleConnection(host);
+      host.addIncoming(jsonEncode({
+        'type': 'create_room',
+        'displayName': 'Host',
+        'idToken': 'host',
+      }));
+      await _flushAsync();
+      final code = host.lastOfType('room_created')!['roomCode'] as String;
+      final hostId = host.lastOfType('room_created')!['playerId'] as String;
+
+      rm.handleConnection(guest);
+      guest.addIncoming(jsonEncode({
+        'type': 'join_room',
+        'roomCode': code,
+        'displayName': 'Guest',
+        'idToken': 'guest',
+      }));
+      await _flushAsync();
+
+      host.addIncoming(jsonEncode({
+        'type': 'set_wager_config',
+        'mode': 'pot',
+        'stakeCoins': 25,
+      }));
+      await _flushAsync();
+
+      guest.addIncoming(jsonEncode({'type': 'accept_wager'}));
+      await _flushAsync();
+
+      var status =
+          host.lastOfType('wager_state')?['acceptStatus'] as Map?;
+      final guestId = status!.keys.firstWhere((k) => k != hostId);
+      expect(status[guestId], 'accepted');
+
+      guest.addIncoming(jsonEncode({'type': 'decline_wager'}));
+      await _flushAsync();
+
+      status = host.lastOfType('wager_state')?['acceptStatus'] as Map?;
+      expect(status![guestId], 'declined');
+    });
+
+    test(
+        'quickplay sessions share the real cross-session wager guard '
+        '(regression: quickplay GameSession construction must wire it)',
+        () async {
+      final wallet = _FakeWalletPersistence()
+        ..balances['shared'] = 1000
+        ..balances['a2'] = 1000
+        ..balances['b2'] = 1000;
+      final rm = RoomManager(
+        verifyIdToken: (token) async => token,
+        walletService: wallet,
+      );
+
+      String idOf(FakeWs ws, String displayName) {
+        final joined = ws.messages.firstWhere(
+          (m) =>
+              m['type'] == 'player_joined' &&
+              (m['player'] as Map)['displayName'] == displayName,
+        );
+        return (joined['player'] as Map)['id'] as String;
+      }
+
+      // Room A: 'shared' locks in a mid-game side-bet against A2.
+      final a1 = FakeWs();
+      final a2 = FakeWs();
+      rm.handleConnection(a1);
+      rm.handleConnection(a2);
+      a1.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'playerCount': 2,
+        'displayName': 'A1',
+        'idToken': 'shared',
+      }));
+      a2.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'playerCount': 2,
+        'displayName': 'A2',
+        'idToken': 'a2',
+      }));
+      await _flushAsync();
+      a1.addIncoming(
+          jsonEncode({'type': 'vote_tournament', 'wantTournament': false}));
+      a2.addIncoming(
+          jsonEncode({'type': 'vote_tournament', 'wantTournament': false}));
+      await _flushAsync();
+      expect(a1.messages.any((m) => m['type'] == 'session_config'), isTrue);
+
+      final a2Id = idOf(a1, 'A2');
+
+      a1.addIncoming(jsonEncode({
+        'type': 'set_wager_config',
+        'mode': 'sideBet',
+        'stakeCoins': 10,
+        'targetPlayerId': a2Id,
+      }));
+      a2.addIncoming(jsonEncode({'type': 'accept_wager'}));
+      await _flushAsync();
+      expect(a1.lastOfType('wager_state')?['locked'], isTrue);
+
+      // Room B: a *different* pair, but A1's account ('shared') queues again
+      // — as if the same person opened a second device — and immediately
+      // tries to lock in another wager. The cross-session guard must refuse.
+      final b1 = FakeWs();
+      final b2 = FakeWs();
+      rm.handleConnection(b1);
+      rm.handleConnection(b2);
+      b1.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'playerCount': 2,
+        'displayName': 'B1',
+        'idToken': 'shared',
+      }));
+      b2.addIncoming(jsonEncode({
+        'type': 'quickplay',
+        'playerCount': 2,
+        'displayName': 'B2',
+        'idToken': 'b2',
+      }));
+      await _flushAsync();
+      b1.addIncoming(
+          jsonEncode({'type': 'vote_tournament', 'wantTournament': false}));
+      b2.addIncoming(
+          jsonEncode({'type': 'vote_tournament', 'wantTournament': false}));
+      await _flushAsync();
+
+      final b2Id = idOf(b1, 'B2');
+      b1.addIncoming(jsonEncode({
+        'type': 'set_wager_config',
+        'mode': 'sideBet',
+        'stakeCoins': 10,
+        'targetPlayerId': b2Id,
+      }));
+      b2.addIncoming(jsonEncode({'type': 'accept_wager'}));
+      await _flushAsync();
+
+      expect(b1.lastOfType('error')?['code'], 'wager_locked');
+      expect(b1.lastOfType('wager_state')?['locked'], isNot(true));
     });
   });
 }

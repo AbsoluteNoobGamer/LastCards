@@ -19,9 +19,11 @@ import '../../../../core/models/game_event.dart'
         PrivateLobbySettingsEvent,
         RoomCreatedEvent,
         RoomJoinedEvent,
+        SetWagerConfigAction,
         StateSnapshotEvent,
         TextChatAction,
-        TextChatEvent;
+        TextChatEvent,
+        WagerStateEvent;
 import '../../../chat/presentation/widgets/live_text_chat_panel.dart';
 import '../../../../core/models/game_state.dart';
 import '../../../../core/models/player_model.dart';
@@ -41,6 +43,8 @@ import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/models/ai_player_config.dart';
 import '../../../gameplay/presentation/opponents_splash_helpers.dart';
 import '../../../gameplay/presentation/screens/table_screen.dart';
+import '../../../gameplay/presentation/widgets/wager_challenge_banner.dart';
+import '../../../../widgets/side_bet_challenge_sheet.dart';
 import '../../../social/widgets/invite_friends_sheet.dart';
 import '../../../social/widgets/pending_friend_requests_banner.dart';
 import '../../../social/widgets/report_block_sheet.dart';
@@ -144,6 +148,16 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   AiDifficulty _aiDifficulty = AiDifficulty.medium;
   final List<PlayerModel> _lobbyPlayers = [];
   final Map<String, bool> _playerReady = {};
+
+  /// Active table wager (whole-table pot or targeted 1v1 side-bet), synced
+  /// from [WagerStateEvent]. Null [_wagerMode] means no wager is currently
+  /// proposed.
+  String? _wagerMode;
+  int? _wagerStakeCoins;
+  String? _wagerInitiatorPlayerId;
+  String? _wagerTargetPlayerId;
+  bool _wagerLocked = false;
+  Map<String, String> _wagerAcceptStatus = {};
   StreamSubscription<RoomCreatedEvent>? _roomCreatedSub;
   StreamSubscription<StateSnapshotEvent>? _stateSnapshotSub;
   StreamSubscription<GameEvent>? _lobbyEventsSub;
@@ -245,6 +259,17 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       }
       if (e is PrivateLobbySettingsEvent) {
         setState(() => _privateLobbyHardcore = e.isHardcore);
+        return;
+      }
+      if (e is WagerStateEvent) {
+        setState(() {
+          _wagerMode = e.mode;
+          _wagerStakeCoins = e.stakeCoins;
+          _wagerInitiatorPlayerId = e.initiatorPlayerId;
+          _wagerTargetPlayerId = e.targetPlayerId;
+          _wagerLocked = e.locked;
+          _wagerAcceptStatus = e.acceptStatus;
+        });
         return;
       }
       if (e is RoomJoinedEvent) {
@@ -754,6 +779,33 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                     ),
                                     const SizedBox(height: AppDimensions.lg),
                                   ],
+                                  if (_roomCode != null &&
+                                      _privateGameVariant !=
+                                          PrivateGameVariant.bust) ...[
+                                    _WagerPotPanel(
+                                      theme: theme,
+                                      sectionTitleStyle: sectionTitleStyle,
+                                      isHost: _isPrivateHost,
+                                      localPlayerId: _localPlayerId,
+                                      players: _lobbyPlayers,
+                                      stakeCoins: _wagerMode == 'pot'
+                                          ? _wagerStakeCoins
+                                          : null,
+                                      initiatorPlayerId:
+                                          _wagerInitiatorPlayerId,
+                                      acceptStatus: _wagerAcceptStatus,
+                                      onPropose: _proposePotWager,
+                                      onCancel: _cancelPotWager,
+                                      onAccept: _acceptWager,
+                                      onDecline: _declineWager,
+                                    ),
+                                    const SizedBox(height: AppDimensions.lg),
+                                  ],
+                                  if (_buildSideBetChallengeBanner(theme)
+                                      case final banner?) ...[
+                                    banner,
+                                    const SizedBox(height: AppDimensions.lg),
+                                  ],
                                   _LobbyPlayerList(
                                     localPlayerId: _localPlayerId,
                                     localIsReady: _isReady,
@@ -769,6 +821,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                         : 7,
                                     isPrivateHost: _isPrivateHost,
                                     onRemoveBot: _onRemovePrivateLobbyBot,
+                                    allowSideBetChallenge:
+                                        _privateGameVariant !=
+                                            PrivateGameVariant.bust,
+                                    onChallengeSideBet: _onOpenSideBetSheet,
                                   ),
                                   if (_roomCode != null) ...[
                                     const SizedBox(height: AppDimensions.lg),
@@ -1165,6 +1221,25 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       );
       return;
     }
+    // A table-pot wager needs everyone's explicit accept before it's fair
+    // to charge stakes — this mirrors the server's own gate in
+    // GameSession._lockInWagerStakes, so the host gets an immediate,
+    // specific reason instead of a generic connection-style error.
+    if (_wagerMode == 'pot') {
+      final unaccepted = _lobbyPlayers.where((p) =>
+          p.id != _wagerInitiatorPlayerId &&
+          _wagerAcceptStatus[p.id] != 'accepted');
+      if (unaccepted.isNotEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Waiting for everyone to accept the wager.'),
+            backgroundColor: Color(0xFFB71C1C),
+          ),
+        );
+        return;
+      }
+    }
     final wsClient = ref.read(wsClientProvider);
     if (!wsClient.send(jsonEncode({'type': 'start_game'}))) {
       if (mounted) {
@@ -1207,6 +1282,106 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         );
       }
     }
+  }
+
+  void _proposePotWager(int stakeCoins) {
+    ref.read(gameEventHandlerProvider).sendSetWagerConfig(
+          SetWagerConfigAction(mode: 'pot', stakeCoins: stakeCoins),
+        );
+  }
+
+  void _cancelPotWager() {
+    ref.read(gameEventHandlerProvider).sendSetWagerConfig(
+          const SetWagerConfigAction(mode: 'pot', stakeCoins: 0),
+        );
+  }
+
+  void _acceptWager() {
+    ref.read(gameEventHandlerProvider).sendAcceptWager();
+  }
+
+  void _declineWager() {
+    ref.read(gameEventHandlerProvider).sendDeclineWager();
+  }
+
+  void _withdrawSideBetWager() {
+    ref.read(gameEventHandlerProvider).sendSetWagerConfig(
+          const SetWagerConfigAction(mode: 'sideBet', stakeCoins: 0),
+        );
+  }
+
+  /// Builds the active/pending side-bet status banner for the local player
+  /// — the target's only way to accept a challenge before this fix, since
+  /// [_WagerPotPanel] only ever renders its host-only propose form for a
+  /// side-bet (its accept/decline UI is pot-only). Null if there's nothing
+  /// to show (no proposal, or the local player isn't one of its two
+  /// participants).
+  Widget? _buildSideBetChallengeBanner(AppThemeData theme) {
+    if (_wagerMode != 'sideBet') return null;
+    final localId = _localPlayerId;
+    final initiatorId = _wagerInitiatorPlayerId;
+    final targetId = _wagerTargetPlayerId;
+    if (localId == null || initiatorId == null || targetId == null) {
+      return null;
+    }
+    if (localId != initiatorId && localId != targetId) return null;
+    final isInitiator = localId == initiatorId;
+    final opponentId = isInitiator ? targetId : initiatorId;
+    final opponentName = _lobbyPlayers
+            .firstWhereOrNull((p) => p.id == opponentId)
+            ?.displayName ??
+        'Opponent';
+    return WagerChallengeBanner(
+      theme: theme,
+      opponentName: opponentName,
+      stakeCoins: _wagerStakeCoins ?? 0,
+      locked: _wagerLocked,
+      isInitiator: isInitiator,
+      onAccept: _acceptWager,
+      onDecline: _declineWager,
+      onWithdraw: _withdrawSideBetWager,
+    );
+  }
+
+  /// Sends a targeted 1v1 side-bet challenge to [targetPlayerId]. Unlike the
+  /// table pot, a side-bet never blocks the rest of the table from starting
+  /// (see server GameSession.startGameFromHost) — if [targetPlayerId] never
+  /// accepts, it's silently dropped at match start.
+  void _onChallengeSideBet(String targetPlayerId, int stakeCoins) {
+    ref.read(gameEventHandlerProvider).sendSetWagerConfig(
+          SetWagerConfigAction(
+            mode: 'sideBet',
+            stakeCoins: stakeCoins,
+            targetPlayerId: targetPlayerId,
+          ),
+        );
+  }
+
+  Future<void> _onOpenSideBetSheet(String targetPlayerId, String targetName) {
+    final theme = ref.read(themeProvider).theme;
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: theme.backgroundDeep,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SideBetChallengeSheet(
+        theme: theme,
+        targetName: targetName,
+        onConfirm: (stakeCoins) {
+          _onChallengeSideBet(targetPlayerId, stakeCoins);
+          Navigator.of(ctx).pop();
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Side-bet challenge sent to $targetName.'),
+              backgroundColor: theme.accentPrimary,
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _syncTournamentSessionForPrivateTable() {
@@ -1374,6 +1549,265 @@ class _PrivateLobbyAiPanel extends StatelessWidget {
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// Whole-table pot wager: host proposes a per-player stake, every other
+/// seat accepts/declines, host can cancel. Visible to everyone once a pot
+/// is proposed (not just the host) so guests can accept/decline.
+class _WagerPotPanel extends StatefulWidget {
+  const _WagerPotPanel({
+    required this.theme,
+    required this.sectionTitleStyle,
+    required this.isHost,
+    required this.localPlayerId,
+    required this.players,
+    required this.stakeCoins,
+    required this.initiatorPlayerId,
+    required this.acceptStatus,
+    required this.onPropose,
+    required this.onCancel,
+    required this.onAccept,
+    required this.onDecline,
+  });
+
+  final AppThemeData theme;
+  final TextStyle sectionTitleStyle;
+  final bool isHost;
+  final String? localPlayerId;
+  final List<PlayerModel> players;
+
+  /// Null when no pot wager is currently proposed/active.
+  final int? stakeCoins;
+  final String? initiatorPlayerId;
+  final Map<String, String> acceptStatus;
+  final ValueChanged<int> onPropose;
+  final VoidCallback onCancel;
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+
+  @override
+  State<_WagerPotPanel> createState() => _WagerPotPanelState();
+}
+
+class _WagerPotPanelState extends State<_WagerPotPanel> {
+  final _stakeController = TextEditingController(text: '25');
+
+  @override
+  void dispose() {
+    _stakeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    return widget.stakeCoins == null
+        ? _buildProposeForm(theme)
+        : _buildActiveWager(theme);
+  }
+
+  Widget _buildProposeForm(AppThemeData theme) {
+    if (!widget.isHost) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('COIN WAGER', style: widget.sectionTitleStyle),
+        const SizedBox(height: AppDimensions.xs),
+        Text(
+          'Everyone at the table stakes the same amount — winner takes the '
+          'pot. Every seat must accept before you can start.',
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            height: 1.35,
+            fontWeight: FontWeight.w400,
+            color: theme.textSecondary,
+          ),
+        ),
+        const SizedBox(height: AppDimensions.md),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _stakeController,
+                keyboardType: TextInputType.number,
+                style: GoogleFonts.inter(
+                  color: theme.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+                decoration: InputDecoration(
+                  isDense: true,
+                  prefixIcon: Icon(
+                    Icons.monetization_on_rounded,
+                    color: theme.accentPrimary,
+                    size: 20,
+                  ),
+                  hintText: 'Stake per player',
+                  hintStyle: GoogleFonts.inter(color: theme.textSecondary),
+                  filled: true,
+                  fillColor: theme.backgroundDeep.withValues(alpha: 0.4),
+                  border: OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(AppDimensions.radiusModal),
+                    borderSide: BorderSide(
+                      color: theme.accentDark.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: AppDimensions.sm),
+            ElevatedButton(
+              onPressed: () {
+                final v = int.tryParse(_stakeController.text.trim());
+                if (v != null && v > 0) widget.onPropose(v);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.accentPrimary,
+                foregroundColor: theme.backgroundDeep,
+                minimumSize: const Size(0, AppDimensions.minTouchTarget),
+                shape: RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(AppDimensions.radiusModal),
+                ),
+              ),
+              child: Text(
+                'PROPOSE',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.6,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActiveWager(AppThemeData theme) {
+    final isInitiator = widget.localPlayerId != null &&
+        widget.localPlayerId == widget.initiatorPlayerId;
+    final localStatus = widget.localPlayerId != null
+        ? widget.acceptStatus[widget.localPlayerId]
+        : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('COIN WAGER', style: widget.sectionTitleStyle),
+        const SizedBox(height: AppDimensions.xs),
+        Text(
+          '${widget.stakeCoins} coins per player · winner takes the pot',
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: theme.accentLight,
+          ),
+        ),
+        const SizedBox(height: AppDimensions.sm),
+        Wrap(
+          spacing: AppDimensions.sm,
+          runSpacing: AppDimensions.xs,
+          children: widget.players.map((p) {
+            final isInit = p.id == widget.initiatorPlayerId;
+            final status = isInit ? 'set' : (widget.acceptStatus[p.id] ?? 'pending');
+            final color = status == 'accepted'
+                ? const Color(0xFF27AE60)
+                : status == 'declined'
+                    ? theme.suitRed
+                    : theme.textSecondary;
+            return Chip(
+              backgroundColor: color.withValues(alpha: 0.14),
+              side: BorderSide(color: color.withValues(alpha: 0.5)),
+              label: Text(
+                '${p.displayName} · $status',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: AppDimensions.md),
+        if (isInitiator)
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: widget.onCancel,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: theme.textSecondary,
+                side: BorderSide(color: theme.accentDark.withValues(alpha: 0.7)),
+                minimumSize: const Size(0, AppDimensions.minTouchTarget),
+                shape: RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(AppDimensions.radiusModal),
+                ),
+              ),
+              child: Text(
+                'CANCEL WAGER',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.6,
+                ),
+              ),
+            ),
+          )
+        else if (widget.localPlayerId != null)
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed:
+                      localStatus == 'declined' ? null : widget.onDecline,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.suitRed,
+                    side: BorderSide(
+                      color: theme.suitRed.withValues(alpha: 0.7),
+                    ),
+                    minimumSize: const Size(0, AppDimensions.minTouchTarget),
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppDimensions.radiusModal),
+                    ),
+                  ),
+                  child: Text(
+                    'DECLINE',
+                    style: GoogleFonts.inter(
+                        fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppDimensions.sm),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed:
+                      localStatus == 'accepted' ? null : widget.onAccept,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF27AE60),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, AppDimensions.minTouchTarget),
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppDimensions.radiusModal),
+                    ),
+                  ),
+                  child: Text(
+                    'ACCEPT',
+                    style: GoogleFonts.inter(
+                        fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ],
+          ),
       ],
     );
   }
@@ -1872,6 +2306,8 @@ class _LobbyPlayerList extends StatelessWidget {
     this.maxSlots = 7,
     this.isPrivateHost = false,
     this.onRemoveBot,
+    this.allowSideBetChallenge = false,
+    this.onChallengeSideBet,
   });
 
   final String? localPlayerId;
@@ -1884,6 +2320,12 @@ class _LobbyPlayerList extends StatelessWidget {
   final int maxSlots;
   final bool isPrivateHost;
   final void Function(String botPlayerId)? onRemoveBot;
+
+  /// Whether a "challenge to side-bet" affordance may be shown at all
+  /// (false in Bust mode, which doesn't support wagers).
+  final bool allowSideBetChallenge;
+  final Future<void> Function(String targetPlayerId, String targetName)?
+      onChallengeSideBet;
 
   @override
   Widget build(BuildContext context) {
@@ -1904,6 +2346,16 @@ class _LobbyPlayerList extends StatelessWidget {
         final ready = p.isAi
             ? true
             : (isMe ? localIsReady : serverReady);
+        final canChallenge = allowSideBetChallenge &&
+            !isMe &&
+            !p.isAi &&
+            onChallengeSideBet != null &&
+            (p.firebaseUid ?? '').isNotEmpty &&
+            localPlayerId != null &&
+            (players.firstWhereOrNull((me) => me.id == localPlayerId)
+                        ?.firebaseUid ??
+                    '')
+                .isNotEmpty;
         entries.add(
           _PlayerEntry(
             name: p.displayName,
@@ -1914,6 +2366,10 @@ class _LobbyPlayerList extends StatelessWidget {
             isAi: p.isAi,
             showRemoveBot: isPrivateHost && p.isAi && onRemoveBot != null,
             onRemoveBot: p.isAi ? () => onRemoveBot!(p.id) : null,
+            showChallengeSideBet: canChallenge,
+            onChallengeSideBet: canChallenge
+                ? () => onChallengeSideBet!(p.id, p.displayName)
+                : null,
           ),
         );
       } else {
@@ -2086,6 +2542,8 @@ class _PlayerEntry extends StatelessWidget {
     this.isAi = false,
     this.showRemoveBot = false,
     this.onRemoveBot,
+    this.showChallengeSideBet = false,
+    this.onChallengeSideBet,
   });
 
   final String name;
@@ -2095,6 +2553,8 @@ class _PlayerEntry extends StatelessWidget {
   final bool isAi;
   final bool showRemoveBot;
   final VoidCallback? onRemoveBot;
+  final bool showChallengeSideBet;
+  final VoidCallback? onChallengeSideBet;
   final AppThemeData theme;
 
   /// Ready/readability green, lightly mixed with the theme accent highlight.
@@ -2185,6 +2645,16 @@ class _PlayerEntry extends StatelessWidget {
                   Icons.close_rounded,
                   size: 20,
                   color: theme.textSecondary,
+                ),
+              ),
+            if (showChallengeSideBet && onChallengeSideBet != null)
+              IconButton(
+                tooltip: 'Challenge to a side-bet',
+                onPressed: onChallengeSideBet,
+                icon: Icon(
+                  Icons.monetization_on_outlined,
+                  size: 20,
+                  color: theme.accentPrimary,
                 ),
               ),
             Text(

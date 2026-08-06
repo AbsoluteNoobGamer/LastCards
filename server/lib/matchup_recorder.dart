@@ -51,7 +51,7 @@ class MatchupRecorder implements MatchupPersistence {
   static final MatchupRecorder instance = MatchupRecorder._();
 
   final _log = Logger('MatchupRecorder');
-  final _firestore = _FirestoreClient.instance;
+  final _firestore = FirestoreClient.instance;
 
   @override
   Future<Map<String, List<Map<String, dynamic>>>> recordGameEnd({

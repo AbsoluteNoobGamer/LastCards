@@ -97,6 +97,7 @@ class GameNotifierState {
     this.socketDisconnectedPlayerIds = const <String>{},
     this.gameEndedReason,
     this.gameEndedDisconnectedPlayerId,
+    this.wagerSettled,
   });
 
   /// The authoritative server game state. Null until the first snapshot arrives.
@@ -162,6 +163,10 @@ class GameNotifierState {
   /// [gameEndedReason] is `player_disconnected`.
   final String? gameEndedDisconnectedPlayerId;
 
+  /// Coin wager result from the last [WagerSettledEvent], or null when the
+  /// completed match had no active wager.
+  final WagerSettledEvent? wagerSettled;
+
   GameNotifierState copyWith({
     GameState? gameState,
     bool? pendingSuitChoice,
@@ -181,6 +186,7 @@ class GameNotifierState {
     Set<String>? socketDisconnectedPlayerIds,
     String? gameEndedReason,
     String? gameEndedDisconnectedPlayerId,
+    WagerSettledEvent? wagerSettled,
     bool clearError = false,
     bool clearSuitChoice = false,
     bool clearJokerResolution = false,
@@ -216,6 +222,7 @@ class GameNotifierState {
       gameEndedReason: gameEndedReason ?? this.gameEndedReason,
       gameEndedDisconnectedPlayerId:
           gameEndedDisconnectedPlayerId ?? this.gameEndedDisconnectedPlayerId,
+      wagerSettled: wagerSettled ?? this.wagerSettled,
     );
   }
 }
@@ -509,6 +516,16 @@ class GameNotifier extends StateNotifier<GameNotifierState> {
           gameEndedReason: e.reason,
           gameEndedDisconnectedPlayerId: e.disconnectedPlayerId,
         );
+      }),
+    );
+
+    // ── wager_settled ───────────────────────────────────────────────────────
+    _subs.add(
+      _eventHandler.events
+          .where((e) => e is WagerSettledEvent)
+          .cast<WagerSettledEvent>()
+          .listen((e) {
+        state = state.copyWith(wagerSettled: e);
       }),
     );
 
@@ -848,6 +865,12 @@ final rankedRatingChangesProvider = Provider<Map<String, int>?>((ref) {
 final onlineMatchStatsProvider =
     Provider<Map<String, OnlineMatchPlayerStat>?>((ref) {
   return ref.watch(gameNotifierProvider).onlineMatchStats;
+});
+
+/// Coin wager result from the most recent match, or null when there was no
+/// active wager. Key of [WagerSettledEvent.perPlayerDelta] is server player id.
+final wagerSettledProvider = Provider<WagerSettledEvent?>((ref) {
+  return ref.watch(gameNotifierProvider).wagerSettled;
 });
 
 final headToHeadRecordsProvider = Provider<List<HeadToHeadRecord>?>((ref) {

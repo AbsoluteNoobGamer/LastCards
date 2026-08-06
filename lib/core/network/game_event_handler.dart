@@ -98,6 +98,14 @@ class GameEventHandler {
   Stream<GameMomentEvent> get gameMoments =>
       events.where((e) => e is GameMomentEvent).cast<GameMomentEvent>();
 
+  /// Current wager proposal + per-seat accept status.
+  Stream<WagerStateEvent> get wagerState =>
+      events.where((e) => e is WagerStateEvent).cast<WagerStateEvent>();
+
+  /// A wager was settled (win, side-bet resolution, or refund).
+  Stream<WagerSettledEvent> get wagerSettled =>
+      events.where((e) => e is WagerSettledEvent).cast<WagerSettledEvent>();
+
   // ── Outgoing helpers ───────────────────────────────────────────────────────
 
   bool sendPlayCards(PlayCardsAction action) =>
@@ -128,6 +136,18 @@ class GameEventHandler {
 
   bool sendVoiceMutePlayer(VoiceMutePlayerAction action) =>
       _wsClient.send(action.toJsonString());
+
+  bool sendSetWagerConfig(SetWagerConfigAction action) =>
+      _wsClient.send(action.toJsonString());
+
+  bool sendAcceptWager() =>
+      _wsClient.send(const AcceptWagerAction().toJsonString());
+
+  bool sendDeclineWager() =>
+      _wsClient.send(const DeclineWagerAction().toJsonString());
+
+  bool sendStartWager() =>
+      _wsClient.send(const StartWagerAction().toJsonString());
 
   // ── Internal ───────────────────────────────────────────────────────────────
 

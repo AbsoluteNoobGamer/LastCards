@@ -29,6 +29,7 @@ class _WinDialog extends ConsumerStatefulWidget {
     this.isOnlineMode = false,
     this.ratingDelta,
     this.xpAwarded,
+    this.coinsDelta,
     this.matchStats,
     this.onSpectate,
   });
@@ -57,6 +58,10 @@ class _WinDialog extends ConsumerStatefulWidget {
 
   /// Local XP gained this game (offline only), or null to hide.
   final int? xpAwarded;
+
+  /// Local player's net coin change from a settled wager, or null when the
+  /// match had no active wager. Positive is a gain, negative a loss.
+  final int? coinsDelta;
 
   /// Per-player stats for the completed offline match, or null.
   final List<MatchPlayerStat>? matchStats;
@@ -199,6 +204,26 @@ class _WinDialogState extends ConsumerState<_WinDialog>
                                   '+${widget.xpAwarded} XP',
                                   style: TextStyle(
                                     color: theme.accentPrimary,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.6,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            if (widget.coinsDelta != null &&
+                                widget.coinsDelta != 0) ...[
+                              const SizedBox(height: AppDimensions.md),
+                              FadeTransition(
+                                opacity: _fade,
+                                child: Text(
+                                  widget.coinsDelta! > 0
+                                      ? '+${widget.coinsDelta} coins'
+                                      : '${widget.coinsDelta} coins',
+                                  style: TextStyle(
+                                    color: widget.coinsDelta! > 0
+                                        ? const Color(0xFF27AE60)
+                                        : theme.suitRed,
                                     fontSize: 17,
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: 0.6,

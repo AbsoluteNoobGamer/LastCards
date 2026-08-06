@@ -86,6 +86,9 @@ import '../../../../features/social/widgets/pending_friend_requests_banner.dart'
 import '../../../../features/social/widgets/report_block_sheet.dart';
 import '../../../../features/settings/presentation/widgets/settings_modal.dart';
 import '../../../../features/voice/widgets/ptt_chrome_fab.dart';
+import '../widgets/wager_challenge_banner.dart';
+import '../widgets/table_pot_wager_banner.dart';
+import '../../../../widgets/side_bet_challenge_sheet.dart';
 part 'table_screen_background.dart';
 part 'table_screen_layout.dart';
 part 'table_screen_overlays.dart';
@@ -282,6 +285,24 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   StreamSubscription<LastCardsBluffEvent>? _lastCardsBluffSub;
   StreamSubscription<LastCardsPressedEvent>? _lastCardsPressedSub;
   StreamSubscription<GameMomentEvent>? _gameMomentSub;
+  StreamSubscription<WagerStateEvent>? _wagerStateSub;
+
+  /// Current side-bet or table-pot proposal/lock-in, synced from
+  /// [WagerStateEvent]. Null `_wagerMode` means no wager is currently
+  /// proposed. The pre-game whole-table pot never reaches this screen (it's
+  /// locked in before the match starts).
+  String? _wagerMode;
+  int? _wagerStakeCoins;
+  String? _wagerInitiatorPlayerId;
+  String? _wagerTargetPlayerId;
+  bool _wagerLocked = false;
+
+  /// Table-pot only: who's joined so far (pre-lock, from `acceptStatus`)
+  /// and who was actually charged (post-lock, from `lockedPlayerIds` — can
+  /// differ from the joined set if someone joined mid-lock-in and was
+  /// excluded from the charge).
+  Map<String, String> _wagerAcceptStatus = {};
+  List<String> _wagerLockedPlayerIds = [];
   /// Reserved event-lane controller (broadcast ticker). Replaces floating
   /// move-log / stack-block / Last Cards center banners.
   final TableEventTickerController _eventTicker = TableEventTickerController();
@@ -836,6 +857,19 @@ class _TableScreenState extends ConsumerState<TableScreen> {
 
     _gameMomentSub = handler.gameMoments.listen(_onOnlineGameMoment);
 
+    _wagerStateSub = handler.wagerState.listen((e) {
+      if (!mounted) return;
+      setState(() {
+        _wagerMode = e.mode;
+        _wagerStakeCoins = e.stakeCoins;
+        _wagerInitiatorPlayerId = e.initiatorPlayerId;
+        _wagerTargetPlayerId = e.targetPlayerId;
+        _wagerLocked = e.locked;
+        _wagerAcceptStatus = e.acceptStatus;
+        _wagerLockedPlayerIds = e.lockedPlayerIds;
+      });
+    });
+
     // Start turn timer when it's our turn in online mode (e.g. game just started)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted &&
@@ -1177,6 +1211,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
     _lastCardsBluffSub?.cancel();
     _lastCardsPressedSub?.cancel();
     _gameMomentSub?.cancel();
+    _wagerStateSub?.cancel();
     _quickChatCooldownTimer?.cancel();
     _skipHighlightClearTimer?.cancel();
     _engineTimer.dispose();
@@ -2019,6 +2054,20 @@ class _TableScreenState extends ConsumerState<TableScreen> {
             (localPlayerId != null && ratingChanges != null)
                 ? ratingChanges[localPlayerId]
                 : null;
+        // Coin wager result for the local player, if this match had one. The
+        // server already wrote the new balance to Firestore directly; this
+        // only updates the local cache so the balance chip / win dialog
+        // reflect it immediately (see CurrencyNotifier.applyWagerDelta).
+        final wagerSettled = ref.read(wagerSettledProvider);
+        final int? coinsDelta =
+            (localPlayerId != null && wagerSettled != null)
+                ? wagerSettled.perPlayerDelta[localPlayerId]
+                : null;
+        if (coinsDelta != null) {
+          unawaited(
+            ref.read(currencyProvider.notifier).applyWagerDelta(coinsDelta),
+          );
+        }
         final isPrivateSession = ref.read(gameNotifierProvider).isPrivateSession;
         // Rematch requeues into public quickplay (see _requeueOnlineRematch)
         // — meaningless for a private/friend room, which has no matching
@@ -2049,6 +2098,7 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                   offerRematch ? () => _leaveOnlineMatch(navigator) : null,
               isOnlineMode: true,
               ratingDelta: ratingDelta,
+              coinsDelta: coinsDelta,
               onSpectate: !isLocalWin && isPrivateSession
                   ? () {
                       navigator.pop();
@@ -2307,6 +2357,10 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                 child: Column(
                   children: [
                     if (!isOfflineMode) const PendingFriendRequestsBanner(),
+                    if (!isOfflineMode)
+                      _buildWagerChallengeBanner(gameState, appTheme) ??
+                          _buildTablePotBanner(gameState, appTheme) ??
+                          const SizedBox.shrink(),
                     Expanded(
                       child: _TableLayout(
                         gameState: gameState,
@@ -2630,6 +2684,21 @@ class _TableScreenState extends ConsumerState<TableScreen> {
                       onPressed: () => _showSettingsSheet(context),
                     ),
                     const SizedBox(height: 10),
+                    if (!isOfflineMode && !isRankedMatch)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: ArenaChromeFab(
+                          tooltip: 'Table wager',
+                          icon: Icons.monetization_on_rounded,
+                          emphasized: _wagerMode == 'tablePot',
+                          badge: _wagerMode == 'tablePot' && !_wagerLocked
+                              ? '${1 + _wagerAcceptStatus.values.where((s) => s == 'accepted').length}'
+                              : null,
+                          onPressed: _wagerMode == null
+                              ? _onOpenTablePotProposeSheet
+                              : () {},
+                        ),
+                      ),
                     ArenaChromeFab(
                       tooltip: isOfflineMode ? 'Exit game' : 'Leave game',
                       icon: Icons.arrow_back_ios_new_rounded,
@@ -4718,6 +4787,9 @@ class _TableScreenState extends ConsumerState<TableScreen> {
   void _showOpponentProfileSheet(PlayerModel player) {
     final uid = player.firebaseUid;
     if (uid == null || uid.isEmpty) return;
+    final canWager = !_isOfflineSession &&
+        !ref.read(isRankedGameProvider) &&
+        _wagerMode == null;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -4727,7 +4799,171 @@ class _TableScreenState extends ConsumerState<TableScreen> {
         fallbackDisplayName: player.displayName,
         playerId: player.id,
         showChallengeAction: false,
+        showWagerChallengeAction: canWager,
+        onWagerChallenge: () {
+          Navigator.of(ctx).pop();
+          _onOpenMidGameSideBetSheet(player);
+        },
       ),
+    );
+  }
+
+  /// Sends a targeted 1v1 side-bet challenge to [targetPlayerId], resolved
+  /// by remaining hand size when the match ends — independent of the
+  /// overall match result.
+  void _onChallengeMidGameSideBet(String targetPlayerId, int stakeCoins) {
+    ref.read(gameEventHandlerProvider).sendSetWagerConfig(
+          SetWagerConfigAction(
+            mode: 'sideBet',
+            stakeCoins: stakeCoins,
+            targetPlayerId: targetPlayerId,
+          ),
+        );
+  }
+
+  void _onOpenMidGameSideBetSheet(PlayerModel target) {
+    final theme = ref.read(themeProvider).theme;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: theme.backgroundDeep,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SideBetChallengeSheet(
+        theme: theme,
+        targetName: target.displayName,
+        subtitle: 'Whoever has fewer cards left when the match ends wins '
+            'the pot. ${target.displayName} must accept before it counts — '
+            'the match keeps going either way.',
+        onConfirm: (stakeCoins) {
+          _onChallengeMidGameSideBet(target.id, stakeCoins);
+          Navigator.of(ctx).pop();
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content:
+                  Text('Side-bet challenge sent to ${target.displayName}.'),
+              backgroundColor: theme.accentPrimary,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _onWithdrawMidGameWager() {
+    ref.read(gameEventHandlerProvider).sendSetWagerConfig(
+          const SetWagerConfigAction(mode: 'sideBet', stakeCoins: 0),
+        );
+  }
+
+  /// Builds the active/pending side-bet status banner for the local player,
+  /// or null if there's nothing to show (no proposal, or the local player
+  /// isn't one of its two participants — e.g. it's between two opponents).
+  Widget? _buildWagerChallengeBanner(GameState gameState, AppThemeData theme) {
+    if (_wagerMode != 'sideBet') return null;
+    final localId = gameState.localPlayer?.id;
+    final initiatorId = _wagerInitiatorPlayerId;
+    final targetId = _wagerTargetPlayerId;
+    if (localId == null || initiatorId == null || targetId == null) {
+      return null;
+    }
+    if (localId != initiatorId && localId != targetId) return null;
+    final isInitiator = localId == initiatorId;
+    final opponentId = isInitiator ? targetId : initiatorId;
+    final opponentName =
+        gameState.playerById(opponentId)?.displayName ?? 'Opponent';
+    return WagerChallengeBanner(
+      theme: theme,
+      opponentName: opponentName,
+      stakeCoins: _wagerStakeCoins ?? 0,
+      locked: _wagerLocked,
+      isInitiator: isInitiator,
+      onAccept: () => ref.read(gameEventHandlerProvider).sendAcceptWager(),
+      onDecline: () => ref.read(gameEventHandlerProvider).sendDeclineWager(),
+      onWithdraw: _onWithdrawMidGameWager,
+    );
+  }
+
+  void _onProposeTablePotWager(int stakeCoins) {
+    ref.read(gameEventHandlerProvider).sendSetWagerConfig(
+          SetWagerConfigAction(mode: 'tablePot', stakeCoins: stakeCoins),
+        );
+  }
+
+  void _onStartTablePotWager() {
+    ref.read(gameEventHandlerProvider).sendStartWager();
+  }
+
+  void _onWithdrawTablePotWager() {
+    ref.read(gameEventHandlerProvider).sendSetWagerConfig(
+          const SetWagerConfigAction(mode: 'tablePot', stakeCoins: 0),
+        );
+  }
+
+  void _onOpenTablePotProposeSheet() {
+    final theme = ref.read(themeProvider).theme;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: theme.backgroundDeep,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SideBetChallengeSheet(
+        theme: theme,
+        title: 'TABLE WAGER',
+        onConfirm: (stakeCoins) {
+          _onProposeTablePotWager(stakeCoins);
+          Navigator.of(ctx).pop();
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Table wager proposed — waiting for '
+                  'players to join.'),
+              backgroundColor: theme.accentPrimary,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Builds the active/pending table-pot status banner for the local
+  /// player, or null if there's nothing to show. Unlike the side-bet
+  /// banner, every seated player (not just two participants) sees this —
+  /// anyone may join a still-open proposal.
+  Widget? _buildTablePotBanner(GameState gameState, AppThemeData theme) {
+    if (_wagerMode != 'tablePot') return null;
+    final localId = gameState.localPlayer?.id;
+    final initiatorId = _wagerInitiatorPlayerId;
+    if (localId == null || initiatorId == null) return null;
+
+    String nameOf(String id) => gameState.playerById(id)?.displayName ?? id;
+    final joinedIds = _wagerLocked
+        ? _wagerLockedPlayerIds
+        : [
+            initiatorId,
+            ..._wagerAcceptStatus.entries
+                .where((e) => e.value == 'accepted' && e.key != initiatorId)
+                .map((e) => e.key),
+          ];
+    final isInitiator = localId == initiatorId;
+    final hasLocalPlayerJoined = joinedIds.contains(localId);
+
+    return TablePotWagerBanner(
+      theme: theme,
+      stakeCoins: _wagerStakeCoins ?? 0,
+      initiatorName: nameOf(initiatorId),
+      isInitiator: isInitiator,
+      locked: _wagerLocked,
+      joinedNames: joinedIds.map(nameOf).toList(),
+      hasLocalPlayerJoined: hasLocalPlayerJoined,
+      onJoin: () => ref.read(gameEventHandlerProvider).sendAcceptWager(),
+      onLeave: () => ref.read(gameEventHandlerProvider).sendDeclineWager(),
+      onStart: _onStartTablePotWager,
+      onWithdraw: _onWithdrawTablePotWager,
     );
   }
 
