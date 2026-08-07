@@ -1,6 +1,28 @@
 # Last Cards — Release Notes
 
-Current store version: **1.0.6** (build 52)
+Current store version: **1.0.8** (build 54)
+
+---
+
+## Version 1.0.8
+
+### New
+
+- Coin wagers: stake coins on a match — set a table pot before a private match starts (everyone stakes the same amount, winner takes it all), or challenge one opponent to a 1v1 side-bet any time during a private, quickplay, or casual match, settled by whoever has fewer cards left when the match ends
+- Mid-match table wager: propose a pot to the whole table while a match is already running — other players join in as they like, you start it when ready, winner takes the pot among everyone who joined
+- Voice chat is now on by default
+
+### Improvements
+
+- Chat, reactions, and the move log now dismiss with a tap anywhere outside them, not just the button that opened them
+- Move log stays open and scrollable so you can review past moves, instead of only showing the latest one
+- Tablet and large-screen chrome (opponent rail, header, action bar) no longer crowds out the board — draw/discard piles stay a proper size instead of getting crushed
+- Start screen fits on screen without scrolling, so the ad footer isn't cut off
+
+### Fixes
+
+- Move log no longer shows stale/ghosted text after a move
+- Rapid event messages (skips, penalties, etc.) no longer overlap on screen
 
 ---
 
